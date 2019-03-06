@@ -9,7 +9,7 @@ p.setAdditionalSearchPath(pybullet_data.getDataPath()) #optionally
 # p.setGravity(0,0,-10)
 planeId = p.loadURDF("plane.urdf")
 startPos = [0,0,1]
-startOrientation = p.getQuaternionFromEuler([0,0,0])
+startOrientation = p.getQuaternionFromEuler([1,0,0])
 
 bid = p.loadURDF("urdf/robobee.urdf", startPos, startOrientation)
 
@@ -47,8 +47,8 @@ def sampleStates():
 	q[4:7], q[7:11] = p.getBasePositionAndOrientation(bid)[0:2]
 	dq[4:7], dq[7:10] = p.getBaseVelocity(bid)[0:2]
 
-def applyAero(t, bRight):
-	pcopW, FaeroW = bee.aerodynamics(bRight)
+def applyAero(t, q, dq, bRight):
+	pcopW, FaeroW = bee.aerodynamics(q, dq, bRight)
 	# p.appyExternalForce(bid, jointId[b'lwing_hinge'], [0, 0, 0], [0, 0, 0], p.WORLD_FRAME)
 	return pcopW, FaeroW
 
@@ -65,8 +65,8 @@ for i in range(10000):
 	# actual sim
 	sampleStates()
 
-	pcopW, FaeroW = applyAero(simt, 0)
-	applyAero(simt, 1)
+	pcopW, FaeroW = applyAero(simt, q, dq, 0)
+	# applyAero(simt, 1)
 
 	p.stepSimulation()
 	time.sleep(dt)
