@@ -11,7 +11,7 @@ planeId = p.loadURDF("plane.urdf")
 startPos = [0,0,1]
 startOrientation = p.getQuaternionFromEuler([0,0,0])
 
-bid = p.loadURDF("urdf/robobee.urdf", startPos, startOrientation)
+bid = p.loadURDF("urdf/robobee.urdf", startPos, startOrientation, useFixedBase=True)
 
 # Get info about urdf
 Nj = p.getNumJoints(bid)
@@ -57,10 +57,14 @@ def applyAero(t, q, dq, bRight):
 for i in range(10000):
 	# No dynamics: reset positions
 	ph = 2 * np.pi * simt
-	p.resetJointState(bid, jointId[b'lwing_stroke'], 0.5 * np.sin(ph))
-	p.resetJointState(bid, jointId[b'rwing_stroke'], 0.5 * np.sin(ph))
-	p.resetJointState(bid, jointId[b'lwing_hinge'], 1 * np.cos(ph))
-	p.resetJointState(bid, jointId[b'rwing_hinge'], -1 * np.cos(ph))
+	th0 = 0.5 * np.sin(ph)
+	dth0 = np.pi * np.cos(ph)
+	th1 = np.cos(ph)
+	dth1 = -2 * np.pi * np.sin(ph)
+	p.resetJointState(bid, jointId[b'lwing_stroke'], th0, dth0)
+	p.resetJointState(bid, jointId[b'rwing_stroke'], th0, dth0)
+	p.resetJointState(bid, jointId[b'lwing_hinge'], th1, dth1)
+	p.resetJointState(bid, jointId[b'rwing_hinge'], -th1, -dth1)
 
 	# actual sim
 	sampleStates()
@@ -76,9 +80,9 @@ for i in range(10000):
 	if simt - tLastDraw > 0.1:
 		# draw debug
 		red = [1, 1, 0]
-		p.addUserDebugLine(pcop1, [1,1,1], lineColorRGB=red, lifeTime=0.2)
-		p.addUserDebugLine(pcop2, [1,1,1], lineColorRGB=[1,0,1], lifeTime=0.2)
+		p.addUserDebugLine(pcop1, pcop1 + 0.5 * Faero1, lineColorRGB=red, lifeTime=0.2)
+		p.addUserDebugLine(pcop2, pcop2 + 0.5 * Faero2, lineColorRGB=[1,0,1], lifeTime=0.2)
 		tLastDraw = simt
-		print(q, dq)
+		print(Faero1)
 
 p.disconnect()
