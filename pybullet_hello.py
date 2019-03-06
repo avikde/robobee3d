@@ -2,6 +2,7 @@ import pybullet as p
 import time
 import pybullet_data
 import numpy as np
+import FlappingModels3D
 
 physicsClient = p.connect(p.GUI)#or p.DIRECT for non-graphical version
 p.setAdditionalSearchPath(pybullet_data.getDataPath()) #optionally
@@ -20,6 +21,8 @@ for j in range(Nj):
 	jointId[jinfo[1]] = jinfo[0]
 print(jointId)
 
+bee = FlappingModels3D.QuasiSteadySDAB()
+
 #  Since each link is connected to a parent with a single joint,
 # the number of joints is equal to the number of links. Regular links have link indices in the range
 # [0..getNumJoints()] Since the base is not a regular 'link', we use the convention of -1 as its link
@@ -29,23 +32,13 @@ print(jointId)
 t = 0.0
 dt = 0.001
 
-def aerodynamics(bRight):
-	pwingB = 0
-	# pwing = pcom + 
-
-	pcopW = np.array([0, 0, 0])
-	FaeroW = np.array([0, 0, 0])
-
-	return pcopW, FaeroW
-
 def applyAero(bRight):
-	pcopW, Faero = aerodynamics(bRight)
+	pcopW, Faero = bee.aerodynamics(bRight)
 	# p.appyExternalForce(bid, jointId[b'lwing_hinge'], [0, 0, 0], [0, 0, 0], p.WORLD_FRAME)
 
 	# draw debug
 	red = [1, 0, 0]
 	p.addUserDebugLine(pcopW, pcopW + 0.1 * FaeroW, lineColorRGB=red, lifeTime=0.3)
-
 
 
 for i in range(10000):
