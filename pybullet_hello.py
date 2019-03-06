@@ -9,7 +9,7 @@ p.setAdditionalSearchPath(pybullet_data.getDataPath()) #optionally
 # p.setGravity(0,0,-10)
 planeId = p.loadURDF("plane.urdf")
 startPos = [0,0,1]
-startOrientation = p.getQuaternionFromEuler([-1,1,0])
+startOrientation = p.getQuaternionFromEuler([0,0,0])
 
 bid = p.loadURDF("urdf/robobee.urdf", startPos, startOrientation)
 
@@ -65,7 +65,8 @@ for i in range(10000):
 	# actual sim
 	sampleStates()
 
-	pcopW, FaeroW = applyAero(simt, q, dq, 0)
+	pcop1, Faero1 = applyAero(simt, q, dq, -1)
+	pcop2, Faero2 = applyAero(simt, q, dq, 1)
 	# applyAero(simt, 1)
 
 	p.stepSimulation()
@@ -75,7 +76,8 @@ for i in range(10000):
 	if simt - tLastDraw > 0.1:
 		# draw debug
 		red = [1, 1, 0]
-		p.addUserDebugLine(pcopW, [1,1,1], lineColorRGB=red, lifeTime=0.2)
+		p.addUserDebugLine(pcop1, [1,1,1], lineColorRGB=red, lifeTime=0.2)
+		p.addUserDebugLine(pcop2, [1,1,1], lineColorRGB=[1,0,1], lifeTime=0.2)
 		tLastDraw = simt
 		print(q, dq)
 
