@@ -4,7 +4,7 @@ class QuasiSteadySDAB:
 	# Model with force control of the wing spar
 	# Could make it modular so that lumped actuator models can be introduced as well
 
-	def aerodynamics(bRight):
+	def aerodynamics(self, bRight):
 		pwingB = 0
 		# pwing = pcom + 
 
