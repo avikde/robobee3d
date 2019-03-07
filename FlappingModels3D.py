@@ -17,10 +17,10 @@ class QuasiSteadySDAB:
 	BODY_FRAME_FIXED_LIFT_DIRECTION = True
 	RHO = 1.225 # density of air kg/m^3
 	
-	def __init__(self, d, rcp, cbar):
-		self.d = d
-		self.ycp = rcp
-		self.cbar = cbar
+	def __init__(self, urdfParams):
+		self.d = urdfParams['d']
+		self.ycp = urdfParams['rcp']
+		self.cbar = urdfParams['cbar']
 	
 	def CF(self, a):
 		# in order lift,drag

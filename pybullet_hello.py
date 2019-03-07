@@ -24,7 +24,9 @@ startOrientation = p.getQuaternionFromEuler([0,0,0])
 
 bid = p.loadURDF("urdf/sdab.xacro.urdf", startPos, startOrientation, useFixedBase=True, flags=p.URDF_USE_INERTIA_FROM_FILE)
 
-# Get info about urdf
+# Get info from the URDF
+urdfParams = {}
+
 #  Since each link is connected to a parent with a single joint,
 # the number of joints is equal to the number of links. Regular links have link indices in the range
 # [0..getNumJoints()] Since the base is not a regular 'link', we use the convention of -1 as its link
@@ -33,15 +35,30 @@ Nj = p.getNumJoints(bid)
 jointId = {}
 for j in range(Nj):
 	jinfo = p.getJointInfo(bid, j)
-	jointId[jinfo[1]] = jinfo[0]
+	# unpack
+	jointIndex, jointName, parentFramePos = jinfo[0], jinfo[1], jinfo[14]
+	# Make map of joint name -> id
+	jointId[jointName] = jointIndex
+	# Get the 'd' parameter
+	if jointName == b'lwing_stroke':
+		urdfParams['d'] = parentFramePos[2]
+
+# Geometry info
+for shape in p.getVisualShapeData(bid):
+	# All the shapes are of type p.GEOM_BOX (shape[2])
+	linkId, dimensions, pos, orn = shape[1], shape[3], shape[5], shape[6]
+	if linkId == jointId[b'lwing_hinge']: # link 1 and 3 are the wing membranes
+		urdfParams['rcp'] = 0.5 * dimensions[1]
+		urdfParams['cbar'] = dimensions[2]
+
+# Stiffness etc. if needed
+# for j in range(-1, Nj):
+# 	print("Link", j, "info:", p.getDynamicsInfo(bid, j))
+
 print(jointId)
+print(urdfParams)
 
-# Get information from the URDF
-for j in range(-1, Nj):
-	print("Link", j, "info:",p.getDynamicsInfo(bid, j))
-
-# TODO: get the params from the URDF
-bee = FlappingModels3D.QuasiSteadySDAB(0.006, 0.006, 0.005)
+bee = FlappingModels3D.QuasiSteadySDAB(urdfParams)
 
 
 # Simulation
