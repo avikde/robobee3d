@@ -10,6 +10,11 @@ class QuasiSteadySDAB:
 	CD0 = 0.4
 	CDmax = 3.4
 	CLmax = 1.8
+
+	# Modeling choices
+
+	# True in Chen (2017) science robotics, but differently calculated in Osborne (1951)
+	BODY_FRAME_FIXED_LIFT_DIRECTION = True
 	
 	def __init__(self, d, rcp):
 		self.d = d
@@ -58,9 +63,12 @@ class QuasiSteadySDAB:
 
 		# Lift/drag directions
 		eD = lwpB / lwpnorm
-		eL = np.array([0,0,1]) #lwB / lwnorm
-		# FIXME: the latter version needs some reversal for one half-stroke
-		# the uncommented version agrees with Chen (2017) science robotics
+		if BODY_FRAME_FIXED_LIFT_DIRECTION:
+			eL = np.array([0,0,1])
+		else:
+			# FIXME: needs some reversal for one half-stroke
+			eL = lwB / lwnorm
+			raise 'Not implemented fully'
 
 		# Calculate aero force
 		aoa = np.arccos(chordB.dot(wB) / wnorm)
