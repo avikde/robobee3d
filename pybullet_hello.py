@@ -11,7 +11,7 @@ planeId = p.loadURDF("plane.urdf")
 startPos = [0,0,1]
 startOrientation = p.getQuaternionFromEuler([0,0,0])
 
-bid = p.loadURDF("urdf/robobee.urdf", startPos, startOrientation, useFixedBase=True)
+bid = p.loadURDF("urdf/sdab.xacro.urdf", startPos, startOrientation, useFixedBase=True)
 
 # Get info about urdf
 Nj = p.getNumJoints(bid)

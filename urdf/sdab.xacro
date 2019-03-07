@@ -1,0 +1,90 @@
+<?xml version="1.0"?>
+<!-- 
+Units: mm, mg
+Author: Avik De 
+-->
+
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="sdab">
+
+	<!-- Define parameters -->
+	<xacro:property name="pi" value="3.14159265359"/>
+	<xacro:property name="wbody" value="0.05"/>
+	<xacro:property name="lbody" value="0.2"/>
+	<!-- radial distance from center to start of wing -->
+	<xacro:property name="RwingOffset" value="0.04"/>
+	<!-- diameter of spar -->
+	<xacro:property name="dspar" value="0.01"/>
+	<!-- radial wing length -->
+	<xacro:property name="Rwing" value="0.12"/>
+	<!-- mean chord length -->
+	<xacro:property name="cbar" value="0.06"/>
+	<!-- vertical offset of wing attachment point from COM -->
+	<xacro:property name="d" value="0.1"/>
+	
+	<!-- Define materials -->
+	<material name="Black1">
+		<color rgba="0 0 0 1.0"/>
+	</material>
+	<material name="Gray1">
+		<color rgba="0 0 0 0.3"/>
+	</material>
+	<material name="Blue1">
+		<color rgba="0 0 1 1.0"/>
+	</material>
+	
+	<!-- Body -->
+	<link name="body">
+		<visual>
+			<origin xyz="0 0 0.0" rpy="0 0 0"/>
+			<geometry>
+				<box size="${wbody} ${wbody} ${lbody}"/>
+			</geometry>
+	    <material name="Blue1"/>
+	   </visual>
+	</link>
+
+	<!-- Define our wing macro -->
+	<xacro:macro name="wing" params="sign prefix">
+
+		<link name="${prefix}wing_spar">
+			<visual>
+				<origin xyz="0 ${sign * 0.5 * (Rwing + RwingOffset)} 0.0" rpy="0 0 0"/>
+				<geometry>
+					<box size="${dspar} ${RwingOffset + Rwing} ${dspar}"/>
+				</geometry>
+				<material name="Black1"/>
+			</visual>
+		</link>
+
+		<link name="${prefix}wing_membrane">
+			<visual>
+				<origin xyz="0 ${sign * 0.5 * (Rwing + RwingOffset)} ${-0.5 * cbar}" rpy="0 0 0"/>
+				<geometry>
+					<box size="${dspar} ${Rwing} ${cbar}"/>
+				</geometry>
+				<material name="Gray1"/>
+			</visual>
+		</link>
+	
+		<!-- * * * Joint Definitions * * * -->
+	
+		<joint name="${prefix}wing_stroke" type="continuous">
+			<parent link="body"/>
+			<child link="${prefix}wing_spar"/>
+			<axis xyz="0 0 ${-1 * sign}"/>
+			<origin xyz="0.0 0 ${d}" rpy="0 0 0"/>
+		</joint>
+	
+		<joint name="${prefix}wing_hinge" type="continuous">
+			<parent link="${prefix}wing_spar"/>
+			<child link="${prefix}wing_membrane"/>
+			<axis xyz="0 ${-1 * sign} 0"/>
+			<origin xyz="0.0 0 0.0" rpy="0 0 0"/>
+		</joint>
+
+	</xacro:macro>
+
+	<!-- Two wings -->
+	<xacro:wing sign="-1" prefix="l" />
+	<xacro:wing sign="1" prefix="r" />
+</robot>
