@@ -1,0 +1,78 @@
+<?xml version="1.0"?>
+<!-- 
+Units: mm, mg
+Author: Avik De 
+-->
+
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="sdab">
+
+	<!-- Define parameters -->
+	<xacro:property name="pi" value="3.14159265359"/>
+	
+	<!-- Define materials -->
+	<material name="Black1">
+		<color rgba="0 0 0 1.0"/>
+	</material>
+	<material name="Gray1">
+		<color rgba="0 0 0 0.3"/>
+	</material>
+	<material name="Blue1">
+		<color rgba="0 0 1 1.0"/>
+	</material>
+	
+	<!-- Body -->
+	<link name="body">
+		<visual>
+			<origin xyz="0 0 0.0" rpy="0 0 0"/>
+			<geometry>
+				<box size="0.05 0.05 0.2"/>
+			</geometry>
+	    <material name="Blue1"/>
+	   </visual>
+	</link>
+
+	<!-- Define our wing macro -->
+	<xacro:macro name="wing" params="sign prefix">
+
+		<link name="${prefix}wing_spar">
+			<visual>
+				<origin xyz="0 ${sign * 0.08} 0.0" rpy="0 0 0"/>
+				<geometry>
+					<box size="0.01 0.16 0.01"/>
+				</geometry>
+				<material name="Black1"/>
+			</visual>
+		</link>
+
+		<link name="${prefix}wing_membrane">
+			<visual>
+				<origin xyz="0 ${sign * 0.08} -0.03" rpy="0 0 0"/>
+				<geometry>
+					<box size="0.01 0.12 0.06"/>
+				</geometry>
+				<material name="Gray1"/>
+			</visual>
+		</link>
+	
+		<!-- * * * Joint Definitions * * * -->
+	
+		<joint name="${prefix}wing_stroke" type="continuous">
+			<parent link="body"/>
+			<child link="${prefix}wing_spar"/>
+			<axis xyz="0 0 -${sign}"/>
+			<origin xyz="0.0 0 0.1" rpy="0 0 0"/>
+		</joint>
+	
+		<joint name="${prefix}wing_hinge" type="continuous">
+			<parent link="${prefix}wing_spar"/>
+			<child link="${prefix}wing_membrane"/>
+			<axis xyz="0 -${sign} 0"/>
+			<origin xyz="0.0 0 0.0" rpy="0 0 0"/>
+		</joint>
+
+	</xacro:macro>
+
+	<!-- Two wings -->
+	<xacro:wing sign="-1" prefix="l" />
+	<xacro:wing sign="1" prefix="r" />
+</robot>
