@@ -5,6 +5,12 @@ import numpy as np
 import FlappingModels3D
 
 physicsClient = p.connect(p.GUI)#or p.DIRECT for non-graphical version
+# Set up the visualizer
+p.configureDebugVisualizer(p.COV_ENABLE_WIREFRAME, 0)
+p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0)
+p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
+p.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 0)
+
 p.setAdditionalSearchPath(pybullet_data.getDataPath()) #optionally
 # p.setGravity(0,0,-10)
 planeId = p.loadURDF("plane.urdf")
@@ -21,9 +27,6 @@ for j in range(Nj):
 	jointId[jinfo[1]] = jinfo[0]
 print(jointId)
 
-# vectors for storing states
-q = np.zeros(11)
-dq = np.zeros(10)
 
 # TODO: get the params from the URDF
 bee = FlappingModels3D.QuasiSteadySDAB(0.006, 0.006)
@@ -36,8 +39,10 @@ bee = FlappingModels3D.QuasiSteadySDAB(0.006, 0.006)
 # Simulation
 simt = 0.0
 dt = 0.001
-
 tLastDraw = 0
+# vectors for storing states
+q = np.zeros(11)
+dq = np.zeros(10)
 
 # Helpers ---
 
@@ -47,6 +52,12 @@ def sampleStates():
 		q[j], dq[j] = p.getJointState(bid, j)[0:2]
 	q[4:7], q[7:11] = p.getBasePositionAndOrientation(bid)[0:2]
 	dq[4:7], dq[7:10] = p.getBaseVelocity(bid)[0:2]
+	
+def simulatorUpdate():
+	# Bullet update
+	p.stepSimulation()
+	# Reset camera to track
+	p.resetDebugVisualizerCamera(0.15, 45, -30, q[4:7])
 
 def applyAero(t, q, dq, bRight):
 	pcopW, FaeroW = bee.aerodynamics(q, dq, bRight)
@@ -74,7 +85,7 @@ for i in range(10000):
 	pcop2, Faero2 = applyAero(simt, q, dq, 1)
 	# applyAero(simt, 1)
 
-	p.stepSimulation()
+	simulatorUpdate()
 	time.sleep(dt)
 	simt += dt
 	

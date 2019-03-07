@@ -63,7 +63,7 @@ class QuasiSteadySDAB:
 
 		# Lift/drag directions
 		eD = lwpB / lwpnorm
-		if BODY_FRAME_FIXED_LIFT_DIRECTION:
+		if self.BODY_FRAME_FIXED_LIFT_DIRECTION:
 			eL = np.array([0,0,1])
 		else:
 			# FIXME: needs some reversal for one half-stroke
