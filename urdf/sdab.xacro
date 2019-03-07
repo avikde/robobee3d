@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <!-- 
-Units: mm, mg
+Units: m, kg
 Author: Avik De 
 -->
 
@@ -20,6 +20,9 @@ Author: Avik De
 	<xacro:property name="cbar" value="0.005"/>
 	<!-- vertical offset of wing attachment point from COM -->
 	<xacro:property name="d" value="0.006"/>
+	<!-- inertial properties -->
+	<xacro:property name="mb" value="0.055"/>
+	<xacro:property name="mwing" value="0.001"/>
 	
 	<!-- Define materials -->
 	<material name="Black1">
@@ -39,8 +42,12 @@ Author: Avik De
 			<geometry>
 				<box size="${wbody} ${wbody} ${lbody}"/>
 			</geometry>
-	    <material name="Blue1"/>
-	   </visual>
+			<material name="Blue1"/>
+		 </visual>
+		<inertial>
+			<mass value="${mb}"/>
+			<inertia ixx="${1.0/12.0 * mb * (lbody*lbody + wbody*wbody)}" ixy="0.0" ixz="0.0" iyy="${1.0/12.0 * mb * (lbody*lbody + wbody*wbody)}" iyz="0.0" izz="${1.0/12.0 * mb * (wbody*wbody + wbody*wbody)}"/>
+		</inertial>
 	</link>
 
 	<!-- Define our wing macro -->
@@ -54,6 +61,10 @@ Author: Avik De
 				</geometry>
 				<material name="Black1"/>
 			</visual>
+		<inertial>
+			<mass value="${mwing}"/>
+			<inertia ixx="${1.0/12.0 * mb * (lbody*lbody + wbody*wbody)}" ixy="0.0" ixz="0.0" iyy="${1.0/12.0 * mb * (lbody*lbody + wbody*wbody)}" iyz="0.0" izz="${1.0/12.0 * mb * (wbody*wbody + wbody*wbody)}"/>
+		</inertial>
 		</link>
 
 		<link name="${prefix}wing_membrane">
