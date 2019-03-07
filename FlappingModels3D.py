@@ -32,7 +32,7 @@ class QuasiSteadySDAB:
 
 		# These are all in the body frame
 		Rspar = Rotation.from_euler('z', theta[0])
-		Rhinge = Rotation.from_euler('x', theta[1])
+		Rhinge = Rotation.from_euler('y', theta[1])
 		# vector along wing
 		sparVecB = Rspar.apply(np.array([0, lrSign, 0]))
 		# wing chord unit vector
@@ -57,15 +57,15 @@ class QuasiSteadySDAB:
 
 		# Lift/drag directions
 		eD = lwpB / lwpnorm
-		eL = lwB / lwnorm
+		eL = np.array([0,0,1]) #lwB / lwnorm
+		# FIXME: the latter version needs some reversal for one half-stroke
+		# the uncommented version agrees with Chen (2017) science robotics
 
 		# Calculate aero force
 		aoa = np.arccos(chordB.dot(wB) / wnorm)
 		Cf = self.CF(aoa)
 		# Cf *= 0.5 * rho * beta
 		FaeroB = (Cf[0] * eL + Cf[1] * eD) * lwnorm**2
-		# FIXME: coming back as pi/2
-		print(dtheta[0], chordB, wB, aoa)
 
 		# Body to world frame --
 		pcom = q[4:7]

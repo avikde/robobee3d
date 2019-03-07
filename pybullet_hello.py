@@ -77,12 +77,12 @@ for i in range(10000):
 	time.sleep(dt)
 	simt += dt
 	
-	if simt - tLastDraw > 0.1:
+	if simt - tLastDraw > 0.05:
 		# draw debug
 		red = [1, 1, 0]
 		p.addUserDebugLine(pcop1, pcop1 + 0.5 * Faero1, lineColorRGB=red, lifeTime=0.2)
 		p.addUserDebugLine(pcop2, pcop2 + 0.5 * Faero2, lineColorRGB=[1,0,1], lifeTime=0.2)
 		tLastDraw = simt
-		print(Faero1)
+		# print(simt, dth0)
 
 p.disconnect()
