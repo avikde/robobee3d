@@ -16,7 +16,7 @@ class QuasiSteadySDAB:
 	# True in Chen (2017) science robotics, but differently calculated in Osborne (1951)
 	BODY_FRAME_FIXED_LIFT_DIRECTION = True
 	RHO = 1.225 # density of air kg/m^3
-	AERO_REGULARIZE_EPS = 1e-6 # stops undefined AoA when no wind
+	AERO_REGULARIZE_EPS = 1e-10 # stops undefined AoA when no wind
 	
 	def __init__(self, urdfParams):
 		self.d = urdfParams['d']

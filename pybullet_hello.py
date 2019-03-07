@@ -5,7 +5,7 @@ import numpy as np
 import FlappingModels3D
 
 # sim parameters
-FAERO_DRAW_SCALE = 20
+FAERO_DRAW_SCALE = 100000
 SIM_SLOWDOWN = 500
 
 # Init sim
@@ -14,7 +14,7 @@ physicsClient = p.connect(p.GUI)#or p.DIRECT for non-graphical version
 p.configureDebugVisualizer(p.COV_ENABLE_WIREFRAME, 0)
 p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0)
 p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
-p.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 0)
+# p.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 0)
 
 p.setAdditionalSearchPath(pybullet_data.getDataPath()) #optionally
 # p.setGravity(0,0,-10)
@@ -89,7 +89,16 @@ def applyAero(t, q, dq, bRight):
 	# p.appyExternalForce(bid, jointId[b'lwing_hinge'], [0, 0, 0], [0, 0, 0], p.WORLD_FRAME)
 	return pcopW, FaeroW
 
+def resetAllJoints(q, dq):
+	for j in range(4):
+		p.resetJointState(bid, j, q[j], dq[j])
+		# make it so it can be torque controlled
+		# NOTE: need to comment this out if trying to reset states in the loop
+		p.setJointMotorControl2(bid, j, controlMode=p.VELOCITY_CONTROL, force=0)
+
 # ---
+
+resetAllJoints(np.zeros(4), np.zeros(4))
 
 for i in range(10000):
 	# No dynamics: reset positions
@@ -99,10 +108,11 @@ for i in range(10000):
 	dth0 = np.pi * freq * np.cos(ph)
 	th1 = np.cos(ph)
 	dth1 = -2 * np.pi * freq * np.sin(ph)
-	p.resetJointState(bid, jointId[b'lwing_stroke'], th0, dth0)
-	p.resetJointState(bid, jointId[b'rwing_stroke'], th0, dth0)
-	p.resetJointState(bid, jointId[b'lwing_hinge'], th1, dth1)
-	p.resetJointState(bid, jointId[b'rwing_hinge'], th1, dth1)
+	# resetAllJoints([th0,th1,th0,th1], [dth0,dth1,dth0,dth1])
+
+	p.setJointMotorControlArray(bid, [0,2], p.POSITION_CONTROL, targetPositions=[th0,th0], positionGains=[1,1], velocityGains=[1,1])
+	# TODO: this should be passive
+	p.setJointMotorControlArray(bid, [1,3], p.POSITION_CONTROL, targetPositions=[th1,th1], positionGains=[1,1], velocityGains=[1,1])
 
 	# actual sim
 	sampleStates()
@@ -121,6 +131,6 @@ for i in range(10000):
 		p.addUserDebugLine(pcop1, pcop1 + FAERO_DRAW_SCALE * Faero1, lineColorRGB=red, lifeTime=3 * SIM_SLOWDOWN * dt)
 		p.addUserDebugLine(pcop2, pcop2 + FAERO_DRAW_SCALE * Faero2, lineColorRGB=[1,0,1], lifeTime=3 * SIM_SLOWDOWN * dt)
 		tLastDraw = simt
-		print("total lift =", (Faero1[2] + Faero2[2]) * 1e6)
+		print("total lift =", (Faero1[2] + Faero2[2]) * 1e6,'dth =',dq[0:2])
 
 p.disconnect()
