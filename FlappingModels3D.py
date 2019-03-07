@@ -15,10 +15,12 @@ class QuasiSteadySDAB:
 
 	# True in Chen (2017) science robotics, but differently calculated in Osborne (1951)
 	BODY_FRAME_FIXED_LIFT_DIRECTION = True
+	RHO = 1.225 # density of air kg/m^3
 	
-	def __init__(self, d, rcp):
+	def __init__(self, d, rcp, cbar):
 		self.d = d
 		self.ycp = rcp
+		self.cbar = cbar
 	
 	def CF(self, a):
 		# in order lift,drag
@@ -74,7 +76,7 @@ class QuasiSteadySDAB:
 		aoa = np.arccos(chordB.dot(wB) / wnorm)
 		Cf = self.CF(aoa)
 		# Cf *= 0.5 * rho * beta
-		FaeroB = (Cf[0] * eL + Cf[1] * eD) * lwnorm**2
+		FaeroB = 0.5 * self.RHO * self.cbar * self.ycp * (Cf[0] * eL + Cf[1] * eD) * lwnorm**2
 
 		# Body to world frame --
 		pcom = q[4:7]

@@ -5,7 +5,7 @@ import numpy as np
 import FlappingModels3D
 
 # sim parameters
-FAERO_DRAW_SCALE = 0.001
+FAERO_DRAW_SCALE = 20
 SIM_SLOWDOWN = 500
 
 # Init sim
@@ -34,7 +34,7 @@ print(jointId)
 
 
 # TODO: get the params from the URDF
-bee = FlappingModels3D.QuasiSteadySDAB(0.006, 0.006)
+bee = FlappingModels3D.QuasiSteadySDAB(0.006, 0.006, 0.005)
 
 #  Since each link is connected to a parent with a single joint,
 # the number of joints is equal to the number of links. Regular links have link indices in the range
