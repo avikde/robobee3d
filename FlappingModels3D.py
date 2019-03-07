@@ -31,15 +31,15 @@ class QuasiSteadySDAB:
 			dtheta = dq[0:2]
 
 		# These are all in the body frame
+		Rspar = Rotation.from_euler('z', theta[0])
+		Rhinge = Rotation.from_euler('x', theta[1])
 		# vector along wing
-		sparVecB = Rotation.from_euler('z', theta[0]).apply(np.array([0, lrSign, 0]))
+		sparVecB = Rspar.apply(np.array([0, lrSign, 0]))
 		# wing chord unit vector
-		chordB = Rotation.from_euler('z', theta[0]).apply(
-			Rotation.from_euler('x', theta[1]).apply(np.array([0,0,-1])
-			))
+		chordB = Rspar.apply(Rhinge.apply(np.array([0,0,-1])))
 		# TODO: add external wind vector
 		# NOTE: assuming spar velocity is dominant
-		wB = np.cross(dtheta[0] * np.array([0,0,1]), self.ycp * sparVecB)
+		wB = -np.cross(dtheta[0] * np.array([0,0,1]), self.ycp * sparVecB)
 		# print(dtheta[0] * np.array([0,0,1]), self.ycp * sparVecB)
 
 		# COP
@@ -55,11 +55,17 @@ class QuasiSteadySDAB:
 		lwnorm = np.sqrt(lwB.dot(lwB))
 		lwpnorm = np.sqrt(lwpB.dot(lwpB))
 
+		# Lift/drag directions
+		eD = lwpB / lwpnorm
+		eL = lwB / lwnorm
+
 		# Calculate aero force
 		aoa = np.arccos(chordB.dot(wB) / wnorm)
 		Cf = self.CF(aoa)
 		# Cf *= 0.5 * rho * beta
-		FaeroB = (Cf[0] * lwB / lwnorm - Cf[1] * lwpB / lwpnorm) * lwnorm**2
+		FaeroB = (Cf[0] * eL + Cf[1] * eD) * lwnorm**2
+		# FIXME: coming back as pi/2
+		print(dtheta[0], chordB, wB, aoa)
 
 		# Body to world frame --
 		pcom = q[4:7]
