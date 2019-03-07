@@ -16,6 +16,7 @@ class QuasiSteadySDAB:
 	# True in Chen (2017) science robotics, but differently calculated in Osborne (1951)
 	BODY_FRAME_FIXED_LIFT_DIRECTION = True
 	RHO = 1.225 # density of air kg/m^3
+	AERO_REGULARIZE_EPS = 1e-6 # stops undefined AoA when no wind
 	
 	def __init__(self, urdfParams):
 		self.d = urdfParams['d']
@@ -59,9 +60,9 @@ class QuasiSteadySDAB:
 		# c = chord
 		lwB = np.cross(sparVecB, wB)
 		lwpB = wB - wB.dot(sparVecB) * sparVecB
-		wnorm = np.sqrt(wB.dot(wB))
-		lwnorm = np.sqrt(lwB.dot(lwB))
-		lwpnorm = np.sqrt(lwpB.dot(lwpB))
+		wnorm = np.sqrt(wB.dot(wB)) + self.AERO_REGULARIZE_EPS
+		lwnorm = np.sqrt(lwB.dot(lwB)) + self.AERO_REGULARIZE_EPS
+		lwpnorm = np.sqrt(lwpB.dot(lwpB)) + self.AERO_REGULARIZE_EPS
 
 		# Lift/drag directions
 		eD = lwpB / lwpnorm
