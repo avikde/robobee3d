@@ -38,7 +38,7 @@ class QuasiSteadySDAB:
 
 		# These are all in the body frame
 		Rspar = Rotation.from_euler('z', theta[0])
-		Rhinge = Rotation.from_euler('y', theta[1])
+		Rhinge = Rotation.from_euler('y', -lrSign * theta[1])
 		# vector along wing
 		sparVecB = Rspar.apply(np.array([0, lrSign, 0]))
 		# wing chord unit vector

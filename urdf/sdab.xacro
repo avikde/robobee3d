@@ -78,7 +78,7 @@ Author: Avik De
 		<joint name="${prefix}wing_hinge" type="continuous">
 			<parent link="${prefix}wing_spar"/>
 			<child link="${prefix}wing_membrane"/>
-			<axis xyz="0 ${-1 * sign} 0"/>
+			<axis xyz="0 -1 0"/>
 			<origin xyz="0.0 0 0.0" rpy="0 0 0"/>
 		</joint>
 

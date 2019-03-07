@@ -76,7 +76,7 @@ for i in range(10000):
 	p.resetJointState(bid, jointId[b'lwing_stroke'], th0, dth0)
 	p.resetJointState(bid, jointId[b'rwing_stroke'], th0, dth0)
 	p.resetJointState(bid, jointId[b'lwing_hinge'], th1, dth1)
-	p.resetJointState(bid, jointId[b'rwing_hinge'], -th1, -dth1)
+	p.resetJointState(bid, jointId[b'rwing_hinge'], th1, dth1)
 
 	# actual sim
 	sampleStates()
