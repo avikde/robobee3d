@@ -15,13 +15,15 @@ p.configureDebugVisualizer(p.COV_ENABLE_WIREFRAME, 0)
 p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0)
 p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
 # p.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 0)
-
-p.setAdditionalSearchPath(pybullet_data.getDataPath()) #optionally
+p.setRealTimeSimulation(0)
 # p.setGravity(0,0,-10)
+
+# load background
+p.setAdditionalSearchPath(pybullet_data.getDataPath()) #optionally
 planeId = p.loadURDF("plane.urdf")
+# load robot
 startPos = [0,0,1]
 startOrientation = p.getQuaternionFromEuler([0,0,0])
-
 bid = p.loadURDF("urdf/sdab.xacro.urdf", startPos, startOrientation, useFixedBase=True, flags=p.URDF_USE_INERTIA_FROM_FILE)
 
 # Get info from the URDF
@@ -81,12 +83,17 @@ def sampleStates():
 def simulatorUpdate():
 	# Bullet update
 	p.stepSimulation()
-	# Reset camera to track
-	p.resetDebugVisualizerCamera(0.15, 45, -30, q[4:7])
+	if simt < 1e-10:
+		# Reset camera to be at the correct distance (only first time)
+		p.resetDebugVisualizerCamera(0.15, 45, -30, q[4:7])
 
-def applyAero(t, q, dq, bRight):
-	pcopW, FaeroW = bee.aerodynamics(q, dq, bRight)
-	# p.appyExternalForce(bid, jointId[b'lwing_hinge'], [0, 0, 0], [0, 0, 0], p.WORLD_FRAME)
+def applyAero(t, q, dq, lrSign):
+	pcopW, FaeroW = bee.aerodynamics(q, dq, lrSign)
+	jid = jointId[b'lwing_hinge']
+	if lrSign > 0:
+		jid = jointId[b'rwing_hinge']
+		
+	p.applyExternalForce(bid, jid, -lrSign * FaeroW, [0, 0, 0], p.WORLD_FRAME)
 	return pcopW, FaeroW
 
 def resetAllJoints(q, dq):
@@ -94,25 +101,23 @@ def resetAllJoints(q, dq):
 		p.resetJointState(bid, j, q[j], dq[j])
 		# make it so it can be torque controlled
 		# NOTE: need to comment this out if trying to reset states in the loop
-		p.setJointMotorControl2(bid, j, controlMode=p.VELOCITY_CONTROL, force=0)
+		p.setJointMotorControl2(bid, j, controlMode=p.VELOCITY_CONTROL, targetVelocity=0, force=0)
+		p.setJointMotorControl2(bid, j, controlMode=p.TORQUE_CONTROL, force=0)
 
 # ---
 
 resetAllJoints(np.zeros(4), np.zeros(4))
+#Passive hinge dynamics TODO: params from URDF, fixes
+p.setJointMotorControlArray(bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=[1e-2,1e-2], velocityGains=[1e-2,1e-2])
 
 for i in range(10000):
 	# No dynamics: reset positions
-	freq = 170.0
-	ph = 2 * np.pi * freq * simt
+	omega = 2 * np.pi * 170.0
+	ph = omega * simt
 	th0 = 0.5 * np.sin(ph)
-	dth0 = np.pi * freq * np.cos(ph)
-	th1 = np.cos(ph)
-	dth1 = -2 * np.pi * freq * np.sin(ph)
-	# resetAllJoints([th0,th1,th0,th1], [dth0,dth1,dth0,dth1])
+	dth0 = omega * np.cos(ph)
 
 	p.setJointMotorControlArray(bid, [0,2], p.POSITION_CONTROL, targetPositions=[th0,th0], positionGains=[1,1], velocityGains=[1,1])
-	# TODO: this should be passive
-	p.setJointMotorControlArray(bid, [1,3], p.POSITION_CONTROL, targetPositions=[th1,th1], positionGains=[1,1], velocityGains=[1,1])
 
 	# actual sim
 	sampleStates()
@@ -127,10 +132,9 @@ for i in range(10000):
 	
 	if simt - tLastDraw > 2 * dt:
 		# draw debug
-		red = [1, 1, 0]
-		p.addUserDebugLine(pcop1, pcop1 + FAERO_DRAW_SCALE * Faero1, lineColorRGB=red, lifeTime=3 * SIM_SLOWDOWN * dt)
+		p.addUserDebugLine(pcop1, pcop1 + FAERO_DRAW_SCALE * Faero1, lineColorRGB=[1,1,0], lifeTime=3 * SIM_SLOWDOWN * dt)
 		p.addUserDebugLine(pcop2, pcop2 + FAERO_DRAW_SCALE * Faero2, lineColorRGB=[1,0,1], lifeTime=3 * SIM_SLOWDOWN * dt)
 		tLastDraw = simt
-		print("total lift =", (Faero1[2] + Faero2[2]) * 1e6,'dth =',dq[0:2])
+		print("total lift =", (Faero1[2] + Faero2[2]) * 1e6,'th1 =', q[1],'dth =',dq[0:2])
 
 p.disconnect()
