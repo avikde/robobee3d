@@ -22,9 +22,13 @@ planeId = p.loadURDF("plane.urdf")
 startPos = [0,0,1]
 startOrientation = p.getQuaternionFromEuler([0,0,0])
 
-bid = p.loadURDF("urdf/sdab.xacro.urdf", startPos, startOrientation, useFixedBase=True)
+bid = p.loadURDF("urdf/sdab.xacro.urdf", startPos, startOrientation, useFixedBase=True, flags=p.URDF_USE_INERTIA_FROM_FILE)
 
 # Get info about urdf
+#  Since each link is connected to a parent with a single joint,
+# the number of joints is equal to the number of links. Regular links have link indices in the range
+# [0..getNumJoints()] Since the base is not a regular 'link', we use the convention of -1 as its link
+# index
 Nj = p.getNumJoints(bid)
 jointId = {}
 for j in range(Nj):
@@ -32,14 +36,13 @@ for j in range(Nj):
 	jointId[jinfo[1]] = jinfo[0]
 print(jointId)
 
+# Get information from the URDF
+for j in range(-1, Nj):
+	print("Link", j, "info:",p.getDynamicsInfo(bid, j))
 
 # TODO: get the params from the URDF
 bee = FlappingModels3D.QuasiSteadySDAB(0.006, 0.006, 0.005)
 
-#  Since each link is connected to a parent with a single joint,
-# the number of joints is equal to the number of links. Regular links have link indices in the range
-# [0..getNumJoints()] Since the base is not a regular 'link', we use the convention of -1 as its link
-# index
 
 # Simulation
 simt = 0.0

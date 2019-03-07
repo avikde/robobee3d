@@ -71,6 +71,11 @@ Author: Avik De
 			<mass value="${mspar}"/>
 			<inertia ixx="${1.0/12.0 * mspar * ((Rwing+RwingOffset)*(Rwing+RwingOffset) + dspar*dspar)}" ixy="0.0" ixz="0.0" iyy="${1.0/12.0 * mspar * (2 * (Rwing+RwingOffset)*(Rwing+RwingOffset))}" iyz="0.0" izz="${1.0/12.0 * mspar * ((Rwing+RwingOffset)*(Rwing+RwingOffset) + dspar*dspar)}"/>
 		</inertial>
+		<!-- pybullet does not expose spring_stiffness but does expose these so add them here too. We are not expecting contact -->
+		<contact>
+			<stiffness value="${stiffnessSpar}"/>
+			<damping value="${dampingSpar}"/>
+		</contact>
 		</link>
 
 		<link name="${prefix}wing_membrane">
@@ -85,6 +90,11 @@ Author: Avik De
 			<mass value="${mwing}"/>
 			<inertia ixx="${1.0/12.0 * mwing * (Rwing*Rwing + cbar*cbar)}" ixy="0.0" ixz="0.0" iyy="${1.0/12.0 * mwing * (dspar*dspar + cbar*cbar)}" iyz="0.0" izz="${1.0/12.0 * mwing * (dspar*dspar + Rwing*Rwing)}"/>
 		</inertial>
+		<!-- pybullet does not expose spring_stiffness but does expose these so add them here too. We are not expecting contact -->
+		<contact>
+			<stiffness value="${stiffnessHinge}"/>
+			<damping value="${dampingHinge}"/>
+		</contact>
 		</link>
 	
 		<!-- * * * Joint Definitions * * * -->
@@ -100,7 +110,7 @@ Author: Avik De
 		<joint name="${prefix}wing_hinge" type="continuous">
 			<parent link="${prefix}wing_spar"/>
 			<child link="${prefix}wing_membrane"/>
-			<axis xyz="0 -1 0"/>
+			<axis xyz="0 1 0"/>
 			<origin xyz="0.0 0 0.0" rpy="0 0 0"/>
 			<dynamics damping="${dampingHinge}" friction="0.0" spring_stiffness="${stiffnessHinge}" spring_reference="0"/>
 		</joint>
