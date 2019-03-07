@@ -51,8 +51,8 @@ class QuasiSteadySDAB:
 		wB = -np.cross(dtheta[0] * np.array([0,0,1]), self.ycp * sparVecB)
 		# print(dtheta[0] * np.array([0,0,1]), self.ycp * sparVecB)
 
-		# COP
-		pcopB = np.array([0,0,self.d]) + self.ycp * sparVecB
+		# COP: half od cbar down
+		pcopB = np.array([0,0,self.d]) + self.ycp * sparVecB + 0.5 * self.cbar * chordB
 
 		# Various directions in the notation of Osborne (1951)
 		# l = vector along wing
