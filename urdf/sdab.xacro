@@ -34,6 +34,9 @@ Author: Avik De
 	<material name="Black1">
 		<color rgba="0 0 0 1.0"/>
 	</material>
+	<material name="Red1">
+		<color rgba="1.0 0 0 1.0"/>
+	</material>
 	<material name="Gray1">
 		<color rgba="0 0 0 0.3"/>
 	</material>
@@ -57,7 +60,7 @@ Author: Avik De
 	</link>
 
 	<!-- Define our wing macro -->
-	<xacro:macro name="wing" params="sign prefix">
+	<xacro:macro name="wing" params="sign prefix sparcol">
 
 		<link name="${prefix}wing_spar">
 			<visual>
@@ -65,7 +68,7 @@ Author: Avik De
 				<geometry>
 					<box size="${dspar} ${RwingOffset + Rwing} ${dspar}"/>
 				</geometry>
-				<material name="Black1"/>
+				<material name="${sparcol}"/>
 			</visual>
 		<inertial>
 			<mass value="${mspar}"/>
@@ -118,6 +121,6 @@ Author: Avik De
 	</xacro:macro>
 
 	<!-- Two wings -->
-	<xacro:wing sign="-1" prefix="l" />
-	<xacro:wing sign="1" prefix="r" />
+	<xacro:wing sign="-1" prefix="l" sparcol="Black1"/>
+	<xacro:wing sign="1" prefix="r" sparcol="Red1"/>
 </robot>
