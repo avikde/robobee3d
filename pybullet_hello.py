@@ -3,6 +3,7 @@ import time
 import pybullet_data
 import numpy as np
 import FlappingModels3D
+import sys
 
 # sim parameters
 FAERO_DRAW_SCALE = 100000
@@ -54,8 +55,12 @@ for shape in p.getVisualShapeData(bid):
 		urdfParams['cbar'] = dimensions[2]
 
 # Stiffness etc. if needed
-# for j in range(-1, Nj):
-# 	print("Link", j, "info:", p.getDynamicsInfo(bid, j))
+for j in range(-1, Nj):
+	dinfo = p.getDynamicsInfo(bid, j)
+	stiffness, damping = dinfo[9], dinfo[8]
+	if j == jointId[b'lwing_hinge']:
+		urdfParams['stiffnessHinge'] = stiffness
+		urdfParams['dampingHinge'] = damping
 
 print(jointId)
 print(urdfParams)
@@ -107,8 +112,8 @@ def resetAllJoints(q, dq):
 # ---
 
 resetAllJoints(np.zeros(4), np.zeros(4))
-#Passive hinge dynamics TODO: params from URDF, fixes
-p.setJointMotorControlArray(bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=[1e-2,1e-2], velocityGains=[1e-2,1e-2])
+# Passive hinge dynamics implemented as position control rather than joint dynamics TODO: fixes
+p.setJointMotorControlArray(bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=urdfParams['stiffnessHinge']*np.ones(2), velocityGains=urdfParams['dampingHinge']*np.ones(2))
 
 for i in range(10000):
 	# No dynamics: reset positions
