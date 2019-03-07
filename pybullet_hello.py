@@ -25,7 +25,8 @@ print(jointId)
 q = np.zeros(11)
 dq = np.zeros(10)
 
-bee = FlappingModels3D.QuasiSteadySDAB()
+# TODO: get the params from the URDF
+bee = FlappingModels3D.QuasiSteadySDAB(0.006, 0.006)
 
 #  Since each link is connected to a parent with a single joint,
 # the number of joints is equal to the number of links. Regular links have link indices in the range
@@ -80,8 +81,8 @@ for i in range(10000):
 	if simt - tLastDraw > 0.05:
 		# draw debug
 		red = [1, 1, 0]
-		p.addUserDebugLine(pcop1, pcop1 + 0.5 * Faero1, lineColorRGB=red, lifeTime=0.2)
-		p.addUserDebugLine(pcop2, pcop2 + 0.5 * Faero2, lineColorRGB=[1,0,1], lifeTime=0.2)
+		p.addUserDebugLine(pcop1, pcop1 + 5 * Faero1, lineColorRGB=red, lifeTime=0.2)
+		p.addUserDebugLine(pcop2, pcop2 + 5 * Faero2, lineColorRGB=[1,0,1], lifeTime=0.2)
 		tLastDraw = simt
 		# print(simt, dth0)
 

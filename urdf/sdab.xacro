@@ -8,18 +8,18 @@ Author: Avik De
 
 	<!-- Define parameters -->
 	<xacro:property name="pi" value="3.14159265359"/>
-	<xacro:property name="wbody" value="0.05"/>
-	<xacro:property name="lbody" value="0.2"/>
+	<xacro:property name="wbody" value="0.003"/>
+	<xacro:property name="lbody" value="0.012"/>
 	<!-- radial distance from center to start of wing -->
-	<xacro:property name="RwingOffset" value="0.04"/>
+	<xacro:property name="RwingOffset" value="0.004"/>
 	<!-- diameter of spar -->
-	<xacro:property name="dspar" value="0.01"/>
+	<xacro:property name="dspar" value="0.001"/>
 	<!-- radial wing length -->
-	<xacro:property name="Rwing" value="0.12"/>
+	<xacro:property name="Rwing" value="0.012"/>
 	<!-- mean chord length -->
-	<xacro:property name="cbar" value="0.06"/>
+	<xacro:property name="cbar" value="0.005"/>
 	<!-- vertical offset of wing attachment point from COM -->
-	<xacro:property name="d" value="0.1"/>
+	<xacro:property name="d" value="0.006"/>
 	
 	<!-- Define materials -->
 	<material name="Black1">

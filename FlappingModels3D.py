@@ -10,9 +10,10 @@ class QuasiSteadySDAB:
 	CD0 = 0.4
 	CDmax = 3.4
 	CLmax = 1.8
-	# FIXME: parameters need to be updated
-	d = 0.1
-	ycp = 0.07
+	
+	def __init__(self, d, rcp):
+		self.d = d
+		self.ycp = rcp
 	
 	def CF(self, a):
 		# in order lift,drag
