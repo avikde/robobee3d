@@ -4,6 +4,11 @@ import pybullet_data
 import numpy as np
 import FlappingModels3D
 
+# sim parameters
+FAERO_DRAW_SCALE = 0.001
+SIM_SLOWDOWN = 500
+
+# Init sim
 physicsClient = p.connect(p.GUI)#or p.DIRECT for non-graphical version
 # Set up the visualizer
 p.configureDebugVisualizer(p.COV_ENABLE_WIREFRAME, 0)
@@ -38,7 +43,7 @@ bee = FlappingModels3D.QuasiSteadySDAB(0.006, 0.006)
 
 # Simulation
 simt = 0.0
-dt = 0.001
+dt = 0.0001
 tLastDraw = 0
 # vectors for storing states
 q = np.zeros(11)
@@ -68,11 +73,12 @@ def applyAero(t, q, dq, bRight):
 
 for i in range(10000):
 	# No dynamics: reset positions
-	ph = 2 * np.pi * simt
+	freq = 170.0
+	ph = 2 * np.pi * freq * simt
 	th0 = 0.5 * np.sin(ph)
-	dth0 = np.pi * np.cos(ph)
+	dth0 = np.pi * freq * np.cos(ph)
 	th1 = np.cos(ph)
-	dth1 = -2 * np.pi * np.sin(ph)
+	dth1 = -2 * np.pi * freq * np.sin(ph)
 	p.resetJointState(bid, jointId[b'lwing_stroke'], th0, dth0)
 	p.resetJointState(bid, jointId[b'rwing_stroke'], th0, dth0)
 	p.resetJointState(bid, jointId[b'lwing_hinge'], th1, dth1)
@@ -86,15 +92,15 @@ for i in range(10000):
 	# applyAero(simt, 1)
 
 	simulatorUpdate()
-	time.sleep(dt)
+	time.sleep(SIM_SLOWDOWN * dt)
 	simt += dt
 	
-	if simt - tLastDraw > 0.05:
+	if simt - tLastDraw > 2 * dt:
 		# draw debug
 		red = [1, 1, 0]
-		p.addUserDebugLine(pcop1, pcop1 + 5 * Faero1, lineColorRGB=red, lifeTime=0.2)
-		p.addUserDebugLine(pcop2, pcop2 + 5 * Faero2, lineColorRGB=[1,0,1], lifeTime=0.2)
+		p.addUserDebugLine(pcop1, pcop1 + FAERO_DRAW_SCALE * Faero1, lineColorRGB=red, lifeTime=3 * SIM_SLOWDOWN * dt)
+		p.addUserDebugLine(pcop2, pcop2 + FAERO_DRAW_SCALE * Faero2, lineColorRGB=[1,0,1], lifeTime=3 * SIM_SLOWDOWN * dt)
 		tLastDraw = simt
-		# print(simt, dth0)
+		print("total lift =", (Faero1[2] + Faero2[2]) * 1e6)
 
 p.disconnect()
