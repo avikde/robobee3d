@@ -25,7 +25,7 @@ planeId = p.loadURDF("plane.urdf")
 # load robot
 startPos = [0,0,1]
 startOrientation = p.getQuaternionFromEuler([0,0,0])
-bid = p.loadURDF("urdf/sdab.xacro.urdf", startPos, startOrientation, useFixedBase=True, flags=p.URDF_USE_INERTIA_FROM_FILE)
+bid = p.loadURDF("urdf/sdab.xacro.urdf", startPos, startOrientation, useFixedBase=False, flags=p.URDF_USE_INERTIA_FROM_FILE)
 
 # Get info from the URDF
 urdfParams = {}
@@ -112,7 +112,7 @@ def resetAllJoints(q, dq):
 # ---
 
 resetAllJoints(np.zeros(4), np.zeros(4))
-# Passive hinge dynamics implemented as position control rather than joint dynamics TODO: fixes
+# Passive hinge dynamics implemented as position control rather than joint dynamics
 p.setJointMotorControlArray(bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=urdfParams['stiffnessHinge']*np.ones(2), velocityGains=urdfParams['dampingHinge']*np.ones(2))
 
 for i in range(10000):
@@ -140,6 +140,6 @@ for i in range(10000):
 		p.addUserDebugLine(pcop1, pcop1 + FAERO_DRAW_SCALE * Faero1, lineColorRGB=[1,1,0], lifeTime=3 * SIM_SLOWDOWN * dt)
 		p.addUserDebugLine(pcop2, pcop2 + FAERO_DRAW_SCALE * Faero2, lineColorRGB=[1,0,1], lifeTime=3 * SIM_SLOWDOWN * dt)
 		tLastDraw = simt
-		print("total lift =", (Faero1[2] + Faero2[2]) * 1e6,'th1 =', q[1],'dth =',dq[0:2])
+		print("total lift =", (Faero1[2] + Faero2[2]) * 1e6)
 
 p.disconnect()
