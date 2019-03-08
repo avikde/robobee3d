@@ -98,7 +98,7 @@ def applyAero(t, q, dq, lrSign):
 	if lrSign > 0:
 		jid = jointId[b'rwing_hinge']
 		
-	p.applyExternalForce(bid, jid, -lrSign * FaeroW, [0, 0, 0], p.WORLD_FRAME)
+	p.applyExternalForce(bid, jid, -FaeroW, [0, 0, 0], p.WORLD_FRAME)
 	return pcopW, FaeroW
 
 def resetAllJoints(q, dq):
