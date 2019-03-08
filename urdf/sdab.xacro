@@ -25,14 +25,17 @@ Author: Avik De
 	<xacro:property name="mspar" value="0.001"/>
 	<xacro:property name="mwing" value="0.001"/>
 	<!-- Stiffness and damping properties -->
-	<xacro:property name="dampingHinge" value="5e-10"/>
-	<xacro:property name="dampingSpar" value="0"/>
-	<xacro:property name="stiffnessHinge" value="1e-6"/>
+	<xacro:property name="stiffnessHinge" value="1e-2"/>
+	<xacro:property name="dampingHinge" value="1e-2"/>
 	<xacro:property name="stiffnessSpar" value="1e-6"/>
+	<xacro:property name="dampingSpar" value="0"/>
 	
 	<!-- Define materials -->
 	<material name="Black1">
 		<color rgba="0 0 0 1.0"/>
+	</material>
+	<material name="Red1">
+		<color rgba="1.0 0 0 1.0"/>
 	</material>
 	<material name="Gray1">
 		<color rgba="0 0 0 0.3"/>
@@ -57,7 +60,7 @@ Author: Avik De
 	</link>
 
 	<!-- Define our wing macro -->
-	<xacro:macro name="wing" params="sign prefix">
+	<xacro:macro name="wing" params="sign prefix sparcol">
 
 		<link name="${prefix}wing_spar">
 			<visual>
@@ -65,7 +68,7 @@ Author: Avik De
 				<geometry>
 					<box size="${dspar} ${RwingOffset + Rwing} ${dspar}"/>
 				</geometry>
-				<material name="Black1"/>
+				<material name="${sparcol}"/>
 			</visual>
 		<inertial>
 			<mass value="${mspar}"/>
@@ -104,7 +107,7 @@ Author: Avik De
 			<child link="${prefix}wing_spar"/>
 			<axis xyz="0 0 ${-1 * sign}"/>
 			<origin xyz="0.0 0 ${d}" rpy="0 0 0"/>
-			<dynamics damping="${dampingSpar}" friction="0.0" spring_stiffness="${stiffnessSpar}" spring_reference="0"/>
+			<!-- <dynamics damping="${dampingSpar}" friction="0.0" spring_stiffness="${stiffnessSpar}" spring_reference="0"/> -->
 		</joint>
 	
 		<joint name="${prefix}wing_hinge" type="continuous">
@@ -112,12 +115,12 @@ Author: Avik De
 			<child link="${prefix}wing_membrane"/>
 			<axis xyz="0 1 0"/>
 			<origin xyz="0.0 0 0.0" rpy="0 0 0"/>
-			<dynamics damping="${dampingHinge}" friction="0.0" spring_stiffness="${stiffnessHinge}" spring_reference="0"/>
+			<!-- <dynamics damping="${dampingHinge}" friction="0.0" spring_stiffness="${stiffnessHinge}" spring_reference="0"/> -->
 		</joint>
 
 	</xacro:macro>
 
 	<!-- Two wings -->
-	<xacro:wing sign="-1" prefix="l" />
-	<xacro:wing sign="1" prefix="r" />
+	<xacro:wing sign="-1" prefix="l" sparcol="Black1"/>
+	<xacro:wing sign="1" prefix="r" sparcol="Red1"/>
 </robot>
