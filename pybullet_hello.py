@@ -7,7 +7,7 @@ import sys
 
 # sim parameters
 FAERO_DRAW_SCALE = 100
-SIM_SLOWDOWN = 500
+SIM_SLOWDOWN = 50
 SIM_TIMESTEP = 0.0001
 
 # Init sim
@@ -27,7 +27,7 @@ planeId = p.loadURDF("plane.urdf")
 # load robot
 startPos = [0,0,1]
 startOrientation = p.getQuaternionFromEuler([0,0,0])
-bid = p.loadURDF("urdf/sdab.xacro.urdf", startPos, startOrientation, useFixedBase=False, flags=p.URDF_USE_INERTIA_FROM_FILE)
+bid = p.loadURDF("urdf/sdab.xacro.urdf", startPos, startOrientation, useFixedBase=True, flags=p.URDF_USE_INERTIA_FROM_FILE)
 
 # Get info from the URDF
 urdfParams = {}
@@ -118,12 +118,12 @@ p.setJointMotorControlArray(bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0
 
 for i in range(10000):
 	# No dynamics: reset positions
-	omega = 2 * np.pi * 170.0
+	omega = 2 * np.pi * 50.0
 	ph = omega * simt
 	th0 = 0.5 * np.sin(ph)
 	dth0 = omega * np.cos(ph)
 
-	p.setJointMotorControlArray(bid, [0,2], p.POSITION_CONTROL, targetPositions=[th0,th0], positionGains=[1,1], velocityGains=[1,1])
+	p.setJointMotorControlArray(bid, [0,2], p.POSITION_CONTROL, targetPositions=[th0,th0], positionGains=[1,1], velocityGains=[1,1], forces=[1000000,1000000])
 
 	# actual sim
 	sampleStates()
@@ -141,6 +141,7 @@ for i in range(10000):
 		p.addUserDebugLine(pcop1, pcop1 + FAERO_DRAW_SCALE * Faero1, lineColorRGB=[1,1,0], lifeTime=3 * SIM_SLOWDOWN * SIM_TIMESTEP)
 		p.addUserDebugLine(pcop2, pcop2 + FAERO_DRAW_SCALE * Faero2, lineColorRGB=[1,0,1], lifeTime=3 * SIM_SLOWDOWN * SIM_TIMESTEP)
 		tLastDraw = simt
-		print("total lift =", (Faero1[2] + Faero2[2]) * 1e6, dq[0:2], dth0)
+		# print("total lift =", (Faero1[2] + Faero2[2]) * 1e6, q[0:2], dth0)
+		print(simt, th0, q[0])
 
 p.disconnect()
