@@ -6,8 +6,9 @@ import FlappingModels3D
 import sys
 
 # sim parameters
-FAERO_DRAW_SCALE = 100000
+FAERO_DRAW_SCALE = 100
 SIM_SLOWDOWN = 500
+SIM_TIMESTEP = 0.0001
 
 # Init sim
 physicsClient = p.connect(p.GUI)#or p.DIRECT for non-graphical version
@@ -17,6 +18,7 @@ p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0)
 p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
 # p.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 0)
 p.setRealTimeSimulation(0)
+p.setTimeStep(SIM_TIMESTEP)
 # p.setGravity(0,0,-10)
 
 # load background
@@ -70,7 +72,6 @@ bee = FlappingModels3D.QuasiSteadySDAB(urdfParams)
 
 # Simulation
 simt = 0.0
-dt = 0.0001
 tLastDraw = 0
 # vectors for storing states
 q = np.zeros(11)
@@ -132,14 +133,14 @@ for i in range(10000):
 	# applyAero(simt, 1)
 
 	simulatorUpdate()
-	time.sleep(SIM_SLOWDOWN * dt)
-	simt += dt
+	time.sleep(SIM_SLOWDOWN * SIM_TIMESTEP)
+	simt += SIM_TIMESTEP
 	
-	if simt - tLastDraw > 2 * dt:
+	if simt - tLastDraw > 2 * SIM_TIMESTEP:
 		# draw debug
-		p.addUserDebugLine(pcop1, pcop1 + FAERO_DRAW_SCALE * Faero1, lineColorRGB=[1,1,0], lifeTime=3 * SIM_SLOWDOWN * dt)
-		p.addUserDebugLine(pcop2, pcop2 + FAERO_DRAW_SCALE * Faero2, lineColorRGB=[1,0,1], lifeTime=3 * SIM_SLOWDOWN * dt)
+		p.addUserDebugLine(pcop1, pcop1 + FAERO_DRAW_SCALE * Faero1, lineColorRGB=[1,1,0], lifeTime=3 * SIM_SLOWDOWN * SIM_TIMESTEP)
+		p.addUserDebugLine(pcop2, pcop2 + FAERO_DRAW_SCALE * Faero2, lineColorRGB=[1,0,1], lifeTime=3 * SIM_SLOWDOWN * SIM_TIMESTEP)
 		tLastDraw = simt
-		print("total lift =", (Faero1[2] + Faero2[2]) * 1e6)
+		print("total lift =", (Faero1[2] + Faero2[2]) * 1e6, dq[0:2], dth0)
 
 p.disconnect()
