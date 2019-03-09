@@ -87,7 +87,7 @@
   </link>
   <joint name="joint_1" type="fixed">
     <axis xyz="0 0 1"/>
-    <limit effort="10000" lower="-3.14" upper="3.14" velocity="5"/>
+    <limit effort="1000000" lower="-3.14" upper="3.14" velocity="50000"/>
     <dynamics damping="0" friction="0"/>
     <origin rpy="0 0 0" xyz="0 0 0.075"/>
     <parent link="base_link"/>
@@ -95,7 +95,7 @@
   </joint>
   <joint name="joint_2" type="revolute">
     <axis xyz="0 0 1"/>
-    <limit effort="10000" lower="-3.14" upper="3.14" velocity="5"/>
+    <limit effort="1000000" lower="-3.14" upper="3.14" velocity="50000"/>
     <dynamics damping="0" friction="0"/>
     <origin rpy="0 0 0" xyz="1.0 0. 0.05"/>
     <parent link="link_1"/>

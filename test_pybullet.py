@@ -21,7 +21,7 @@ planeId = p.loadURDF("plane.urdf")
 # load robot
 startPos = [0,0,1]
 startOrientation = p.getQuaternionFromEuler([0,0,0])
-bid = p.loadURDF("urdf/TwoJointRobot.urdf", startPos, startOrientation, useFixedBase=True, flags=p.URDF_USE_INERTIA_FROM_FILE)
+bid = p.loadURDF("urdf/TwoJointRobot.urdf", startPos, startOrientation, useFixedBase=True)
 
 simt = 0
 ph = 0
@@ -41,17 +41,18 @@ while simt < 0.5:
 	# No dynamics: reset positions
 	ph = ph + 2 * np.pi * freq * SIM_TIMESTEP
 	qdes = 0.5 * np.sin(ph)
+	dqdes = 0.5 * 2 * np.pi * freq * np.cos(ph)
 	# joint 1 - second link, joint 0 is fixed
-	p.setJointMotorControlArray(bid, [1], p.POSITION_CONTROL, targetPositions=[qdes], positionGains=[10000], velocityGains=[100], forces=[1000000000])
+	p.setJointMotorControlArray(bid, [1], p.POSITION_CONTROL, targetPositions=[qdes], targetVelocities=[dqdes], positionGains=[10000], velocityGains=[100], forces=[1000000000])
 
 	p.stepSimulation()
 	time.sleep(SIM_TIMESTEP)
 	simt += SIM_TIMESTEP
 	
-	# if simt - tLastPrint > 0.0005:
-	qact = p.getJointState(bid, 1)[0]
-	# tLastPrint = simt
-	print(simt, qdes, qact)
+	if simt - tLastPrint > 0.0005:
+		qact = p.getJointState(bid, 1)[0]
+		tLastPrint = simt
+		print(simt, qdes, qact)
 
 p.disconnect()
 
