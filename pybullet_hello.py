@@ -6,8 +6,8 @@ import FlappingModels3D
 import sys
 
 # sim parameters
-FAERO_DRAW_SCALE = 100
-SIM_SLOWDOWN = 200
+FAERO_DRAW_SCALE = 20
+SIM_SLOWDOWN = 10
 SIM_TIMESTEP = 0.0001
 
 # Init sim
@@ -76,9 +76,11 @@ bee = FlappingModels3D.QuasiSteadySDAB(urdfParams)
 # Simulation
 simt = 0.0
 tLastDraw = 0
+tLastPrint = 0
 # vectors for storing states
 q = np.zeros(11)
 dq = np.zeros(10)
+bCamLock = True
 
 # Helpers ---
 
@@ -92,7 +94,7 @@ def sampleStates():
 def simulatorUpdate():
 	# Bullet update
 	p.stepSimulation()
-	if simt < 1e-10:
+	if simt < 1e-10 or bCamLock:
 		# Reset camera to be at the correct distance (only first time)
 		p.resetDebugVisualizerCamera(0.12, 45, -30, q[4:7])
 
@@ -102,7 +104,7 @@ def applyAero(t, q, dq, lrSign):
 	if lrSign > 0:
 		jid = jointId[b'rwing_hinge']
 		
-	p.applyExternalForce(bid, jid, -FaeroW, [0, 0, 0], p.WORLD_FRAME)
+	p.applyExternalForce(bid, jid, FaeroW, [0, 0, 0], p.WORLD_FRAME)
 	return pcopW, FaeroW
 
 def resetAllJoints(q, dq):
@@ -145,8 +147,11 @@ for i in range(10000):
 		p.addUserDebugLine(pcop1, pcop1 + FAERO_DRAW_SCALE * Faero1, lineColorRGB=[1,1,0], lifeTime=3 * SIM_SLOWDOWN * SIM_TIMESTEP)
 		p.addUserDebugLine(pcop2, pcop2 + FAERO_DRAW_SCALE * Faero2, lineColorRGB=[1,0,1], lifeTime=3 * SIM_SLOWDOWN * SIM_TIMESTEP)
 		tLastDraw = simt
-		print("total lift =", (Faero1[2] + Faero2[2]) * 1e6, q[0:2], dth0)
-		# print(simt, th0, q[0])
+	
+	if simt - tLastPrint > 0.01:
+		tLastPrint = simt
+		# print(simt, (Faero1[2] + Faero2[2]) * 1e6, q[0:2], dth0)
+		print(simt, (Faero1[2] + Faero2[2]) * 1e6, dq[6])
 	
 	# Keyboard control options
 	keys = p.getKeyboardEvents()
