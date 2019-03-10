@@ -7,7 +7,7 @@ import sys
 
 # sim parameters
 FAERO_DRAW_SCALE = 100
-SIM_SLOWDOWN = 50
+SIM_SLOWDOWN = 200
 SIM_TIMESTEP = 0.0001
 
 # Init sim
@@ -94,7 +94,7 @@ def simulatorUpdate():
 	p.stepSimulation()
 	if simt < 1e-10:
 		# Reset camera to be at the correct distance (only first time)
-		p.resetDebugVisualizerCamera(0.15, 45, -30, q[4:7])
+		p.resetDebugVisualizerCamera(0.12, 45, -30, q[4:7])
 
 def applyAero(t, q, dq, lrSign):
 	pcopW, FaeroW = bee.aerodynamics(q, dq, lrSign)
@@ -145,7 +145,7 @@ for i in range(10000):
 		p.addUserDebugLine(pcop1, pcop1 + FAERO_DRAW_SCALE * Faero1, lineColorRGB=[1,1,0], lifeTime=3 * SIM_SLOWDOWN * SIM_TIMESTEP)
 		p.addUserDebugLine(pcop2, pcop2 + FAERO_DRAW_SCALE * Faero2, lineColorRGB=[1,0,1], lifeTime=3 * SIM_SLOWDOWN * SIM_TIMESTEP)
 		tLastDraw = simt
-		# print("total lift =", (Faero1[2] + Faero2[2]) * 1e6, q[0:2], dth0)
-		print(simt, th0, q[0])
+		print("total lift =", (Faero1[2] + Faero2[2]) * 1e6, q[0:2], dth0)
+		# print(simt, th0, q[0])
 
 p.disconnect()
