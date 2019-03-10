@@ -6,8 +6,11 @@ import FlappingModels3D
 import sys
 
 # sim parameters
-FAERO_DRAW_SCALE = 100000
-SIM_SLOWDOWN = 500
+FAERO_DRAW_SCALE = 20
+SIM_SLOWDOWN_SLOW = 200
+SIM_SLOWDOWN_FAST = 5
+SIM_SLOWDOWN = SIM_SLOWDOWN_FAST
+SIM_TIMESTEP = 0.0001
 
 # Init sim
 physicsClient = p.connect(p.GUI)#or p.DIRECT for non-graphical version
@@ -17,7 +20,8 @@ p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0)
 p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
 # p.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 0)
 p.setRealTimeSimulation(0)
-# p.setGravity(0,0,-10)
+p.setTimeStep(SIM_TIMESTEP)
+p.setGravity(0,0,-10)
 
 # load background
 p.setAdditionalSearchPath(pybullet_data.getDataPath()) #optionally
@@ -25,7 +29,10 @@ planeId = p.loadURDF("plane.urdf")
 # load robot
 startPos = [0,0,1]
 startOrientation = p.getQuaternionFromEuler([0,0,0])
-bid = p.loadURDF("urdf/sdab.xacro.urdf", startPos, startOrientation, useFixedBase=True, flags=p.URDF_USE_INERTIA_FROM_FILE)
+bid = p.loadURDF("urdf/sdab.xacro.urdf", startPos, startOrientation, useFixedBase=False, flags=p.URDF_USE_INERTIA_FROM_FILE)
+# See https://github.com/bulletphysics/bullet3/issues/2152
+p.changeDynamics(bid,	-1,	maxJointVelocity=10000)
+p.changeDynamics(bid, -1, linearDamping=0,	angularDamping=0)
 
 # Get info from the URDF
 urdfParams = {}
@@ -70,11 +77,12 @@ bee = FlappingModels3D.QuasiSteadySDAB(urdfParams)
 
 # Simulation
 simt = 0.0
-dt = 0.0001
 tLastDraw = 0
+tLastPrint = 0
 # vectors for storing states
 q = np.zeros(11)
 dq = np.zeros(10)
+bCamLock = True
 
 # Helpers ---
 
@@ -88,9 +96,9 @@ def sampleStates():
 def simulatorUpdate():
 	# Bullet update
 	p.stepSimulation()
-	if simt < 1e-10:
+	if simt < 1e-10 or bCamLock:
 		# Reset camera to be at the correct distance (only first time)
-		p.resetDebugVisualizerCamera(0.15, 45, -30, q[4:7])
+		p.resetDebugVisualizerCamera(0.12, 45, -30, q[4:7])
 
 def applyAero(t, q, dq, lrSign):
 	pcopW, FaeroW = bee.aerodynamics(q, dq, lrSign)
@@ -98,7 +106,7 @@ def applyAero(t, q, dq, lrSign):
 	if lrSign > 0:
 		jid = jointId[b'rwing_hinge']
 		
-	p.applyExternalForce(bid, jid, -FaeroW, [0, 0, 0], p.WORLD_FRAME)
+	p.applyExternalForce(bid, jid, FaeroW, [0, 0, 0], p.WORLD_FRAME)
 	return pcopW, FaeroW
 
 def resetAllJoints(q, dq):
@@ -112,17 +120,18 @@ def resetAllJoints(q, dq):
 # ---
 
 resetAllJoints(np.zeros(4), np.zeros(4))
-# Passive hinge dynamics implemented as position control rather than joint dynamics TODO: fixes
+# Passive hinge dynamics implemented as position control rather than joint dynamics
 p.setJointMotorControlArray(bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=urdfParams['stiffnessHinge']*np.ones(2), velocityGains=urdfParams['dampingHinge']*np.ones(2))
 
 for i in range(10000):
 	# No dynamics: reset positions
 	omega = 2 * np.pi * 170.0
 	ph = omega * simt
-	th0 = 0.5 * np.sin(ph)
+	th0 = 1.0 * np.sin(ph)
 	dth0 = omega * np.cos(ph)
 
-	p.setJointMotorControlArray(bid, [0,2], p.POSITION_CONTROL, targetPositions=[th0,th0], positionGains=[1,1], velocityGains=[1,1])
+	# POSITION_CONTROL uses Kp, Kd in [0,1]
+	p.setJointMotorControlArray(bid, [0,2], p.POSITION_CONTROL, targetPositions=[th0,th0], positionGains=[1,1], velocityGains=[0.1,0.1], forces=[1000000,1000000])
 
 	# actual sim
 	sampleStates()
@@ -132,14 +141,28 @@ for i in range(10000):
 	# applyAero(simt, 1)
 
 	simulatorUpdate()
-	time.sleep(SIM_SLOWDOWN * dt)
-	simt += dt
+	time.sleep(SIM_SLOWDOWN * SIM_TIMESTEP)
+	simt += SIM_TIMESTEP
 	
-	if simt - tLastDraw > 2 * dt:
+	if simt - tLastDraw > 2 * SIM_TIMESTEP:
 		# draw debug
-		p.addUserDebugLine(pcop1, pcop1 + FAERO_DRAW_SCALE * Faero1, lineColorRGB=[1,1,0], lifeTime=3 * SIM_SLOWDOWN * dt)
-		p.addUserDebugLine(pcop2, pcop2 + FAERO_DRAW_SCALE * Faero2, lineColorRGB=[1,0,1], lifeTime=3 * SIM_SLOWDOWN * dt)
+		p.addUserDebugLine(pcop1, pcop1 + FAERO_DRAW_SCALE * Faero1, lineColorRGB=[1,1,0], lifeTime=3 * SIM_SLOWDOWN * SIM_TIMESTEP)
+		p.addUserDebugLine(pcop2, pcop2 + FAERO_DRAW_SCALE * Faero2, lineColorRGB=[1,0,1], lifeTime=3 * SIM_SLOWDOWN * SIM_TIMESTEP)
 		tLastDraw = simt
-		print("total lift =", (Faero1[2] + Faero2[2]) * 1e6,'th1 =', q[1],'dth =',dq[0:2])
+	
+	if simt - tLastPrint > 0.01:
+		tLastPrint = simt
+		# print(simt, (Faero1[2] + Faero2[2]) * 1e6, q[0:2], dth0)
+		print(simt, (Faero1[2] + Faero2[2]) * 1e6, dq[6])
+	
+	# Keyboard control options
+	keys = p.getKeyboardEvents()
+	if ord('z') in keys and keys[ord('z')] & p.KEY_WAS_TRIGGERED:
+		if SIM_SLOWDOWN == SIM_SLOWDOWN_FAST:
+			SIM_SLOWDOWN = SIM_SLOWDOWN_SLOW
+		else:
+			SIM_SLOWDOWN = SIM_SLOWDOWN_FAST
+	if ord('c') in keys and keys[ord('c')] & p.KEY_WAS_TRIGGERED:
+		bCamLock = not bCamLock
 
 p.disconnect()

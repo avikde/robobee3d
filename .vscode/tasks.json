@@ -6,10 +6,7 @@
 		{
 			"label": "compile xacro",
 			"type": "shell",
-			"command": "python xacro.py sdab.xacro > sdab.xacro.urdf",
-			"options": {
-				"cwd": "${workspaceRoot}/urdf"
-			},
+			"command": "python urdf/xacro.py urdf/sdab.xacro > urdf/sdab.xacro.urdf && python pybullet_hello.py",
 			"group": {
 				"kind": "build",
 				"isDefault": true
