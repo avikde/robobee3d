@@ -147,5 +147,15 @@ for i in range(10000):
 		tLastDraw = simt
 		print("total lift =", (Faero1[2] + Faero2[2]) * 1e6, q[0:2], dth0)
 		# print(simt, th0, q[0])
+	
+	# Keyboard control options
+	keys = p.getKeyboardEvents()
+	if ord('z') in keys and keys[ord('z')] & p.KEY_WAS_TRIGGERED:
+		if SIM_SLOWDOWN == 10:
+			SIM_SLOWDOWN = 200
+		else:
+			SIM_SLOWDOWN = 10
+	if ord('c') in keys and keys[ord('c')] & p.KEY_WAS_TRIGGERED:
+		bCamLock = not bCamLock
 
 p.disconnect()
