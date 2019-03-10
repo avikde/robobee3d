@@ -7,7 +7,7 @@ import sys
 
 # sim parameters
 FAERO_DRAW_SCALE = 20
-SIM_SLOWDOWN = 10
+SIM_SLOWDOWN = 200
 SIM_TIMESTEP = 0.0001
 
 # Init sim
@@ -27,7 +27,7 @@ planeId = p.loadURDF("plane.urdf")
 # load robot
 startPos = [0,0,1]
 startOrientation = p.getQuaternionFromEuler([0,0,0])
-bid = p.loadURDF("urdf/sdab.xacro.urdf", startPos, startOrientation, useFixedBase=True, flags=p.URDF_USE_INERTIA_FROM_FILE)
+bid = p.loadURDF("urdf/sdab.xacro.urdf", startPos, startOrientation, useFixedBase=False, flags=p.URDF_USE_INERTIA_FROM_FILE)
 # See https://github.com/bulletphysics/bullet3/issues/2152
 p.changeDynamics(bid,	-1,	maxJointVelocity=10000)
 p.changeDynamics(bid,-1, linearDamping=0,	angularDamping=0)

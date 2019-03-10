@@ -25,8 +25,8 @@ Author: Avik De
 	<xacro:property name="mspar" value="1e-6"/>
 	<xacro:property name="mwing" value="1e-6"/>
 	<!-- Stiffness and damping properties -->
-	<xacro:property name="stiffnessHinge" value="4e-1"/>
-	<xacro:property name="dampingHinge" value="4e-1"/>
+	<xacro:property name="stiffnessHinge" value="2e-1"/>
+	<xacro:property name="dampingHinge" value="8e-1"/>
 	<xacro:property name="stiffnessSpar" value="1e-6"/>
 	<xacro:property name="dampingSpar" value="0"/>
 	
@@ -55,7 +55,7 @@ Author: Avik De
 		 </visual>
 		<inertial>
 			<mass value="${mb}"/>
-			<inertia ixx="${1.0/12.0 * mb * (lbody*lbody + wbody*wbody)}" ixy="0.0" ixz="0.0" iyy="${1.0/12.0 * mb * (lbody*lbody + wbody*wbody)}" iyz="0.0" izz="${1.0/12.0 * mb * (wbody*wbody + wbody*wbody)}"/>
+			<inertia ixx="${10.0*1.0/12.0 * mb * (lbody*lbody + wbody*wbody)}" ixy="0.0" ixz="0.0" iyy="${10.0*1.0/12.0 * mb * (lbody*lbody + wbody*wbody)}" iyz="0.0" izz="${10.0*1.0/12.0 * mb * (wbody*wbody + wbody*wbody)}"/>
 		</inertial>
 	</link>
 
