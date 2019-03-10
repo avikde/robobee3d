@@ -7,7 +7,9 @@ import sys
 
 # sim parameters
 FAERO_DRAW_SCALE = 20
-SIM_SLOWDOWN = 200
+SIM_SLOWDOWN_SLOW = 200
+SIM_SLOWDOWN_FAST = 5
+SIM_SLOWDOWN = SIM_SLOWDOWN_FAST
 SIM_TIMESTEP = 0.0001
 
 # Init sim
@@ -19,7 +21,7 @@ p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
 # p.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 0)
 p.setRealTimeSimulation(0)
 p.setTimeStep(SIM_TIMESTEP)
-# p.setGravity(0,0,-10)
+p.setGravity(0,0,-10)
 
 # load background
 p.setAdditionalSearchPath(pybullet_data.getDataPath()) #optionally
@@ -30,7 +32,7 @@ startOrientation = p.getQuaternionFromEuler([0,0,0])
 bid = p.loadURDF("urdf/sdab.xacro.urdf", startPos, startOrientation, useFixedBase=False, flags=p.URDF_USE_INERTIA_FROM_FILE)
 # See https://github.com/bulletphysics/bullet3/issues/2152
 p.changeDynamics(bid,	-1,	maxJointVelocity=10000)
-p.changeDynamics(bid,-1, linearDamping=0,	angularDamping=0)
+p.changeDynamics(bid, -1, linearDamping=0,	angularDamping=0)
 
 # Get info from the URDF
 urdfParams = {}
@@ -125,7 +127,7 @@ for i in range(10000):
 	# No dynamics: reset positions
 	omega = 2 * np.pi * 170.0
 	ph = omega * simt
-	th0 = 0.5 * np.sin(ph)
+	th0 = 1.0 * np.sin(ph)
 	dth0 = omega * np.cos(ph)
 
 	# POSITION_CONTROL uses Kp, Kd in [0,1]
@@ -156,10 +158,10 @@ for i in range(10000):
 	# Keyboard control options
 	keys = p.getKeyboardEvents()
 	if ord('z') in keys and keys[ord('z')] & p.KEY_WAS_TRIGGERED:
-		if SIM_SLOWDOWN == 10:
-			SIM_SLOWDOWN = 200
+		if SIM_SLOWDOWN == SIM_SLOWDOWN_FAST:
+			SIM_SLOWDOWN = SIM_SLOWDOWN_SLOW
 		else:
-			SIM_SLOWDOWN = 10
+			SIM_SLOWDOWN = SIM_SLOWDOWN_FAST
 	if ord('c') in keys and keys[ord('c')] & p.KEY_WAS_TRIGGERED:
 		bCamLock = not bCamLock
 
