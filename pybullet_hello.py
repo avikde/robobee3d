@@ -123,13 +123,19 @@ def resetAllJoints(q, dq):
 		p.setJointMotorControl2(bid, j, controlMode=p.VELOCITY_CONTROL, targetVelocity=0, force=0)
 		p.setJointMotorControl2(bid, j, controlMode=p.TORQUE_CONTROL, force=0)
 
+# Helper function: traj to track
+def traj(t):
+	return startPos + np.array([0.1 * np.sin(1 * t), 0, 0.5 * t])
+# # draw traj
+# p.addUserDebugLine(traj(tLastDraw), traj(simt), lineColorRGB=[0,0,1], lifeTime=0)
+	
 # ---
 
 resetAllJoints(np.zeros(4), np.zeros(4))
 # Passive hinge dynamics implemented as position control rather than joint dynamics
 p.setJointMotorControlArray(bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=urdfParams['stiffnessHinge']*np.ones(2), velocityGains=urdfParams['dampingHinge']*np.ones(2))
 
-for i in range(10000):
+while simt < 1:
 	# No dynamics: reset positions
 	omega = 2 * np.pi * 170.0
 	ph = omega * simt
