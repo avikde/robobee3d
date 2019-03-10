@@ -27,8 +27,8 @@ Author: Avik De
 	<!-- Stiffness and damping properties -->
 	<xacro:property name="stiffnessHinge" value="5e-1"/>
 	<xacro:property name="dampingHinge" value="5e-1"/>
-	<xacro:property name="stiffnessSpar" value="1e-6"/>
-	<xacro:property name="dampingSpar" value="0"/>
+	<xacro:property name="stiffnessSpar" value="4e-5"/>
+	<xacro:property name="dampingSpar" value="7e-8"/>
 	
 	<!-- Define materials -->
 	<material name="Black1">

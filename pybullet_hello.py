@@ -9,7 +9,7 @@ import sys
 FAERO_DRAW_SCALE = 20
 SIM_SLOWDOWN_SLOW = 200
 SIM_SLOWDOWN_FAST = 5
-SIM_SLOWDOWN = SIM_SLOWDOWN_FAST
+SIM_SLOWDOWN = SIM_SLOWDOWN_SLOW
 SIM_TIMESTEP = 0.0001
 
 # Init sim
@@ -68,6 +68,9 @@ for j in range(-1, Nj):
 	if j == jointId[b'lwing_hinge']:
 		urdfParams['stiffnessHinge'] = stiffness
 		urdfParams['dampingHinge'] = damping
+	elif j == jointId[b'lwing_stroke']:
+		urdfParams['stiffnessStroke'] = stiffness
+		urdfParams['dampingStroke'] = damping
 
 print(jointId)
 print(urdfParams)
@@ -131,7 +134,10 @@ for i in range(10000):
 	dth0 = omega * np.cos(ph)
 
 	# POSITION_CONTROL uses Kp, Kd in [0,1]
-	p.setJointMotorControlArray(bid, [0,2], p.POSITION_CONTROL, targetPositions=[th0,th0], positionGains=[1,1], velocityGains=[0.1,0.1], forces=[1000000,1000000])
+	tau = np.full(2, 4e-5 * np.sin(ph))
+	tau[0] += -urdfParams['stiffnessStroke'] * q[0] - urdfParams['dampingStroke'] * dq[0]
+	tau[1] += -urdfParams['stiffnessStroke'] * q[2] - urdfParams['dampingStroke'] * dq[2]
+	p.setJointMotorControlArray(bid, [0,2], p.TORQUE_CONTROL, forces=tau)
 
 	# actual sim
 	sampleStates()
