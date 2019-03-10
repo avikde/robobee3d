@@ -9,8 +9,11 @@ import sys
 FAERO_DRAW_SCALE = 20
 SIM_SLOWDOWN_SLOW = 200
 SIM_SLOWDOWN_FAST = 5
-SIM_SLOWDOWN = SIM_SLOWDOWN_SLOW
+SIM_SLOWDOWN = SIM_SLOWDOWN_FAST
 SIM_TIMESTEP = 0.0001
+
+# Usage params
+STROKE_FORCE_CONTROL = False # if false, use position control on the stroke
 
 # Init sim
 physicsClient = p.connect(p.GUI)#or p.DIRECT for non-graphical version
@@ -134,10 +137,13 @@ for i in range(10000):
 	dth0 = omega * np.cos(ph)
 
 	# POSITION_CONTROL uses Kp, Kd in [0,1]
-	tau = np.full(2, 4e-5 * np.sin(ph))
-	tau[0] += -urdfParams['stiffnessStroke'] * q[0] - urdfParams['dampingStroke'] * dq[0]
-	tau[1] += -urdfParams['stiffnessStroke'] * q[2] - urdfParams['dampingStroke'] * dq[2]
-	p.setJointMotorControlArray(bid, [0,2], p.TORQUE_CONTROL, forces=tau)
+	if STROKE_FORCE_CONTROL:
+		tau = np.full(2, 4e-5 * np.sin(ph))
+		tau[0] += -urdfParams['stiffnessStroke'] * q[0] - urdfParams['dampingStroke'] * dq[0]
+		tau[1] += -urdfParams['stiffnessStroke'] * q[2] - urdfParams['dampingStroke'] * dq[2]
+		p.setJointMotorControlArray(bid, [0,2], p.TORQUE_CONTROL, forces=tau)
+	else:
+	  p.setJointMotorControlArray(bid, [0,2], p.POSITION_CONTROL, targetPositions=[th0,th0], positionGains=[1,1], velocityGains=[0.1,0.1], forces=np.full(2, 1000000))
 
 	# actual sim
 	sampleStates()
