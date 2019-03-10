@@ -28,6 +28,9 @@ planeId = p.loadURDF("plane.urdf")
 startPos = [0,0,1]
 startOrientation = p.getQuaternionFromEuler([0,0,0])
 bid = p.loadURDF("urdf/sdab.xacro.urdf", startPos, startOrientation, useFixedBase=True, flags=p.URDF_USE_INERTIA_FROM_FILE)
+# See https://github.com/bulletphysics/bullet3/issues/2152
+p.changeDynamics(bid,	-1,	maxJointVelocity=10000)
+p.changeDynamics(bid,-1, linearDamping=0,	angularDamping=0)
 
 # Get info from the URDF
 urdfParams = {}
@@ -118,12 +121,13 @@ p.setJointMotorControlArray(bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0
 
 for i in range(10000):
 	# No dynamics: reset positions
-	omega = 2 * np.pi * 50.0
+	omega = 2 * np.pi * 170.0
 	ph = omega * simt
 	th0 = 0.5 * np.sin(ph)
 	dth0 = omega * np.cos(ph)
 
-	p.setJointMotorControlArray(bid, [0,2], p.POSITION_CONTROL, targetPositions=[th0,th0], positionGains=[1,1], velocityGains=[1,1], forces=[1000000,1000000])
+	# POSITION_CONTROL uses Kp, Kd in [0,1]
+	p.setJointMotorControlArray(bid, [0,2], p.POSITION_CONTROL, targetPositions=[th0,th0], positionGains=[1,1], velocityGains=[0.1,0.1], forces=[1000000,1000000])
 
 	# actual sim
 	sampleStates()
