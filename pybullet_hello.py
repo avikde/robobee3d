@@ -9,7 +9,7 @@ import FlappingModels3D
 STROKE_FORCE_CONTROL = False # if false, use position control on the stroke
 T_END = 1
 
-sim = SimInterface.PyBullet()
+sim = SimInterface.PyBullet(slowDown=True, camLock=False)
 # load robot
 startPos = [0,0,1]
 startOrientation = Rotation.from_euler('x', 0)
@@ -36,7 +36,7 @@ sim.resetJoints(bid, range(4), np.zeros(4), np.zeros(4))
 sim.setJointArray(bid, [1,3], sim.POSITION_CONTROL, targetPositions=[0,0], positionGains=urdfParams['stiffnessHinge']*np.ones(2), velocityGains=urdfParams['dampingHinge']*np.ones(2))
 
 # conventional controller params
-ctrl = {'thrust': 4e-5, 'strokedev': -0.3, 'ampl': 1.0, 'freq': 170}
+ctrl = {'thrust': 4e-5, 'strokedev': 0, 'ampl': 1.0, 'freq': 170}
 
 while sim.simt < T_END:
 	# No dynamics: reset positions
@@ -57,9 +57,9 @@ while sim.simt < T_END:
 	# actual sim
 	sim.sampleStates(bid)
 
-	pcop1, Faero1 = bee.aerodynamics(sim.q, sim.dq, -1)
-	pcop2, Faero2 = bee.aerodynamics(sim.q, sim.dq, 1)
-	sim.update(bid, [jointId[b'lwing_hinge'], jointId[b'rwing_hinge']], [pcop1, pcop2], [Faero1, Faero2])
-	time.sleep(sim.SLOWDOWN * sim.TIMESTEP)
+	pcop1, Faero1, Taero1 = bee.aerodynamics(sim.q, sim.dq, -1)
+	pcop2, Faero2, Taero2 = bee.aerodynamics(sim.q, sim.dq, 1)
+	sim.update(bid, [jointId[b'lwing_hinge'], jointId[b'rwing_hinge']], [pcop1, pcop2], [Faero1, Faero2], [Taero1, Taero2])
+	time.sleep(sim._slowDown * sim.TIMESTEP)
 	
 sim.disconnect()

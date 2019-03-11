@@ -12,10 +12,8 @@ import pybullet_data
 
 class PyBullet():
 	# Parameters
-	bCamLock = True
 	SLOWDOWN_SLOW = 200
 	SLOWDOWN_FAST = 5
-	SLOWDOWN = SLOWDOWN_FAST
 	TIMESTEP = 0.0001
 	FAERO_DRAW_SCALE = 20
 	simt = 0
@@ -30,7 +28,11 @@ class PyBullet():
 	POSITION_CONTROL = p.POSITION_CONTROL
 	TORQUE_CONTROL = p.TORQUE_CONTROL
 
-	def __init__(self):
+	def __init__(self, camLock=True, slowDown=True):
+		self._camLock = camLock
+		self._slowDown = self.SLOWDOWN_FAST
+		if slowDown:
+			self._slowDown = self.SLOWDOWN_SLOW
 		# Init sim
 		physicsClient = p.connect(p.GUI)#or p.DIRECT for non-graphical version
 		# Set up the visualizer
@@ -129,39 +131,42 @@ class PyBullet():
 	def addUserDebugLine(self, *args, **kwargs):
 		p.addUserDebugLine(*args, **kwargs)
 
-	def update(self, bid, jointIndices, pcops, Faeros):
+	def update(self, bid, jointIndices, pcops, Faeros, Taeros):
 		for i in range(2):
-		# FIXME: 0 and not pcop?
-			self.applyExternalForce(bid, jointIndices[i], Faeros[i], [0,0,0])
+			# FIXME: 0 and not pcop?
+			p.applyExternalForce(bid, jointIndices[i], Faeros[i], [0,0,0], p.WORLD_FRAME)
+			# torque = r X F, where here r is the wing chord vector
+			# p.applyExternalTorque(bid, jointIndices[i], 1e2 * Taeros[i], p.WORLD_FRAME)
 
 		# Bullet update
 		p.stepSimulation()
-		self.simt += self.TIMESTEP
-		if self.simt < 1e-10 or self.bCamLock:
+		if self.simt < 1e-10 or self._camLock:
 			# Reset camera to be at the correct distance (only first time)
 			p.resetDebugVisualizerCamera(0.12, 45, -30, self.q[4:7])
+
+		self.simt += self.TIMESTEP
 
 		# Drawing stuff
 		if self.simt - self.tLastDraw > 2 * self.TIMESTEP:
 			# draw debug
 			cols = [[1,1,0], [1,0,1]]
 			for i in range(2):
-				p.addUserDebugLine(pcops[i], pcops[i] + self.FAERO_DRAW_SCALE * Faeros[i], lineColorRGB=cols[i], lifeTime=3 * self.SLOWDOWN * self.TIMESTEP)
+				p.addUserDebugLine(pcops[i], pcops[i] + self.FAERO_DRAW_SCALE * Faeros[i], lineColorRGB=cols[i], lifeTime=3 * self._slowDown * self.TIMESTEP)
 			self.tLastDraw = self.simt
 		
 		if self.simt - self.tLastPrint > 0.01:
 			# draw trail
 			p.addUserDebugLine(self.pcomLastDraw, self.q[4:7], lineColorRGB=[0,0,1], lifeTime=0)
 			self.pcomLastDraw = self.q[4:7].copy()
-			print(self.simt, (Faeros[0][2] + Faeros[1][2]) * 1e6)
+			print(self.simt, (Faeros[0][2] + Faeros[1][2]) * 1e6, Taeros[0])
 			self.tLastPrint = self.simt
 		
 		# Keyboard control options
 		keys = p.getKeyboardEvents()
 		if ord('z') in keys and keys[ord('z')] & p.KEY_WAS_TRIGGERED:
-			if self.SLOWDOWN == self.SLOWDOWN_FAST:
-				self.SLOWDOWN = self.SLOWDOWN_SLOW
+			if self._slowDown == self.SLOWDOWN_FAST:
+				self._slowDown = self.SLOWDOWN_SLOW
 			else:
-				self.SLOWDOWN = self.SLOWDOWN_FAST
+				self._slowDown = self.SLOWDOWN_FAST
 		if ord('c') in keys and keys[ord('c')] & p.KEY_WAS_TRIGGERED:
-			self.bCamLock = not self.bCamLock
+			self._camLock = not self._camLock
