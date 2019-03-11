@@ -26,7 +26,7 @@ def traj(t):
 # draw traj
 tdraw = np.linspace(0, T_END, 20)
 for ti in range(1, len(tdraw)):
-	sim.addUserDebugLine(traj(tdraw[ti-1]), traj(tdraw[ti]), lineColorRGB=[0,0,1], lifeTime=0)
+	sim.addUserDebugLine(traj(tdraw[ti-1]), traj(tdraw[ti]), lineColorRGB=[0,0,0], lifeTime=0)
 	
 # ---
 
@@ -56,8 +56,7 @@ while sim.simt < T_END:
 
 	pcop1, Faero1 = bee.aerodynamics(sim.q, sim.dq, -1)
 	pcop2, Faero2 = bee.aerodynamics(sim.q, sim.dq, 1)
-	# FIXME: 0 and not pcop?
-	sim.update(bid, [jointId[b'lwing_hinge'], jointId[b'rwing_hinge']], [np.zeros(3), np.zeros(3)], [Faero1, Faero2])
+	sim.update(bid, [jointId[b'lwing_hinge'], jointId[b'rwing_hinge']], [pcop1, pcop2], [Faero1, Faero2])
 	time.sleep(sim.SLOWDOWN * sim.TIMESTEP)
 	
 sim.disconnect()

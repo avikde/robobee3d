@@ -20,6 +20,8 @@ class PyBullet():
 	FAERO_DRAW_SCALE = 20
 	simt = 0
 	tLastDraw = 0
+	tLastDraw2 = 0
+	pcomLastDraw = np.zeros(3)
 	tLastPrint = 0
 	# vectors for storing states
 	q = np.zeros(11)
@@ -54,6 +56,7 @@ class PyBullet():
 		p.changeDynamics(bid, -1, linearDamping=0,	angularDamping=0)
 		
 		self.Nj = p.getNumJoints(bid)
+		self.pcomLastDraw = startPos
 
 		return bid
 
@@ -128,7 +131,8 @@ class PyBullet():
 
 	def update(self, bid, jointIndices, pcops, Faeros):
 		for i in range(2):
-			self.applyExternalForce(bid, jointIndices[i], Faeros[i], pcops[i])
+		# FIXME: 0 and not pcop?
+			self.applyExternalForce(bid, jointIndices[i], Faeros[i], [0,0,0])
 		# applyAero(simt, 1)
 
 		# Bullet update
@@ -147,9 +151,11 @@ class PyBullet():
 			self.tLastDraw = self.simt
 		
 		if self.simt - self.tLastPrint > 0.01:
+			# draw trail
+			p.addUserDebugLine(self.pcomLastDraw, self.q[4:7], lineColorRGB=[0,1,1], lifeTime=0)
+			self.pcomLastDraw = self.q[4:7].copy()
+			print(self.simt, (Faeros[0][2] + Faeros[1][2]) * 1e6)
 			self.tLastPrint = self.simt
-			# print(simt, (Faero1[2] + Faero2[2]) * 1e6, q[0:2], dth0)
-			print(self.simt, (Faeros[0][2] + Faeros[1][2]) * 1e6, self.dq[6])
 		
 		# Keyboard control options
 		keys = p.getKeyboardEvents()
