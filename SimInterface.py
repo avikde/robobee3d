@@ -123,6 +123,9 @@ class PyBullet():
 	def setJointArray(self, *args, **kwargs):
 		p.setJointMotorControlArray(*args, **kwargs)
 
+	def addUserDebugLine(self, *args, **kwargs):
+		p.addUserDebugLine(*args, **kwargs)
+
 	def update(self, bid, jointIndices, pcops, Faeros):
 		for i in range(2):
 			self.applyExternalForce(bid, jointIndices[i], Faeros[i], pcops[i])

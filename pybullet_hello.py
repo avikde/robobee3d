@@ -1,12 +1,13 @@
 import time
 import numpy as np
 import sys
+from scipy.spatial.transform import Rotation
 import SimInterface
 import FlappingModels3D
-from scipy.spatial.transform import Rotation
 
 # Usage params
 STROKE_FORCE_CONTROL = False # if false, use position control on the stroke
+T_END = 1
 
 sim = SimInterface.PyBullet()
 # load robot
@@ -20,9 +21,12 @@ bee = FlappingModels3D.QuasiSteadySDAB(urdfParams)
 
 # Helper function: traj to track
 def traj(t):
-	return startPos + np.array([0.1 * np.sin(1 * t), 0, 0.5 * t])
-# # draw traj
-# p.addUserDebugLine(traj(tLastDraw), traj(simt), lineColorRGB=[0,0,1], lifeTime=0)
+	return startPos + np.array([0.05 * np.sin(2*np.pi*t), 0, 0.2 * t])
+
+# draw traj
+tdraw = np.linspace(0, T_END, 20)
+for ti in range(1, len(tdraw)):
+	sim.addUserDebugLine(traj(tdraw[ti-1]), traj(tdraw[ti]), lineColorRGB=[0,0,1], lifeTime=0)
 	
 # ---
 
@@ -31,7 +35,7 @@ sim.resetJoints(bid, range(4), np.zeros(4), np.zeros(4))
 # Passive hinge dynamics implemented as position control rather than joint dynamics
 sim.setJointArray(bid, [1,3], sim.POSITION_CONTROL, targetPositions=[0,0], positionGains=urdfParams['stiffnessHinge']*np.ones(2), velocityGains=urdfParams['dampingHinge']*np.ones(2))
 
-while sim.simt < 1:
+while sim.simt < T_END:
 	# No dynamics: reset positions
 	omega = 2 * np.pi * 170.0
 	ph = omega * sim.simt
@@ -52,6 +56,7 @@ while sim.simt < 1:
 
 	pcop1, Faero1 = bee.aerodynamics(sim.q, sim.dq, -1)
 	pcop2, Faero2 = bee.aerodynamics(sim.q, sim.dq, 1)
+	# FIXME: 0 and not pcop?
 	sim.update(bid, [jointId[b'lwing_hinge'], jointId[b'rwing_hinge']], [np.zeros(3), np.zeros(3)], [Faero1, Faero2])
 	time.sleep(sim.SLOWDOWN * sim.TIMESTEP)
 	
