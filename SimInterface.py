@@ -133,7 +133,6 @@ class PyBullet():
 		for i in range(2):
 		# FIXME: 0 and not pcop?
 			self.applyExternalForce(bid, jointIndices[i], Faeros[i], [0,0,0])
-		# applyAero(simt, 1)
 
 		# Bullet update
 		p.stepSimulation()

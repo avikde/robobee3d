@@ -52,7 +52,7 @@ while sim.simt < T_END:
 		tau[1] += -urdfParams['stiffnessStroke'] * q[2] - urdfParams['dampingStroke'] * dq[2]
 		sim.setJointArray(bid, [0,2], sim.TORQUE_CONTROL, forces=tau)
 	else:
-	  sim.setJointArray(bid, [0,2], sim.POSITION_CONTROL, targetPositions=[th0,th0], positionGains=[1,1], velocityGains=[0.1,0.1], forces=np.full(2, 1000000))
+		sim.setJointArray(bid, [0,2], sim.POSITION_CONTROL, targetPositions=[th0,th0], positionGains=[1,1], velocityGains=[0.1,0.1], forces=np.full(2, 1000000))
 
 	# actual sim
 	sim.sampleStates(bid)
