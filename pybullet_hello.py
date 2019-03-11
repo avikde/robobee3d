@@ -35,16 +35,19 @@ sim.resetJoints(bid, range(4), np.zeros(4), np.zeros(4))
 # Passive hinge dynamics implemented as position control rather than joint dynamics
 sim.setJointArray(bid, [1,3], sim.POSITION_CONTROL, targetPositions=[0,0], positionGains=urdfParams['stiffnessHinge']*np.ones(2), velocityGains=urdfParams['dampingHinge']*np.ones(2))
 
+# conventional controller params
+ctrl = {'thrust': 4e-5, 'strokedev': -0.3, 'ampl': 1.0, 'freq': 170}
+
 while sim.simt < T_END:
 	# No dynamics: reset positions
-	omega = 2 * np.pi * 170.0
+	omega = 2 * np.pi * ctrl['freq']
 	ph = omega * sim.simt
-	th0 = 1.0 * np.sin(ph)
-	dth0 = omega * np.cos(ph)
+	th0 = ctrl['ampl'] * (np.sin(ph) + ctrl['strokedev'])
+	dth0 = omega * ctrl['ampl'] * np.cos(ph)
 
 	# POSITION_CONTROL uses Kp, Kd in [0,1]
 	if STROKE_FORCE_CONTROL:
-		tau = np.full(2, 4e-5 * np.sin(ph))
+		tau = np.full(2, ctrl['thrust'] * (np.sin(ph) + ctrl['strokedev']))
 		tau[0] += -urdfParams['stiffnessStroke'] * q[0] - urdfParams['dampingStroke'] * dq[0]
 		tau[1] += -urdfParams['stiffnessStroke'] * q[2] - urdfParams['dampingStroke'] * dq[2]
 		sim.setJointArray(bid, [0,2], sim.TORQUE_CONTROL, forces=tau)

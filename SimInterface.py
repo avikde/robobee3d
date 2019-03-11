@@ -152,7 +152,7 @@ class PyBullet():
 		
 		if self.simt - self.tLastPrint > 0.01:
 			# draw trail
-			p.addUserDebugLine(self.pcomLastDraw, self.q[4:7], lineColorRGB=[0,1,1], lifeTime=0)
+			p.addUserDebugLine(self.pcomLastDraw, self.q[4:7], lineColorRGB=[0,0,1], lifeTime=0)
 			self.pcomLastDraw = self.q[4:7].copy()
 			print(self.simt, (Faeros[0][2] + Faeros[1][2]) * 1e6)
 			self.tLastPrint = self.simt
