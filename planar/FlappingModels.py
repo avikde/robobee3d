@@ -35,10 +35,10 @@ class PlanarThrustStrokeDev:
 		return Ad, Bd
 	
 	def getLimits(self):
-		# umin = np.array([-self.mb*self.g, -50e-3])
-		# umax = np.array([3*self.mb*self.g, 50e-3])
-		umin = np.array([-np.inf, -50e-3])
-		umax = np.array([np.inf, 50e-3])
+		umin = np.array([0, -5e-3])
+		umax = np.array([3*self.mb*self.g, 5e-3])
+		# umin = np.array([-np.inf, -50e-3])
+		# umax = np.array([np.inf, 50e-3])
 		xmin = np.array([-np.inf,-np.inf,-10*np.pi,-np.inf,-np.inf,-np.inf,-np.inf])
 		xmax = -xmin
 		return umin, umax, xmin, xmax
