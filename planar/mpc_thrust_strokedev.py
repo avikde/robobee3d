@@ -12,7 +12,7 @@ nsim = 100
 N = 15 #horizon
 
 model = FlappingModels.PlanarThrustStrokeDev()
-mpc = MPCUtils.MPCHelper(model, N, [10., 10., 10., 5., 5., 5., 0], [1.0, 1.0], verbose=False)
+mpc = MPCUtils.MPCHelper(model, N, [100, 100, 100, 0, 0, 0, 0], [1.0, 1.0], verbose=False)
 
 # Initial and reference states
 # x0 = 0.01 * np.random.rand(model.nx)
@@ -26,8 +26,8 @@ firstA = 0
 
 # Trajectory following?
 def getXr(t):
-	# xr = np.array([1.,1., 0.,0.,0.,0.])
-	xr = np.array([0.5 * np.sin(1 * t), 0.05 * t, 0.,0.,0.,0., model.g])
+	xr = np.array([0.,t, 0,0.,0.,0.,model.g])
+	# xr = np.array([0.5 * np.sin(1 * t), 0.05 * t, 0.,0.,0.,0., model.g])
 	
 	# xr = np.array([0.5 * t,0.0, 0,0.,0.,0.])
 	# if t < 0.1:
@@ -46,17 +46,19 @@ for i in range(nsim):
 	# for logging
 	desTraj[i,:] = xr[0:3]
 
-	# # traj to linearize around
-	# x0horizon = np.zeros((N,model.nx))
-	# for xi in range(model.nx):
-	# 	x0horizon[:,xi] = np.linspace(x0[xi], xr[xi], N, endpoint=False)
-	# ctrl = mpc.update(x0horizon, xr, dt)
-	# ctrl = np.array([1e-6,1e-4])
+	# traj to linearize around
+	x0horizon = np.zeros((N,model.nx))
+	for xi in range(model.nx):
+		x0horizon[:,xi] = np.linspace(x0[xi], xr[xi], N, endpoint=False)
+	ctrl = mpc.update(x0horizon, xr, dt)
+	# ctrl = mpc.update(x0, xr, dt)
+	# ctrl = np.array([1e-6,0])
 
 	# simulate forward
 	Ad, Bd = model.getLin(x0, ctrl, dt)
 	x0 = Ad.dot(x0) + Bd.dot(ctrl)
-	print(i, x0)
+	print(i, x0, ctrl)
+	# print(x0horizon)
 	X[i, :] = x0
 	U[i, :] = ctrl
 

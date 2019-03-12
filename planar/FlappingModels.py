@@ -4,7 +4,7 @@ class PlanarThrustStrokeDev:
 	mb = 100e-6
 	l = 12e-3
 	g = 9.81
-	ib = 1/12. * mb * l**2
+	ib = 1/12. * mb * l**2 * 1000
 	d = 2e-3
 
 	def getLin(self, y, u, dt):

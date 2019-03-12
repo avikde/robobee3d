@@ -78,6 +78,7 @@ class MPCHelper:
 		for ti in range(self.N):
 			if len(x0.shape) > 1:
 				# a whole trajectory has been provided
+				# FIXME: what ctrl to use when a trajectory is provided?
 				Ad, Bd = self.m.getLin(x0[ti,:], self.ctrl, dt)
 			elif ti == 0:
 				# only the current state provided; only need to call once
