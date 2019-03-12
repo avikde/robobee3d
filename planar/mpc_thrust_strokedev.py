@@ -8,11 +8,12 @@ import FlappingModels
 np.set_printoptions(precision=2, suppress=True, linewidth=100)
 
 # Sim parameters
-nsim = 200
-N = 15 #horizon
+nsim = 100
+N = 10 #horizon
+dt = 0.01
 
 model = FlappingModels.PlanarThrustStrokeDev()
-mpc = MPCUtils.MPCHelper(model, N, [100, 100, 100, 0, 0, 0, 0], [100, 10000], verbose=False)
+mpc = MPCUtils.MPCHelper(model, N, [0.01, 0.01, 0.001, 0, 0, 0, 0], [1, 1000], verbose=False)
 
 # Initial and reference states
 # x0 = 0.01 * np.random.rand(model.nx)
@@ -21,7 +22,6 @@ x0, ctrl = model.getInit()
 # Simulate in closed loop
 X = np.zeros((nsim, model.nx))
 U = np.zeros((nsim, model.nu))
-dt = 0.005
 firstA = 0
 
 # Trajectory following?
