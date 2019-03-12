@@ -136,7 +136,9 @@ class PyBullet():
 			# FIXME: 0 and not pcop?
 			p.applyExternalForce(bid, jointIndices[i], Faeros[i], [0,0,0], p.WORLD_FRAME)
 			# torque = r X F, where here r is the wing chord vector
-			# p.applyExternalTorque(bid, jointIndices[i], 1e2 * Taeros[i], p.WORLD_FRAME)
+			# FIXME: must be misunderstanding this
+			# p.applyExternalTorque(bid, jointIndices[i], np.linalg.norm(Taeros[i]) * np.array([0,1,0]), p.LINK_FRAME)
+			# p.applyExternalForce(bid, jointIndices[i], np.linalg.norm(Faeros[i]) * np.array([0,0,1]), [0,0,0], p.LINK_FRAME)
 
 		# Bullet update
 		p.stepSimulation()
