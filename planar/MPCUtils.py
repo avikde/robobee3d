@@ -67,7 +67,7 @@ class MPCHelper:
 		self.prob.setup(P, q, self.A, self.l, self.u, warm_start=True, **settings)#, eps_abs=1e-05, eps_rel=1e-05
 		self.ctrl = np.zeros(self.m.nu)
 
-	def update(self, x0, xr, dt):
+	def update(self, x0, u0, xr, dt):
 		# Pass xr = goal
 
 		# - linear objective
@@ -78,11 +78,10 @@ class MPCHelper:
 		for ti in range(self.N):
 			if len(x0.shape) > 1:
 				# a whole trajectory has been provided
-				# FIXME: what ctrl to use when a trajectory is provided?
-				Ad, Bd = self.m.getLin(x0[ti,:], self.ctrl, dt)
+				Ad, Bd = self.m.getLin(x0[ti,:], u0[ti,:], dt)
 			elif ti == 0:
 				# only the current state provided; only need to call once
-				Ad, Bd = self.m.getLin(x0, self.ctrl, dt)
+				Ad, Bd = self.m.getLin(x0, u0, dt)
 			# Update the LTV dynamics
 			cscUpdateDynamics(self.A, self.N, ti, Ad=Ad, Bd=Bd)
 		# Update initial state

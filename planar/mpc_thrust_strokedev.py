@@ -12,7 +12,7 @@ nsim = 100
 N = 15 #horizon
 
 model = FlappingModels.PlanarThrustStrokeDev()
-mpc = MPCUtils.MPCHelper(model, N, [100, 100, 100, 0, 0, 0, 0], [1.0, 1.0], verbose=False)
+mpc = MPCUtils.MPCHelper(model, N, [100, 100, 100, 0, 0, 0, 0], [1000, 1000], verbose=False)
 
 # Initial and reference states
 # x0 = 0.01 * np.random.rand(model.nx)
@@ -26,7 +26,7 @@ firstA = 0
 
 # Trajectory following?
 def getXr(t):
-	xr = np.array([0.,t, 0,0.,0.,0.,model.g])
+	xr = np.array([t, 0, 0,0.,0.,0.,model.g])
 	# xr = np.array([0.5 * np.sin(1 * t), 0.05 * t, 0.,0.,0.,0., model.g])
 	
 	# xr = np.array([0.5 * t,0.0, 0,0.,0.,0.])
@@ -50,7 +50,7 @@ for i in range(nsim):
 	x0horizon = np.zeros((N,model.nx))
 	for xi in range(model.nx):
 		x0horizon[:,xi] = np.linspace(x0[xi], xr[xi], N, endpoint=False)
-	ctrl = mpc.update(x0horizon, xr, dt)
+	ctrl = mpc.update(x0horizon, np.zeros((N,2)), xr, dt)
 	# ctrl = mpc.update(x0, xr, dt)
 	# ctrl = np.array([1e-6,0])
 
