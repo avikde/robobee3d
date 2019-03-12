@@ -11,6 +11,11 @@ np.set_printoptions(precision=2, suppress=True, linewidth=100)
 nsim = 100
 N = 10 #horizon
 dt = 0.01
+# control types
+CTRL_LIN_CUR = 0
+CTRL_LIN_HORIZON = 1
+CTRL_OPEN_LOOP = 2
+ctrlType = CTRL_LIN_CUR
 
 model = FlappingModels.PlanarThrustStrokeDev()
 mpc = MPCUtils.MPCHelper(model, N, [0.01, 0.01, 0.001, 0, 0, 0, 0], [1, 1000], verbose=False)
@@ -27,7 +32,11 @@ firstA = 0
 # Trajectory following?
 def getXr(t):
 	# xr = np.array([t, t, 0,0.,0.,0.,model.g])
+
+	# Sinusoidal
 	xr = np.array([0.5 * np.sin(10 * t), 0.1 * t, 0.,0.,0.,0., model.g])
+	
+	# xr = np.array([0, 0, 3 * np.pi *t,0.,0.,0., model.g])
 	
 	# xr = np.array([0.5 * t,0.0, 0,0.,0.,0.])
 	# if t < 0.1:
@@ -46,13 +55,16 @@ for i in range(nsim):
 	# for logging
 	desTraj[i,:] = xr[0:3]
 
-	# traj to linearize around
-	x0horizon = np.zeros((N,model.nx))
-	for xi in range(model.nx):
-		x0horizon[:,xi] = np.linspace(x0[xi], xr[xi], N, endpoint=False)
-	ctrl = mpc.update(x0horizon, np.zeros((N,2)), xr, dt)
-	# ctrl = mpc.update(x0, xr, dt)
-	# ctrl = np.array([1e-6,0])
+	if ctrlType == CTRL_LIN_CUR:
+		ctrl = mpc.update(x0, np.zeros(2), xr, dt)
+	elif ctrlType == CTRL_LIN_HORIZON:
+		# traj to linearize around
+		x0horizon = np.zeros((N,model.nx))
+		for xi in range(model.nx):
+			x0horizon[:,xi] = np.linspace(x0[xi], xr[xi], N, endpoint=False)
+		ctrl = mpc.update(x0horizon, np.tile(np.zeros(2),(N,1)), xr, dt)
+	else: # openloop
+		ctrl = np.array([1e-6,0])
 
 	# simulate forward
 	Ad, Bd = model.getLin(x0, ctrl, dt)
