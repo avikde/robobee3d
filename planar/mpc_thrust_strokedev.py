@@ -5,12 +5,14 @@ import sys
 import MPCUtils
 import FlappingModels
 
+np.set_printoptions(precision=2, suppress=True, linewidth=100)
+
 # Sim parameters
 nsim = 100
 N = 15 #horizon
 
 model = FlappingModels.PlanarThrustStrokeDev()
-mpc = MPCUtils.MPCHelper(model, N, [10., 10., 10., 5., 5., 5., 0], [1.0, 1.0])
+mpc = MPCUtils.MPCHelper(model, N, [10., 10., 10., 5., 5., 5., 0], [1.0, 1.0], verbose=False)
 
 # Initial and reference states
 # x0 = 0.01 * np.random.rand(model.nx)

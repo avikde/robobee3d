@@ -20,7 +20,7 @@ After solving, apply u1 (MPC)
 '''
 
 class MPCHelper:
-	def __init__(self, model, N, wx, wu):
+	def __init__(self, model, N, wx, wu, **settings):
 		# Pass in nx=#states, nu=#inputs, and N=prediction horizon
 		# model must have:
 		# nx, nu, N
@@ -64,7 +64,7 @@ class MPCHelper:
 		
 		# Full so that it is not made sparse. prob.update() cannot change the sparsity structure
 		# Setup workspace
-		self.prob.setup(P, q, self.A, self.l, self.u, warm_start=True)#, eps_abs=1e-05, eps_rel=1e-05
+		self.prob.setup(P, q, self.A, self.l, self.u, warm_start=True, **settings)#, eps_abs=1e-05, eps_rel=1e-05
 		self.ctrl = np.zeros(self.m.nu)
 
 	def update(self, x0, xr, dt):
