@@ -8,11 +8,11 @@ import FlappingModels
 np.set_printoptions(precision=2, suppress=True, linewidth=100)
 
 # Sim parameters
-nsim = 100
+nsim = 200
 N = 15 #horizon
 
 model = FlappingModels.PlanarThrustStrokeDev()
-mpc = MPCUtils.MPCHelper(model, N, [100, 100, 100, 0, 0, 0, 0], [1000, 1000], verbose=False)
+mpc = MPCUtils.MPCHelper(model, N, [100, 100, 100, 0, 0, 0, 0], [100, 10000], verbose=False)
 
 # Initial and reference states
 # x0 = 0.01 * np.random.rand(model.nx)
@@ -21,13 +21,13 @@ x0, ctrl = model.getInit()
 # Simulate in closed loop
 X = np.zeros((nsim, model.nx))
 U = np.zeros((nsim, model.nu))
-dt = 0.1
+dt = 0.005
 firstA = 0
 
 # Trajectory following?
 def getXr(t):
-	xr = np.array([t, 0, 0,0.,0.,0.,model.g])
-	# xr = np.array([0.5 * np.sin(1 * t), 0.05 * t, 0.,0.,0.,0., model.g])
+	# xr = np.array([t, t, 0,0.,0.,0.,model.g])
+	xr = np.array([0.5 * np.sin(10 * t), 0.1 * t, 0.,0.,0.,0., model.g])
 	
 	# xr = np.array([0.5 * t,0.0, 0,0.,0.,0.])
 	# if t < 0.1:
