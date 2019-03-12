@@ -23,22 +23,22 @@ class PlanarThrustStrokeDev:
 		# 	[cphi0/self.mb,0],
 		# 	[-((self.d*np.sin(2*phi))/self.ib),(self.g*self.mb*np.cos(2*phi))/self.ib]
 		# ])
-		dy2dotdq = np.array([
-			[0,0,-(cphi0*self.g)],
-			[0,0,-(self.g*sphi0)],
+		All = dt * u[0] / self.mb * np.array([
+			[0,0,-cphi0],
+			[0,0,-sphi0],
 			[0,0,0]
 		])
-		dy2dotdu = np.array([
+		Bl = dt * np.array([
 			[-(sphi0/self.mb),0],
 			[cphi0/self.mb,0],
-			[0,(self.g*self.mb)/self.ib]
+			[u[1]/self.ib,u[0]/self.ib]
 		])
-		nq = dy2dotdq.shape[0]
+		nq = All.shape[0]
 
 		Aupper = np.hstack([np.eye(nq), dt * np.eye(nq)])
-		Alower = np.hstack([dt * dy2dotdq, np.eye(nq)])
+		Alower = np.hstack([All, np.eye(nq)])
 		Ad = np.vstack([Aupper, Alower])
-		Bd = np.vstack([np.zeros((3,2)), dy2dotdu])
+		Bd = np.vstack([np.zeros((3,2)), Bl])
 
 		return Ad, Bd
 	

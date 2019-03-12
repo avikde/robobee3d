@@ -50,7 +50,7 @@ for i in range(nsim):
 	# for xi in range(model.nx):
 	# 	x0horizon[:,xi] = np.linspace(x0[xi], xr[xi], N, endpoint=False)
 	# ctrl = mpc.update(x0horizon, xr, dt)
-	ctrl = np.array([0,1e-7])
+	ctrl = np.array([1e-6,1e-4])
 
 	# simulate forward
 	Ad, Bd = model.getLin(x0, ctrl, dt)
