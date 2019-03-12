@@ -14,20 +14,20 @@ class PlanarThrustStrokeDev:
 
 		# derivatives of the continuous dynamics
 		# New: adding g as a state
-		All = dt * u[0] / self.mb * np.array([
-			[0,0,-cphi0],
-			[0,0,-sphi0],
+		All = dt / self.mb * np.array([
+			[0,0,-(self.g * self.mb + u[0]) * cphi0/self.mb],
+			[0,0,-(self.g + u[0] / self.mb) * sphi0],
 			[0,0,0]
 		])
 		Bl = dt * np.array([
 			[-(sphi0/self.mb),0],
 			[cphi0/self.mb,0],
-			[u[1]/self.ib,u[0]/self.ib]
+			[u[1]/self.ib,(self.g * self.mb + u[0])/self.ib]
 		])
 		nq = All.shape[0]
 
 		Aupper = np.hstack([np.eye(nq), dt * np.eye(nq), np.zeros((nq,1))])
-		Alower = np.hstack([All, np.eye(nq), np.array([[0],[-dt],[0]])])
+		Alower = np.hstack([All, np.eye(nq), dt * np.array([[-sphi0],[-1 + cphi0],[self.mb * u[1]/self.ib]])])
 		Ag = np.array([0,0,0,0,0,0,1])
 		Ad = np.vstack([Aupper, Alower, Ag])
 		Bd = np.vstack([np.zeros((nq,2)), Bl, np.zeros((1,2))])
@@ -35,7 +35,7 @@ class PlanarThrustStrokeDev:
 		return Ad, Bd
 	
 	def getLimits(self):
-		umin = np.array([0, -5e-3])
+		umin = np.array([-self.mb*self.g, -5e-3])
 		umax = np.array([3*self.mb*self.g, 5e-3])
 		# umin = np.array([-np.inf, -50e-3])
 		# umax = np.array([np.inf, 50e-3])
@@ -44,7 +44,7 @@ class PlanarThrustStrokeDev:
 		return umin, umax, xmin, xmax
 	
 	def getInit(self):
-		return np.array([0,0,0,0,0,0,self.g]), np.array([self.mb * self.g, 0])
+		return np.array([0,0,0,0,0,0,self.g]), np.array([0, 0])
 
 	nx = 7
 	nu = 2
