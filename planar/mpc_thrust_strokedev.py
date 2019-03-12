@@ -26,9 +26,9 @@ firstA = 0
 # Trajectory following?
 def getXr(t):
 	# xr = np.array([1.,1., 0.,0.,0.,0.])
-	# xr = np.array([0.5 * np.sin(1 * t), 0.05 * t, 0.,0.,0.,0.])
+	xr = np.array([0.5 * np.sin(1 * t), 0.05 * t, 0.,0.,0.,0.])
 	
-	xr = np.array([0.5 * t,0.0, 0,0.,0.,0.])
+	# xr = np.array([0.5 * t,0.0, 0,0.,0.,0.])
 	# if t < 0.1:
 	# 	xr = np.array([0.0, 0.1, 0,0.,0.,0.])
 	# else:
@@ -45,16 +45,17 @@ for i in range(nsim):
 	# for logging
 	desTraj[i,:] = xr[0:3]
 
-	# traj to linearize around
+	# # traj to linearize around
 	# x0horizon = np.zeros((N,model.nx))
 	# for xi in range(model.nx):
 	# 	x0horizon[:,xi] = np.linspace(x0[xi], xr[xi], N, endpoint=False)
 	# ctrl = mpc.update(x0horizon, xr, dt)
-	ctrl = np.array([1e-8,1e-7])
+	ctrl = np.array([0,1e-7])
 
 	# simulate forward
 	Ad, Bd = model.getLin(x0, ctrl, dt)
 	x0 = Ad.dot(x0) + Bd.dot(ctrl)
+	print(i, x0)
 	X[i, :] = x0
 	U[i, :] = ctrl
 
