@@ -84,5 +84,6 @@ class QuasiSteadySDAB:
 		Rb = Rotation.from_quat(q[7:11]) # scalar-last format
 		pcopW = pcom + Rb.apply(pcopB)
 		FaeroW = Rb.apply(FaeroB)
-
-		return pcopW, FaeroW
+		# for external torque about wing hinge, use r X F
+		hingeTorque = np.cross(0.5 * self.cbar * Rb.apply(chordB), FaeroW)
+		return pcopW, FaeroW, hingeTorque
