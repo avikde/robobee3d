@@ -10,7 +10,7 @@ STROKE_FORCE_CONTROL = False # if false, use position control on the stroke
 T_END = 1
 AERO_WORLD_FRAME = True
 
-sim = SimInterface.PyBullet(slowDown=False, camLock=False)
+sim = SimInterface.PyBullet(slowDown=False, camLock=True)
 # load robot
 startPos = [0,0,1]
 startOrientation = Rotation.from_euler('x', 0)
@@ -22,7 +22,7 @@ bee = FlappingModels3D.QuasiSteadySDAB(urdfParams)
 
 # Helper function: traj to track
 def traj(t):
-	return startPos + np.array([0.05 * np.sin(2*np.pi*t), 0, 0.2 * t])
+	return startPos + np.array([0.03 * np.sin(2*np.pi*t), 0, 0.2 * t])
 
 # draw traj
 tdraw = np.linspace(0, T_END, 20)
@@ -38,8 +38,15 @@ sim.setJointArray(bid, [1,3], sim.POSITION_CONTROL, targetPositions=[0,0], posit
 
 # conventional controller params
 ctrl = {'thrust': 4e-5, 'strokedev': 0, 'ampl': 1.0, 'freq': 170}
+tLastPrint = 0
 
 while sim.simt < T_END:
+	# Conventional controller
+	posErr = sim.q[4:7] - traj(sim.simt)
+	ctrl['ampl'] = 1.0 - 10 * posErr[2]
+	pitchDes = 2 * posErr[0]
+	# ctrl['strokedev'] = np.clip(1 * pitchDes, -0.4, 0.4)
+
 	# No dynamics: reset positions
 	omega = 2 * np.pi * ctrl['freq']
 	ph = omega * sim.simt
@@ -62,5 +69,9 @@ while sim.simt < T_END:
 	pcop2, Faero2, Taero2 = bee.aerodynamics(sim.q, sim.dq, 1, worldFrame=AERO_WORLD_FRAME)
 	sim.update(bid, [jointId[b'lwing_hinge'], jointId[b'rwing_hinge']], [pcop1, pcop2], [Faero1, Faero2], [Taero1, Taero2], worldFrame=AERO_WORLD_FRAME)
 	time.sleep(sim._slowDown * sim.TIMESTEP)
+	
+	if sim.simt - tLastPrint > 0.01:
+		print(sim.simt, posErr)
+		tLastPrint = sim.simt
 	
 sim.disconnect()

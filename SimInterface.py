@@ -163,7 +163,6 @@ class PyBullet():
 			# draw trail
 			p.addUserDebugLine(self.pcomLastDraw, self.q[4:7], lineColorRGB=[0,0,1], lifeTime=0)
 			self.pcomLastDraw = self.q[4:7].copy()
-			print(self.simt, (Faeros[0][2] + Faeros[1][2]) * 1e6, Taeros[0])
 			self.tLastPrint = self.simt
 		
 		# Keyboard control options
