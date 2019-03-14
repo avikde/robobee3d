@@ -9,8 +9,8 @@ np.set_printoptions(precision=2, suppress=True, linewidth=100)
 
 # Sim parameters
 nsim = 100
-N = 10 #horizon
-dt = 0.01
+N = 20 #horizon
+dt = 0.005
 # control types
 CTRL_LIN_CUR = 0
 CTRL_LIN_HORIZON = 1
@@ -18,7 +18,7 @@ CTRL_OPEN_LOOP = 2
 ctrlType = CTRL_LIN_CUR
 
 model = FlappingModels.PlanarThrustStrokeDev()
-mpc = MPCUtils.MPCHelper(model, N, [0.01, 0.01, 0.001, 0, 0, 0, 0], [1, 1000], verbose=False)
+mpc = MPCUtils.MPCHelper(model, N, [0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], verbose=False, eps_abs=1e-08, eps_rel=1e-08)
 
 # Initial and reference states
 # x0 = 0.01 * np.random.rand(model.nx)
@@ -31,10 +31,10 @@ firstA = 0
 
 # Trajectory following?
 def getXr(t):
-	# xr = np.array([t, t, 0,0.,0.,0.,model.g])
+	xr = np.array([t, t, 0.,0.,0.,0.,model.g])
 
 	# Sinusoidal
-	xr = np.array([0.5 * np.sin(10 * t), 0.1 * t, 0.,0.,0.,0., model.g])
+	# xr = np.array([0.5 * np.sin(10 * t), 0.1 * t, 0.,0.,0.,0., model.g])
 	
 	# xr = np.array([0, 0, 3 * np.pi *t,0.,0.,0., model.g])
 	
