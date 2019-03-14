@@ -13,7 +13,7 @@ import pybullet_data
 class PyBullet():
 	# Parameters
 	SLOWDOWN_SLOW = 200
-	SLOWDOWN_FAST = 5
+	SLOWDOWN_FAST = 2
 	TIMESTEP = 0.0001
 	FAERO_DRAW_SCALE = 20
 	simt = 0

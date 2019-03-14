@@ -22,7 +22,7 @@ bee = FlappingModels3D.QuasiSteadySDAB(urdfParams)
 
 # Helper function: traj to track
 def traj(t):
-	return startPos + np.array([0.03 * np.sin(2*np.pi*t), 0, 0.2 * t])
+	return startPos + np.array([0.03 * np.sin(2*np.pi*t), 0, 0.5 * t])
 
 # draw traj
 tdraw = np.linspace(0, T_END, 20)
@@ -60,11 +60,14 @@ while sim.simt < T_END:
 	sim.sampleStates(bid)
 	
 	# Conventional controller
-	posErr = sim.q[4:7] - traj(sim.simt)
-	ctrl['ampl'] = 1.0 - 2 * posErr[2]
-	desPitch = -(20 * posErr[0] + 0.0 * sim.dq[4])
+	# posErr = sim.q[4:7] - traj(sim.simt)
+	# FIXME: simple path
+	xDes = 0.03 * np.sin(2*np.pi*(sim.q[6] / 0.5))
+	zdDes = 0.05
+	ctrl['ampl'] = 0.9 - 0.1 * (sim.dq[6] - zdDes)
+	desPitch = np.clip(-(200 * (sim.q[4] - xDes) + 0.1 * sim.dq[4]), -np.pi/4.0, np.pi/4.0)
 	curPitch = Rotation.from_quat(sim.q[7:11]).as_euler('xyz')[1]
-	pitchCtrl = 1 * (curPitch - desPitch) + 0.1 * sim.dq[8]
+	pitchCtrl = 2 * (curPitch - desPitch) + 0.1 * sim.dq[8]
 	ctrl['strokedev'] = np.clip(pitchCtrl, -0.4, 0.4)
 
 	# Calculate aerodynamics
@@ -74,7 +77,7 @@ while sim.simt < T_END:
 	time.sleep(sim._slowDown * sim.TIMESTEP)
 	
 	if sim.simt - tLastPrint > 0.01:
-		print(sim.simt, posErr)
+		# print(sim.simt, posErr)
 		tLastPrint = sim.simt
 	
 sim.disconnect()
