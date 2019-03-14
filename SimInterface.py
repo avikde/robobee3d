@@ -134,11 +134,11 @@ class PyBullet():
 	def update(self, bid, jointIndices, pcops, Faeros, Taeros, worldFrame=True):
 		for i in range(2):
 			if worldFrame:
-				# FIXME: 0 and not pcop?
-				p.applyExternalForce(bid, jointIndices[i], Faeros[i], [0,0,0], p.WORLD_FRAME)
+				p.applyExternalForce(bid, jointIndices[i], Faeros[i], pcops[i], p.WORLD_FRAME)
 			else:
-				# FIXME: need to convert to body frame (link -1)
-				p.applyExternalForce(bid, -1, Faeros[i], [0,0,0], p.LINK_FRAME)
+				# Need to convert to body frame (link -1)
+				# p.applyExternalForce(bid, -1, Faeros[i], [0,0,0], p.LINK_FRAME)
+				raise 'Not implemented'
 			# torque = r X F, where here r is the wing chord vector
 			# FIXME: must be misunderstanding this
 			# p.applyExternalTorque(bid, jointIndices[i], np.linalg.norm(Taeros[i]) * np.array([0,1,0]), p.LINK_FRAME)
