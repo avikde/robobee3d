@@ -41,13 +41,7 @@ ctrl = {'thrust': 4e-5, 'strokedev': 0, 'ampl': 1.0, 'freq': 170}
 tLastPrint = 0
 
 while sim.simt < T_END:
-	# Conventional controller
-	posErr = sim.q[4:7] - traj(sim.simt)
-	ctrl['ampl'] = 1.0 - 10 * posErr[2]
-	pitchDes = 2 * posErr[0]
-	# ctrl['strokedev'] = np.clip(1 * pitchDes, -0.4, 0.4)
-
-	# No dynamics: reset positions
+	# Stroke kinematics (not force controlled yet)
 	omega = 2 * np.pi * ctrl['freq']
 	ph = omega * sim.simt
 	th0 = ctrl['ampl'] * (np.sin(ph) + ctrl['strokedev'])
@@ -64,7 +58,16 @@ while sim.simt < T_END:
 
 	# actual sim
 	sim.sampleStates(bid)
+	
+	# Conventional controller
+	posErr = sim.q[4:7] - traj(sim.simt)
+	ctrl['ampl'] = 1.0 - 2 * posErr[2]
+	desPitch = 0.2#-(1 * posErr[0] + 0.1 * sim.dq[4])
+	curPitch = Rotation.from_quat(sim.q[7:11]).as_euler('xyz')[1]
+	pitchCtrl = 5 * (curPitch - desPitch) + 0.1 * sim.dq[8]
+	ctrl['strokedev'] = np.clip(pitchCtrl, -0.4, 0.4)
 
+	# Calculate aerodynamics
 	pcop1, Faero1, Taero1 = bee.aerodynamics(sim.q, sim.dq, -1, worldFrame=AERO_WORLD_FRAME)
 	pcop2, Faero2, Taero2 = bee.aerodynamics(sim.q, sim.dq, 1, worldFrame=AERO_WORLD_FRAME)
 	sim.update(bid, [jointId[b'lwing_hinge'], jointId[b'rwing_hinge']], [pcop1, pcop2], [Faero1, Faero2], [Taero1, Taero2], worldFrame=AERO_WORLD_FRAME)
