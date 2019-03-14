@@ -9,8 +9,8 @@ np.set_printoptions(precision=2, suppress=True, linewidth=100)
 
 # Sim parameters
 nsim = 100
-N = 20 #horizon
-dt = 0.005
+N = 50 #horizon
+dt = 0.001
 # control types
 CTRL_LIN_CUR = 0
 CTRL_LIN_HORIZON = 1
@@ -51,6 +51,7 @@ desTraj = np.zeros((nsim,3))
 
 for i in range(nsim):
 	tgoal = (i + N) * dt
+	# tgoal = i * dt
 	xr = getXr(tgoal)
 	# for logging
 	desTraj[i,:] = xr[0:3]
