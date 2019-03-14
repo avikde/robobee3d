@@ -8,6 +8,7 @@ import FlappingModels3D
 # Usage params
 STROKE_FORCE_CONTROL = False # if false, use position control on the stroke
 T_END = 1
+AERO_WORLD_FRAME = True
 
 sim = SimInterface.PyBullet(slowDown=True, camLock=False)
 # load robot
@@ -57,9 +58,9 @@ while sim.simt < T_END:
 	# actual sim
 	sim.sampleStates(bid)
 
-	pcop1, Faero1, Taero1 = bee.aerodynamics(sim.q, sim.dq, -1)
-	pcop2, Faero2, Taero2 = bee.aerodynamics(sim.q, sim.dq, 1)
-	sim.update(bid, [jointId[b'lwing_hinge'], jointId[b'rwing_hinge']], [pcop1, pcop2], [Faero1, Faero2], [Taero1, Taero2])
+	pcop1, Faero1, Taero1 = bee.aerodynamics(sim.q, sim.dq, -1, worldFrame=AERO_WORLD_FRAME)
+	pcop2, Faero2, Taero2 = bee.aerodynamics(sim.q, sim.dq, 1, worldFrame=AERO_WORLD_FRAME)
+	sim.update(bid, [jointId[b'lwing_hinge'], jointId[b'rwing_hinge']], [pcop1, pcop2], [Faero1, Faero2], [Taero1, Taero2], worldFrame=AERO_WORLD_FRAME)
 	time.sleep(sim._slowDown * sim.TIMESTEP)
 	
 sim.disconnect()
