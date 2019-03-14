@@ -60,9 +60,6 @@ while sim.simt < T_END:
 
 	pcop1, Faero1, Taero1 = bee.aerodynamics(sim.q, sim.dq, -1, worldFrame=AERO_WORLD_FRAME)
 	pcop2, Faero2, Taero2 = bee.aerodynamics(sim.q, sim.dq, 1, worldFrame=AERO_WORLD_FRAME)
-	# FIXME: pcop.z see #18
-	pcop1[2] -= 0.05
-	pcop2[2] -= 0.05
 	sim.update(bid, [jointId[b'lwing_hinge'], jointId[b'rwing_hinge']], [pcop1, pcop2], [Faero1, Faero2], [Taero1, Taero2], worldFrame=AERO_WORLD_FRAME)
 	time.sleep(sim._slowDown * sim.TIMESTEP)
 	

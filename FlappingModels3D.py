@@ -53,6 +53,8 @@ class QuasiSteadySDAB:
 
 		# COP: half od cbar down
 		pcopB = np.array([0,0,self.d]) + self.ycp * sparVecB + 0.5 * self.cbar * chordB
+		# FIXME: pcop.z see #18
+		pcopB[2] -= 0.004
 
 		# Various directions in the notation of Osborne (1951)
 		# l = vector along wing

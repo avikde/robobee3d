@@ -140,7 +140,6 @@ class PyBullet():
 				# p.applyExternalForce(bid, -1, Faeros[i], [0,0,0], p.LINK_FRAME)
 				raise 'Not implemented'
 			# torque = r X F, where here r is the wing chord vector
-			# FIXME: must be misunderstanding this
 			# p.applyExternalTorque(bid, jointIndices[i], np.linalg.norm(Taeros[i]) * np.array([0,1,0]), p.LINK_FRAME)
 			# p.applyExternalForce(bid, jointIndices[i], np.linalg.norm(Faeros[i]) * np.array([0,0,1]), [0,0,0], p.LINK_FRAME)
 
