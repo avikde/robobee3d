@@ -62,9 +62,9 @@ while sim.simt < T_END:
 	# Conventional controller
 	posErr = sim.q[4:7] - traj(sim.simt)
 	ctrl['ampl'] = 1.0 - 2 * posErr[2]
-	desPitch = 0.2#-(1 * posErr[0] + 0.1 * sim.dq[4])
+	desPitch = -(20 * posErr[0] + 0.0 * sim.dq[4])
 	curPitch = Rotation.from_quat(sim.q[7:11]).as_euler('xyz')[1]
-	pitchCtrl = 5 * (curPitch - desPitch) + 0.1 * sim.dq[8]
+	pitchCtrl = 1 * (curPitch - desPitch) + 0.1 * sim.dq[8]
 	ctrl['strokedev'] = np.clip(pitchCtrl, -0.4, 0.4)
 
 	# Calculate aerodynamics
