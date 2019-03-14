@@ -19,7 +19,7 @@ Author: Avik De
 	<!-- mean chord length -->
 	<xacro:property name="cbar" value="0.005"/>
 	<!-- vertical offset of wing attachment point from COM -->
-	<xacro:property name="d" value="0.006"/>
+	<xacro:property name="d" value="0.002"/>
 	<!-- inertial properties -->
 	<xacro:property name="mb" value="80e-6"/>
 	<xacro:property name="mspar" value="1e-6"/>
