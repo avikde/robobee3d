@@ -7,10 +7,18 @@ import FlappingModels
 
 np.set_printoptions(precision=2, suppress=True, linewidth=100)
 
+'''
+Learnings about parameters:
+- tuning parameters: weights, N, dt, eps_abs, eps_rel
+- longer N => problem harder to solve => infeasible result more likely
+- shorter N and/or longer dt => instability more likely
+- eps_i lower => infeasible more likely (TODO: needs more testing)
+'''
+
 # Sim parameters
 nsim = 100
-N = 50 #horizon
-dt = 0.001
+N = 20 #horizon
+dt = 0.002
 # control types
 CTRL_LIN_CUR = 0
 CTRL_LIN_HORIZON = 1
@@ -50,8 +58,8 @@ t = np.arange(nsim) * dt
 desTraj = np.zeros((nsim,3))
 
 for i in range(nsim):
-	tgoal = (i + N) * dt
-	# tgoal = i * dt
+	# tgoal = (i + N) * dt
+	tgoal = (i + 1) * dt
 	xr = getXr(tgoal)
 	# for logging
 	desTraj[i,:] = xr[0:3]
