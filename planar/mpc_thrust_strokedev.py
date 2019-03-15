@@ -14,9 +14,10 @@ def getXr(t):
 	# xr = np.array([t, t, 0.,0.,0.,0.,model.g])
 
 	# Sinusoidal
-	xr = np.array([0.5 * np.sin(10 * t), 0.1 * t, 0.,0.,0.,0., model.g])
+	# xr = np.array([0.5 * np.sin(10 * t), 0.1 * t, 0.,0.,0.,0., model.g])
 	
-	# xr = np.array([0, 0, 3 * np.pi *t,0.,0.,0., model.g])
+
+	xr = np.array([0, 0, 3*t,0.,0.,3., model.g])
 	
 	# xr = np.array([0.5 * t,0.0, 0,0.,0.,0.])
 	# if t < 0.1:
@@ -88,20 +89,27 @@ def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6):
 
 	return t, desTraj, X, U
 
-t1, desTraj1, X1, U1 = runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=20, dt=0.004, epsi=1e-6)
-t2, desTraj2, X2, U2 = runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=15, dt=0.005, epsi=1e-2)
-t3, desTraj3, X3, U3 = runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=10, dt=0.005, epsi=1e-2)
+# # Sine experiments
+# t1, desTraj1, X1, U1 = runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=20, dt=0.004, epsi=1e-6)
+# t2, desTraj2, X2, U2 = runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=15, dt=0.005, epsi=1e-2)
+# t3, desTraj3, X3, U3 = runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=10, dt=0.005, epsi=1e-2)
+
+# somersault experiments
+t1, desTraj1, X1, U1 = runMPCSim([0.01, 0.01, 10, 0, 0, 1, 0], [1, 10000], N=20, dt=0.004, epsi=1e-2)
+t2, desTraj2, X2, U2 = runMPCSim([0.01, 0.01, 10, 0, 0, 1, 0], [1, 10000], N=15, dt=0.004, epsi=1e-2)
+t3, desTraj3, X3, U3 = runMPCSim([0.01, 0.01, 10, 0, 0, 1, 0], [1, 10000], N=10, dt=0.004, epsi=1e-2)
+
 labels = ['N=20','N=15','N=10']
 
 # print(x0.shape)
-plt.subplot(2,1,1)
+plt.subplot(3,1,1)
 plt.plot(t1, X1[:, 2],'.-', label=labels[0])
 plt.plot(t2, X2[:, 2],'.-', label=labels[1])
 plt.plot(t3, X3[:, 2],'.-', label=labels[2])
 plt.plot(t1, desTraj1[:,2], 'k--', label='des traj')
 plt.ylabel('phi')
 
-plt.subplot(2,1,2)
+plt.subplot(3,1,2)
 plt.plot(X1[:,0], X1[:,1],'.-', label=labels[0])
 plt.plot(X2[:,0], X2[:,1],'.-', label=labels[1])
 plt.plot(X3[:,0], X3[:,1],'.-', label=labels[2])
@@ -112,7 +120,8 @@ plt.legend()
 
 plt.ylabel('xz')
 
-# plt.subplot(3,1,3)
-# plt.plot(t1, 1000*U1,'.-')
-# plt.ylabel('u')
+plt.subplot(3,1,3)
+plt.plot(t1, 1000*U1,'.-')
+plt.ylabel('u')
+
 plt.show()
