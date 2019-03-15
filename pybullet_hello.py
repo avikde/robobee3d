@@ -8,8 +8,9 @@ import FlappingModels3D
 # Usage params
 STROKE_FORCE_CONTROL = False # if false, use position control on the stroke
 T_END = 1
+AERO_WORLD_FRAME = True
 
-sim = SimInterface.PyBullet(slowDown=True, camLock=False)
+sim = SimInterface.PyBullet(slowDown=False, camLock=True)
 # load robot
 startPos = [0,0,1]
 startOrientation = Rotation.from_euler('x', 0)
@@ -21,7 +22,7 @@ bee = FlappingModels3D.QuasiSteadySDAB(urdfParams)
 
 # Helper function: traj to track
 def traj(t):
-	return startPos + np.array([0.05 * np.sin(2*np.pi*t), 0, 0.2 * t])
+	return startPos + np.array([0.03 * np.sin(2*np.pi*t), 0, 0.5 * t])
 
 # draw traj
 tdraw = np.linspace(0, T_END, 20)
@@ -37,9 +38,10 @@ sim.setJointArray(bid, [1,3], sim.POSITION_CONTROL, targetPositions=[0,0], posit
 
 # conventional controller params
 ctrl = {'thrust': 4e-5, 'strokedev': 0, 'ampl': 1.0, 'freq': 170}
+tLastPrint = 0
 
 while sim.simt < T_END:
-	# No dynamics: reset positions
+	# Stroke kinematics (not force controlled yet)
 	omega = 2 * np.pi * ctrl['freq']
 	ph = omega * sim.simt
 	th0 = ctrl['ampl'] * (np.sin(ph) + ctrl['strokedev'])
@@ -56,10 +58,26 @@ while sim.simt < T_END:
 
 	# actual sim
 	sim.sampleStates(bid)
+	
+	# Conventional controller
+	# posErr = sim.q[4:7] - traj(sim.simt)
+	# FIXME: simple path
+	xDes = 0.03 * np.sin(2*np.pi*(sim.q[6] / 0.5))
+	zdDes = 0.05
+	ctrl['ampl'] = 0.9 - 0.1 * (sim.dq[6] - zdDes)
+	desPitch = np.clip(-(200 * (sim.q[4] - xDes) + 0.1 * sim.dq[4]), -np.pi/4.0, np.pi/4.0)
+	curPitch = Rotation.from_quat(sim.q[7:11]).as_euler('xyz')[1]
+	pitchCtrl = 2 * (curPitch - desPitch) + 0.1 * sim.dq[8]
+	ctrl['strokedev'] = np.clip(pitchCtrl, -0.4, 0.4)
 
-	pcop1, Faero1, Taero1 = bee.aerodynamics(sim.q, sim.dq, -1)
-	pcop2, Faero2, Taero2 = bee.aerodynamics(sim.q, sim.dq, 1)
-	sim.update(bid, [jointId[b'lwing_hinge'], jointId[b'rwing_hinge']], [pcop1, pcop2], [Faero1, Faero2], [Taero1, Taero2])
+	# Calculate aerodynamics
+	pcop1, Faero1, Taero1 = bee.aerodynamics(sim.q, sim.dq, -1, worldFrame=AERO_WORLD_FRAME)
+	pcop2, Faero2, Taero2 = bee.aerodynamics(sim.q, sim.dq, 1, worldFrame=AERO_WORLD_FRAME)
+	sim.update(bid, [jointId[b'lwing_hinge'], jointId[b'rwing_hinge']], [pcop1, pcop2], [Faero1, Faero2], [Taero1, Taero2], worldFrame=AERO_WORLD_FRAME)
 	time.sleep(sim._slowDown * sim.TIMESTEP)
+	
+	if sim.simt - tLastPrint > 0.01:
+		# print(sim.simt, posErr)
+		tLastPrint = sim.simt
 	
 sim.disconnect()
