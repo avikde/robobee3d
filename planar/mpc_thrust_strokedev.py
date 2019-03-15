@@ -9,16 +9,24 @@ np.set_printoptions(precision=2, suppress=True, linewidth=100)
 
 model = FlappingModels.PlanarThrustStrokeDev()
 
+results = []  # List of sim results: is populated by runMPCSim  below
+
+EXP_SINE = 0
+EXP_SOMERSAULT = 1
+EXP_11 = 2
+exp = EXP_SINE
+
 # Trajectory following?
 def getXr(t):
-	# xr = np.array([t, t, 0.,0.,0.,0.,model.g])
-
-	# Sinusoidal
-	# xr = np.array([0.5 * np.sin(10 * t), 0.1 * t, 0.,0.,0.,0., model.g])
-	
-
-	xr = np.array([0, 0, 3*t,0.,0.,3., model.g])
-	
+	if exp == EXP_11:
+		xr = np.array([t, t, 0.,0.,0.,0.,model.g])
+	elif exp == EXP_SINE:
+		# Sinusoidal
+		xr = np.array([0.5 * np.sin(10 * t), 0.1 * t, 0.,0.,0.,0., model.g])
+	elif exp == EXP_SOMERSAULT:
+		xr = np.array([0, 0, 3*t,0.,0.,3., model.g])
+	else:
+		raise 'experiment not implemented'
 	# xr = np.array([0.5 * t,0.0, 0,0.,0.,0.])
 	# if t < 0.1:
 	# 	xr = np.array([0.0, 0.1, 0,0.,0.,0.])
@@ -27,7 +35,7 @@ def getXr(t):
 
 	return xr
 
-def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6):
+def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6, label=''):
 	'''
 	N = horizon (e.g. 20)
 	dt = timestep (e.g. 0.002)
@@ -87,41 +95,43 @@ def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6):
 		X[i, :] = x0
 		U[i, :] = ctrl
 
-	return t, desTraj, X, U
+	results.append({'t':t, 'desTraj':desTraj, 'X':X, 'U':U, 'label':label})
 
-# # Sine experiments
-# t1, desTraj1, X1, U1 = runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=20, dt=0.004, epsi=1e-6)
-# t2, desTraj2, X2, U2 = runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=15, dt=0.005, epsi=1e-2)
-# t3, desTraj3, X3, U3 = runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=10, dt=0.005, epsi=1e-2)
-
-# somersault experiments
-t1, desTraj1, X1, U1 = runMPCSim([0.01, 0.01, 10, 0, 0, 1, 0], [1, 10000], N=20, dt=0.004, epsi=1e-2)
-t2, desTraj2, X2, U2 = runMPCSim([0.01, 0.01, 10, 0, 0, 1, 0], [1, 10000], N=15, dt=0.004, epsi=1e-2)
-t3, desTraj3, X3, U3 = runMPCSim([0.01, 0.01, 10, 0, 0, 1, 0], [1, 10000], N=10, dt=0.004, epsi=1e-2)
-
-labels = ['N=20','N=15','N=10']
-
+if exp == EXP_SINE:
+	# Sine experiments
+	runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=20, dt=0.004, epsi=1e-6, label='N=20')
+	runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=15, dt=0.005, epsi=1e-2, label='N=15')
+	runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=10, dt=0.005, epsi=1e-2, label='N=10')
+elif exp == EXP_SOMERSAULT:
+	# somersault experiments
+	runMPCSim([0.01, 0.01, 10, 0, 0, 1, 0], [1, 10000], N=20, dt=0.004, epsi=1e-2, label='N=20')
+	runMPCSim([0.01, 0.01, 10, 0, 0, 1, 0], [1, 10000], N=15, dt=0.004, epsi=1e-2, label='N=15')
+	runMPCSim([0.01, 0.01, 10, 0, 0, 1, 0], [1, 10000], N=10, dt=0.004, epsi=1e-2, label='N=10')
+else:
+	raise 'experiment not implemented'
 # print(x0.shape)
-plt.subplot(3,1,1)
-plt.plot(t1, X1[:, 2],'.-', label=labels[0])
-plt.plot(t2, X2[:, 2],'.-', label=labels[1])
-plt.plot(t3, X3[:, 2],'.-', label=labels[2])
-plt.plot(t1, desTraj1[:,2], 'k--', label='des traj')
+
+nplots = 3 if len(results) > 1 else 2
+
+plt.subplot(nplots,1,1)
+for res in results:
+	plt.plot(res['t'], res['X'][:, 2],'.-', label=res['label'])
+plt.plot(results[0]['t'], results[0]['desTraj'][:,2], 'k--', label='des')
 plt.ylabel('phi')
 
-plt.subplot(3,1,2)
-plt.plot(X1[:,0], X1[:,1],'.-', label=labels[0])
-plt.plot(X2[:,0], X2[:,1],'.-', label=labels[1])
-plt.plot(X3[:,0], X3[:,1],'.-', label=labels[2])
-plt.plot(desTraj1[:,0], desTraj1[:,1], 'k--', label='des traj')
+plt.subplot(nplots,1,2)
+for res in results:
+	plt.plot(res['X'][:, 0], res['X'][:, 1],'.-', label=res['label'])
+plt.plot(results[0]['desTraj'][:,0], results[0]['desTraj'][:,1], 'k--', label='des')
 plt.legend()
 # plt.plot(t, X[:,3])
 # plt.plot(t, X[:,4])
-
 plt.ylabel('xz')
 
-plt.subplot(3,1,3)
-plt.plot(t1, 1000*U1,'.-')
-plt.ylabel('u')
+# The following are only draw for a single trial
+if nplots >= 3:
+	plt.subplot(nplots,1,3)
+	plt.plot(results[0]['t'], results[0]['U'] * 1000, '.-')
+	plt.ylabel('u')
 
 plt.show()
