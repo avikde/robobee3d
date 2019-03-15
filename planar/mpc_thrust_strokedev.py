@@ -88,9 +88,9 @@ def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6):
 
 	return t, desTraj, X, U
 
-t1, desTraj1, X1, U1 = runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=20, dt=0.004)
-t2, desTraj2, X2, U2 = runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=15, dt=0.004)
-t3, desTraj3, X3, U3 = runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=10, dt=0.004)
+t1, desTraj1, X1, U1 = runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=20, dt=0.004, epsi=1e-6)
+t2, desTraj2, X2, U2 = runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=15, dt=0.005, epsi=1e-2)
+t3, desTraj3, X3, U3 = runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=10, dt=0.005, epsi=1e-2)
 labels = ['N=20','N=15','N=10']
 
 # print(x0.shape)
