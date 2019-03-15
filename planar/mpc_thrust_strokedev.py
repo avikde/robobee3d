@@ -11,10 +11,10 @@ model = FlappingModels.PlanarThrustStrokeDev()
 
 # Trajectory following?
 def getXr(t):
-	xr = np.array([t, t, 0.,0.,0.,0.,model.g])
+	# xr = np.array([t, t, 0.,0.,0.,0.,model.g])
 
 	# Sinusoidal
-	# xr = np.array([0.5 * np.sin(10 * t), 0.1 * t, 0.,0.,0.,0., model.g])
+	xr = np.array([0.5 * np.sin(10 * t), 0.1 * t, 0.,0.,0.,0., model.g])
 	
 	# xr = np.array([0, 0, 3 * np.pi *t,0.,0.,0., model.g])
 	
@@ -30,7 +30,7 @@ def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6):
 	'''
 	N = horizon (e.g. 20)
 	dt = timestep (e.g. 0.002)
-	
+
 	Learnings about parameters:
 	- tuning parameters: weights, N, dt, eps_abs, eps_rel
 	- TODO: reason about units for wxi, wui and reduce those to two scalars?
@@ -39,7 +39,7 @@ def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6):
 	- eps_i lower => infeasible more likely (TODO: needs more testing)
 	'''
 	# Sim parameters
-	nsim = 100
+	nsim = 200
 	# control types
 	CTRL_LIN_CUR = 0
 	CTRL_LIN_HORIZON = 1
@@ -88,23 +88,31 @@ def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6):
 
 	return t, desTraj, X, U
 
-t, desTraj, X, U = runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=20, dt=0.002, epsi=1e-8)
+t1, desTraj1, X1, U1 = runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=20, dt=0.004)
+t2, desTraj2, X2, U2 = runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=15, dt=0.004)
+t3, desTraj3, X3, U3 = runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=10, dt=0.004)
+labels = ['N=20','N=15','N=10']
 
 # print(x0.shape)
-plt.subplot(3,1,1)
-plt.plot(t, X[:, 2],'.-')
-plt.plot(t, desTraj[:,2], 'k--', label='des traj')
+plt.subplot(2,1,1)
+plt.plot(t1, X1[:, 2],'.-', label=labels[0])
+plt.plot(t2, X2[:, 2],'.-', label=labels[1])
+plt.plot(t3, X3[:, 2],'.-', label=labels[2])
+plt.plot(t1, desTraj1[:,2], 'k--', label='des traj')
 plt.ylabel('phi')
-plt.subplot(3,1,2)
-plt.plot(X[:,0], X[:,1],'.-', label='traj')
-plt.plot(desTraj[:,0], desTraj[:,1], 'k--', label='des traj')
 
+plt.subplot(2,1,2)
+plt.plot(X1[:,0], X1[:,1],'.-', label=labels[0])
+plt.plot(X2[:,0], X2[:,1],'.-', label=labels[1])
+plt.plot(X3[:,0], X3[:,1],'.-', label=labels[2])
+plt.plot(desTraj1[:,0], desTraj1[:,1], 'k--', label='des traj')
+plt.legend()
 # plt.plot(t, X[:,3])
 # plt.plot(t, X[:,4])
 
 plt.ylabel('xz')
-plt.legend()
-plt.subplot(3,1,3)
-plt.plot(t, 1000*U,'.-')
-plt.ylabel('u')
+
+# plt.subplot(3,1,3)
+# plt.plot(t1, 1000*U1,'.-')
+# plt.ylabel('u')
 plt.show()
