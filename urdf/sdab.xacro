@@ -19,14 +19,14 @@ Author: Avik De
 	<!-- mean chord length -->
 	<xacro:property name="cbar" value="0.005"/>
 	<!-- vertical offset of wing attachment point from COM -->
-	<xacro:property name="d" value="0.006"/>
+	<xacro:property name="d" value="0.002"/>
 	<!-- inertial properties -->
 	<xacro:property name="mb" value="80e-6"/>
 	<xacro:property name="mspar" value="1e-6"/>
 	<xacro:property name="mwing" value="1e-6"/>
 	<!-- Stiffness and damping properties -->
-	<xacro:property name="stiffnessHinge" value="5e-1"/>
-	<xacro:property name="dampingHinge" value="5e-1"/>
+	<xacro:property name="stiffnessHinge" value="2e-2"/>
+	<xacro:property name="dampingHinge" value="1e-2"/>
 	<xacro:property name="stiffnessSpar" value="4e-5"/>
 	<xacro:property name="dampingSpar" value="7e-8"/>
 	

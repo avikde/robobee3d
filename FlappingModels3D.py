@@ -27,7 +27,7 @@ class QuasiSteadySDAB:
 		# in order lift,drag
 		return np.array([self.CLmax * np.sin(2*a), (self.CDmax + self.CD0) / 2.0 - (self.CDmax - self.CD0) / 2.0 * np.cos(2*a)])
 
-	def aerodynamics(self, q, dq, lrSign):
+	def aerodynamics(self, q, dq, lrSign, worldFrame=True):
 		# pass in current positions 11DOF: joints (4) + com (3 linear + 4 angular)
 
 		# vector from center to distance along spar
@@ -82,8 +82,13 @@ class QuasiSteadySDAB:
 		# Body to world frame --
 		pcom = q[4:7]
 		Rb = Rotation.from_quat(q[7:11]) # scalar-last format
-		pcopW = pcom + Rb.apply(pcopB)
-		FaeroW = Rb.apply(FaeroB)
-		# for external torque about wing hinge, use r X F
-		hingeTorque = np.cross(0.5 * self.cbar * Rb.apply(chordB), FaeroW)
-		return pcopW, FaeroW, hingeTorque
+		if worldFrame:
+			pcopW = pcom + Rb.apply(pcopB)
+			FaeroW = Rb.apply(FaeroB)
+			# for external torque about wing hinge, use r X F
+			hingeTorque = np.cross(0.5 * self.cbar * Rb.apply(chordB), FaeroW)
+			return pcopW, FaeroW, hingeTorque
+		else:
+			# body frame
+			hingeTorque = np.cross(0.5 * self.cbar * chordB, FaeroB)
+			return pcopB, FaeroB, hingeTorque

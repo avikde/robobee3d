@@ -13,7 +13,7 @@ import pybullet_data
 class PyBullet():
 	# Parameters
 	SLOWDOWN_SLOW = 200
-	SLOWDOWN_FAST = 5
+	SLOWDOWN_FAST = 2
 	TIMESTEP = 0.0001
 	FAERO_DRAW_SCALE = 20
 	simt = 0
@@ -131,12 +131,15 @@ class PyBullet():
 	def addUserDebugLine(self, *args, **kwargs):
 		p.addUserDebugLine(*args, **kwargs)
 
-	def update(self, bid, jointIndices, pcops, Faeros, Taeros):
+	def update(self, bid, jointIndices, pcops, Faeros, Taeros, worldFrame=True):
 		for i in range(2):
-			# FIXME: 0 and not pcop?
-			p.applyExternalForce(bid, jointIndices[i], Faeros[i], [0,0,0], p.WORLD_FRAME)
+			if worldFrame:
+				p.applyExternalForce(bid, jointIndices[i], Faeros[i], pcops[i], p.WORLD_FRAME)
+			else:
+				# Need to convert to body frame (link -1)
+				# p.applyExternalForce(bid, -1, Faeros[i], [0,0,0], p.LINK_FRAME)
+				raise 'Not implemented'
 			# torque = r X F, where here r is the wing chord vector
-			# FIXME: must be misunderstanding this
 			# p.applyExternalTorque(bid, jointIndices[i], np.linalg.norm(Taeros[i]) * np.array([0,1,0]), p.LINK_FRAME)
 			# p.applyExternalForce(bid, jointIndices[i], np.linalg.norm(Faeros[i]) * np.array([0,0,1]), [0,0,0], p.LINK_FRAME)
 
@@ -160,7 +163,6 @@ class PyBullet():
 			# draw trail
 			p.addUserDebugLine(self.pcomLastDraw, self.q[4:7], lineColorRGB=[0,0,1], lifeTime=0)
 			self.pcomLastDraw = self.q[4:7].copy()
-			print(self.simt, (Faeros[0][2] + Faeros[1][2]) * 1e6, Taeros[0])
 			self.tLastPrint = self.simt
 		
 		# Keyboard control options
