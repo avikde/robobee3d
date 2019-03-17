@@ -2,7 +2,8 @@ import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
 import sys
-import MPCUtils
+sys.path.append('..')
+import controlutils.py.MPCUtils as MPCUtils
 import FlappingModels
 
 np.set_printoptions(precision=2, suppress=True, linewidth=100)

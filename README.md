@@ -4,16 +4,10 @@ Robobee 3D sim (and maybe files for planar ones as well)
 
 ## Installing
 
-Common:
-- I am using python 3.7
-- Numpy (use wheels from https://www.lfd.uci.edu/~gohlke/pythonlibs/ on windows)
+Common: https://github.com/avikde/controlutils
 
 Pybullet 3D sim:
 - `pip install pybullet`: need version 2.4.8 or above (see https://github.com/bulletphysics/bullet3/issues/2152). It may need some VS stuff on windows and takes a while to build, but works fine.
-
-Planar MPC:
-- scipy
-- `pip install osqp`
 
 ## Running
 
