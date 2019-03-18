@@ -1,4 +1,15 @@
 import numpy as np
+import controlutils.py.ControlUtils as cu
+
+class RefTraj:
+	# generate a reference trajectory
+	def __init__(self, N, dt):
+		self.N = N
+		self.dt = dt
+
+	def generate(self, q0, twistDes):
+		qtraj = cu.twistInt(q0, twistDes, self.N, self.dt)
+		return {'q':qtraj}
 
 class PlanarThrustStrokeDev:
 	mb = 100e-6
