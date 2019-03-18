@@ -57,10 +57,5 @@ class PlanarThrustStrokeDev:
 		xmax = -xmin
 		return umin, umax, xmin, xmax
 
-	def getReferenceTrajectory(self, N, q0):
-		ref = RefTraj(N, self.dt)
-		traj = ref.generate(q0, twistDes)
-		raise 'TODO'
-
 	nx = 7
 	nu = 2

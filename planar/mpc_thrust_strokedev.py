@@ -80,6 +80,7 @@ def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6, label=''):
 
 		if ctrlType == CTRL_LIN_CUR:
 			ctrl = mpc.update(x0, np.zeros(2), xr)
+			# ctrl = mpc.update(x0, np.zeros(2), xr, trajMode=mpc.ITERATE_TRAJ)
 		elif ctrlType == CTRL_LIN_HORIZON:
 			# traj to linearize around
 			x0horizon = np.zeros((N,model.nx))
