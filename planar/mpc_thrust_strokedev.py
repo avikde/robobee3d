@@ -57,7 +57,7 @@ def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6, label=''):
 	ctrlType = CTRL_LIN_CUR # could make this a param
 
 	model.dt = dt
-	mpc = MPCUtils.MPCHelper(model, N, wx, wu, verbose=False, eps_abs=epsi, eps_rel=epsi)
+	mpc = MPCUtils.LTVMPC(model, N, wx, wu, verbose=False, eps_abs=epsi, eps_rel=epsi)
 
 	# Initial and reference states
 	# x0 = 0.01 * np.random.rand(model.nx)
@@ -79,13 +79,13 @@ def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6, label=''):
 		desTraj[i,:] = xr[0:3]
 
 		if ctrlType == CTRL_LIN_CUR:
-			ctrl = mpc.update(x0, np.zeros(2), xr, dt)
+			ctrl = mpc.update(x0, np.zeros(2), xr)
 		elif ctrlType == CTRL_LIN_HORIZON:
 			# traj to linearize around
 			x0horizon = np.zeros((N,model.nx))
 			for xi in range(model.nx):
 				x0horizon[:,xi] = np.linspace(x0[xi], xr[xi], N, endpoint=False)
-			ctrl = mpc.update(x0horizon, np.tile(np.zeros(2),(N,1)), xr, dt)
+			ctrl = mpc.update(x0horizon, np.tile(np.zeros(2),(N,1)), xr)
 		else: # openloop
 			ctrl = np.array([1e-6,0])
 
