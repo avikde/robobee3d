@@ -56,11 +56,12 @@ def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6, label=''):
 	CTRL_OPEN_LOOP = 2
 	ctrlType = CTRL_LIN_CUR # could make this a param
 
+	model.dt = dt
 	mpc = MPCUtils.MPCHelper(model, N, wx, wu, verbose=False, eps_abs=epsi, eps_rel=epsi)
 
 	# Initial and reference states
 	# x0 = 0.01 * np.random.rand(model.nx)
-	x0, ctrl = model.getInit()
+	x0, ctrl = model.y0, model.u0
 
 	# Simulate in closed loop
 	X = np.zeros((nsim, model.nx))
@@ -89,7 +90,7 @@ def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6, label=''):
 			ctrl = np.array([1e-6,0])
 
 		# simulate forward
-		Ad, Bd = model.getLin(x0, ctrl, dt)
+		Ad, Bd = model.getLinearDynamics(x0, ctrl)
 		x0 = Ad.dot(x0) + Bd.dot(ctrl)
 		print(i, x0, ctrl)
 		# print(x0horizon)

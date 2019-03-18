@@ -18,11 +18,8 @@ class PlanarThrustStrokeDev:
 	ib = 1/12. * mb * l**2
 	d = 2e-3
 	# initial conditions
-	y0 = np.array([0,0,0,0,0,0,self.g])
+	y0 = np.array([0,0,0,0,0,0,g])
 	u0 = np.array([0, 0])
-
-	def __init__(self, dt):
-		self.dt = dt
 
 	def getLinearDynamics(self, y, u):
 		phi = y[2]
