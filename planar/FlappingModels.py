@@ -57,5 +57,23 @@ class PlanarThrustStrokeDev:
 		xmax = -xmin
 		return umin, umax, xmin, xmax
 
+	def dynamics(self, y, u, useLinearization=False):
+		# Full nonlinear dynamics
+		if useLinearization:
+			Ad, Bd = self.getLinearDynamics(y, u)
+			return Ad @ y + Bd @ u
+		else:
+			phi = y[2]
+			thrust = self.g * self.mb + u[0]
+			# accelerations
+			y2dot = np.array([-thrust * np.sin(phi), 
+			-self.g * self.mb + thrust * np.cos(phi), 
+			thrust * u[1] / self.ib
+			])
+			y1dot = y[3:6]
+			# zero order hold?
+			yNog = y[0:6] + np.hstack((y1dot, y2dot)) * self.dt
+			return np.hstack((yNog, self.g))
+
 	nx = 7
 	nu = 2
