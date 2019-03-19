@@ -37,7 +37,7 @@ def getXr(t):
 
 	return xr
 
-def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6, label=''):
+def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label=''):
 	'''
 	N = horizon (e.g. 20)
 	dt = timestep (e.g. 0.002)
@@ -49,7 +49,7 @@ def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6, label=''):
 	CTRL_LIN_HORIZON = 1
 	CTRL_OPEN_LOOP = 2
 	CTRL_LQR = 3
-	ctrlType = CTRL_LQR # could make this a param
+	ctrlType = CTRL_LIN_CUR # could make this a param
 
 	model.dt = dt
 	if ctrlType in [CTRL_LIN_CUR, CTRL_LIN_HORIZON]:
@@ -81,8 +81,8 @@ def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6, label=''):
 			K, X = lqr.dlqr(Ad, Bd, np.diag(wx), np.diag(wu))
 			sys.exit(0)
 		elif ctrlType == CTRL_LIN_CUR:
-			# ctrl = mpc.update(x0, np.zeros(2), xr)
-			ctrl = mpc.update(x0, np.zeros(2), xr, trajMode=mpc.ITERATE_TRAJ_LIN)
+			ctrl = mpc.update(x0, np.zeros(2), xr)
+			# ctrl = mpc.update(x0, np.zeros(2), xr, trajMode=mpc.ITERATE_TRAJ_LIN)
 		elif ctrlType == CTRL_LIN_HORIZON:
 			# traj to linearize around
 			# x0horizon = np.zeros((N,model.nx))
@@ -106,14 +106,16 @@ def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6, label=''):
 
 if exp == EXP_SINE:
 	# Sine experiments
-	runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=20, dt=0.004, epsi=1e-6, label='N=20')
-	runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=15, dt=0.005, epsi=1e-2, label='N=15')
-	runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=10, dt=0.005, epsi=1e-2, label='N=10')
+	runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=20, dt=0.004, label='N=20')
+	runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=15, dt=0.005, label='N=15')
+	runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=10, dt=0.005, label='N=10')
+	# # runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=2, dt=0.005, epsi=1e-2, label='N=20')
+	# # runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=3, dt=0.005, epsi=1e-2, label='N=15')
+	# runMPCSim([0.01, 0.01, 1, 0, 0, 0, 0], [1, 10000], N=1, dt=0.005, epsi=1e-2, label='N=10')
 elif exp == EXP_SOMERSAULT:
 	# somersault experiments
-	runMPCSim([0.01, 0.01, 10, 0, 0, 1, 0], [1, 10000], N=20, dt=0.004, epsi=1e-2, label='N=20')
-	runMPCSim([0.01, 0.01, 10, 0, 0, 1, 0], [1, 10000], N=15, dt=0.004, epsi=1e-2, label='N=15')
-	runMPCSim([0.01, 0.01, 10, 0, 0, 1, 0], [1, 10000], N=10, dt=0.004, epsi=1e-2, label='N=10')
+	runMPCSim([0.01, 0.01, 10, 0, 0, 1, 0], [1, 10000], N=10, dt=0.004, label='N=10')
+	runMPCSim([0.01, 0.01, 10, 0, 0, 1, 0], [1, 10000], N=15, dt=0.004, label='N=15')
 else:
 	raise 'experiment not implemented'
 # print(x0.shape)
