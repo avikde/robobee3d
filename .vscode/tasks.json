@@ -4,13 +4,10 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "compile xacro",
+			"label": "3D sim",
 			"type": "shell",
 			"command": "python urdf/xacro.py urdf/sdab.xacro > urdf/sdab.xacro.urdf && python pybullet_hello.py",
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
+			"group": "build",
 			"presentation": {
 				"echo": true,
 				"reveal": "always",
@@ -18,7 +15,24 @@
 				"panel": "shared",
 				"showReuseMessage": true,
 				"clear": true
-			}
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "planar test",
+			"type": "shell",
+			"group": "build",
+			"options": {
+				"cwd": "${workspaceFolder}/planar"
+			},
+			"command": "python mpc_thrust_strokedev.py",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"panel": "shared",
+				"clear": true
+			},
+			"problemMatcher": []
 		}
 	]
 }
