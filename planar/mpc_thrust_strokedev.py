@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import sys
 sys.path.append('..')
 import controlutils.py.MPCUtils as MPCUtils
+import controlutils.py.lqr as lqr
 import FlappingModels
 
 np.set_printoptions(precision=2, suppress=True, linewidth=100)
@@ -47,10 +48,12 @@ def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6, label=''):
 	CTRL_LIN_CUR = 0
 	CTRL_LIN_HORIZON = 1
 	CTRL_OPEN_LOOP = 2
-	ctrlType = CTRL_LIN_CUR # could make this a param
+	CTRL_LQR = 3
+	ctrlType = CTRL_LQR # could make this a param
 
 	model.dt = dt
-	mpc = MPCUtils.LTVMPC(model, N, wx, wu, verbose=False, eps_abs=epsi, eps_rel=epsi)
+	if ctrlType in [CTRL_LIN_CUR, CTRL_LIN_HORIZON]:
+		mpc = MPCUtils.LTVMPC(model, N, wx, wu, verbose=False, scaling=0, eps_abs=epsi, eps_rel=epsi)
 
 	# Initial and reference states
 	# x0 = 0.01 * np.random.rand(model.nx)
@@ -70,10 +73,16 @@ def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6, label=''):
 		xr = getXr(tgoal)
 		# for logging
 		desTraj[i,:] = xr[0:3]
-
-		if ctrlType == CTRL_LIN_CUR:
-			ctrl = mpc.update(x0, np.zeros(2), xr)
-			# ctrl = mpc.update(x0, np.zeros(2), xr, trajMode=mpc.ITERATE_TRAJ)
+		
+		if ctrlType == CTRL_LQR:
+			# print(x0)
+			# get current linearization
+			Ad, Bd = model.getLinearDynamics(x0, ctrl)
+			K, X = lqr.dlqr(Ad, Bd, np.diag(wx), np.diag(wu))
+			sys.exit(0)
+		elif ctrlType == CTRL_LIN_CUR:
+			# ctrl = mpc.update(x0, np.zeros(2), xr)
+			ctrl = mpc.update(x0, np.zeros(2), xr, trajMode=mpc.ITERATE_TRAJ_LIN)
 		elif ctrlType == CTRL_LIN_HORIZON:
 			# traj to linearize around
 			# x0horizon = np.zeros((N,model.nx))
