@@ -40,13 +40,6 @@ def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6, label=''):
 	'''
 	N = horizon (e.g. 20)
 	dt = timestep (e.g. 0.002)
-
-	Learnings about parameters:
-	- tuning parameters: weights, N, dt, eps_abs, eps_rel
-	- TODO: reason about units for wxi, wui and reduce those to two scalars?
-	- longer N => problem harder to solve => infeasible result more likely
-	- shorter N and/or longer dt => instability more likely
-	- eps_i lower => infeasible more likely (TODO: needs more testing)
 	'''
 	# Sim parameters
 	nsim = 200
@@ -83,10 +76,12 @@ def runMPCSim(wx, wu, N=20, dt=0.002, epsi=1e-6, label=''):
 			# ctrl = mpc.update(x0, np.zeros(2), xr, trajMode=mpc.ITERATE_TRAJ)
 		elif ctrlType == CTRL_LIN_HORIZON:
 			# traj to linearize around
-			x0horizon = np.zeros((N,model.nx))
-			for xi in range(model.nx):
-				x0horizon[:,xi] = np.linspace(x0[xi], xr[xi], N, endpoint=False)
-			ctrl = mpc.update(x0horizon, np.tile(np.zeros(2),(N,1)), xr)
+			# x0horizon = np.zeros((N,model.nx))
+			# for xi in range(model.nx):
+			# 	x0horizon[:,xi] = np.linspace(x0[xi], xr[xi], N, endpoint=False)
+			# ctrl = mpc.update(x0horizon, np.tile(np.zeros(2),(N,1)), xr)
+			# NOTE: left this here, but moved a lot of the traj stuff into MPCUtils through trajMode
+			pass
 		else: # openloop
 			ctrl = np.array([1e-6,0])
 
