@@ -85,7 +85,7 @@ class PlanarThrustStrokeDev:
 	# Non-standard model functions
 	def visualizationInfo(self, y, u, Faeroscale=0.02):
 		Ryaw = geom.rot2(y[2])
-		pcop = y[0:2] + Ryaw @ (np.array([0,self.d]) + u[1])
+		pcop = y[0:2] + Ryaw @ np.array([u[1],self.d])
 		Faero = Ryaw @ np.array([0, self.mb * self.g + u[0]])
 		strokeExtents = y[0:2] + np.vstack((Ryaw @ np.array([-self.STROKE_EXTENT, self.d]), Ryaw @ np.array([self.STROKE_EXTENT, self.d])))
 		return misc.rectangle(y[0:2], y[2], self.w, self.l), pcop, Faeroscale * Faero, strokeExtents
