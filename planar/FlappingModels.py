@@ -1,5 +1,5 @@
 import numpy as np
-import controlutils.py.ControlUtils as cu
+# import controlutils.py.ControlUtils as cu
 
 class RefTraj:
 	# generate a reference trajectory
@@ -77,3 +77,55 @@ class PlanarThrustStrokeDev:
 
 	nx = 7
 	nu = 2
+
+def visualizeTraj(ax, traj, di, toeRadius=0.05):
+	# Plots what RefTraj.generate() returns
+	from matplotlib.patches import Rectangle, Circle
+	from matplotlib.collections import PatchCollection
+	
+	N = traj['q'].shape[0]
+	robotBodies = []
+	toes = []
+	for k in range(N):
+		qk = traj['q'][k,:]
+		# First argument is lower left (i.e. smallest x,y components), not center
+		lowerLeftCorner = np.full(2, np.inf)
+		Ryaw = cu.rot2(qk[2])
+		# find which hip is lower left
+		for i in range(4):
+			corneri = qk[0:2] + Ryaw @ di[3,0:2]
+		# Not quite sure about what it does when "leftmost" and "lowermost" are different corners
+		if corneri[1] < lowerLeftCorner[1]:
+			lowerLeftCorner = corneri
+		rect = Rectangle(lowerLeftCorner, 2*di[0,0], 2*di[0,1], angle=np.degrees(qk[2]))
+		robotBodies.append(rect)
+
+		# toes: don't draw for 0th step (irrelevant)
+		if k > 0:
+			pk = traj['p'][k,:]
+			for j in range(2):
+				pjk = pk[2*j:2*j+2]
+				toes.append(Circle(pjk, radius=toeRadius))
+				# add some text so we can tell k
+				ax.text(pjk[0], pjk[1], str(k))
+	
+	pc = PatchCollection(robotBodies, facecolor='r', edgecolor='k', alpha=0.3)
+	ax.add_collection(pc)
+	pc = PatchCollection(toes, facecolor='b', edgecolor='k', alpha=0.3)
+	ax.add_collection(pc)
+
+	ax.set_aspect(1)
+	ax.set_xlim([-2,2])
+	ax.set_ylim([-1,1])
+	ax.grid(True)
+	ax.set_xlabel('x')
+	ax.set_ylabel('y')
+	
+if __name__ == "__main__":
+	import matplotlib.pyplot as plt
+	# For visulatization
+	fig, ax = plt.subplots(2)
+	# TODO: plot traj
+	model = PlanarThrustStrokeDev()
+
+	plt.show()
