@@ -131,7 +131,7 @@ if __name__ == "__main__":
 	np.set_printoptions(suppress=True, linewidth=100, precision=3)
 	
 	model = PlanarThrustStrokeDev()
-	model.dt = 0.1
+	model.dt = 0.01
 
 	# For visualization
 	fig, ax = plt.subplots(1)
@@ -142,7 +142,7 @@ if __name__ == "__main__":
 	# initial conditions
 	Y[0,:], U[0,:] = model.y0, model.u0
 	# Openloop
-	U[0,:] = np.array([1e-5,1e-5])
+	U[0,:] = np.array([1e-3,1e-3])
 	for ti in range(1, Ndraw):
 		Y[ti,:] = model.dynamics(Y[ti-1,:], U[ti-1,:], useLinearization=False)
 		U[ti,:] = U[ti-1,:]
@@ -155,7 +155,7 @@ if __name__ == "__main__":
 	Y[0,:], U[0,:] = model.y0, model.u0
 	# Openloop
 	Y[0,0] = 0.02
-	U[0,:] = np.array([1e-5,1e-5])
+	U[0,:] = np.array([1e-3,1e-3])
 	for ti in range(1, Ndraw):
 		Y[ti,:] = model.dynamics(Y[ti-1,:], U[ti-1,:], useLinearization=True)
 		U[ti,:] = U[ti-1,:]
