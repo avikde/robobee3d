@@ -19,7 +19,7 @@ class PlanarThrustStrokeDev:
 	l = 12e-3  # body length
 	w = 2e-3  # body width (for visualization only)
 	g = 9.81
-	ib = 1/12. * mb * l**2
+	ib = 1/12. * mb * l**2 * 1e4
 	d = 2e-3
 	# initial conditions
 	y0 = np.array([0,0,0,0,0,0,g])
@@ -128,14 +128,14 @@ if __name__ == "__main__":
 	fig, ax = plt.subplots(1)
 	
 	model = PlanarThrustStrokeDev()
-	model.dt = 0.02
+	model.dt = 0.1
 	Ndraw = 5
 	Y = np.zeros((Ndraw, model.nx))
 	U = np.zeros((Ndraw, model.nu))
 	# initial conditions
 	Y[0,:], U[0,:] = model.y0, model.u0
 	# FIXME: these are just openloop inputs to test vis
-	U[0,:] = np.array([1e-1, 1e-6])
+	U[0,:] = np.array([1e-1, 3e-3])
 	for ti in range(1, Ndraw):
 		Y[ti,:] = model.dynamics(Y[ti-1,:], U[ti-1,:], useLinearization=False)
 		U[ti,:] = U[ti-1,:]
