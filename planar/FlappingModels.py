@@ -1,5 +1,7 @@
 import numpy as np
-# import controlutils.py.ControlUtils as cu
+import sys
+sys.path.append('..')
+import controlutils.py.geometry as geom
 
 class RefTraj:
 	# generate a reference trajectory
@@ -8,7 +10,7 @@ class RefTraj:
 		self.dt = dt
 
 	def generate(self, q0, twistDes):
-		qtraj = cu.twistInt(q0, twistDes, self.N, self.dt)
+		qtraj = geom.twistInt(q0, twistDes, self.N, self.dt)
 		return {'q':qtraj}
 
 class PlanarThrustStrokeDev:
@@ -20,6 +22,8 @@ class PlanarThrustStrokeDev:
 	# initial conditions
 	y0 = np.array([0,0,0,0,0,0,g])
 	u0 = np.array([0, 0])
+	# can be reset
+	dt = 0.005
 
 	def getLinearDynamics(self, y, u):
 		phi = y[2]
@@ -78,36 +82,27 @@ class PlanarThrustStrokeDev:
 	nx = 7
 	nu = 2
 
-def visualizeTraj(ax, traj, di, toeRadius=0.05):
+def visualizeTraj(ax, traj):
 	# Plots what RefTraj.generate() returns
 	from matplotlib.patches import Rectangle, Circle
 	from matplotlib.collections import PatchCollection
+	import controlutils.py.misc as misc
 	
 	N = traj['q'].shape[0]
 	robotBodies = []
 	toes = []
 	for k in range(N):
 		qk = traj['q'][k,:]
-		# First argument is lower left (i.e. smallest x,y components), not center
-		lowerLeftCorner = np.full(2, np.inf)
-		Ryaw = cu.rot2(qk[2])
-		# find which hip is lower left
-		for i in range(4):
-			corneri = qk[0:2] + Ryaw @ di[3,0:2]
-		# Not quite sure about what it does when "leftmost" and "lowermost" are different corners
-		if corneri[1] < lowerLeftCorner[1]:
-			lowerLeftCorner = corneri
-		rect = Rectangle(lowerLeftCorner, 2*di[0,0], 2*di[0,1], angle=np.degrees(qk[2]))
-		robotBodies.append(rect)
+		robotBodies.append(misc.rectangle(qk[0:2], qk[2], 0.002, 0.005))
 
-		# toes: don't draw for 0th step (irrelevant)
-		if k > 0:
-			pk = traj['p'][k,:]
-			for j in range(2):
-				pjk = pk[2*j:2*j+2]
-				toes.append(Circle(pjk, radius=toeRadius))
-				# add some text so we can tell k
-				ax.text(pjk[0], pjk[1], str(k))
+		# # wing
+		# if k > 0:
+		# 	pk = traj['p'][k,:]
+		# 	for j in range(2):
+		# 		pjk = pk[2*j:2*j+2]
+		# 		toes.append(Circle(pjk, radius=toeRadius))
+		# 		# add some text so we can tell k
+		# 		ax.text(pjk[0], pjk[1], str(k))
 	
 	pc = PatchCollection(robotBodies, facecolor='r', edgecolor='k', alpha=0.3)
 	ax.add_collection(pc)
@@ -115,8 +110,8 @@ def visualizeTraj(ax, traj, di, toeRadius=0.05):
 	ax.add_collection(pc)
 
 	ax.set_aspect(1)
-	ax.set_xlim([-2,2])
-	ax.set_ylim([-1,1])
+	ax.set_xlim([-0.01,0.01])
+	ax.set_ylim([-0.01,0.01])
 	ax.grid(True)
 	ax.set_xlabel('x')
 	ax.set_ylabel('y')
@@ -127,5 +122,15 @@ if __name__ == "__main__":
 	fig, ax = plt.subplots(2)
 	# TODO: plot traj
 	model = PlanarThrustStrokeDev()
+	Ndraw = 10
+	Y = np.zeros((Ndraw, model.nx))
+	U = np.zeros((Ndraw, model.nu))
+	# initial conditions
+	Y[0,:], U[0,:] = model.y0, model.u0
+	U[0,:] = np.array([1e-3, 1e-5])
+	for ti in range(1, Ndraw):
+		Y[ti,:] = model.dynamics(Y[ti-1,:], U[ti-1,:])
+		U[ti,:] = U[ti-1,:]
+	visualizeTraj(ax[0], {'q':Y[:, 0:3]})
 
 	plt.show()
