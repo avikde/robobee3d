@@ -87,7 +87,7 @@ class PlanarThrustStrokeDev:
 		Ryaw = geom.rot2(y[2])
 		pcop = y[0:2] + Ryaw @ np.array([u[1],self.d])
 		Faero = Ryaw @ np.array([0, self.mb * self.g + u[0]])
-		strokeExtents = y[0:2] + np.vstack((Ryaw @ np.array([-self.STROKE_EXTENT, self.d]), Ryaw @ np.array([self.STROKE_EXTENT, self.d])))
+		strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([-self.STROKE_EXTENT, self.d]), y[0:2] + Ryaw @ np.array([self.STROKE_EXTENT, self.d])))
 		return misc.rectangle(y[0:2], y[2], self.w, self.l), pcop, Faeroscale * Faero, strokeExtents
 
 	nx = 7
