@@ -19,7 +19,7 @@ class PlanarThrustStrokeDev:
 	l = 12e-3  # body length
 	w = 2e-3  # body width (for visualization only)
 	g = 9.81
-	ib = 1/12. * mb * l**2 * 1e4
+	ib = 1/12. * mb * l**2
 	d = 2e-3
 	# initial conditions
 	y0 = np.array([0,0,0,0,0,0,g])
@@ -33,17 +33,19 @@ class PlanarThrustStrokeDev:
 		cphi0 = np.cos(phi)
 		sphi0 = np.sin(phi)
 
+		thrust = self.g + u[0]/self.mb
+
 		# derivatives of the continuous dynamics
 		# New: adding g as a state
-		All = self.dt / self.mb * np.array([
-			[0,0,-(self.g * self.mb + u[0]) * cphi0/self.mb],
-			[0,0,-(self.g + u[0] / self.mb) * sphi0],
+		All = self.dt * np.array([
+			[0,0,-thrust * cphi0],
+			[0,0,-thrust * sphi0],
 			[0,0,0]
 		])
 		Bl = self.dt * np.array([
 			[-(sphi0/self.mb),0],
 			[cphi0/self.mb,0],
-			[u[1]/self.ib,(self.g * self.mb + u[0])/self.ib]
+			[u[1]/self.ib,thrust * self.mb / self.ib]
 		])
 		nq = All.shape[0]
 
@@ -68,14 +70,15 @@ class PlanarThrustStrokeDev:
 		# Full nonlinear dynamics
 		if useLinearization:
 			Ad, Bd = self.getLinearDynamics(y, u)
+			# print(Ad)
 			return Ad @ y + Bd @ u
 		else:
 			phi = y[2]
-			thrust = self.g * self.mb + u[0]
+			thrust = self.g + u[0]/self.mb
 			# accelerations
 			y2dot = np.array([-thrust * np.sin(phi), 
-			-self.g * self.mb + thrust * np.cos(phi), 
-			thrust * u[1] / self.ib
+			-self.g + thrust * np.cos(phi), 
+			thrust * u[1] * self.mb / self.ib
 			])
 			y1dot = y[3:6]
 			# zero order hold?
@@ -93,7 +96,7 @@ class PlanarThrustStrokeDev:
 	nx = 7
 	nu = 2
 
-def visualizeTraj(ax, traj, model):
+def visualizeTraj(ax, traj, model, col='r'):
 	# Plots what RefTraj.generate() returns
 	from matplotlib.patches import Rectangle, Circle
 	from matplotlib.collections import PatchCollection
@@ -110,35 +113,54 @@ def visualizeTraj(ax, traj, model):
 		
 		robotBodies.append(body)
 		ax.plot(strokeExtents[:,0], strokeExtents[:,1], 'k--', linewidth=1,  alpha=0.3)
-		ax.arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0003, alpha=0.3)
+		ax.arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0003, alpha=0.3, facecolor=col)
 	
-	pc = PatchCollection(robotBodies, facecolor='r', edgecolor='k', alpha=0.3)
+	pc = PatchCollection(robotBodies, facecolor=col, edgecolor='k', alpha=0.3)
 	ax.add_collection(pc)
 
 	ax.set_aspect(1)
-	ax.set_xlim([-0.03,0.03])
-	ax.set_ylim([-0.03,0.03])
+	ax.set_xlim([-0.05,0.05])
+	ax.set_ylim([-0.05,0.05])
 	ax.grid(True)
 	ax.set_xlabel('x')
 	ax.set_ylabel('y')
 	
 if __name__ == "__main__":
 	import matplotlib.pyplot as plt
-	# For visulatization
-	fig, ax = plt.subplots(1)
+	import controlutils.py.lqr as lqr
+	np.set_printoptions(suppress=True, linewidth=100, precision=3)
 	
 	model = PlanarThrustStrokeDev()
 	model.dt = 0.1
+
+	# For visualization
+	fig, ax = plt.subplots(1)
 	Ndraw = 5
+
 	Y = np.zeros((Ndraw, model.nx))
 	U = np.zeros((Ndraw, model.nu))
 	# initial conditions
 	Y[0,:], U[0,:] = model.y0, model.u0
-	# FIXME: these are just openloop inputs to test vis
-	U[0,:] = np.array([1e-1, 3e-3])
+	# Openloop
+	U[0,:] = np.array([1e-5,1e-5])
 	for ti in range(1, Ndraw):
 		Y[ti,:] = model.dynamics(Y[ti-1,:], U[ti-1,:], useLinearization=False)
 		U[ti,:] = U[ti-1,:]
 	visualizeTraj(ax, {'q':Y[:, 0:3], 'u':U}, model)
+	print(Y)
+
+	Y = np.zeros((Ndraw, model.nx))
+	U = np.zeros((Ndraw, model.nu))
+	# initial conditions
+	Y[0,:], U[0,:] = model.y0, model.u0
+	# Openloop
+	Y[0,0] = 0.02
+	U[0,:] = np.array([1e-5,1e-5])
+	for ti in range(1, Ndraw):
+		Y[ti,:] = model.dynamics(Y[ti-1,:], U[ti-1,:], useLinearization=True)
+		U[ti,:] = U[ti-1,:]
+	visualizeTraj(ax, {'q':Y[:, 0:3], 'u':U}, model, col='b')
+	print(Y)
+
 
 	plt.show()
