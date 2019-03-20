@@ -16,7 +16,8 @@ class RefTraj:
 
 class PlanarThrustStrokeDev:
 	mb = 100e-6
-	l = 12e-3
+	l = 12e-3  # body length
+	w = 2e-3  # body width (for visualization only)
 	g = 9.81
 	ib = 1/12. * mb * l**2
 	d = 2e-3
@@ -82,12 +83,12 @@ class PlanarThrustStrokeDev:
 			return np.hstack((yNog, self.g))
 
 	# Non-standard model functions
-	def aeroVisualizationInfo(self, y, u, Faeroscale=0.01):
+	def visualizationInfo(self, y, u, Faeroscale=0.02):
 		Ryaw = geom.rot2(y[2])
 		pcop = y[0:2] + Ryaw @ (np.array([0,self.d]) + u[1])
 		Faero = Ryaw @ np.array([0, self.mb * self.g + u[0]])
 		strokeExtents = y[0:2] + np.vstack((Ryaw @ np.array([-self.STROKE_EXTENT, self.d]), Ryaw @ np.array([self.STROKE_EXTENT, self.d])))
-		return pcop, Faeroscale * Faero, strokeExtents
+		return misc.rectangle(y[0:2], y[2], self.w, self.l), pcop, Faeroscale * Faero, strokeExtents
 
 	nx = 7
 	nu = 2
@@ -103,10 +104,11 @@ def visualizeTraj(ax, traj, model):
 	for k in range(N):
 		qk = traj['q'][k,:]
 		uk = traj['u'][k,:]
-		robotBodies.append(misc.rectangle(qk[0:2], qk[2], 0.002, 0.005))
 
-		# wing
-		pcop, Faero, strokeExtents = model.aeroVisualizationInfo(qk, uk)
+		# get info from model
+		body, pcop, Faero, strokeExtents = model.visualizationInfo(qk, uk)
+		
+		robotBodies.append(body)
 		ax.plot(strokeExtents[:,0], strokeExtents[:,1], 'k--', linewidth=1,  alpha=0.3)
 		ax.arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0003, alpha=0.3)
 	
@@ -114,8 +116,8 @@ def visualizeTraj(ax, traj, model):
 	ax.add_collection(pc)
 
 	ax.set_aspect(1)
-	ax.set_xlim([-0.01,0.01])
-	ax.set_ylim([-0.01,0.01])
+	ax.set_xlim([-0.03,0.03])
+	ax.set_ylim([-0.03,0.03])
 	ax.grid(True)
 	ax.set_xlabel('x')
 	ax.set_ylabel('y')
@@ -123,20 +125,20 @@ def visualizeTraj(ax, traj, model):
 if __name__ == "__main__":
 	import matplotlib.pyplot as plt
 	# For visulatization
-	fig, ax = plt.subplots(2)
+	fig, ax = plt.subplots(1)
 	
 	model = PlanarThrustStrokeDev()
 	model.dt = 0.02
-	Ndraw = 3
+	Ndraw = 5
 	Y = np.zeros((Ndraw, model.nx))
 	U = np.zeros((Ndraw, model.nu))
 	# initial conditions
 	Y[0,:], U[0,:] = model.y0, model.u0
 	# FIXME: these are just openloop inputs to test vis
-	U[0,:] = np.array([1e-1, 1e-5])
+	U[0,:] = np.array([1e-1, 1e-6])
 	for ti in range(1, Ndraw):
 		Y[ti,:] = model.dynamics(Y[ti-1,:], U[ti-1,:], useLinearization=False)
 		U[ti,:] = U[ti-1,:]
-	visualizeTraj(ax[0], {'q':Y[:, 0:3], 'u':U}, model)
+	visualizeTraj(ax, {'q':Y[:, 0:3], 'u':U}, model)
 
 	plt.show()
