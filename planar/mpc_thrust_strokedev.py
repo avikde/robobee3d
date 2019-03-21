@@ -28,7 +28,7 @@ CTRL_LQR = 3
 # Trajectory following?
 def getXr(t):
 	if exp == EXP_GOAL:
-		xr = np.array([-0.03, -0.02, 0, 0, 0, 0])
+		xr = np.array([-0.03, 0.02, 0, 0, 0, 0])
 	elif exp == EXP_11:
 		xr = np.array([t, t, 0.,0.,0.,0.])
 	elif exp == EXP_SINE:
@@ -84,7 +84,7 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 			K = lqr.dlqr(Ad, Bd, np.diag(wx), np.diag(wu))[0]
 			ctrl = K @ (xr - x0)
 		elif ctrlType == CTRL_LIN_CUR:
-			ctrl = mpc.update(x0, np.zeros(2), xr)
+			ctrl = mpc.update(x0, ctrl, xr)
 			# ctrl = mpc.update(x0, np.zeros(2), xr, trajMode=mpc.ITERATE_TRAJ_LIN)
 		elif ctrlType == CTRL_LIN_HORIZON:
 			# traj to linearize around
@@ -148,29 +148,41 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 # plt.show()
 
 # Run simulations
-fig, ax = plt.subplots(1)
-# Use runSim
-runSim([100,100,10,1,1,1], [0.1,0.1], dt=0.01, ctrlType=CTRL_LQR, label='LQR', nsim=100)
-# Openloop
+fig, ax = plt.subplots(ncols=2)
+
 y0 = np.zeros(6)
-y0[0] = 0.02
+y0[0] = -0.02
+runSim([500,500,5,1,1,1], [0.01,0.01], dt=0.01, ctrlType=CTRL_LQR, label='LQR', nsim=100, x0=y0)
+# Openloop
+y0[0] = 0.0
 runSim([], [], dt=0.01, ctrlType=CTRL_OPEN_LOOP, label='OL', nsim=5, x0=y0)
 # MPC
-y0[0] = -0.02
-runSim([100,100,10,1,1,1], [0.1,0.1], dt=0.01, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=100, N=5)
+y0[0] = 0.02
+runSim([500, 500, 1, 10, 10, 0.01], [0.1,0.1], dt=0.01, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=200, N=10, x0=y0)
+
+# some colors to draw with
+results[0]['col'] = 'r'
+results[1]['col'] = 'g'
+results[2]['col'] = 'b'
+cols=['r','g','b']
 
 # Vis
-FlappingModels.visualizeTraj(ax, {'q':results[0]['X'][:, 0:3], 'u':results[0]['U']}, model)
-FlappingModels.visualizeTraj(ax, {'q':results[1]['X'][:, 0:3], 'u':results[1]['U']}, model, col='b')
-FlappingModels.visualizeTraj(ax, {'q':results[2]['X'][:, 0:3], 'u':results[2]['U']}, model, col='g')
+for res in results:
+	FlappingModels.visualizeTraj(ax[0], {'q':res['X'][:, 0:3], 'u':res['U']}, model, col=res['col'])
 lqrgoal = getXr(0)
-ax.plot(lqrgoal[0], lqrgoal[1], 'c*')
+ax[0].plot(lqrgoal[0], lqrgoal[1], 'c*')
 # print(Y)
 
 # custom legend
 from matplotlib.lines import Line2D
-custom_lines = [Line2D([0], [0], color='r', alpha=0.3), 
-	Line2D([0], [0], color='b', alpha=0.3)]
-ax.legend(custom_lines, ['LQR', 'OL'])
+custom_lines = [Line2D([0], [0], color=res['col'], alpha=0.3) for res in results]
+ax[0].legend(custom_lines, ['LQR', 'OL', 'MPC'])
+
+# Plot time traces
+ax[1].plot(results[2]['X'][:, 0])
+ax[1].plot(results[2]['X'][:, 1])
+ax[1].plot(results[2]['X'][:, 2])
+ax[1].set_xlabel('Iters')
+ax[1].set_ylabel('MPC traj')
 
 plt.show()
