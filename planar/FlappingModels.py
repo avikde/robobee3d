@@ -162,20 +162,28 @@ if __name__ == "__main__":
 
 	# For visualization
 	fig, ax = plt.subplots(1)
-	Ndraw = 5
+	Ndraw = 100
 
 	Y = np.zeros((Ndraw, model.nx))
 	U = np.zeros((Ndraw, model.nu))
 	# initial conditions
 	Y[0,:], U[0,:] = model.y0, model.u0
 	# Openloop
-	U[0,:] = np.array([1e-3,1e-3])
+	U[0,:] = np.zeros(2)
+	lqrgoal = np.array([-0.03, -0.02, 0, 0, 0, 0])
 	for ti in range(1, Ndraw):
-		Y[ti,:] = model.dynamics(Y[ti-1,:], U[ti-1,:], useLinearization=False)
-		U[ti,:] = U[ti-1,:]
+		# get linearization
+		Ad, Bd, fd = model.getLinearDynamics(Y[ti-1,:], U[ti-1,:])
+		# actually compute u
+		K, X = lqr.dlqr(Ad, Bd, np.diag([100,100,10,1,1,1]), np.diag([0.1,0.1]))
+		ulqr = K @ (lqrgoal - Y[ti-1,:])
+		Y[ti,:] = Ad @ Y[ti-1,:] + Bd @ ulqr + fd  # actual dynamics
+		U[ti,:] = ulqr  # for next linearization
 	visualizeTraj(ax, {'q':Y[:, 0:3], 'u':U}, model)
+	ax.plot(lqrgoal[0], lqrgoal[1], 'c*')
 	print(Y)
 
+	Ndraw = 5
 	Y = np.zeros((Ndraw, model.nx))
 	U = np.zeros((Ndraw, model.nu))
 	# initial conditions
@@ -193,6 +201,6 @@ if __name__ == "__main__":
 	from matplotlib.lines import Line2D
 	custom_lines = [Line2D([0], [0], color='r', alpha=0.3), 
 		Line2D([0], [0], color='b', alpha=0.3)]
-	ax.legend(custom_lines, ['Actual', 'Linearized'])
+	ax.legend(custom_lines, ['LQR', 'Linearized'])
 
 	plt.show()
