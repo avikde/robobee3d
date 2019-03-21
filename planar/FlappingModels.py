@@ -22,7 +22,6 @@ class PlanarThrustStrokeDev:
 	ib = 1/12. * mb * l**2
 	d = 2e-3
 	# initial conditions
-	bAffine = True
 	nx = 6  # originally 6 states for linearized (affine) model, but adding on another 6 to store the affine pieces including the gravity terms as well as fk the linearization residual
 	nu = 2
 	y0 = np.array([0,0,0,0,0,0])
@@ -32,6 +31,10 @@ class PlanarThrustStrokeDev:
 	STROKE_EXTENT = 5e-3
 
 	def getLinearDynamics(self, y, u):
+		'''Returns Ad, Bd[, fd]
+		where fd is only there if the system is affine.
+		x[k+1] = Ad @ x[k] + Bd @ u[k] + fd
+		'''
 		# Need the actual cts dynamics for the affine term
 		fy = self.dydt(y, u)  # result is 6x1
 
@@ -65,16 +68,6 @@ class PlanarThrustStrokeDev:
 
 		# Compute the affine term
 		fd = self.dt * (fy - dfdy @ y[0:6] - dfdu @ u)
-		# print(fk)
-
-		# # New: adding g as a state
-		# nq = All.shape[0]
-
-		# Aupper = np.hstack([np.eye(nq), self.dt * np.eye(nq), np.zeros((nq,1))])
-		# Alower = np.hstack([self.dt * All, np.eye(nq), self.dt * np.array([[-sphi0],[-1 + cphi0],[self.mb * u[1]/self.ib]])])
-		# Ag = np.array([0,0,0,0,0,0,1])
-		# Ad = np.vstack([Aupper, Alower, Ag])
-		# Bd = np.vstack([np.zeros((nq,2)), self.dt * Bl, np.zeros((1,2))])
 
 		# New linearization: see https://github.com/avikde/robobee3d/pull/29#issuecomment-475222003
 		Ad = np.eye(6) + self.dt * dfdy

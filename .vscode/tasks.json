@@ -33,22 +33,6 @@
 				"clear": true
 			},
 			"problemMatcher": []
-		},
-		{
-			"label": "planar test models",
-			"type": "shell",
-			"group": "build",
-			"options": {
-				"cwd": "${workspaceFolder}/planar"
-			},
-			"command": "python FlappingModels.py",
-			"presentation": {
-				"echo": true,
-				"reveal": "always",
-				"panel": "shared",
-				"clear": true
-			},
-			"problemMatcher": []
 		}
 	]
 }
