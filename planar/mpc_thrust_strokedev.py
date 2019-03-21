@@ -46,7 +46,7 @@ def getXr(t):
 
 	return xr
 
-def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=200):
+def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=200, x0=None):
 	'''
 	N = horizon (e.g. 20)
 	dt = timestep (e.g. 0.002)
@@ -57,7 +57,9 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 
 	# Initial and reference states
 	# x0 = 0.01 * np.random.rand(model.nx)
-	x0, ctrl = model.y0, model.u0
+	if x0 is None:
+		x0 = model.y0
+	ctrl = model.u0
 
 	# Simulate in closed loop
 	X = np.zeros((nsim, model.nx))
@@ -93,7 +95,7 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 			# NOTE: left this here, but moved a lot of the traj stuff into MPCUtils through trajMode
 			pass
 		else: # openloop
-			ctrl = np.array([1e-6,0])
+			ctrl = np.array([1e-3,1e-3])
 
 		# simulate forward
 		x0 = model.dynamics(x0, ctrl)
@@ -150,33 +152,26 @@ np.set_printoptions(suppress=True, linewidth=100, precision=3)
 model = FlappingModels.PlanarThrustStrokeDev()
 model.dt = 0.01
 
-# For visualization
+# Run simulations
 fig, ax = plt.subplots(1)
-Ndraw = 100
 # Use runSim
-runSim([100,100,10,1,1,1], [0.1,0.1], dt=0.01, ctrlType=CTRL_LQR, label='LQR')
+runSim([100,100,10,1,1,1], [0.1,0.1], dt=0.01, ctrlType=CTRL_LQR, label='LQR', nsim=100)
+# Openloop
+y02 = np.zeros(6)
+y02[0] = 0.02
+runSim([], [], dt=0.01, ctrlType=CTRL_OPEN_LOOP, label='OL', nsim=5, x0=y02)
+
+# Vis
 FlappingModels.visualizeTraj(ax, {'q':results[0]['X'][:, 0:3], 'u':results[0]['U']}, model)
+FlappingModels.visualizeTraj(ax, {'q':results[1]['X'][:, 0:3], 'u':results[1]['U']}, model, col='b')
 lqrgoal = getXr(0)
 ax.plot(lqrgoal[0], lqrgoal[1], 'c*')
-
-Ndraw = 5
-Y = np.zeros((Ndraw, model.nx))
-U = np.zeros((Ndraw, model.nu))
-# initial conditions
-Y[0,:], U[0,:] = model.y0, model.u0
-# Openloop
-Y[0,0] = 0.02
-U[0,:] = np.array([1e-3,1e-3])
-for ti in range(1, Ndraw):
-	Y[ti,:] = model.dynamics(Y[ti-1,:], U[ti-1,:], useLinearization=True)
-	U[ti,:] = U[ti-1,:]
-FlappingModels.visualizeTraj(ax, {'q':Y[:, 0:3], 'u':U}, model, col='b')
-print(Y)
+# print(Y)
 
 # custom legend
 from matplotlib.lines import Line2D
 custom_lines = [Line2D([0], [0], color='r', alpha=0.3), 
 	Line2D([0], [0], color='b', alpha=0.3)]
-ax.legend(custom_lines, ['LQR', 'Linearized'])
+ax.legend(custom_lines, ['LQR', 'OL'])
 
 plt.show()
