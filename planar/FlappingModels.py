@@ -22,8 +22,10 @@ class PlanarThrustStrokeDev:
 	ib = 1/12. * mb * l**2
 	d = 2e-3
 	# initial conditions
+	nx = 7  # originally 6 states for linearized (affine) model, but adding on another 6 to store the affine pieces including the gravity terms as well as fk the linearization residual
+	nu = 2
 	y0 = np.array([0,0,0,0,0,0,g])
-	u0 = np.array([0, 0])
+	u0 = np.zeros(nu)
 	# can be reset
 	dt = 0.005
 	STROKE_EXTENT = 5e-3
@@ -66,6 +68,19 @@ class PlanarThrustStrokeDev:
 		xmax = -xmin
 		return umin, umax, xmin, xmax
 
+	def dydt(self, y, u):
+		# Full continuous nonlinear vector field
+		phi = y[2]
+		thrust = self.g + u[0]/self.mb
+		# accelerations
+		y2dot = np.array([-thrust * np.sin(phi), 
+		-self.g + thrust * np.cos(phi), 
+		thrust * u[1] * self.mb / self.ib
+		])
+		y1dot = y[3:6]
+		return np.hstack((y1dot, y2dot))
+
+
 	def dynamics(self, y, u, useLinearization=False):
 		# Full nonlinear dynamics
 		if useLinearization:
@@ -73,16 +88,8 @@ class PlanarThrustStrokeDev:
 			# print(Ad)
 			return Ad @ y + Bd @ u
 		else:
-			phi = y[2]
-			thrust = self.g + u[0]/self.mb
-			# accelerations
-			y2dot = np.array([-thrust * np.sin(phi), 
-			-self.g + thrust * np.cos(phi), 
-			thrust * u[1] * self.mb / self.ib
-			])
-			y1dot = y[3:6]
 			# zero order hold?
-			yNog = y[0:6] + np.hstack((y1dot, y2dot)) * self.dt
+			yNog = y[0:6] + self.dydt(y, u) * self.dt
 			return np.hstack((yNog, self.g))
 
 	# Non-standard model functions
@@ -93,8 +100,6 @@ class PlanarThrustStrokeDev:
 		strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([-self.STROKE_EXTENT, self.d]), y[0:2] + Ryaw @ np.array([self.STROKE_EXTENT, self.d])))
 		return misc.rectangle(y[0:2], y[2], self.w, self.l), pcop, Faeroscale * Faero, strokeExtents
 
-	nx = 7
-	nu = 2
 
 def visualizeTraj(ax, traj, model, col='r'):
 	# Plots what RefTraj.generate() returns
