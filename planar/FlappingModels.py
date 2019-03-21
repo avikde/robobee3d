@@ -80,7 +80,7 @@ class PlanarThrustStrokeDev:
 		umax = np.array([3*self.mb*self.g, self.STROKE_EXTENT])
 		# umin = np.array([-np.inf, -50e-3])
 		# umax = np.array([np.inf, 50e-3])
-		xmin = np.array([-np.inf,-np.inf,-10*np.pi,-np.inf,-np.inf,-np.inf,-np.inf])
+		xmin = np.array([-np.inf,-np.inf,-10*np.pi,-np.inf,-np.inf,-np.inf])
 		xmax = -xmin
 		return umin, umax, xmin, xmax
 

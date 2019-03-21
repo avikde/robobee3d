@@ -147,23 +147,22 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 
 # plt.show()
 
-np.set_printoptions(suppress=True, linewidth=100, precision=3)
-
-model = FlappingModels.PlanarThrustStrokeDev()
-model.dt = 0.01
-
 # Run simulations
 fig, ax = plt.subplots(1)
 # Use runSim
 runSim([100,100,10,1,1,1], [0.1,0.1], dt=0.01, ctrlType=CTRL_LQR, label='LQR', nsim=100)
 # Openloop
-y02 = np.zeros(6)
-y02[0] = 0.02
-runSim([], [], dt=0.01, ctrlType=CTRL_OPEN_LOOP, label='OL', nsim=5, x0=y02)
+y0 = np.zeros(6)
+y0[0] = 0.02
+runSim([], [], dt=0.01, ctrlType=CTRL_OPEN_LOOP, label='OL', nsim=5, x0=y0)
+# MPC
+y0[0] = -0.02
+runSim([100,100,10,1,1,1], [0.1,0.1], dt=0.01, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=100, N=5)
 
 # Vis
 FlappingModels.visualizeTraj(ax, {'q':results[0]['X'][:, 0:3], 'u':results[0]['U']}, model)
 FlappingModels.visualizeTraj(ax, {'q':results[1]['X'][:, 0:3], 'u':results[1]['U']}, model, col='b')
+FlappingModels.visualizeTraj(ax, {'q':results[2]['X'][:, 0:3], 'u':results[2]['U']}, model, col='g')
 lqrgoal = getXr(0)
 ax.plot(lqrgoal[0], lqrgoal[1], 'c*')
 # print(Y)
