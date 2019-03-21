@@ -17,7 +17,7 @@ EXP_SINE = 0
 EXP_SOMERSAULT = 1
 EXP_11 = 2
 EXP_GOAL = 3
-exp = EXP_GOAL
+exp = EXP_SINE
 
 # control types
 CTRL_LIN_CUR = 0
@@ -33,7 +33,7 @@ def getXr(t):
 		xr = np.array([t, t, 0.,0.,0.,0.])
 	elif exp == EXP_SINE:
 		# Sinusoidal
-		xr = np.array([0.5 * np.sin(10 * t), 0.1 * t, 0.,0.,0.,0.])
+		xr = np.array([0.04 * np.sin(10 * t), 0.1 * t, 0.,0.,0.,0.])
 	elif exp == EXP_SOMERSAULT:
 		xr = np.array([0, 0, 3*t,0.,0.,3.])
 	else:
@@ -71,7 +71,9 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 
 	for i in range(nsim):
 		# tgoal = (i + N) * dt
-		tgoal = (i + 1) * dt
+		tgoal = i * dt
+		if ctrlType == CTRL_LIN_CUR:
+			tgoal = (i + N) * dt
 		xr = getXr(tgoal)
 		# for logging
 		desTraj[i,:] = xr[0:3]
@@ -151,37 +153,36 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 fig, ax = plt.subplots(ncols=2)
 
 y0 = np.zeros(6)
-y0[0] = -0.02
-runSim([500,500,5,1,1,1], [0.01,0.01], dt=0.01, ctrlType=CTRL_LQR, label='LQR', nsim=100, x0=y0)
-# Openloop
-y0[0] = 0.0
-runSim([], [], dt=0.01, ctrlType=CTRL_OPEN_LOOP, label='OL', nsim=5, x0=y0)
+runSim([1000, 1000, 0.05, 5, 5, 0.005], [0.01,0.01], dt=0.01, ctrlType=CTRL_LQR, label='LQR', nsim=200, x0=y0)
+# # Openloop
+# y0[0] = 0.0
+# runSim([], [], dt=0.01, ctrlType=CTRL_OPEN_LOOP, label='OL', nsim=5, x0=y0)
 # MPC
-y0[0] = 0.02
-runSim([500, 500, 1, 10, 10, 0.01], [0.1,0.1], dt=0.01, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=200, N=10, x0=y0)
+runSim([1000, 1000, 0.05, 5, 5, 0.005], [0.01,0.01], dt=0.01, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=200, N=10, x0=y0)
 
 # some colors to draw with
 results[0]['col'] = 'r'
 results[1]['col'] = 'g'
-results[2]['col'] = 'b'
-cols=['r','g','b']
+# results[2]['col'] = 'b'
 
 # Vis
 for res in results:
 	FlappingModels.visualizeTraj(ax[0], {'q':res['X'][:, 0:3], 'u':res['U']}, model, col=res['col'])
-lqrgoal = getXr(0)
-ax[0].plot(lqrgoal[0], lqrgoal[1], 'c*')
-# print(Y)
+if exp == EXP_SINE:
+	ax[0].plot(results[1]['desTraj'][:,0], results[1]['desTraj'][:,1], 'k--', label='des')
+elif exp == EXP_GOAL:
+	lqrgoal = getXr(0)
+	ax[0].plot(lqrgoal[0], lqrgoal[1], 'c*')
 
 # custom legend
 from matplotlib.lines import Line2D
 custom_lines = [Line2D([0], [0], color=res['col'], alpha=0.3) for res in results]
-ax[0].legend(custom_lines, ['LQR', 'OL', 'MPC'])
+ax[0].legend(custom_lines, ['LQR', 'MPC'])
 
 # Plot time traces
-ax[1].plot(results[2]['X'][:, 0])
-ax[1].plot(results[2]['X'][:, 1])
-ax[1].plot(results[2]['X'][:, 2])
+ax[1].plot(results[1]['X'][:, 0])
+ax[1].plot(results[1]['X'][:, 1])
+ax[1].plot(results[1]['X'][:, 2])
 ax[1].set_xlabel('Iters')
 ax[1].set_ylabel('MPC traj')
 
