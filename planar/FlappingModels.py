@@ -31,31 +31,49 @@ class PlanarThrustStrokeDev:
 	STROKE_EXTENT = 5e-3
 
 	def getLinearDynamics(self, y, u):
+		# Need the actual cts dynamics for the affine term
+		fy = self.dydt(y, u)  # result is 6x1
+
+		# Linearizations of the continuous dynamics. TODO: In the future can use autograd
 		phi = y[2]
 		cphi0 = np.cos(phi)
 		sphi0 = np.sin(phi)
 
 		thrust = self.g + u[0]/self.mb
 
-		# derivatives of the continuous dynamics
-		# New: adding g as a state
-		All = self.dt * np.array([
+		All = np.array([
 			[0,0,-thrust * cphi0],
 			[0,0,-thrust * sphi0],
 			[0,0,0]
 		])
-		Bl = self.dt * np.array([
+		Bl = np.array([
 			[-(sphi0/self.mb),0],
 			[cphi0/self.mb,0],
 			[u[1]/self.ib,thrust * self.mb / self.ib]
 		])
+		# Jac wrt state
+		dfdy = np.vstack((
+			np.hstack((np.zeros((3,3)), np.eye(3))),
+			np.hstack((All, np.zeros((3,3))))
+		))
+		# Jac wrt inputs
+		dfdu = np.vstack((
+			np.zeros((3,2)),
+			Bl
+		))
+
+		# Compute the affine term
+		fk = self.dt * (fy - dfdy @ y[0:6] - dfdu @ u)
+		# print(fk)
+
+		# New: adding g as a state
 		nq = All.shape[0]
 
 		Aupper = np.hstack([np.eye(nq), self.dt * np.eye(nq), np.zeros((nq,1))])
-		Alower = np.hstack([All, np.eye(nq), self.dt * np.array([[-sphi0],[-1 + cphi0],[self.mb * u[1]/self.ib]])])
+		Alower = np.hstack([self.dt * All, np.eye(nq), self.dt * np.array([[-sphi0],[-1 + cphi0],[self.mb * u[1]/self.ib]])])
 		Ag = np.array([0,0,0,0,0,0,1])
 		Ad = np.vstack([Aupper, Alower, Ag])
-		Bd = np.vstack([np.zeros((nq,2)), Bl, np.zeros((1,2))])
+		Bd = np.vstack([np.zeros((nq,2)), self.dt * Bl, np.zeros((1,2))])
 
 		return Ad, Bd
 	
