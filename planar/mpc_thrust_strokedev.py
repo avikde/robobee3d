@@ -17,7 +17,7 @@ EXP_SINE = 0
 EXP_SOMERSAULT = 1
 EXP_11 = 2
 EXP_GOAL = 3
-exp = EXP_SINE
+exp = EXP_SOMERSAULT
 
 # control types
 CTRL_LIN_CUR = 0
@@ -46,7 +46,7 @@ def getXr(t):
 
 	return xr
 
-def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=200, x0=None):
+def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=200, x0=None, u0=None):
 	'''
 	N = horizon (e.g. 20)
 	dt = timestep (e.g. 0.002)
@@ -60,6 +60,8 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 	if x0 is None:
 		x0 = model.y0
 	ctrl = model.u0
+	if u0 is not None:
+		ctrl = u0
 
 	# Simulate in closed loop
 	X = np.zeros((nsim, model.nx))
@@ -97,7 +99,8 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 			# NOTE: left this here, but moved a lot of the traj stuff into MPCUtils through trajMode
 			pass
 		else: # openloop
-			ctrl = np.array([1e-3,1e-3])
+			pass
+			# ctrl = np.array([1e-3,1e-3])
 
 		# simulate forward
 		x0 = model.dynamics(x0, ctrl)
@@ -152,18 +155,25 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 # Run simulations
 fig, ax = plt.subplots(ncols=2)
 
+wx = [1000, 1000, 0.05, 5, 5, 0.005]
+wu = [0.01,0.01]
+if exp == EXP_SOMERSAULT:
+	wx = [100, 100, 1, 1, 1, 1]
+	wu = [0.01,0.01]
+
+
 y0 = np.zeros(6)
-runSim([1000, 1000, 0.05, 5, 5, 0.005], [0.01,0.01], dt=0.01, ctrlType=CTRL_LQR, label='LQR', nsim=200, x0=y0)
-# # Openloop
-# y0[0] = 0.0
-# runSim([], [], dt=0.01, ctrlType=CTRL_OPEN_LOOP, label='OL', nsim=5, x0=y0)
+runSim(wx, wu, dt=0.01, ctrlType=CTRL_LQR, label='LQR', nsim=5, x0=y0)
 # MPC
-runSim([1000, 1000, 0.05, 5, 5, 0.005], [0.01,0.01], dt=0.01, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=200, N=10, x0=y0)
+runSim(wx, wu, dt=0.01, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=5, N=10, x0=y0)
+# Openloop
+y0[0] = 0.0
+runSim([], [], dt=0.01, ctrlType=CTRL_OPEN_LOOP, label='OL', nsim=10, x0=y0, u0=np.array([1e-3,1e-3]))
 
 # some colors to draw with
 results[0]['col'] = 'r'
 results[1]['col'] = 'g'
-# results[2]['col'] = 'b'
+results[2]['col'] = 'b'
 
 # Vis
 for res in results:
@@ -177,12 +187,12 @@ elif exp == EXP_GOAL:
 # custom legend
 from matplotlib.lines import Line2D
 custom_lines = [Line2D([0], [0], color=res['col'], alpha=0.3) for res in results]
-ax[0].legend(custom_lines, ['LQR', 'MPC'])
+ax[0].legend(custom_lines, ['LQR', 'MPC', 'OL'])
 
 # Plot time traces
-ax[1].plot(results[1]['X'][:, 0])
-ax[1].plot(results[1]['X'][:, 1])
-ax[1].plot(results[1]['X'][:, 2])
+ax[1].plot(results[2]['X'][:, 0])
+ax[1].plot(results[2]['X'][:, 1])
+ax[1].plot(results[2]['X'][:, 2])
 ax[1].set_xlabel('Iters')
 ax[1].set_ylabel('MPC traj')
 
