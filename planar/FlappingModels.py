@@ -162,5 +162,10 @@ if __name__ == "__main__":
 	visualizeTraj(ax, {'q':Y[:, 0:3], 'u':U}, model, col='b')
 	print(Y)
 
+	# custom legend
+	from matplotlib.lines import Line2D
+	custom_lines = [Line2D([0], [0], color='r', alpha=0.3), 
+		Line2D([0], [0], color='b', alpha=0.3)]
+	ax.legend(custom_lines, ['Actual', 'Linearized'])
 
 	plt.show()
