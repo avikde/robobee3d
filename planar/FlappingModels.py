@@ -22,9 +22,10 @@ class PlanarThrustStrokeDev:
 	ib = 1/12. * mb * l**2
 	d = 2e-3
 	# initial conditions
-	nx = 7  # originally 6 states for linearized (affine) model, but adding on another 6 to store the affine pieces including the gravity terms as well as fk the linearization residual
+	bAffine = True
+	nx = 6  # originally 6 states for linearized (affine) model, but adding on another 6 to store the affine pieces including the gravity terms as well as fk the linearization residual
 	nu = 2
-	y0 = np.array([0,0,0,0,0,0,g])
+	y0 = np.array([0,0,0,0,0,0])
 	u0 = np.zeros(nu)
 	# can be reset
 	dt = 0.005
@@ -63,19 +64,23 @@ class PlanarThrustStrokeDev:
 		))
 
 		# Compute the affine term
-		fk = self.dt * (fy - dfdy @ y[0:6] - dfdu @ u)
+		fd = self.dt * (fy - dfdy @ y[0:6] - dfdu @ u)
 		# print(fk)
 
-		# New: adding g as a state
-		nq = All.shape[0]
+		# # New: adding g as a state
+		# nq = All.shape[0]
 
-		Aupper = np.hstack([np.eye(nq), self.dt * np.eye(nq), np.zeros((nq,1))])
-		Alower = np.hstack([self.dt * All, np.eye(nq), self.dt * np.array([[-sphi0],[-1 + cphi0],[self.mb * u[1]/self.ib]])])
-		Ag = np.array([0,0,0,0,0,0,1])
-		Ad = np.vstack([Aupper, Alower, Ag])
-		Bd = np.vstack([np.zeros((nq,2)), self.dt * Bl, np.zeros((1,2))])
+		# Aupper = np.hstack([np.eye(nq), self.dt * np.eye(nq), np.zeros((nq,1))])
+		# Alower = np.hstack([self.dt * All, np.eye(nq), self.dt * np.array([[-sphi0],[-1 + cphi0],[self.mb * u[1]/self.ib]])])
+		# Ag = np.array([0,0,0,0,0,0,1])
+		# Ad = np.vstack([Aupper, Alower, Ag])
+		# Bd = np.vstack([np.zeros((nq,2)), self.dt * Bl, np.zeros((1,2))])
 
-		return Ad, Bd
+		# New linearization: see https://github.com/avikde/robobee3d/pull/29#issuecomment-475222003
+		Ad = np.eye(6) + self.dt * dfdy
+		Bd = self.dt * dfdu
+
+		return Ad, Bd, fd
 	
 	def getLimits(self):
 		umin = np.array([-self.mb*self.g, -self.STROKE_EXTENT])
@@ -102,13 +107,12 @@ class PlanarThrustStrokeDev:
 	def dynamics(self, y, u, useLinearization=False):
 		# Full nonlinear dynamics
 		if useLinearization:
-			Ad, Bd = self.getLinearDynamics(y, u)
+			Ad, Bd, fd = self.getLinearDynamics(y, u)
 			# print(Ad)
-			return Ad @ y + Bd @ u
+			return Ad @ y + Bd @ u + fd
 		else:
-			# zero order hold?
-			yNog = y[0:6] + self.dydt(y, u) * self.dt
-			return np.hstack((yNog, self.g))
+			# 1st order integration
+			return y[0:6] + self.dydt(y, u) * self.dt # np.hstack((yNog, self.g))
 
 	# Non-standard model functions
 	def visualizationInfo(self, y, u, Faeroscale=0.02):
