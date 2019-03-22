@@ -62,7 +62,7 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 		# TODO: confirm this weight scaling
 		wx = np.array(wx) / dt
 		# wu = np.array(wu) / dt
-		ltvmpc = mpc.LTVMPC(model, N, wx, wu, verbose=False, scaling=0, eps_abs=epsi, eps_rel=epsi)
+		ltvmpc = mpc.LTVMPC(model, N, wx, wu, verbose=False, scaling=0, eps_abs=epsi, eps_rel=epsi, kdamping=0)
 
 	# Initial and reference states
 	# x0 = 0.01 * np.random.rand(model.nx)
@@ -176,7 +176,7 @@ if exp == EXP_SOMERSAULT:
 	wx = [1,1,1, 1, 1, 5]
 	wu = [0.01,0.01]
 	nsimi = 100
-	dti = 0.002
+	dti = 0.004
 if exp == EXP_VELDES:
 	wx = [1,1,1, 10, 10, 0.1]
 	wu = [0.01,0.01]
