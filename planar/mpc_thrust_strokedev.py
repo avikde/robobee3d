@@ -17,7 +17,7 @@ EXP_SINE = 0
 EXP_SOMERSAULT = 1
 EXP_11 = 2
 EXP_GOAL = 3
-exp = EXP_SOMERSAULT
+exp = EXP_SINE
 
 # control types
 CTRL_LIN_CUR = 0
@@ -161,19 +161,21 @@ if exp == EXP_SOMERSAULT:
 	wx = [100, 100, 1, 1, 1, 1]
 	wu = [0.01,0.01]
 
+nsimi = 200 if exp == EXP_SINE else 5
 
 y0 = np.zeros(6)
-runSim(wx, wu, dt=0.01, ctrlType=CTRL_LQR, label='LQR', nsim=5, x0=y0)
+runSim(wx, wu, dt=0.01, ctrlType=CTRL_LQR, label='LQR', nsim=nsimi, x0=y0)
 # MPC
-runSim(wx, wu, dt=0.01, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=5, N=10, x0=y0)
-# Openloop
-y0[0] = 0.0
-runSim([], [], dt=0.01, ctrlType=CTRL_OPEN_LOOP, label='OL', nsim=10, x0=y0, u0=np.array([1e-3,1e-3]))
+runSim(wx, wu, dt=0.01, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=nsimi, N=10, x0=y0)
+if exp == EXP_SOMERSAULT:
+	# Openloop
+	y0[0] = 0.0
+	runSim([], [], dt=0.01, ctrlType=CTRL_OPEN_LOOP, label='OL', nsim=10, x0=y0, u0=np.array([1e-3,1e-3]))
 
 # some colors to draw with
 results[0]['col'] = 'r'
 results[1]['col'] = 'g'
-results[2]['col'] = 'b'
+# results[2]['col'] = 'b'
 
 # Vis
 for res in results:
@@ -190,9 +192,9 @@ custom_lines = [Line2D([0], [0], color=res['col'], alpha=0.3) for res in results
 ax[0].legend(custom_lines, ['LQR', 'MPC', 'OL'])
 
 # Plot time traces
-ax[1].plot(results[2]['X'][:, 0])
-ax[1].plot(results[2]['X'][:, 1])
-ax[1].plot(results[2]['X'][:, 2])
+ax[1].plot(results[1]['X'][:, 0])
+ax[1].plot(results[1]['X'][:, 1])
+ax[1].plot(results[1]['X'][:, 2])
 ax[1].set_xlabel('Iters')
 ax[1].set_ylabel('MPC traj')
 

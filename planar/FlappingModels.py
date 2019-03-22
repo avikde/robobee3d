@@ -139,8 +139,8 @@ def visualizeTraj(ax, traj, model, col='r'):
 	ax.add_collection(pc)
 
 	ax.set_aspect(1)
-	ax.set_xlim([-0.05,0.05])
-	ax.set_ylim([-0.05,0.05])
+	# ax.set_xlim([-0.05,0.05])
+	# ax.set_ylim([-0.05,0.05])
 	ax.grid(True)
 	ax.set_xlabel('x')
 	ax.set_ylabel('z')
