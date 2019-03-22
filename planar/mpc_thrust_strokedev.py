@@ -18,7 +18,7 @@ EXP_SOMERSAULT = 1
 EXP_11 = 2
 EXP_GOAL = 3
 EXP_VELDES = 4
-exp = EXP_SINE
+exp = EXP_VELDES
 
 # control types
 CTRL_LIN_CUR = 0
@@ -54,6 +54,9 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 	'''
 	model.dt = dt
 	if ctrlType in [CTRL_LIN_CUR, CTRL_LIN_HORIZON]:
+		# TODO: confirm this weight scaling
+		wx = np.array(wx) / dt
+		wu = np.array(wu) / dt
 		ltvmpc = mpc.LTVMPC(model, N, wx, wu, verbose=False, scaling=0, eps_abs=epsi, eps_rel=epsi)
 
 	# Initial and reference states
@@ -157,7 +160,7 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 # plt.show()
 
 # Run simulations
-fig, ax = plt.subplots(ncols=3)
+fig, ax = plt.subplots(nrows=3)
 
 wx = [1000, 1000, 0.05, 5, 5, 0.005]
 wu = [0.01,0.01]
@@ -167,15 +170,15 @@ if exp == EXP_SOMERSAULT:
 	wu = [0.01,0.01]
 	nsimi = 5
 if exp == EXP_VELDES:
-	wx = [1,1,1, 1, 1, 1]
+	wx = [1,1,1, 10, 10, 0.1]
 	wu = [0.01,0.01]
 
 y0 = np.zeros(6)
 if exp == EXP_VELDES:
-	y0[3:6] = np.random.randn(3)
-runSim(wx, wu, dt=0.01, ctrlType=CTRL_LQR, label='LQR', nsim=nsimi, x0=y0)
+	y0[3:6] = np.array([1,0,0])
+runSim(wx, wu, dt=0.02, ctrlType=CTRL_LQR, label='LQR', nsim=nsimi, x0=y0)
 # MPC
-runSim(wx, wu, dt=0.01, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=nsimi, N=10, x0=y0)
+runSim(wx, wu, dt=0.02, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=nsimi, N=10, x0=y0)
 if exp == EXP_SOMERSAULT:
 	# Openloop
 	y0[0] = 0.0
