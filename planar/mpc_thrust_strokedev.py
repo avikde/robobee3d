@@ -7,7 +7,7 @@ import controlutils.py.mpc as mpc
 import controlutils.py.lqr as lqr
 import FlappingModels
 
-np.set_printoptions(precision=2, suppress=True, linewidth=100)
+np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
 model = FlappingModels.PlanarThrustStrokeDev()
 
@@ -101,6 +101,8 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 			K = lqr.dlqr(Ad, Bd, np.diag(wx), np.diag(wu))[0]
 			ctrl = K @ (xr - x0)
 		elif ctrlType == CTRL_LIN_CUR:
+			if exp == EXP_SOMERSAULT and i * dt > 0.2:
+				ltvmpc.updateWeights(wx=np.array([1000, 1000, 0.05, 5, 5, 0.005])/dt)
 			ctrl = ltvmpc.update(x0, ctrl, xr, costMode=mpc.TRAJ)#, trajMode=mpc.ITERATE_TRAJ)
 		elif ctrlType == CTRL_LIN_HORIZON:
 			# traj to linearize around
@@ -175,8 +177,8 @@ if exp == EXP_SOMERSAULT:
 	# wx = [100, 100, 1, 1, 1, 1]
 	wx = [1,1,1, 1, 1, 5]
 	wu = [0.01,0.01]
-	nsimi = 100
-	dti = 0.004
+	nsimi = 150
+	dti = 0.003
 if exp == EXP_VELDES:
 	wx = [1,1,1, 10, 10, 0.1]
 	wu = [0.01,0.01]
@@ -189,7 +191,7 @@ if exp == EXP_VELDES:
 runSim(wx, wu, dt=dti, ctrlType=CTRL_LQR, label='LQR', nsim=1, x0=y0)
 results[0]['col'] = 'r'
 # MPC
-runSim(wx, wu, dt=dti, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=nsimi, N=10, x0=y0)
+runSim(wx, wu, dt=dti, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=nsimi, N=5, x0=y0)
 results[1]['col'] = 'g'
 # if exp == EXP_SOMERSAULT:
 # 	# Openloop
