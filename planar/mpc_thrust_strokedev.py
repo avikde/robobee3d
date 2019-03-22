@@ -18,7 +18,7 @@ EXP_SOMERSAULT = 1
 EXP_11 = 2
 EXP_GOAL = 3
 EXP_VELDES = 4
-exp = EXP_VELDES
+exp = EXP_SOMERSAULT
 
 # control types
 CTRL_LIN_CUR = 0
@@ -36,7 +36,12 @@ def getXr(t):
 		# Sinusoidal
 		xr = np.array([0.04 * np.sin(10 * t), 0.1 * t, 0.,0.,0.,0.])
 	elif exp == EXP_SOMERSAULT:
-		xr = np.array([0, 0, 3*t,0.,0.,3.])
+		tperiod = 0.2
+		omega = 2 * np.pi / tperiod
+		# if t < tperiod:
+		xr = np.array([0, 0, omega*t,0.,0.,omega])
+		# else:
+		# 	xr = np.zeros(6)
 	else:
 		raise 'experiment not implemented'
 	# xr = np.array([0.5 * t,0.0, 0,0.,0.,0.])
@@ -167,9 +172,10 @@ wu = [0.01,0.01]
 nsimi = 200
 dti = 0.01
 if exp == EXP_SOMERSAULT:
-	wx = [100, 100, 1, 1, 1, 1]
+	# wx = [100, 100, 1, 1, 1, 1]
+	wx = [1,1,1, 1, 1, 5]
 	wu = [0.01,0.01]
-	nsimi = 5
+	nsimi = 50
 if exp == EXP_VELDES:
 	wx = [1,1,1, 10, 10, 0.1]
 	wu = [0.01,0.01]
@@ -179,18 +185,16 @@ if exp == EXP_VELDES:
 y0 = np.zeros(6)
 if exp == EXP_VELDES:
 	y0[3:6] = np.array([1,0,0])
-runSim(wx, wu, dt=dti, ctrlType=CTRL_LQR, label='LQR', nsim=nsimi, x0=y0)
+runSim(wx, wu, dt=dti, ctrlType=CTRL_LQR, label='LQR', nsim=1, x0=y0)
+results[0]['col'] = 'r'
 # MPC
 runSim(wx, wu, dt=dti, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=nsimi, N=10, x0=y0)
-if exp == EXP_SOMERSAULT:
-	# Openloop
-	y0[0] = 0.0
-	runSim([], [], dt=0.01, ctrlType=CTRL_OPEN_LOOP, label='OL', nsim=10, x0=y0, u0=np.array([1e-3,1e-3]))
-
-# some colors to draw with
-results[0]['col'] = 'r'
 results[1]['col'] = 'g'
-# results[2]['col'] = 'b'
+# if exp == EXP_SOMERSAULT:
+# 	# Openloop
+# 	y0[0] = 0.0
+# 	runSim([], [], dt=0.01, ctrlType=CTRL_OPEN_LOOP, label='OL', nsim=10, x0=y0, u0=np.array([1e-3,1e-3]))
+# 	results[2]['col'] = 'b'
 
 # Vis
 for res in results:
