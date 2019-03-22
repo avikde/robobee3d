@@ -17,6 +17,7 @@ EXP_SINE = 0
 EXP_SOMERSAULT = 1
 EXP_11 = 2
 EXP_GOAL = 3
+EXP_VELDES = 4
 exp = EXP_SINE
 
 # control types
@@ -27,7 +28,7 @@ CTRL_LQR = 3
 
 # Trajectory following?
 def getXr(t):
-	if exp == EXP_GOAL:
+	if exp in [EXP_GOAL, EXP_VELDES]:
 		xr = np.array([-0.03, 0.02, 0, 0, 0, 0])
 	elif exp == EXP_11:
 		xr = np.array([t, t, 0.,0.,0.,0.])
@@ -65,13 +66,14 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 
 	# Simulate in closed loop
 	X = np.zeros((nsim, model.nx))
+	X[0,:] = x0
 	U = np.zeros((nsim, model.nu))
 	firstA = 0
 		
 	t = np.arange(nsim) * dt
 	desTraj = np.zeros((nsim,3))
 
-	for i in range(nsim):
+	for i in range(1,nsim):
 		# tgoal = (i + N) * dt
 		tgoal = i * dt
 		if ctrlType == CTRL_LIN_CUR:
@@ -79,6 +81,9 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 		xr = getXr(tgoal)
 		# for logging
 		desTraj[i,:] = xr[0:3]
+
+		# Try outer loop for the traj
+		# velDes = 
 		
 		if ctrlType == CTRL_LQR:
 			# print(x0)
@@ -88,8 +93,7 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 			K = lqr.dlqr(Ad, Bd, np.diag(wx), np.diag(wu))[0]
 			ctrl = K @ (xr - x0)
 		elif ctrlType == CTRL_LIN_CUR:
-			ctrl = ltvmpc.update(x0, ctrl, xr)
-			# ctrl = mpc.update(x0, np.zeros(2), xr, trajMode=mpc.ITERATE_TRAJ_LIN)
+			ctrl = ltvmpc.update(x0, ctrl, xr, costMode=mpc.TRAJ)#, trajMode=mpc.ITERATE_TRAJ)
 		elif ctrlType == CTRL_LIN_HORIZON:
 			# traj to linearize around
 			# x0horizon = np.zeros((N,model.nx))
@@ -153,17 +157,22 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 # plt.show()
 
 # Run simulations
-fig, ax = plt.subplots(ncols=2)
+fig, ax = plt.subplots(ncols=3)
 
 wx = [1000, 1000, 0.05, 5, 5, 0.005]
 wu = [0.01,0.01]
+nsimi = 200
 if exp == EXP_SOMERSAULT:
 	wx = [100, 100, 1, 1, 1, 1]
 	wu = [0.01,0.01]
-
-nsimi = 200 if exp == EXP_SINE else 5
+	nsimi = 5
+if exp == EXP_VELDES:
+	wx = [1,1,1, 1, 1, 1]
+	wu = [0.01,0.01]
 
 y0 = np.zeros(6)
+if exp == EXP_VELDES:
+	y0[3:6] = np.random.randn(3)
 runSim(wx, wu, dt=0.01, ctrlType=CTRL_LQR, label='LQR', nsim=nsimi, x0=y0)
 # MPC
 runSim(wx, wu, dt=0.01, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=nsimi, N=10, x0=y0)
@@ -192,10 +201,18 @@ custom_lines = [Line2D([0], [0], color=res['col'], alpha=0.3) for res in results
 ax[0].legend(custom_lines, ['LQR', 'MPC', 'OL'])
 
 # Plot time traces
-ax[1].plot(results[1]['X'][:, 0])
-ax[1].plot(results[1]['X'][:, 1])
-ax[1].plot(results[1]['X'][:, 2])
+# ax[1].plot(results[1]['X'][:, 0])
+# ax[1].plot(results[1]['X'][:, 1])
+# ax[1].plot(results[1]['X'][:, 2])
+for res in results:
+	ax[1].plot(res['X'][:, 3], color=res['col'])
+	ax[1].plot(res['X'][:, 4], '--', color=res['col'])
 ax[1].set_xlabel('Iters')
-ax[1].set_ylabel('MPC traj')
+ax[1].set_ylabel('dxdz')
+
+for res in results:
+	ax[2].plot(res['X'][:, 5], color=res['col'])
+ax[2].set_xlabel('Iters')
+ax[2].set_ylabel('dphi')
 
 plt.show()
