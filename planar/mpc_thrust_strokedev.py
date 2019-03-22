@@ -38,10 +38,10 @@ def getXr(t):
 	elif exp == EXP_SOMERSAULT:
 		tperiod = 0.2
 		omega = 2 * np.pi / tperiod
-		# if t < tperiod:
-		xr = np.array([0, 0, omega*t,0.,0.,omega])
-		# else:
-		# 	xr = np.zeros(6)
+		if t < tperiod:
+			xr = np.array([0, 0, omega*t,0.,0.,omega])
+		else:
+			xr = np.zeros(6)
 	else:
 		raise 'experiment not implemented'
 	# xr = np.array([0.5 * t,0.0, 0,0.,0.,0.])
@@ -175,7 +175,8 @@ if exp == EXP_SOMERSAULT:
 	# wx = [100, 100, 1, 1, 1, 1]
 	wx = [1,1,1, 1, 1, 5]
 	wu = [0.01,0.01]
-	nsimi = 50
+	nsimi = 100
+	dti = 0.002
 if exp == EXP_VELDES:
 	wx = [1,1,1, 10, 10, 0.1]
 	wu = [0.01,0.01]
