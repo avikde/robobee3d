@@ -56,7 +56,7 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 	if ctrlType in [CTRL_LIN_CUR, CTRL_LIN_HORIZON]:
 		# TODO: confirm this weight scaling
 		wx = np.array(wx) / dt
-		wu = np.array(wu) / dt
+		# wu = np.array(wu) / dt
 		ltvmpc = mpc.LTVMPC(model, N, wx, wu, verbose=False, scaling=0, eps_abs=epsi, eps_rel=epsi)
 
 	# Initial and reference states
@@ -165,6 +165,7 @@ fig, ax = plt.subplots(nrows=3)
 wx = [1000, 1000, 0.05, 5, 5, 0.005]
 wu = [0.01,0.01]
 nsimi = 200
+dti = 0.01
 if exp == EXP_SOMERSAULT:
 	wx = [100, 100, 1, 1, 1, 1]
 	wu = [0.01,0.01]
@@ -172,13 +173,15 @@ if exp == EXP_SOMERSAULT:
 if exp == EXP_VELDES:
 	wx = [1,1,1, 10, 10, 0.1]
 	wu = [0.01,0.01]
+	dti = 0.03
+	nsimi = 50
 
 y0 = np.zeros(6)
 if exp == EXP_VELDES:
 	y0[3:6] = np.array([1,0,0])
-runSim(wx, wu, dt=0.02, ctrlType=CTRL_LQR, label='LQR', nsim=nsimi, x0=y0)
+runSim(wx, wu, dt=dti, ctrlType=CTRL_LQR, label='LQR', nsim=nsimi, x0=y0)
 # MPC
-runSim(wx, wu, dt=0.02, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=nsimi, N=10, x0=y0)
+runSim(wx, wu, dt=dti, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=nsimi, N=10, x0=y0)
 if exp == EXP_SOMERSAULT:
 	# Openloop
 	y0[0] = 0.0
