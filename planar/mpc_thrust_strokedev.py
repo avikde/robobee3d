@@ -3,7 +3,7 @@ import scipy as sp
 import matplotlib.pyplot as plt
 import sys
 sys.path.append('..')
-import controlutils.py.MPCUtils as MPCUtils
+import controlutils.py.mpc as mpc
 import controlutils.py.lqr as lqr
 import FlappingModels
 
@@ -53,7 +53,7 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 	'''
 	model.dt = dt
 	if ctrlType in [CTRL_LIN_CUR, CTRL_LIN_HORIZON]:
-		mpc = MPCUtils.LTVMPC(model, N, wx, wu, verbose=False, scaling=0, eps_abs=epsi, eps_rel=epsi)
+		ltvmpc = mpc.LTVMPC(model, N, wx, wu, verbose=False, scaling=0, eps_abs=epsi, eps_rel=epsi)
 
 	# Initial and reference states
 	# x0 = 0.01 * np.random.rand(model.nx)
@@ -88,7 +88,7 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 			K = lqr.dlqr(Ad, Bd, np.diag(wx), np.diag(wu))[0]
 			ctrl = K @ (xr - x0)
 		elif ctrlType == CTRL_LIN_CUR:
-			ctrl = mpc.update(x0, ctrl, xr)
+			ctrl = ltvmpc.update(x0, ctrl, xr)
 			# ctrl = mpc.update(x0, np.zeros(2), xr, trajMode=mpc.ITERATE_TRAJ_LIN)
 		elif ctrlType == CTRL_LIN_HORIZON:
 			# traj to linearize around
