@@ -98,6 +98,7 @@ class PlanarThrustStrokeDev:
 
 
 	def dynamics(self, y, u, useLinearization=False):
+		u[1] = np.clip(u[1], -self.STROKE_EXTENT, self.STROKE_EXTENT)
 		# Full nonlinear dynamics
 		if useLinearization:
 			Ad, Bd, fd = self.getLinearDynamics(y, u)
