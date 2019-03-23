@@ -101,8 +101,8 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 			K = lqr.dlqr(Ad, Bd, np.diag(wx), np.diag(wu))[0]
 			ctrl = K @ (xr - x0)
 		elif ctrlType == CTRL_LIN_CUR:
-			if exp == EXP_SOMERSAULT and i * dt > 0.2:
-				ltvmpc.updateWeights(wx=np.array([1000, 1000, 0.05, 5, 5, 0.005])/dt)
+			# if exp == EXP_SOMERSAULT and i > 70:
+			# 	ltvmpc.updateWeights(wx=np.array([100, 100, 0.1, 0.1, 0.1, 0.1])/dt)
 			ctrl = ltvmpc.update(x0, ctrl, xr, costMode=mpc.TRAJ)#, trajMode=mpc.ITERATE_TRAJ)
 		elif ctrlType == CTRL_LIN_HORIZON:
 			# traj to linearize around
