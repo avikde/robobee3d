@@ -1,18 +1,8 @@
 import numpy as np
 import sys
 sys.path.append('..')
-import controlutils.py.geometry as geom
+import controlutils.py.kinematics as kin
 import controlutils.py.misc as misc
-
-class RefTraj:
-	# generate a reference trajectory
-	def __init__(self, N, dt):
-		self.N = N
-		self.dt = dt
-
-	def generate(self, q0, twistDes):
-		qtraj = geom.twistInt(q0, twistDes, self.N, self.dt)
-		return {'q':qtraj}
 
 class PlanarThrustStrokeDev:
 	mb = 100e-6
@@ -110,7 +100,7 @@ class PlanarThrustStrokeDev:
 
 	# Non-standard model functions
 	def visualizationInfo(self, y, u, Faeroscale=0.02):
-		Ryaw = geom.rot2(y[2])
+		Ryaw = kin.rot2(y[2])
 		pcop = y[0:2] + Ryaw @ np.array([u[1],self.d])
 		Faero = Ryaw @ np.array([0, self.mb * self.g + u[0]])
 		strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([-self.STROKE_EXTENT, self.d]), y[0:2] + Ryaw @ np.array([self.STROKE_EXTENT, self.d])))
