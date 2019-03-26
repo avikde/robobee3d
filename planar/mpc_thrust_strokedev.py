@@ -217,10 +217,9 @@ if saveMovie:
 
 	robotBodies = []
 
-	colors = ['w'] * N
-
 	fig, ax = plt.subplots()
 	# ax.autoscale_view(True)
+	seline, = ax.plot([], [], 'k--', linewidth=1,  alpha=0.3)
 
 	def init():
 		ax.set_aspect(1)
@@ -231,6 +230,8 @@ if saveMovie:
 		ax.set_ylabel('z')
 		# sets all the patches in the collection to white
 		# pc.set_color(colors)
+
+		# in the order body patch, stroke extents line
 		return []
 
 	def animate(k):
@@ -246,10 +247,12 @@ if saveMovie:
 
 		ax.add_collection(pc)
 		
-	# 	ax.plot(strokeExtents[:,0], strokeExtents[:,1], 'k--', linewidth=1,  alpha=0.3)
-	# 	ax.arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0002, alpha=0.3, facecolor=col)
+		# 	ax.plot(, 'k--', linewidth=1,  alpha=0.3)
+		# 	ax.arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0002, alpha=0.3, facecolor=col)
 
-		return pc,
+		seline.set_data(strokeExtents[:,0], strokeExtents[:,1])
+
+		return pc, 
 
 	ani = animation.FuncAnimation(fig, init_func=init, func=animate, frames=N, interval=dti, blit=True)
 
