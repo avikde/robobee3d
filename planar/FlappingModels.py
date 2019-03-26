@@ -99,12 +99,12 @@ class PlanarThrustStrokeDev:
 			return y[0:6] + self.dydt(y, u) * self.dt # np.hstack((yNog, self.g))
 
 	# Non-standard model functions
-	def visualizationInfo(self, y, u, Faeroscale=1):
+	def visualizationInfo(self, y, u, Faeroscale=1, rawxy=False):
 		Ryaw = kin.rot2(y[2])
 		pcop = y[0:2] + Ryaw @ np.array([u[1],self.d])
 		Faero = Ryaw @ np.array([0, self.mb * self.g + u[0]])
 		strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([-self.STROKE_EXTENT, self.d]), y[0:2] + Ryaw @ np.array([self.STROKE_EXTENT, self.d])))
-		return misc.rectangle(y[0:2], y[2], self.w, self.l), pcop, Faeroscale * Faero, strokeExtents
+		return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy), pcop, Faeroscale * Faero, strokeExtents
 
 
 def visualizeTraj(ax, traj, model, col='r'):

@@ -205,10 +205,11 @@ saveMovie = True
 if saveMovie:
 	
 	from matplotlib.collections import PatchCollection
+	from matplotlib.patches import Polygon, Arrow
 
 	# Set up formatting for the movie files
 	Writer = animation.writers['ffmpeg']
-	writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
+	writer = Writer(fps=30, metadata=dict(artist='Me'), bitrate=1800)
 
 	# traj
 	res = results[1]  # mpc
@@ -219,7 +220,9 @@ if saveMovie:
 
 	fig, ax = plt.subplots()
 	# ax.autoscale_view(True)
-	seline, = ax.plot([], [], 'k--', linewidth=1,  alpha=0.3)
+	seline, = ax.plot([], [], 'k--', linewidth=1, alpha=0.3)
+	# aeroArrow = Arrow(0,0,0,0.01, width=0.0002, alpha=0.3, facecolor=res['col'])
+	bodyPatch = Polygon([[0,0],[0,0],[0,0],[0,0]], alpha=0.3, facecolor=res['col'], edgecolor='k')
 
 	def init():
 		ax.set_aspect(1)
@@ -230,29 +233,30 @@ if saveMovie:
 		ax.set_ylabel('z')
 		# sets all the patches in the collection to white
 		# pc.set_color(colors)
-
+		ax.add_patch(bodyPatch)
+		# arPatch = ax.add_patch(aeroArrow)
 		# in the order body patch, stroke extents line
-		return []
+		return bodyPatch,
 
 	def animate(k):
 		qk = traj['q'][k,:]
 		uk = traj['u'][k,:]
 
 		# get info from model
-		body, pcop, Faero, strokeExtents = model.visualizationInfo(qk, uk)
+		body, pcop, Faero, strokeExtents = model.visualizationInfo(qk, uk, rawxy=True)
 
-		robotBodies = [body]
-
-		pc = PatchCollection(robotBodies, facecolor=res['col'], edgecolor='k', alpha=0.3, animated=True)
-
-		ax.add_collection(pc)
+		bodyPatch.set_xy(body)
 		
 		# 	ax.plot(, 'k--', linewidth=1,  alpha=0.3)
-		# 	ax.arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0002, alpha=0.3, facecolor=col)
+		# print(dir(aeroArrow))
+		# sys.exit(-1)
 
 		seline.set_data(strokeExtents[:,0], strokeExtents[:,1])
+		# print(pcop)
+		# arPatch.remove()
+		# aeroArrow = Arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0002, alpha=0.3, facecolor=res['col'])
 
-		return pc, 
+		return bodyPatch, 
 
 	ani = animation.FuncAnimation(fig, init_func=init, func=animate, frames=N, interval=dti, blit=True)
 
