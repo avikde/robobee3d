@@ -6,8 +6,9 @@ sys.path.append('..')
 import controlutils.py.mpc as mpc
 import controlutils.py.lqr as lqr
 import FlappingModels
+import matplotlib.animation as animation
 
-np.set_printoptions(precision=2, suppress=True, linewidth=100)
+np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
 model = FlappingModels.PlanarThrustStrokeDev()
 
@@ -18,7 +19,14 @@ EXP_SOMERSAULT = 1
 EXP_11 = 2
 EXP_GOAL = 3
 EXP_VELDES = 4
-exp = EXP_SOMERSAULT
+EXP_SIDEPERCH = 5
+exp = EXP_SIDEPERCH
+# Experiment params. TODO: eventually all parameters in dicts
+# Both of these seem to need two "stages" think about what that means
+# flip and hover
+somersaultParams = {'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 100, 100, 0.01]]}
+# position, orientation
+sidePerchParams = {'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [1,1,1, 0.1, 0.1, 5]]}
 
 # control types
 CTRL_LIN_CUR = 0
@@ -26,8 +34,10 @@ CTRL_LIN_HORIZON = 1
 CTRL_OPEN_LOOP = 2
 CTRL_LQR = 3
 
+saveMovie = 0  #1 shows movie, 2 saves
+
 # Trajectory following?
-def getXr(t):
+def goal(t):
 	if exp in [EXP_GOAL, EXP_VELDES]:
 		xr = np.array([-0.03, 0.02, 0, 0, 0, 0])
 	elif exp == EXP_11:
@@ -36,12 +46,19 @@ def getXr(t):
 		# Sinusoidal
 		xr = np.array([0.04 * np.sin(10 * t), 0.1 * t, 0.,0.,0.,0.])
 	elif exp == EXP_SOMERSAULT:
-		tperiod = 0.2
-		omega = 2 * np.pi / tperiod
-		# if t < tperiod:
-		xr = np.array([0, 0, omega*t,0.,0.,omega])
-		# else:
-		# 	xr = np.zeros(6)
+		omega = 2 * np.pi / somersaultParams['period']
+		if t < somersaultParams['num'] * somersaultParams['period']:
+			xr = np.array([0, 0, omega*t,0.,0.,omega])
+		else:
+			xr = np.array([0, 0, 2 * np.pi * somersaultParams['num'],0.,0.,0])
+	elif exp == EXP_SIDEPERCH:
+		omega = 0.5 * np.pi / somersaultParams['period']
+		if t < sidePerchParams['period']:
+			xr = np.array([0.2 * t, 0, 0, 0.2,0.,0])
+		elif t < sidePerchParams['periodO']:
+			xr = np.array([0.2 * sidePerchParams['period'], 0, omega * (t - sidePerchParams['period']),0.,0.,omega])
+		else:
+			xr = np.array([0.2 * sidePerchParams['period'], 0, 0.5 * np.pi,0.,0.,0])
 	else:
 		raise 'experiment not implemented'
 	# xr = np.array([0.5 * t,0.0, 0,0.,0.,0.])
@@ -62,7 +79,7 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 		# TODO: confirm this weight scaling
 		wx = np.array(wx) / dt
 		# wu = np.array(wu) / dt
-		ltvmpc = mpc.LTVMPC(model, N, wx, wu, verbose=False, scaling=0, eps_abs=epsi, eps_rel=epsi)
+		ltvmpc = mpc.LTVMPC(model, N, wx, wu, verbose=False, scaling=0, eps_abs=epsi, eps_rel=epsi, kdamping=0)
 
 	# Initial and reference states
 	# x0 = 0.01 * np.random.rand(model.nx)
@@ -86,7 +103,7 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 		tgoal = i * dt
 		if ctrlType == CTRL_LIN_CUR:
 			tgoal = (i + N) * dt
-		xr = getXr(tgoal)
+		xr = goal(tgoal)
 		# for logging
 		desTraj[i,:] = xr[0:3]
 
@@ -101,6 +118,12 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 			K = lqr.dlqr(Ad, Bd, np.diag(wx), np.diag(wu))[0]
 			ctrl = K @ (xr - x0)
 		elif ctrlType == CTRL_LIN_CUR:
+			if exp == EXP_SOMERSAULT and tgoal > somersaultParams['period'] * somersaultParams['num'] * 1.5:
+				ltvmpc.updateWeights(wx=np.array(somersaultParams['wx'][1])/dt)
+			elif exp == EXP_SIDEPERCH and tgoal > sidePerchParams['period']:
+				ltvmpc.updateWeights(wx=np.array(sidePerchParams['wx'][1])/dt)
+			# elif exp == EXP_SIDEPERCH and tgoal > sidePerchParams['period'] + sidePerchParams['periodO']:
+			# 	ltvmpc.updateWeights(wx=np.array(sidePerchParams['wx'][0])/dt)
 			ctrl = ltvmpc.update(x0, ctrl, xr, costMode=mpc.TRAJ)#, trajMode=mpc.ITERATE_TRAJ)
 		elif ctrlType == CTRL_LIN_HORIZON:
 			# traj to linearize around
@@ -165,22 +188,27 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 # plt.show()
 
 # Run simulations
-fig, ax = plt.subplots(nrows=3)
-
 wx = [1000, 1000, 0.05, 5, 5, 0.005]
 wu = [0.01,0.01]
 nsimi = 200
 dti = 0.01
+Ni = 5
 if exp == EXP_SOMERSAULT:
-	# wx = [100, 100, 1, 1, 1, 1]
-	wx = [1,1,1, 1, 1, 5]
+	wx = somersaultParams['wx'][0]
 	wu = [0.01,0.01]
-	nsimi = 50
-if exp == EXP_VELDES:
+	dti = 0.005
+	nsimi = int((somersaultParams['period'] * somersaultParams['num'] + 0.5)/ dti)
+elif exp == EXP_VELDES:
 	wx = [1,1,1, 10, 10, 0.1]
 	wu = [0.01,0.01]
 	dti = 0.03
 	nsimi = 50
+elif exp == EXP_SIDEPERCH:
+	wx = sidePerchParams['wx'][0]
+	wu = [0.01,0.01]
+	dti = 0.003
+	nsimi = int((sidePerchParams['period'] + sidePerchParams['periodO'])/ dti)
+	Ni = 15
 
 y0 = np.zeros(6)
 if exp == EXP_VELDES:
@@ -188,7 +216,7 @@ if exp == EXP_VELDES:
 runSim(wx, wu, dt=dti, ctrlType=CTRL_LQR, label='LQR', nsim=1, x0=y0)
 results[0]['col'] = 'r'
 # MPC
-runSim(wx, wu, dt=dti, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=nsimi, N=10, x0=y0)
+runSim(wx, wu, dt=dti, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=nsimi, N=Ni, x0=y0)
 results[1]['col'] = 'g'
 # if exp == EXP_SOMERSAULT:
 # 	# Openloop
@@ -197,32 +225,100 @@ results[1]['col'] = 'g'
 # 	results[2]['col'] = 'b'
 
 # Vis
-for res in results:
-	FlappingModels.visualizeTraj(ax[0], {'q':res['X'][:, 0:3], 'u':res['U']}, model, col=res['col'])
-if exp == EXP_SINE:
-	ax[0].plot(results[1]['desTraj'][:,0], results[1]['desTraj'][:,1], 'k--', label='des')
-elif exp == EXP_GOAL:
-	lqrgoal = getXr(0)
-	ax[0].plot(lqrgoal[0], lqrgoal[1], 'c*')
+if saveMovie > 0:
+	
+	from matplotlib.collections import PatchCollection
+	from matplotlib.patches import Polygon, Arrow
 
-# custom legend
-from matplotlib.lines import Line2D
-custom_lines = [Line2D([0], [0], color=res['col'], alpha=0.3) for res in results]
-ax[0].legend(custom_lines, ['LQR', 'MPC', 'OL'])
+	# Set up formatting for the movie files
+	Writer = animation.writers['ffmpeg']
+	writer = Writer(fps=30, metadata=dict(artist='Me'), bitrate=1800)
 
-# Plot time traces
-# ax[1].plot(results[1]['X'][:, 0])
-# ax[1].plot(results[1]['X'][:, 1])
-# ax[1].plot(results[1]['X'][:, 2])
-for res in results:
-	ax[1].plot(res['X'][:, 3], color=res['col'])
-	ax[1].plot(res['X'][:, 4], '--', color=res['col'])
-ax[1].set_xlabel('Iters')
-ax[1].set_ylabel('dxdz')
+	# traj
+	res = results[1]  # mpc
+	traj = {'q':res['X'][:, 0:3], 'u':res['U']}
+	N = traj['q'].shape[0]
 
-for res in results:
-	ax[2].plot(res['X'][:, 5], color=res['col'])
-ax[2].set_xlabel('Iters')
-ax[2].set_ylabel('dphi')
+	robotBodies = []
 
-plt.show()
+	fig, ax = plt.subplots()
+	# ax.autoscale_view(True)
+	seline, = ax.plot([], [], 'k--', linewidth=1, alpha=0.5)
+	# aeroArrow = Arrow(0,0,0,0.01, width=0.0002, alpha=0.3, facecolor=res['col'])
+	bodyPatch = Polygon([[0,0],[0,0],[0,0],[0,0]], alpha=0.5, facecolor=res['col'], edgecolor='k')
+
+	def init():
+		ax.set_aspect(1)
+		ax.set_xlim([-0.05,0.05])
+		ax.set_ylim([-0.05,0.05])
+		ax.grid(True)
+		ax.set_xlabel('x')
+		ax.set_ylabel('z')
+		# sets all the patches in the collection to white
+		# pc.set_color(colors)
+		ax.add_patch(bodyPatch)
+		# arPatch = ax.add_patch(aeroArrow)
+		# in the order body patch, stroke extents line
+		return bodyPatch,
+
+	def animate(k):
+		qk = traj['q'][k,:]
+		uk = traj['u'][k,:]
+
+		# get info from model
+		body, pcop, Faero, strokeExtents = model.visualizationInfo(qk, uk, rawxy=True)
+
+		bodyPatch.set_xy(body)
+		
+		# 	ax.plot(, 'k--', linewidth=1,  alpha=0.3)
+		# print(dir(aeroArrow))
+		# sys.exit(-1)
+
+		seline.set_data(strokeExtents[:,0], strokeExtents[:,1])
+		# print(pcop)
+		# arPatch.remove()
+		# aeroArrow = Arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0002, alpha=0.3, facecolor=res['col'])
+
+		return bodyPatch, 
+
+	ani = animation.FuncAnimation(fig, init_func=init, func=animate, frames=N, interval=dti, blit=True)
+	if saveMovie == 2:
+		ani.save('test.mp4', writer=writer)
+	elif saveMovie == 1:
+		plt.show()
+
+else:
+	# Regular plots
+	fig, ax = plt.subplots(nrows=3)
+
+	for res in results:
+		FlappingModels.visualizeTraj(ax[0], {'q':res['X'][:, 0:3], 'u':res['U']}, model, col=res['col'])
+	if exp == EXP_SINE:
+		ax[0].plot(results[1]['desTraj'][:,0], results[1]['desTraj'][:,1], 'k--', label='des')
+	elif exp == EXP_GOAL:
+		lqrgoal = goal(0)
+		ax[0].plot(lqrgoal[0], lqrgoal[1], 'c*')
+
+	# custom legend
+	from matplotlib.lines import Line2D
+	custom_lines = [Line2D([0], [0], color=res['col'], alpha=0.3) for res in results]
+	ax[0].legend(custom_lines, ['LQR', 'MPC', 'OL'])
+
+	# Plot time traces
+	# ax[1].plot(results[1]['X'][:, 0])
+	# ax[1].plot(results[1]['X'][:, 1])
+	# ax[1].plot(results[1]['X'][:, 2])
+	for res in results:
+		tvec = dti * np.arange(res['X'].shape[0])
+		ax[1].plot(tvec, res['X'][:, 3], color=res['col'])
+		ax[1].plot(tvec, res['X'][:, 4], '--', color=res['col'])
+	ax[1].set_xlabel('t (sec)')
+	ax[1].set_ylabel('dxdz')
+
+	for res in results:
+		tvec = dti * np.arange(res['X'].shape[0])
+		ax[2].plot(tvec, res['X'][:, 5], color=res['col'])
+	ax[2].set_xlabel('t (sec)')
+	ax[2].set_ylabel('dphi')
+
+	plt.show()

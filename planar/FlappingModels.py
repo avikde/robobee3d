@@ -1,18 +1,8 @@
 import numpy as np
 import sys
 sys.path.append('..')
-import controlutils.py.geometry as geom
+import controlutils.py.kinematics as kin
 import controlutils.py.misc as misc
-
-class RefTraj:
-	# generate a reference trajectory
-	def __init__(self, N, dt):
-		self.N = N
-		self.dt = dt
-
-	def generate(self, q0, twistDes):
-		qtraj = geom.twistInt(q0, twistDes, self.N, self.dt)
-		return {'q':qtraj}
 
 class PlanarThrustStrokeDev:
 	mb = 100e-6
@@ -98,6 +88,7 @@ class PlanarThrustStrokeDev:
 
 
 	def dynamics(self, y, u, useLinearization=False):
+		u[1] = np.clip(u[1], -self.STROKE_EXTENT, self.STROKE_EXTENT)
 		# Full nonlinear dynamics
 		if useLinearization:
 			Ad, Bd, fd = self.getLinearDynamics(y, u)
@@ -108,12 +99,12 @@ class PlanarThrustStrokeDev:
 			return y[0:6] + self.dydt(y, u) * self.dt # np.hstack((yNog, self.g))
 
 	# Non-standard model functions
-	def visualizationInfo(self, y, u, Faeroscale=0.02):
-		Ryaw = geom.rot2(y[2])
+	def visualizationInfo(self, y, u, Faeroscale=1, rawxy=False):
+		Ryaw = kin.rot2(y[2])
 		pcop = y[0:2] + Ryaw @ np.array([u[1],self.d])
 		Faero = Ryaw @ np.array([0, self.mb * self.g + u[0]])
 		strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([-self.STROKE_EXTENT, self.d]), y[0:2] + Ryaw @ np.array([self.STROKE_EXTENT, self.d])))
-		return misc.rectangle(y[0:2], y[2], self.w, self.l), pcop, Faeroscale * Faero, strokeExtents
+		return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy), pcop, Faeroscale * Faero, strokeExtents
 
 
 def visualizeTraj(ax, traj, model, col='r'):
@@ -133,7 +124,7 @@ def visualizeTraj(ax, traj, model, col='r'):
 		
 		robotBodies.append(body)
 		ax.plot(strokeExtents[:,0], strokeExtents[:,1], 'k--', linewidth=1,  alpha=0.3)
-		ax.arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0003, alpha=0.3, facecolor=col)
+		ax.arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0002, alpha=0.3, facecolor=col)
 	
 	pc = PatchCollection(robotBodies, facecolor=col, edgecolor='k', alpha=0.3)
 	ax.add_collection(pc)
