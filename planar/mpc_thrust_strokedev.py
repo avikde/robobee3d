@@ -20,10 +20,13 @@ EXP_11 = 2
 EXP_GOAL = 3
 EXP_VELDES = 4
 EXP_SIDEPERCH = 5
-exp = EXP_SOMERSAULT
-# Experiment params
-somersaultParams = {'period': 0.2, 'num': 1, 'wxflip': [1,1,1, 1, 1, 5], 'wxhover': [100,100,1, 100, 100, 0.01]}
-sidePerchParams = {'period': 0.2}
+exp = EXP_SIDEPERCH
+# Experiment params. TODO: eventually all parameters in dicts
+# Both of these seem to need two "stages" think about what that means
+# flip and hover
+somersaultParams = {'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 100, 100, 0.01]]}
+# position, orientation
+sidePerchParams = {'period': 1, 'wx': [[100,100,1, 100, 100, 0.01], [1,1,1, 1, 1, 5]]}
 
 # control types
 CTRL_LIN_CUR = 0
@@ -50,7 +53,10 @@ def goal(t):
 			xr = np.array([0, 0, 2 * np.pi * somersaultParams['num'],0.,0.,0])
 	elif exp == EXP_SIDEPERCH:
 		omega = 0.5 * np.pi / somersaultParams['period']
-		xr = np.array([0.05 * t, 0, omega*t, 0.05,0.,omega])
+		if t < sidePerchParams['period']:
+			xr = np.array([0.2 * t, 0, 0, 0.2,0.,0])
+		else:
+			xr = np.array([0, 0, 2 * np.pi * somersaultParams['num'],0.,0.,0])
 	else:
 		raise 'experiment not implemented'
 	# xr = np.array([0.5 * t,0.0, 0,0.,0.,0.])
@@ -111,7 +117,9 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 			ctrl = K @ (xr - x0)
 		elif ctrlType == CTRL_LIN_CUR:
 			if exp == EXP_SOMERSAULT and tgoal > somersaultParams['period'] * somersaultParams['num'] * 1.5:
-				ltvmpc.updateWeights(wx=np.array(somersaultParams['wxhover'])/dt)
+				ltvmpc.updateWeights(wx=np.array(somersaultParams['wx'][1])/dt)
+			elif exp == EXP_SIDEPERCH and tgoal > sidePerchParams['period']:
+				ltvmpc.updateWeights(wx=np.array(sidePerchParams['wx'][1])/dt)
 			ctrl = ltvmpc.update(x0, ctrl, xr, costMode=mpc.TRAJ)#, trajMode=mpc.ITERATE_TRAJ)
 		elif ctrlType == CTRL_LIN_HORIZON:
 			# traj to linearize around
@@ -181,7 +189,7 @@ wu = [0.01,0.01]
 nsimi = 200
 dti = 0.01
 if exp == EXP_SOMERSAULT:
-	wx = somersaultParams['wxflip']
+	wx = somersaultParams['wx'][0]
 	wu = [0.01,0.01]
 	dti = 0.005
 	nsimi = int((somersaultParams['period'] * somersaultParams['num'] + 0.5)/ dti)
@@ -191,7 +199,7 @@ elif exp == EXP_VELDES:
 	dti = 0.03
 	nsimi = 50
 elif exp == EXP_SIDEPERCH:
-	wx = [1,1,1, 1, 1, 5]
+	wx = sidePerchParams['wx'][0]
 	wu = [0.01,0.01]
 	dti = 0.005
 	nsimi = 50
