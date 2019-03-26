@@ -26,7 +26,7 @@ exp = EXP_SIDEPERCH
 # flip and hover
 somersaultParams = {'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 100, 100, 0.01]]}
 # position, orientation
-sidePerchParams = {'period': 1, 'wx': [[100,100,1, 100, 100, 0.01], [1,1,1, 1, 1, 5]]}
+sidePerchParams = {'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [1,1,1, 0.1, 0.1, 5]]}
 
 # control types
 CTRL_LIN_CUR = 0
@@ -55,8 +55,10 @@ def goal(t):
 		omega = 0.5 * np.pi / somersaultParams['period']
 		if t < sidePerchParams['period']:
 			xr = np.array([0.2 * t, 0, 0, 0.2,0.,0])
+		elif t < sidePerchParams['periodO']:
+			xr = np.array([0.2 * sidePerchParams['period'], 0, omega * (t - sidePerchParams['period']),0.,0.,omega])
 		else:
-			xr = np.array([0, 0, 2 * np.pi * somersaultParams['num'],0.,0.,0])
+			xr = np.array([0.2 * sidePerchParams['period'], 0, 0.5 * np.pi,0.,0.,0])
 	else:
 		raise 'experiment not implemented'
 	# xr = np.array([0.5 * t,0.0, 0,0.,0.,0.])
@@ -120,6 +122,8 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 				ltvmpc.updateWeights(wx=np.array(somersaultParams['wx'][1])/dt)
 			elif exp == EXP_SIDEPERCH and tgoal > sidePerchParams['period']:
 				ltvmpc.updateWeights(wx=np.array(sidePerchParams['wx'][1])/dt)
+			# elif exp == EXP_SIDEPERCH and tgoal > sidePerchParams['period'] + sidePerchParams['periodO']:
+			# 	ltvmpc.updateWeights(wx=np.array(sidePerchParams['wx'][0])/dt)
 			ctrl = ltvmpc.update(x0, ctrl, xr, costMode=mpc.TRAJ)#, trajMode=mpc.ITERATE_TRAJ)
 		elif ctrlType == CTRL_LIN_HORIZON:
 			# traj to linearize around
@@ -188,6 +192,7 @@ wx = [1000, 1000, 0.05, 5, 5, 0.005]
 wu = [0.01,0.01]
 nsimi = 200
 dti = 0.01
+Ni = 5
 if exp == EXP_SOMERSAULT:
 	wx = somersaultParams['wx'][0]
 	wu = [0.01,0.01]
@@ -201,8 +206,9 @@ elif exp == EXP_VELDES:
 elif exp == EXP_SIDEPERCH:
 	wx = sidePerchParams['wx'][0]
 	wu = [0.01,0.01]
-	dti = 0.005
-	nsimi = 50
+	dti = 0.003
+	nsimi = int((sidePerchParams['period'] + sidePerchParams['periodO'])/ dti)
+	Ni = 15
 
 y0 = np.zeros(6)
 if exp == EXP_VELDES:
@@ -210,7 +216,7 @@ if exp == EXP_VELDES:
 runSim(wx, wu, dt=dti, ctrlType=CTRL_LQR, label='LQR', nsim=1, x0=y0)
 results[0]['col'] = 'r'
 # MPC
-runSim(wx, wu, dt=dti, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=nsimi, N=5, x0=y0)
+runSim(wx, wu, dt=dti, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=nsimi, N=Ni, x0=y0)
 results[1]['col'] = 'g'
 # if exp == EXP_SOMERSAULT:
 # 	# Openloop
@@ -237,9 +243,9 @@ if saveMovie > 0:
 
 	fig, ax = plt.subplots()
 	# ax.autoscale_view(True)
-	seline, = ax.plot([], [], 'k--', linewidth=1, alpha=0.3)
+	seline, = ax.plot([], [], 'k--', linewidth=1, alpha=0.5)
 	# aeroArrow = Arrow(0,0,0,0.01, width=0.0002, alpha=0.3, facecolor=res['col'])
-	bodyPatch = Polygon([[0,0],[0,0],[0,0],[0,0]], alpha=0.3, facecolor=res['col'], edgecolor='k')
+	bodyPatch = Polygon([[0,0],[0,0],[0,0],[0,0]], alpha=0.5, facecolor=res['col'], edgecolor='k')
 
 	def init():
 		ax.set_aspect(1)
