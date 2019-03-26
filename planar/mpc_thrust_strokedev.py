@@ -6,6 +6,7 @@ sys.path.append('..')
 import controlutils.py.mpc as mpc
 import controlutils.py.lqr as lqr
 import FlappingModels
+import matplotlib.animation as animation
 
 np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
@@ -168,8 +169,6 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 # plt.show()
 
 # Run simulations
-fig, ax = plt.subplots(nrows=3)
-
 wx = [1000, 1000, 0.05, 5, 5, 0.005]
 wu = [0.01,0.01]
 nsimi = 200
@@ -201,34 +200,112 @@ results[1]['col'] = 'g'
 # 	results[2]['col'] = 'b'
 
 # Vis
-for res in results:
-	FlappingModels.visualizeTraj(ax[0], {'q':res['X'][:, 0:3], 'u':res['U']}, model, col=res['col'])
-if exp == EXP_SINE:
-	ax[0].plot(results[1]['desTraj'][:,0], results[1]['desTraj'][:,1], 'k--', label='des')
-elif exp == EXP_GOAL:
-	lqrgoal = goal(0)
-	ax[0].plot(lqrgoal[0], lqrgoal[1], 'c*')
+saveMovie = True
 
-# custom legend
-from matplotlib.lines import Line2D
-custom_lines = [Line2D([0], [0], color=res['col'], alpha=0.3) for res in results]
-ax[0].legend(custom_lines, ['LQR', 'MPC', 'OL'])
+if saveMovie:
+	
+	from matplotlib.collections import PatchCollection
 
-# Plot time traces
-# ax[1].plot(results[1]['X'][:, 0])
-# ax[1].plot(results[1]['X'][:, 1])
-# ax[1].plot(results[1]['X'][:, 2])
-for res in results:
-	tvec = dti * np.arange(res['X'].shape[0])
-	ax[1].plot(tvec, res['X'][:, 3], color=res['col'])
-	ax[1].plot(tvec, res['X'][:, 4], '--', color=res['col'])
-ax[1].set_xlabel('t (sec)')
-ax[1].set_ylabel('dxdz')
+	# Set up formatting for the movie files
+	Writer = animation.writers['ffmpeg']
+	writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
 
-for res in results:
-	tvec = dti * np.arange(res['X'].shape[0])
-	ax[2].plot(tvec, res['X'][:, 5], color=res['col'])
-ax[2].set_xlabel('t (sec)')
-ax[2].set_ylabel('dphi')
+	# # traj
+	# res = results[1]  # mpc
+	# traj = {'q':res['X'][:, 0:3], 'u':res['U']}
+	# N = traj['q'].shape[0]
 
-plt.show()
+	# robotBodies = []
+
+	# def init():
+	# 	ax.set_aspect(1)
+	# 	# ax.set_xlim([-0.05,0.05])
+	# 	# ax.set_ylim([-0.05,0.05])
+	# 	ax.grid(True)
+	# 	ax.set_xlabel('x')
+	# 	ax.set_ylabel('z')
+	# 	return ln,
+
+	# def update(k):
+	# 	qk = traj['q'][k,:]
+	# 	uk = traj['u'][k,:]
+
+	# 	# get info from model
+	# 	body, pcop, Faero, strokeExtents = model.visualizationInfo(qk, uk)
+		
+	# 	robotBodies = [body]
+	
+	# 	pc = PatchCollection(robotBodies, facecolor=col, edgecolor='k', alpha=0.3)
+	# 	ax.add_collection(pc)
+
+	# 	ax.plot(strokeExtents[:,0], strokeExtents[:,1], 'k--', linewidth=1,  alpha=0.3)
+	# 	ax.arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0002, alpha=0.3, facecolor=col)
+
+
+	Nx = 30
+	Ny = 20
+	size = 0.5
+
+	colors = ['w']*Nx*Ny
+
+	fig, ax = plt.subplots()
+
+	rects = []
+	for i in range(Nx):
+		for j in range(Ny):
+			rect = plt.Rectangle([i - size / 2, j - size / 2], size, size)
+			rects.append(rect)
+
+	collection = PatchCollection(rects, animated=True)
+
+	ax.add_collection(collection)
+	ax.autoscale_view(True)
+
+	def init():
+		# sets all the patches in the collection to white
+		collection.set_facecolor(colors)
+		return collection,
+
+	def animate(i):
+		colors[i] = 'k'
+		collection.set_facecolors(colors)
+		return collection,
+
+	ani = animation.FuncAnimation(fig, init_func=init, func=animate, frames=Nx*Ny, interval=dti, blit=True)
+
+	ani.save('test.mp4', writer=writer)
+	# plt.show()
+else:
+	fig, ax = plt.subplots(nrows=3)
+
+	for res in results:
+		FlappingModels.visualizeTraj(ax[0], {'q':res['X'][:, 0:3], 'u':res['U']}, model, col=res['col'])
+	if exp == EXP_SINE:
+		ax[0].plot(results[1]['desTraj'][:,0], results[1]['desTraj'][:,1], 'k--', label='des')
+	elif exp == EXP_GOAL:
+		lqrgoal = goal(0)
+		ax[0].plot(lqrgoal[0], lqrgoal[1], 'c*')
+
+	# custom legend
+	from matplotlib.lines import Line2D
+	custom_lines = [Line2D([0], [0], color=res['col'], alpha=0.3) for res in results]
+	ax[0].legend(custom_lines, ['LQR', 'MPC', 'OL'])
+
+	# Plot time traces
+	# ax[1].plot(results[1]['X'][:, 0])
+	# ax[1].plot(results[1]['X'][:, 1])
+	# ax[1].plot(results[1]['X'][:, 2])
+	for res in results:
+		tvec = dti * np.arange(res['X'].shape[0])
+		ax[1].plot(tvec, res['X'][:, 3], color=res['col'])
+		ax[1].plot(tvec, res['X'][:, 4], '--', color=res['col'])
+	ax[1].set_xlabel('t (sec)')
+	ax[1].set_ylabel('dxdz')
+
+	for res in results:
+		tvec = dti * np.arange(res['X'].shape[0])
+		ax[2].plot(tvec, res['X'][:, 5], color=res['col'])
+	ax[2].set_xlabel('t (sec)')
+	ax[2].set_ylabel('dphi')
+
+	plt.show()
