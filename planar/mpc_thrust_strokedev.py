@@ -19,6 +19,8 @@ EXP_11 = 2
 EXP_GOAL = 3
 EXP_VELDES = 4
 exp = EXP_SOMERSAULT
+# Experiment params
+somersaultParams = {'period': 0.2, 'num': 1}
 
 # control types
 CTRL_LIN_CUR = 0
@@ -36,12 +38,11 @@ def goal(t):
 		# Sinusoidal
 		xr = np.array([0.04 * np.sin(10 * t), 0.1 * t, 0.,0.,0.,0.])
 	elif exp == EXP_SOMERSAULT:
-		tperiod = 0.2
-		omega = 2 * np.pi / tperiod
-		if t < tperiod:
+		omega = 2 * np.pi / somersaultParams['period']
+		if t < somersaultParams['num'] * somersaultParams['period']:
 			xr = np.array([0, 0, omega*t,0.,0.,omega])
 		else:
-			xr = np.zeros(6)
+			xr = np.array([0, 0, 2 * np.pi * somersaultParams['num'],0.,0.,0])
 	else:
 		raise 'experiment not implemented'
 	# xr = np.array([0.5 * t,0.0, 0,0.,0.,0.])
@@ -101,8 +102,8 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 			K = lqr.dlqr(Ad, Bd, np.diag(wx), np.diag(wu))[0]
 			ctrl = K @ (xr - x0)
 		elif ctrlType == CTRL_LIN_CUR:
-			# if exp == EXP_SOMERSAULT and i > 70:
-			# 	ltvmpc.updateWeights(wx=np.array([100, 100, 0.1, 0.1, 0.1, 0.1])/dt)
+			if exp == EXP_SOMERSAULT and tgoal > 1.5 * somersaultParams['period'] * somersaultParams['num']:
+				ltvmpc.updateWeights(wx=np.array([100,100,1, 100, 100, 0.01])/dt)
 			ctrl = ltvmpc.update(x0, ctrl, xr, costMode=mpc.TRAJ)#, trajMode=mpc.ITERATE_TRAJ)
 		elif ctrlType == CTRL_LIN_HORIZON:
 			# traj to linearize around
@@ -167,7 +168,7 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 # plt.show()
 
 # Run simulations
-fig, ax = plt.subplots(ncols=3)
+fig, ax = plt.subplots(nrows=3)
 
 wx = [1000, 1000, 0.05, 5, 5, 0.005]
 wu = [0.01,0.01]
@@ -177,8 +178,8 @@ if exp == EXP_SOMERSAULT:
 	# wx = [100, 100, 1, 1, 1, 1]
 	wx = [1,1,1, 1, 1, 5]
 	wu = [0.01,0.01]
-	nsimi = 150
 	dti = 0.005
+	nsimi = int((somersaultParams['period'] * somersaultParams['num'] + 1)/ dti)
 if exp == EXP_VELDES:
 	wx = [1,1,1, 10, 10, 0.1]
 	wu = [0.01,0.01]
