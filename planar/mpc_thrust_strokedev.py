@@ -210,72 +210,54 @@ if saveMovie:
 	Writer = animation.writers['ffmpeg']
 	writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
 
-	# # traj
-	# res = results[1]  # mpc
-	# traj = {'q':res['X'][:, 0:3], 'u':res['U']}
-	# N = traj['q'].shape[0]
+	# traj
+	res = results[1]  # mpc
+	traj = {'q':res['X'][:, 0:3], 'u':res['U']}
+	N = traj['q'].shape[0]
 
-	# robotBodies = []
+	robotBodies = []
 
-	# def init():
-	# 	ax.set_aspect(1)
-	# 	# ax.set_xlim([-0.05,0.05])
-	# 	# ax.set_ylim([-0.05,0.05])
-	# 	ax.grid(True)
-	# 	ax.set_xlabel('x')
-	# 	ax.set_ylabel('z')
-	# 	return ln,
+	colors = ['w'] * N
 
-	# def update(k):
-	# 	qk = traj['q'][k,:]
-	# 	uk = traj['u'][k,:]
+	fig, ax = plt.subplots()
+	# ax.autoscale_view(True)
 
-	# 	# get info from model
-	# 	body, pcop, Faero, strokeExtents = model.visualizationInfo(qk, uk)
+	def init():
+		ax.set_aspect(1)
+		ax.set_xlim([-0.05,0.05])
+		ax.set_ylim([-0.05,0.05])
+		ax.grid(True)
+		ax.set_xlabel('x')
+		ax.set_ylabel('z')
+		# sets all the patches in the collection to white
+		# pc.set_color(colors)
+		return []
+
+	def animate(k):
+		qk = traj['q'][k,:]
+		uk = traj['u'][k,:]
+
+		# get info from model
+		body, pcop, Faero, strokeExtents = model.visualizationInfo(qk, uk)
+
+		robotBodies = [body]
+
+		pc = PatchCollection(robotBodies, facecolor=res['col'], edgecolor='k', alpha=0.3, animated=True)
+
+		ax.add_collection(pc)
 		
-	# 	robotBodies = [body]
-	
-	# 	pc = PatchCollection(robotBodies, facecolor=col, edgecolor='k', alpha=0.3)
-	# 	ax.add_collection(pc)
-
 	# 	ax.plot(strokeExtents[:,0], strokeExtents[:,1], 'k--', linewidth=1,  alpha=0.3)
 	# 	ax.arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0002, alpha=0.3, facecolor=col)
 
+		return pc,
 
-	Nx = 30
-	Ny = 20
-	size = 0.5
-
-	colors = ['w']*Nx*Ny
-
-	fig, ax = plt.subplots()
-
-	rects = []
-	for i in range(Nx):
-		for j in range(Ny):
-			rect = plt.Rectangle([i - size / 2, j - size / 2], size, size)
-			rects.append(rect)
-
-	collection = PatchCollection(rects, animated=True)
-
-	ax.add_collection(collection)
-	ax.autoscale_view(True)
-
-	def init():
-		# sets all the patches in the collection to white
-		collection.set_facecolor(colors)
-		return collection,
-
-	def animate(i):
-		colors[i] = 'k'
-		collection.set_facecolors(colors)
-		return collection,
-
-	ani = animation.FuncAnimation(fig, init_func=init, func=animate, frames=Nx*Ny, interval=dti, blit=True)
+	ani = animation.FuncAnimation(fig, init_func=init, func=animate, frames=N, interval=dti, blit=True)
 
 	ani.save('test.mp4', writer=writer)
 	# plt.show()
+
 else:
+	# Regular plots
 	fig, ax = plt.subplots(nrows=3)
 
 	for res in results:
