@@ -19,15 +19,19 @@ EXP_SOMERSAULT = 1
 EXP_11 = 2
 EXP_GOAL = 3
 EXP_VELDES = 4
+EXP_SIDEPERCH = 5
 exp = EXP_SOMERSAULT
 # Experiment params
-somersaultParams = {'period': 0.2, 'num': 1}
+somersaultParams = {'period': 0.2, 'num': 1, 'wxflip': [1,1,1, 1, 1, 5], 'wxhover': [100,100,1, 100, 100, 0.01]}
+sidePerchParams = {'period': 0.2}
 
 # control types
 CTRL_LIN_CUR = 0
 CTRL_LIN_HORIZON = 1
 CTRL_OPEN_LOOP = 2
 CTRL_LQR = 3
+
+saveMovie = 0  #1 shows movie, 2 saves
 
 # Trajectory following?
 def goal(t):
@@ -44,6 +48,9 @@ def goal(t):
 			xr = np.array([0, 0, omega*t,0.,0.,omega])
 		else:
 			xr = np.array([0, 0, 2 * np.pi * somersaultParams['num'],0.,0.,0])
+	elif exp == EXP_SIDEPERCH:
+		omega = 0.5 * np.pi / somersaultParams['period']
+		xr = np.array([0.05 * t, 0, omega*t, 0.05,0.,omega])
 	else:
 		raise 'experiment not implemented'
 	# xr = np.array([0.5 * t,0.0, 0,0.,0.,0.])
@@ -104,7 +111,7 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 			ctrl = K @ (xr - x0)
 		elif ctrlType == CTRL_LIN_CUR:
 			if exp == EXP_SOMERSAULT and tgoal > somersaultParams['period'] * somersaultParams['num'] * 1.5:
-				ltvmpc.updateWeights(wx=np.array([100,100,1, 100, 100, 0.01])/dt)
+				ltvmpc.updateWeights(wx=np.array(somersaultParams['wxhover'])/dt)
 			ctrl = ltvmpc.update(x0, ctrl, xr, costMode=mpc.TRAJ)#, trajMode=mpc.ITERATE_TRAJ)
 		elif ctrlType == CTRL_LIN_HORIZON:
 			# traj to linearize around
@@ -174,15 +181,19 @@ wu = [0.01,0.01]
 nsimi = 200
 dti = 0.01
 if exp == EXP_SOMERSAULT:
-	# wx = [100, 100, 1, 1, 1, 1]
-	wx = [1,1,1, 1, 1, 5]
+	wx = somersaultParams['wxflip']
 	wu = [0.01,0.01]
 	dti = 0.005
 	nsimi = int((somersaultParams['period'] * somersaultParams['num'] + 0.5)/ dti)
-if exp == EXP_VELDES:
+elif exp == EXP_VELDES:
 	wx = [1,1,1, 10, 10, 0.1]
 	wu = [0.01,0.01]
 	dti = 0.03
+	nsimi = 50
+elif exp == EXP_SIDEPERCH:
+	wx = [1,1,1, 1, 1, 5]
+	wu = [0.01,0.01]
+	dti = 0.005
 	nsimi = 50
 
 y0 = np.zeros(6)
@@ -200,9 +211,7 @@ results[1]['col'] = 'g'
 # 	results[2]['col'] = 'b'
 
 # Vis
-saveMovie = True
-
-if saveMovie:
+if saveMovie > 0:
 	
 	from matplotlib.collections import PatchCollection
 	from matplotlib.patches import Polygon, Arrow
@@ -259,9 +268,10 @@ if saveMovie:
 		return bodyPatch, 
 
 	ani = animation.FuncAnimation(fig, init_func=init, func=animate, frames=N, interval=dti, blit=True)
-
-	ani.save('test.mp4', writer=writer)
-	# plt.show()
+	if saveMovie == 2:
+		ani.save('test.mp4', writer=writer)
+	elif saveMovie == 1:
+		plt.show()
 
 else:
 	# Regular plots
