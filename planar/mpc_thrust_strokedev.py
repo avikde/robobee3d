@@ -102,7 +102,7 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 			K = lqr.dlqr(Ad, Bd, np.diag(wx), np.diag(wu))[0]
 			ctrl = K @ (xr - x0)
 		elif ctrlType == CTRL_LIN_CUR:
-			if exp == EXP_SOMERSAULT and tgoal > 1.5 * somersaultParams['period'] * somersaultParams['num']:
+			if exp == EXP_SOMERSAULT and tgoal > somersaultParams['period'] * somersaultParams['num'] * 1.5:
 				ltvmpc.updateWeights(wx=np.array([100,100,1, 100, 100, 0.01])/dt)
 			ctrl = ltvmpc.update(x0, ctrl, xr, costMode=mpc.TRAJ)#, trajMode=mpc.ITERATE_TRAJ)
 		elif ctrlType == CTRL_LIN_HORIZON:
@@ -179,7 +179,7 @@ if exp == EXP_SOMERSAULT:
 	wx = [1,1,1, 1, 1, 5]
 	wu = [0.01,0.01]
 	dti = 0.005
-	nsimi = int((somersaultParams['period'] * somersaultParams['num'] + 1)/ dti)
+	nsimi = int((somersaultParams['period'] * somersaultParams['num'] + 0.5)/ dti)
 if exp == EXP_VELDES:
 	wx = [1,1,1, 10, 10, 0.1]
 	wu = [0.01,0.01]
@@ -219,14 +219,16 @@ ax[0].legend(custom_lines, ['LQR', 'MPC', 'OL'])
 # ax[1].plot(results[1]['X'][:, 1])
 # ax[1].plot(results[1]['X'][:, 2])
 for res in results:
-	ax[1].plot(res['X'][:, 3], color=res['col'])
-	ax[1].plot(res['X'][:, 4], '--', color=res['col'])
-ax[1].set_xlabel('Iters')
+	tvec = dti * np.arange(res['X'].shape[0])
+	ax[1].plot(tvec, res['X'][:, 3], color=res['col'])
+	ax[1].plot(tvec, res['X'][:, 4], '--', color=res['col'])
+ax[1].set_xlabel('t (sec)')
 ax[1].set_ylabel('dxdz')
 
 for res in results:
-	ax[2].plot(res['X'][:, 5], color=res['col'])
-ax[2].set_xlabel('Iters')
+	tvec = dti * np.arange(res['X'].shape[0])
+	ax[2].plot(tvec, res['X'][:, 5], color=res['col'])
+ax[2].set_xlabel('t (sec)')
 ax[2].set_ylabel('dphi')
 
 plt.show()
