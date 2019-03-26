@@ -27,7 +27,7 @@ CTRL_OPEN_LOOP = 2
 CTRL_LQR = 3
 
 # Trajectory following?
-def getXr(t):
+def goal(t):
 	if exp in [EXP_GOAL, EXP_VELDES]:
 		xr = np.array([-0.03, 0.02, 0, 0, 0, 0])
 	elif exp == EXP_11:
@@ -86,7 +86,7 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 		tgoal = i * dt
 		if ctrlType == CTRL_LIN_CUR:
 			tgoal = (i + N) * dt
-		xr = getXr(tgoal)
+		xr = goal(tgoal)
 		# for logging
 		desTraj[i,:] = xr[0:3]
 
@@ -167,7 +167,7 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 # plt.show()
 
 # Run simulations
-fig, ax = plt.subplots(nrows=3)
+fig, ax = plt.subplots(ncols=3)
 
 wx = [1000, 1000, 0.05, 5, 5, 0.005]
 wu = [0.01,0.01]
@@ -178,7 +178,7 @@ if exp == EXP_SOMERSAULT:
 	wx = [1,1,1, 1, 1, 5]
 	wu = [0.01,0.01]
 	nsimi = 150
-	dti = 0.003
+	dti = 0.005
 if exp == EXP_VELDES:
 	wx = [1,1,1, 10, 10, 0.1]
 	wu = [0.01,0.01]
@@ -205,7 +205,7 @@ for res in results:
 if exp == EXP_SINE:
 	ax[0].plot(results[1]['desTraj'][:,0], results[1]['desTraj'][:,1], 'k--', label='des')
 elif exp == EXP_GOAL:
-	lqrgoal = getXr(0)
+	lqrgoal = goal(0)
 	ax[0].plot(lqrgoal[0], lqrgoal[1], 'c*')
 
 # custom legend
