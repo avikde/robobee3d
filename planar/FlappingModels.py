@@ -18,7 +18,7 @@ class PlanarThrustStrokeDev:
 	u0 = np.zeros(nu)
 	# can be reset
 	dt = 0.005
-	STROKE_EXTENT = 5e-3
+	STROKE_EXTENT = 3e-3
 
 	def getLinearDynamics(self, y, u):
 		'''Returns Ad, Bd[, fd]
@@ -103,7 +103,7 @@ class PlanarThrustStrokeDev:
 		Ryaw = kin.rot2(y[2])
 		pcop = y[0:2] + Ryaw @ np.array([u[1],self.d])
 		Faero = Ryaw @ np.array([0, self.mb * self.g + u[0]])
-		strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([-self.STROKE_EXTENT, self.d]), y[0:2] + Ryaw @ np.array([self.STROKE_EXTENT, self.d])))
+		strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([-2*self.STROKE_EXTENT, self.d]), y[0:2] + Ryaw @ np.array([2*self.STROKE_EXTENT, self.d])))
 		return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy), pcop, Faeroscale * Faero, strokeExtents
 
 
