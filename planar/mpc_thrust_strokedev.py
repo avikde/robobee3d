@@ -124,7 +124,7 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 				ltvmpc.updateWeights(wx=np.array(sidePerchParams['wx'][1])/dt)
 			# elif exp == EXP_SIDEPERCH and tgoal > sidePerchParams['period'] + sidePerchParams['periodO']:
 			# 	ltvmpc.updateWeights(wx=np.array(sidePerchParams['wx'][0])/dt)
-			ctrl = ltvmpc.update(x0, ctrl, xr, costMode=mpc.TRAJ)#, trajMode=mpc.ITERATE_TRAJ)
+			ctrl = ltvmpc.update(x0, xr, costMode=mpc.TRAJ)#, trajMode=mpc.ITERATE_TRAJ)
 		elif ctrlType == CTRL_LIN_HORIZON:
 			# traj to linearize around
 			# x0horizon = np.zeros((N,model.nx))
