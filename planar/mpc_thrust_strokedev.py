@@ -26,7 +26,7 @@ exp = EXP_SIDEPERCH
 # flip and hover
 somersaultParams = {'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ}
 # position, orientation
-sidePerchParams = {'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [100,100,1, 100, 100, 0.01]]}
+sidePerchParams = {'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [100,100,1, 100, 100, 0.015]]}
 
 # control types
 CTRL_LIN_CUR = 0
@@ -34,7 +34,7 @@ CTRL_LIN_HORIZON = 1
 CTRL_OPEN_LOOP = 2
 CTRL_LQR = 3
 
-saveMovie = 0  #1 shows movie, 2 saves
+saveMovie = 2  #1 shows movie, 2 saves
 
 # Trajectory following?
 def goal(t):
@@ -52,13 +52,14 @@ def goal(t):
 		else:
 			xr = np.array([0, 0, 2 * np.pi * somersaultParams['num'],0.,0.,0])
 	elif exp == EXP_SIDEPERCH:
-		omega = 0.5 * np.pi / somersaultParams['period']
+		angDes = np.pi
+		omega = angDes / somersaultParams['period']
 		if t < sidePerchParams['period']:
 			xr = np.array([0.2 * t, 0, 0, 0.2,0.,0])
 		elif t < sidePerchParams['periodO']:
 			xr = np.array([0.2 * sidePerchParams['period'], 0, omega * (t - sidePerchParams['period']),0.,0.,omega])
 		else:
-			xr = np.array([0.2 * sidePerchParams['period'], 0, 0.5 * np.pi,0.,0.,0])
+			xr = np.array([0.2 * sidePerchParams['period'], 0, angDes,0.,0.,0])
 	else:
 		raise 'experiment not implemented'
 	# xr = np.array([0.5 * t,0.0, 0,0.,0.,0.])
@@ -124,7 +125,7 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 				ltvmpc.updateWeights(wx=np.array(sidePerchParams['wx'][1])/dt)
 			# elif exp == EXP_SIDEPERCH and tgoal > sidePerchParams['period'] + sidePerchParams['periodO']:
 			# 	ltvmpc.updateWeights(wx=np.array(sidePerchParams['wx'][0])/dt)
-			ctrl = ltvmpc.update(x0, xr, costMode=mpc.TRAJ)#, trajMode=mpc.ITERATE_TRAJ)
+			ctrl = ltvmpc.update(x0, xr, costMode=mpc.FINAL)
 		elif ctrlType == CTRL_LIN_HORIZON:
 			# traj to linearize around
 			# x0horizon = np.zeros((N,model.nx))
@@ -232,7 +233,7 @@ if saveMovie > 0:
 
 	# Set up formatting for the movie files
 	Writer = animation.writers['ffmpeg']
-	writer = Writer(fps=30, metadata=dict(artist='Me'), bitrate=1800)
+	writer = Writer(fps=60, metadata=dict(artist='Me'), bitrate=1800)
 
 	# traj
 	res = results[1]  # mpc
