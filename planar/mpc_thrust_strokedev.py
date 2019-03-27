@@ -26,7 +26,7 @@ exp = EXP_SIDEPERCH
 # flip and hover
 somersaultParams = {'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ}
 # position, orientation
-sidePerchParams = {'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [100,100,1, 100, 100, 0.0155]]}
+sidePerchParams = {'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [10,10,1, 10, 10, 0.015]]}
 
 # control types
 CTRL_LIN_CUR = 0
@@ -247,6 +247,7 @@ if saveMovie > 0:
 	seline, = ax.plot([], [], 'k--', linewidth=1, alpha=0.5)
 	# aeroArrow = Arrow(0,0,0,0.01, width=0.0002, alpha=0.3, facecolor=res['col'])
 	bodyPatch = Polygon([[0,0],[0,0],[0,0],[0,0]], alpha=0.5, facecolor=res['col'], edgecolor='k')
+	Q = ax.quiver([0], [0], [0], [0.1], pivot='mid', color=res['col'], units='dots')
 
 	def init():
 		ax.set_aspect(1)
@@ -278,6 +279,11 @@ if saveMovie > 0:
 		seline.set_data(strokeExtents[:,0], strokeExtents[:,1])
 		# print(pcop)
 		# arPatch.remove()
+		# print(dir(Q))
+		# sys.exit(0)
+		# new_segs = [[pcop[0], pcop[1]],]
+		Q.set_offsets(np.array([pcop[0], pcop[1]]))
+		Q.set_UVC(Faero[0], Faero[1])
 		# aeroArrow = Arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0002, alpha=0.3, facecolor=res['col'])
 
 		return bodyPatch, 
