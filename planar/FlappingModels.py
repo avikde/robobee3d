@@ -88,7 +88,10 @@ class PlanarThrustStrokeDev:
 
 
 	def dynamics(self, y, u, useLinearization=False):
-		u[1] = np.clip(u[1], -self.STROKE_EXTENT, self.STROKE_EXTENT)
+		umin, umax, _, _ = self.getLimits()
+		# FIXME: input constraints are not being satisfied. See #36
+		# u = np.clip(u, umin, umax)
+		u[1] = np.clip(u[1], umin[1], umax[1])
 		# Full nonlinear dynamics
 		if useLinearization:
 			Ad, Bd, fd = self.getLinearDynamics(y, u)

@@ -34,7 +34,7 @@ CTRL_LIN_HORIZON = 1
 CTRL_OPEN_LOOP = 2
 CTRL_LQR = 3
 
-saveMovie = 0  #1 shows movie, 2 saves
+saveMovie = 0  #1 shows movie, 2 saves, 3 plots arrow
 
 # Trajectory following?
 def goal(t):
@@ -233,7 +233,7 @@ if saveMovie > 0:
 
 	# Set up formatting for the movie files
 	Writer = animation.writers['ffmpeg']
-	writer = Writer(fps=60, metadata=dict(artist='Me'), bitrate=1800)
+	writer = Writer(fps=30, metadata=dict(artist='Me'), bitrate=1800)
 
 	# traj
 	res = results[1]  # mpc
@@ -247,7 +247,8 @@ if saveMovie > 0:
 	seline, = ax.plot([], [], 'k--', linewidth=1, alpha=0.5)
 	# aeroArrow = Arrow(0,0,0,0.01, width=0.0002, alpha=0.3, facecolor=res['col'])
 	bodyPatch = Polygon([[0,0],[0,0],[0,0],[0,0]], alpha=0.5, facecolor=res['col'], edgecolor='k')
-	Q = ax.quiver([0], [0], [0], [0.1], pivot='mid', color=res['col'], units='dots')
+	if saveMovie == 3:
+		Q = ax.quiver([0], [0], [0], [0.1], pivot='mid', color=res['col'], units='dots')
 
 	def init():
 		ax.set_aspect(1)
@@ -278,18 +279,14 @@ if saveMovie > 0:
 
 		seline.set_data(strokeExtents[:,0], strokeExtents[:,1])
 		# print(pcop)
-		# arPatch.remove()
-		# print(dir(Q))
-		# sys.exit(0)
-		# new_segs = [[pcop[0], pcop[1]],]
-		Q.set_offsets(np.array([pcop[0], pcop[1]]))
-		Q.set_UVC(Faero[0], Faero[1])
-		# aeroArrow = Arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0002, alpha=0.3, facecolor=res['col'])
+		if saveMovie == 3:
+			Q.set_offsets(np.array([pcop[0], pcop[1]]))
+			Q.set_UVC(Faero[0], Faero[1])
 
 		return bodyPatch, 
 
 	ani = animation.FuncAnimation(fig, init_func=init, func=animate, frames=N, interval=dti, blit=True)
-	if saveMovie == 2:
+	if saveMovie in [2,3]:
 		ani.save('test.mp4', writer=writer)
 	elif saveMovie == 1:
 		plt.show()
