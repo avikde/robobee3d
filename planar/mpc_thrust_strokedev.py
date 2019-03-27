@@ -26,7 +26,7 @@ exp = EXP_SIDEPERCH
 # flip and hover
 somersaultParams = {'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 100, 100, 0.01]]}
 # position, orientation
-sidePerchParams = {'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [1,1,1, 0.1, 0.1, 5]]}
+sidePerchParams = {'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [100,100,1, 100, 100, 0.01]]}
 
 # control types
 CTRL_LIN_CUR = 0
