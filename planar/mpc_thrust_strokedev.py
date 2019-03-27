@@ -24,7 +24,7 @@ exp = EXP_SIDEPERCH
 # Experiment params. TODO: eventually all parameters in dicts
 # Both of these seem to need two "stages" think about what that means
 # flip and hover
-somersaultParams = {'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 100, 100, 0.01]]}
+somersaultParams = {'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ}
 # position, orientation
 sidePerchParams = {'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [100,100,1, 100, 100, 0.01]]}
 
