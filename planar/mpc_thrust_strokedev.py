@@ -25,10 +25,25 @@ exp = EXP_SOMERSAULT
 
 # Both of these seem to need two "stages" think about what that means
 # SOMERSAULT flip and hover
-params = {'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-2}
+params = {'name': 'somersault', 'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-2, 'wu': [0.01,0.01], 'dt': 0.005}
 
 # SIDEPERCH position, orientation
-# params = {'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [10,10,1, 10, 10, 0.015]]}
+# params = {'name': 'sideperch', 'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [10,10,1, 10, 10, 0.015]]}
+
+if exp == EXP_SOMERSAULT:
+	params['nsim'] = int((params['period'] * params['num'] + 0.5)/ params['dt'])
+elif exp == EXP_VELDES:
+	wx = [1,1,1, 10, 10, 0.1]
+	wu = [0.01,0.01]
+	dti = 0.03
+	nsimi = 50
+elif exp == EXP_SIDEPERCH:
+	wx = params['wx'][0]
+	wu = [0.01,0.01]
+	dti = 0.003
+	nsimi = int((params['period'] + params['periodO'])/ dti)
+	Ni = 15
+
 
 # control types
 CTRL_LIN_CUR = 0
@@ -72,18 +87,30 @@ def goal(t):
 
 	return xr
 
-def runSim(params, wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=200, x0=None, u0=None):
+def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 	'''
 	N = horizon (e.g. 20)
 	dt = timestep (e.g. 0.002)
 	'''
+	# params from dict (DEFAULT PARAMS HERE)
+	peps = params.get('eps', 1e-2)
+	pwx = params.get('wx', [1000, 1000, 0.05, 5, 5, 0.005])
+	pwu = params.get('wu', [0.01,0.01])
+	nsim = params.get('nsim', 200)
+	dt = params.get('dt', 0.01)
+	N = params.get('N', 5)
+
+	# Check if a list of weights has been provided (multi-part behavior)
+	wx = pwx[0] if isinstance(pwx, list) else pwx
+	# wu = pwu[0] if isinstance(pwu, list) else pwu
+	wu = pwu
+
 	model.dt = dt
 	if ctrlType in [CTRL_LIN_CUR, CTRL_LIN_HORIZON]:
 		# TODO: confirm this weight scaling
 		wx = np.array(wx) / dt
 		# wu = np.array(wu) / dt
-		# params from dict
-		peps = params.get('eps', 1e-2)
+		print(wx, wu)
 
 		ltvmpc = mpc.LTVMPC(model, N, wx, wu, verbose=False, scaling=0, eps_abs=peps, eps_rel=peps, kdamping=0)
 		ltvmpc.MAX_ULIM_VIOL_FRAC = 0.5
@@ -126,9 +153,9 @@ def runSim(params, wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQ
 			ctrl = K @ (xr - x0)
 		elif ctrlType == CTRL_LIN_CUR:
 			if exp == EXP_SOMERSAULT and tgoal > params['period'] * params['num'] * 1.5:
-				ltvmpc.updateWeights(wx=np.array(params['wx'][1])/dt)
+				ltvmpc.updateWeights(wx=np.array(pwx[1])/dt)
 			elif exp == EXP_SIDEPERCH and tgoal > params['period']:
-				ltvmpc.updateWeights(wx=np.array(params['wx'][1])/dt)
+				ltvmpc.updateWeights(wx=np.array(pwx[1])/dt)
 			# elif exp == EXP_SIDEPERCH and tgoal > sidePerchParams['period'] + sidePerchParams['periodO']:
 			# 	ltvmpc.updateWeights(wx=np.array(sidePerchParams['wx'][0])/dt)
 			ctrl = ltvmpc.update(x0, xr, costMode=mpc.FINAL)
@@ -195,36 +222,14 @@ def runSim(params, wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQ
 # plt.show()
 
 # Run simulations
-wx = [1000, 1000, 0.05, 5, 5, 0.005]
-wu = [0.01,0.01]
-nsimi = 200
-dti = 0.01
-Ni = 5
-if exp == EXP_SOMERSAULT:
-	wx = params['wx'][0]
-	wu = [0.01,0.01]
-	dti = 0.005
-	nsimi = int((params['period'] * params['num'] + 0.5)/ dti)
-elif exp == EXP_VELDES:
-	wx = [1,1,1, 10, 10, 0.1]
-	wu = [0.01,0.01]
-	dti = 0.03
-	nsimi = 50
-elif exp == EXP_SIDEPERCH:
-	wx = sidePerchParams['wx'][0]
-	wu = [0.01,0.01]
-	dti = 0.003
-	nsimi = int((params['period'] + params['periodO'])/ dti)
-	Ni = 15
-
 y0 = np.zeros(6)
 if exp == EXP_VELDES:
 	y0[3:6] = np.array([1,0,0])
-runSim(params, wx, wu, dt=dti, ctrlType=CTRL_LQR, label='LQR', nsim=1, x0=y0)
-results[0]['col'] = 'r'
+# runSim(params, ctrlType=CTRL_LQR, label='LQR', nsim=1, x0=y0)
+# results[0]['col'] = 'r'
 # MPC
-runSim(params, wx, wu, dt=dti, ctrlType=CTRL_LIN_CUR, label='MPC', nsim=nsimi, N=Ni, x0=y0, epsi=1e-4)
-results[1]['col'] = 'g'
+runSim(params, ctrlType=CTRL_LIN_CUR, label='MPC', x0=y0)
+results[0]['col'] = 'g'
 # if exp == EXP_SOMERSAULT:
 # 	# Openloop
 # 	y0[0] = 0.0
@@ -319,14 +324,14 @@ else:
 	# ax[1].plot(results[1]['X'][:, 1])
 	# ax[1].plot(results[1]['X'][:, 2])
 	for res in results:
-		tvec = dti * np.arange(res['X'].shape[0])
+		tvec = params['dt'] * np.arange(res['X'].shape[0])
 		ax[1].plot(tvec, res['X'][:, 3], color=res['col'])
 		ax[1].plot(tvec, res['X'][:, 4], '--', color=res['col'])
 	ax[1].set_xlabel('t (sec)')
 	ax[1].set_ylabel('dxdz')
 
 	for res in results:
-		tvec = dti * np.arange(res['X'].shape[0])
+		tvec = params['dt'] * np.arange(res['X'].shape[0])
 		ax[2].plot(tvec, res['X'][:, 5], color=res['col'])
 	ax[2].set_xlabel('t (sec)')
 	ax[2].set_ylabel('dphi')
