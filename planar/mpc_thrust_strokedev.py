@@ -20,29 +20,29 @@ EXP_11 = 2
 EXP_GOAL = 3
 EXP_VELDES = 4
 EXP_SIDEPERCH = 5
-exp = EXP_SOMERSAULT
+exp = EXP_SIDEPERCH
 # Experiment params
 
 # Both of these seem to need two "stages" think about what that means
 # SOMERSAULT flip and hover
-params = {'name': 'somersault', 'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-2, 'wu': [0.01,0.01], 'dt': 0.005}
+# params = {'name': 'somersault', 'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-2, 'wu': [0.01,0.01], 'dt': 0.005}
 
 # SIDEPERCH position, orientation
-# params = {'name': 'sideperch', 'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [10,10,1, 10, 10, 0.015]]}
+params = {'name': 'sideperch', 'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [10,10,1, 10, 10, 0.015]]}
 
-if exp == EXP_SOMERSAULT:
+if params['name'] == 'somersault':
 	params['nsim'] = int((params['period'] * params['num'] + 0.5)/ params['dt'])
-elif exp == EXP_VELDES:
-	wx = [1,1,1, 10, 10, 0.1]
-	wu = [0.01,0.01]
-	dti = 0.03
-	nsimi = 50
-elif exp == EXP_SIDEPERCH:
+elif params['name'] == 'sideperch':
 	wx = params['wx'][0]
 	wu = [0.01,0.01]
 	dti = 0.003
 	nsimi = int((params['period'] + params['periodO'])/ dti)
 	Ni = 15
+elif exp == EXP_VELDES:
+	wx = [1,1,1, 10, 10, 0.1]
+	wu = [0.01,0.01]
+	dti = 0.03
+	nsimi = 50
 
 
 # control types
@@ -55,28 +55,28 @@ saveMovie = 0  #1 shows movie, 2 saves, 3 plots arrow
 
 # Trajectory following?
 def goal(t):
-	if exp in [EXP_GOAL, EXP_VELDES]:
+	if params['name'] == 'somersault':
+		omega = 2 * np.pi / params['period']
+		if t < params['num'] * params['period']:
+			xr = np.array([0, 0, omega*t,0.,0.,omega])
+		else:
+			xr = np.array([0, 0, 2 * np.pi * params['num'],0.,0.,0])
+	elif params['name'] == 'sideperch':
+		angDes = np.pi
+		omega = angDes / params['period']
+		if t < params['period']:
+			xr = np.array([0.2 * t, 0, 0, 0.2,0.,0])
+		elif t < params['periodO']:
+			xr = np.array([0.2 * params['period'], 0, omega * (t - params['period']),0.,0.,omega])
+		else:
+			xr = np.array([0.2 * params['period'], 0, angDes,0.,0.,0])
+	elif exp in [EXP_GOAL, EXP_VELDES]:
 		xr = np.array([-0.03, 0.02, 0, 0, 0, 0])
 	elif exp == EXP_11:
 		xr = np.array([t, t, 0.,0.,0.,0.])
 	elif exp == EXP_SINE:
 		# Sinusoidal
 		xr = np.array([0.04 * np.sin(10 * t), 0.1 * t, 0.,0.,0.,0.])
-	elif exp == EXP_SOMERSAULT:
-		omega = 2 * np.pi / params['period']
-		if t < params['num'] * params['period']:
-			xr = np.array([0, 0, omega*t,0.,0.,omega])
-		else:
-			xr = np.array([0, 0, 2 * np.pi * params['num'],0.,0.,0])
-	elif exp == EXP_SIDEPERCH:
-		angDes = np.pi
-		omega = angDes / params['period']
-		if t < params['period']:
-			xr = np.array([0.2 * t, 0, 0, 0.2,0.,0])
-		elif t < sidePerchParams['periodO']:
-			xr = np.array([0.2 * params['period'], 0, omega * (t - params['period']),0.,0.,omega])
-		else:
-			xr = np.array([0.2 * params['period'], 0, angDes,0.,0.,0])
 	else:
 		raise 'experiment not implemented'
 	# xr = np.array([0.5 * t,0.0, 0,0.,0.,0.])
@@ -153,9 +153,9 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 			K = lqr.dlqr(Ad, Bd, np.diag(wx), np.diag(wu))[0]
 			ctrl = K @ (xr - x0)
 		elif ctrlType == CTRL_LIN_CUR:
-			if exp == EXP_SOMERSAULT and tgoal > params['period'] * params['num'] * 1.5:
+			if params['name'] == 'somersault' and tgoal > params['period'] * params['num'] * 1.5:
 				ltvmpc.updateWeights(wx=np.array(pwx[1])/dt)
-			elif exp == EXP_SIDEPERCH and tgoal > params['period']:
+			elif params['name'] == 'sideperch' and tgoal > params['period']:
 				ltvmpc.updateWeights(wx=np.array(pwx[1])/dt)
 			# elif exp == EXP_SIDEPERCH and tgoal > sidePerchParams['period'] + sidePerchParams['periodO']:
 			# 	ltvmpc.updateWeights(wx=np.array(sidePerchParams['wx'][0])/dt)
