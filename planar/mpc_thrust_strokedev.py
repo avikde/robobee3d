@@ -28,16 +28,12 @@ exp = EXP_SIDEPERCH
 # params = {'name': 'somersault', 'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-2, 'wu': [0.01,0.01], 'dt': 0.005}
 
 # SIDEPERCH position, orientation
-params = {'name': 'sideperch', 'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [10,10,1, 10, 10, 0.015]]}
+params = {'name': 'sideperch', 'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [10,10,1, 10, 10, 0.015]], 'wu':[0.01, 0.01], 'dt':0.003, 'N': 15}
 
 if params['name'] == 'somersault':
 	params['nsim'] = int((params['period'] * params['num'] + 0.5)/ params['dt'])
 elif params['name'] == 'sideperch':
-	wx = params['wx'][0]
-	wu = [0.01,0.01]
-	dti = 0.003
-	nsimi = int((params['period'] + params['periodO'])/ dti)
-	Ni = 15
+	params['nsim'] = int((params['period'] + params['periodO'])/params['dt'])
 elif exp == EXP_VELDES:
 	wx = [1,1,1, 10, 10, 0.1]
 	wu = [0.01,0.01]
@@ -101,7 +97,8 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 	N = params.get('N', 5)
 
 	# Check if a list of weights has been provided (multi-part behavior)
-	wx = pwx[0] if isinstance(pwx, list) else pwx
+	weightsIdx = 0
+	wx = pwx[weightsIdx] if isinstance(pwx, list) else pwx
 	# wu = pwu[0] if isinstance(pwu, list) else pwu
 	wu = pwu
 
@@ -111,10 +108,9 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 		# TODO: confirm this weight scaling
 		wx = np.array(wx) / dt
 		# wu = np.array(wu) / dt
-		print(wx, wu)
 
 		ltvmpc = mpc.LTVMPC(model, N, wx, wu, verbose=False, scaling=0, eps_abs=peps, eps_rel=peps, kdamping=0)
-		ltvmpc.MAX_ULIM_VIOL_FRAC = 0.5
+		# ltvmpc.MAX_ULIM_VIOL_FRAC = 0.5
 
 	# Initial and reference states
 	# x0 = 0.01 * np.random.rand(model.nx)
@@ -153,10 +149,10 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 			K = lqr.dlqr(Ad, Bd, np.diag(wx), np.diag(wu))[0]
 			ctrl = K @ (xr - x0)
 		elif ctrlType == CTRL_LIN_CUR:
-			if params['name'] == 'somersault' and tgoal > params['period'] * params['num'] * 1.5:
-				ltvmpc.updateWeights(wx=np.array(pwx[1])/dt)
-			elif params['name'] == 'sideperch' and tgoal > params['period']:
-				ltvmpc.updateWeights(wx=np.array(pwx[1])/dt)
+			if (params['name'] == 'somersault' and tgoal > params['period'] * params['num'] * 1.5) or (params['name'] == 'sideperch' and tgoal > params['period']) and weightsIdx == 0:
+				weightsIdx += 1
+				print('Updating weights to', pwx[weightsIdx])
+				ltvmpc.updateWeights(wx=np.array(pwx[weightsIdx])/dt)
 			# elif exp == EXP_SIDEPERCH and tgoal > sidePerchParams['period'] + sidePerchParams['periodO']:
 			# 	ltvmpc.updateWeights(wx=np.array(sidePerchParams['wx'][0])/dt)
 			ctrl = ltvmpc.update(x0, xr, costMode=mpc.FINAL)
