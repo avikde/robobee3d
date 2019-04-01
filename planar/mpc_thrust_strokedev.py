@@ -10,36 +10,31 @@ import matplotlib.animation as animation
 
 np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
-model = FlappingModels.PlanarThrustStrokeDev()
+# Select here
+paramstr = 'hover'
 
-results = []  # List of sim results: is populated by runSim  below
-
-EXP_SINE = 0
-EXP_SOMERSAULT = 1
-EXP_11 = 2
-EXP_GOAL = 3
-EXP_VELDES = 4
-EXP_SIDEPERCH = 5
-exp = EXP_SOMERSAULT
 # Experiment params
 
-# Both of these seem to need two "stages" think about what that means
-# SOMERSAULT flip and hover
-params = {'name': 'somersault', 'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-2, 'wu': [0.01,0.01], 'dt': 0.005}
+paramsets = {
+	# Both of these seem to need two "stages" think about what that means
+	# SOMERSAULT flip and hover
+	'somersault': {'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-2, 'wu': [0.01,0.01], 'dt': 0.005},
+	# SIDEPERCH position, orientation
+	'sideperch': {'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [10,10,1, 10, 10, 0.015]], 'wu':[0.01, 0.01], 'dt':0.003, 'N': 15},
+	# hover
+	'hover': {'wx': [1,1,1, 10, 10, 0.1], 'wu':[0.01, 0.01], 'dt':0.03, 'nsim': 50},
+	# others
+	'waypoint': {},
+	'sine': {}
+}
 
-# SIDEPERCH position, orientation
-# params = {'name': 'sideperch', 'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [10,10,1, 10, 10, 0.015]], 'wu':[0.01, 0.01], 'dt':0.003, 'N': 15}
+# SELECT HERE
+params = paramsets[paramstr]
 
-if params['name'] == 'somersault':
+if paramstr == 'somersault':
 	params['nsim'] = int((params['period'] * params['num'] + 0.5)/ params['dt'])
-elif params['name'] == 'sideperch':
+elif paramstr == 'sideperch':
 	params['nsim'] = int((params['period'] + params['periodO'])/params['dt'])
-elif exp == EXP_VELDES:
-	wx = [1,1,1, 10, 10, 0.1]
-	wu = [0.01,0.01]
-	dti = 0.03
-	nsimi = 50
-
 
 # control types
 CTRL_MPC = 0
@@ -48,16 +43,18 @@ CTRL_OPEN_LOOP = 2
 CTRL_LQR = 3
 
 saveMovie = 0  #1 shows movie, 2 saves, 3 plots arrow
+model = FlappingModels.PlanarThrustStrokeDev()
+results = []  # List of sim results: is populated by runSim  below
 
 # Trajectory following?
 def goal(t):
-	if params['name'] == 'somersault':
+	if paramstr == 'somersault':
 		omega = 2 * np.pi / params['period']
 		if t < params['num'] * params['period']:
 			xr = np.array([0, 0, omega*t,0.,0.,omega])
 		else:
 			xr = np.array([0, 0, 2 * np.pi * params['num'],0.,0.,0])
-	elif params['name'] == 'sideperch':
+	elif paramstr == 'sideperch':
 		angDes = np.pi
 		omega = angDes / params['period']
 		if t < params['period']:
@@ -66,11 +63,11 @@ def goal(t):
 			xr = np.array([0.2 * params['period'], 0, omega * (t - params['period']),0.,0.,omega])
 		else:
 			xr = np.array([0.2 * params['period'], 0, angDes,0.,0.,0])
-	elif exp in [EXP_GOAL, EXP_VELDES]:
+	elif paramstr in ['hover', 'waypoint']:
 		xr = np.array([-0.03, 0.02, 0, 0, 0, 0])
-	elif exp == EXP_11:
-		xr = np.array([t, t, 0.,0.,0.,0.])
-	elif exp == EXP_SINE:
+	# elif exp == EXP_11:
+	# 	xr = np.array([t, t, 0.,0.,0.,0.])
+	elif paramstr == 'sine':
 		# Sinusoidal
 		xr = np.array([0.04 * np.sin(10 * t), 0.1 * t, 0.,0.,0.,0.])
 	else:
@@ -98,7 +95,7 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 
 	# Check if a list of weights has been provided (multi-part behavior)
 	weightsIdx = 0
-	wx = pwx[weightsIdx] if isinstance(pwx, list) else pwx
+	wx = pwx[weightsIdx] if isinstance(pwx[0], list) else pwx
 	# wu = pwu[0] if isinstance(pwu, list) else pwu
 	wu = pwu
 
@@ -149,7 +146,7 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 			K = lqr.dlqr(Ad, Bd, np.diag(wx), np.diag(wu))[0]
 			ctrl = K @ (xr - x0)
 		elif ctrlType == CTRL_MPC:
-			if ((params['name'] == 'somersault' and tgoal > params['period'] * params['num'] * 1.5) or (params['name'] == 'sideperch' and tgoal > params['period'])) and weightsIdx == 0:
+			if ((paramstr == 'somersault' and tgoal > params['period'] * params['num'] * 1.5) or (paramstr == 'sideperch' and tgoal > params['period'])) and weightsIdx == 0:
 				weightsIdx += 1
 				print('Updating weights to', pwx[weightsIdx])
 				ltvmpc.updateWeights(wx=np.array(pwx[weightsIdx])/dt)
@@ -223,8 +220,8 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 
 # Run simulations
 y0 = np.zeros(6)
-if exp == EXP_VELDES:
-	y0[3:6] = np.array([1,0,0])
+if paramstr == 'hover':
+	y0[3:6] = np.array([1,0,0])  # give it some initial velocity
 # runSim(params, ctrlType=CTRL_LQR, label='LQR', nsim=1, x0=y0)
 # results[0]['col'] = 'r'
 # MPC
@@ -308,9 +305,9 @@ else:
 
 	for res in results:
 		FlappingModels.visualizeTraj(ax[0], {'q':res['X'][:, 0:3], 'u':res['U']}, model, col=res['col'])
-	if exp == EXP_SINE:
+	if paramstr == 'sine':
 		ax[0].plot(results[1]['desTraj'][:,0], results[1]['desTraj'][:,1], 'k--', label='des')
-	elif exp == EXP_GOAL:
+	elif paramstr == 'waypoint':
 		lqrgoal = goal(0)
 		ax[0].plot(lqrgoal[0], lqrgoal[1], 'c*')
 
