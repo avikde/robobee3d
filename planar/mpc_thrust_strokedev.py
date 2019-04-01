@@ -73,8 +73,9 @@ def goal(t):
 def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=200, x0=None, u0=None):
 	'''
 	N = horizon (e.g. 20)
-	dt = timestep (e.g. 0.002)
+	dt = MPC timestep (e.g. 0.002), different from sim timestep
 	'''
+	SIM_DT = 0.0005  # not the same as "dt" which is MPC dt
 	model.dt = dt
 	if ctrlType in [CTRL_LIN_CUR, CTRL_LIN_HORIZON]:
 		# TODO: confirm this weight scaling
@@ -96,12 +97,12 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 	U = np.zeros((nsim, model.nu))
 	firstA = 0
 		
-	t = np.arange(nsim) * dt
+	tvec = np.arange(nsim) * dt
 	desTraj = np.zeros((nsim,3))
 
 	for i in range(1,nsim):
 		# tgoal = (i + N) * dt
-		tgoal = i * dt
+		tgoal = tvec[i]
 		if ctrlType == CTRL_LIN_CUR:
 			tgoal = (i + N) * dt
 		xr = goal(tgoal)
@@ -138,14 +139,17 @@ def runSim(wx, wu, N=20, dt=0.002, epsi=1e-2, label='', ctrlType=CTRL_LQR, nsim=
 			pass
 			# ctrl = np.array([1e-3,1e-3])
 
-		# simulate forward
-		x0 = model.dynamics(x0, ctrl)
+		# simulate forward -- faster than MPC rate
+		for simiter in range(int(dt/SIM_DT)):
+			ydot = model.dydt(x0, ctrl)
+			x0 += ydot * SIM_DT  # euler integration
+		# x0 = model.dynamics(x0, ctrl)
 		print(i, x0, ctrl)
 		# print(x0horizon)
 		X[i, :] = x0
 		U[i, :] = ctrl
 
-	results.append({'t':t, 'desTraj':desTraj, 'X':X, 'U':U, 'label':label})
+	results.append({'t':tvec, 'desTraj':desTraj, 'X':X, 'U':U, 'label':label})
 
 # if exp == EXP_SINE:
 # 	# Sine experiments
