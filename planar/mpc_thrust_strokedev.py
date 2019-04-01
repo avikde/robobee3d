@@ -16,6 +16,7 @@ paramstr = 'hover'
 # Experiment params
 
 paramsets = {
+	'defaults': {'eps': 1e-2, 'wx': [1000, 1000, 0.05, 5, 5, 0.005], 'wu': [0.01,0.01], 'nsim': 200, 'dt': 0.01, 'N': 5},
 	# Both of these seem to need two "stages" think about what that means
 	# SOMERSAULT flip and hover
 	'somersault': {'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-2, 'wu': [0.01,0.01], 'dt': 0.005},
@@ -27,14 +28,17 @@ paramsets = {
 	'waypoint': {},
 	'sine': {}
 }
-
-# SELECT HERE
 params = paramsets[paramstr]
 
 if paramstr == 'somersault':
-	params['nsim'] = int((params['period'] * params['num'] + 0.5)/ params['dt'])
+	params['nsim'] = int((params['period'] * params['num'] + 1)/ params['dt'])
 elif paramstr == 'sideperch':
 	params['nsim'] = int((params['period'] + params['periodO'])/params['dt'])
+
+# get parameters or default
+def _pget(pname):
+	# params from dict (DEFAULT PARAMS HERE)
+	return params.get(pname, paramsets['defaults'][pname])
 
 # control types
 CTRL_MPC = 0
@@ -86,12 +90,12 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 	dt = MPC timestep (e.g. 0.002), different from sim timestep
 	'''
 	# params from dict (DEFAULT PARAMS HERE)
-	peps = params.get('eps', 1e-2)
-	pwx = params.get('wx', [1000, 1000, 0.05, 5, 5, 0.005])
-	pwu = params.get('wu', [0.01,0.01])
-	nsim = params.get('nsim', 200)
-	dt = params.get('dt', 0.01)
-	N = params.get('N', 5)
+	peps = _pget('eps')
+	pwx = _pget('wx')
+	pwu = _pget('wu')
+	nsim = _pget('nsim')
+	dt = _pget('dt')
+	N = _pget('N')
 
 	# Check if a list of weights has been provided (multi-part behavior)
 	weightsIdx = 0
@@ -244,7 +248,7 @@ if saveMovie > 0:
 	writer = Writer(fps=30, metadata=dict(artist='Me'), bitrate=1800)
 
 	# traj
-	res = results[1]  # mpc
+	res = results[0]  # mpc
 	traj = {'q':res['X'][:, 0:3], 'u':res['U']}
 	N = traj['q'].shape[0]
 
@@ -293,7 +297,7 @@ if saveMovie > 0:
 
 		return bodyPatch, 
 
-	ani = animation.FuncAnimation(fig, init_func=init, func=animate, frames=N, interval=dti, blit=True)
+	ani = animation.FuncAnimation(fig, init_func=init, func=animate, frames=N, interval=_pget('dt'), blit=True)
 	if saveMovie in [2,3]:
 		ani.save('test.mp4', writer=writer)
 	elif saveMovie == 1:
