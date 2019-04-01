@@ -20,15 +20,15 @@ EXP_11 = 2
 EXP_GOAL = 3
 EXP_VELDES = 4
 EXP_SIDEPERCH = 5
-exp = EXP_SIDEPERCH
+exp = EXP_SOMERSAULT
 # Experiment params
 
 # Both of these seem to need two "stages" think about what that means
 # SOMERSAULT flip and hover
-# params = {'name': 'somersault', 'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-2, 'wu': [0.01,0.01], 'dt': 0.005}
+params = {'name': 'somersault', 'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-2, 'wu': [0.01,0.01], 'dt': 0.005}
 
 # SIDEPERCH position, orientation
-params = {'name': 'sideperch', 'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [10,10,1, 10, 10, 0.015]], 'wu':[0.01, 0.01], 'dt':0.003, 'N': 15}
+# params = {'name': 'sideperch', 'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [10,10,1, 10, 10, 0.015]], 'wu':[0.01, 0.01], 'dt':0.003, 'N': 15}
 
 if params['name'] == 'somersault':
 	params['nsim'] = int((params['period'] * params['num'] + 0.5)/ params['dt'])
@@ -42,7 +42,7 @@ elif exp == EXP_VELDES:
 
 
 # control types
-CTRL_LIN_CUR = 0
+CTRL_MPC = 0
 CTRL_LIN_HORIZON = 1
 CTRL_OPEN_LOOP = 2
 CTRL_LQR = 3
@@ -104,7 +104,7 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 
 	SIM_DT = 0.0005  # not the same as "dt" which is MPC dt
 	model.dt = dt
-	if ctrlType in [CTRL_LIN_CUR, CTRL_LIN_HORIZON]:
+	if ctrlType in [CTRL_MPC, CTRL_LIN_HORIZON]:
 		# TODO: confirm this weight scaling
 		wx = np.array(wx) / dt
 		# wu = np.array(wu) / dt
@@ -132,7 +132,7 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 	for i in range(1,nsim):
 		# tgoal = (i + N) * dt
 		tgoal = tvec[i]
-		if ctrlType == CTRL_LIN_CUR:
+		if ctrlType == CTRL_MPC:
 			tgoal = (i + N) * dt
 		xr = goal(tgoal)
 		# for logging
@@ -148,8 +148,8 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 			# actually compute u
 			K = lqr.dlqr(Ad, Bd, np.diag(wx), np.diag(wu))[0]
 			ctrl = K @ (xr - x0)
-		elif ctrlType == CTRL_LIN_CUR:
-			if (params['name'] == 'somersault' and tgoal > params['period'] * params['num'] * 1.5) or (params['name'] == 'sideperch' and tgoal > params['period']) and weightsIdx == 0:
+		elif ctrlType == CTRL_MPC:
+			if ((params['name'] == 'somersault' and tgoal > params['period'] * params['num'] * 1.5) or (params['name'] == 'sideperch' and tgoal > params['period'])) and weightsIdx == 0:
 				weightsIdx += 1
 				print('Updating weights to', pwx[weightsIdx])
 				ltvmpc.updateWeights(wx=np.array(pwx[weightsIdx])/dt)
@@ -228,7 +228,7 @@ if exp == EXP_VELDES:
 # runSim(params, ctrlType=CTRL_LQR, label='LQR', nsim=1, x0=y0)
 # results[0]['col'] = 'r'
 # MPC
-runSim(params, ctrlType=CTRL_LIN_CUR, label='MPC', x0=y0)
+runSim(params, ctrlType=CTRL_MPC, label='MPC', x0=y0)
 results[0]['col'] = 'g'
 # if exp == EXP_SOMERSAULT:
 # 	# Openloop
