@@ -12,6 +12,7 @@ np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
 # Select here
 paramstr = 'hover'
+y0 = np.zeros(6)
 
 # Experiment params
 
@@ -34,6 +35,8 @@ if paramstr == 'somersault':
 	params['nsim'] = int((params['period'] * params['num'] + 1)/ params['dt'])
 elif paramstr == 'sideperch':
 	params['nsim'] = int((params['period'] + params['periodO'])/params['dt'])
+elif paramstr == 'hover':
+	y0[3:6] = np.array([1,0,10])  # give it some initial velocity
 
 # get parameters or default
 def _pget(pname):
@@ -223,9 +226,6 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 # plt.show()
 
 # Run simulations
-y0 = np.zeros(6)
-if paramstr == 'hover':
-	y0[3:6] = np.array([1,0,0])  # give it some initial velocity
 # runSim(params, ctrlType=CTRL_LQR, label='LQR', nsim=1, x0=y0)
 # results[0]['col'] = 'r'
 # MPC
