@@ -11,7 +11,7 @@ import matplotlib.animation as animation
 np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
 # Select here
-paramstr = 'hover'
+paramstr = 'somersault'
 y0 = np.zeros(6)
 
 # Experiment params
@@ -20,7 +20,7 @@ paramsets = {
 	'defaults': {'eps': 1e-2, 'wx': [1000, 1000, 0.05, 5, 5, 0.005], 'wu': [0.01,0.01], 'nsim': 200, 'dt': 0.01, 'N': 5},
 	# Both of these seem to need two "stages" think about what that means
 	# SOMERSAULT flip and hover
-	'somersault': {'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-2, 'wu': [0.01,0.01], 'dt': 0.005},
+	'somersault': {'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-2, 'wu': [0.01,0.01], 'dt': 0.01},
 	# SIDEPERCH position, orientation
 	'sideperch': {'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [10,10,1, 10, 10, 0.015]], 'wu':[0.01, 0.01], 'dt':0.003, 'N': 15},
 	# hover
@@ -32,7 +32,7 @@ paramsets = {
 params = paramsets[paramstr]
 
 if paramstr == 'somersault':
-	params['nsim'] = int((params['period'] * params['num'] + 1)/ params['dt'])
+	params['nsim'] = int((params['period'] * params['num'] + 0.01)/ params['dt'])
 elif paramstr == 'sideperch':
 	params['nsim'] = int((params['period'] + params['periodO'])/params['dt'])
 elif paramstr == 'hover':
@@ -114,7 +114,7 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 		# wu = np.array(wu) / dt
 
 		ltvmpc = mpc.LTVMPC(model, N, wx, wu, verbose=False, scaling=0, eps_abs=peps, eps_rel=peps, kdamping=0)
-		# ltvmpc.MAX_ULIM_VIOL_FRAC = 0.5
+		ltvmpc.MAX_ULIM_VIOL_FRAC = 0.5
 
 	# Initial and reference states
 	# x0 = 0.01 * np.random.rand(model.nx)
