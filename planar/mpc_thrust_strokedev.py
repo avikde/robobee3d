@@ -90,7 +90,7 @@ def goal(t):
 def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 	'''
 	N = horizon (e.g. 20)
-	dt = timestep (e.g. 0.002)
+	dt = MPC timestep (e.g. 0.002), different from sim timestep
 	'''
 	# params from dict (DEFAULT PARAMS HERE)
 	peps = params.get('eps', 1e-2)
@@ -105,6 +105,7 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 	# wu = pwu[0] if isinstance(pwu, list) else pwu
 	wu = pwu
 
+	SIM_DT = 0.0005  # not the same as "dt" which is MPC dt
 	model.dt = dt
 	if ctrlType in [CTRL_LIN_CUR, CTRL_LIN_HORIZON]:
 		# TODO: confirm this weight scaling
@@ -129,12 +130,12 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 	U = np.zeros((nsim, model.nu))
 	firstA = 0
 		
-	t = np.arange(nsim) * dt
+	tvec = np.arange(nsim) * dt
 	desTraj = np.zeros((nsim,3))
 
 	for i in range(1,nsim):
 		# tgoal = (i + N) * dt
-		tgoal = i * dt
+		tgoal = tvec[i]
 		if ctrlType == CTRL_LIN_CUR:
 			tgoal = (i + N) * dt
 		xr = goal(tgoal)
@@ -171,14 +172,17 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 			pass
 			# ctrl = np.array([1e-3,1e-3])
 
-		# simulate forward
-		x0 = model.dynamics(x0, ctrl)
+		# simulate forward -- faster than MPC rate
+		for simiter in range(int(dt/SIM_DT)):
+			ydot = model.dydt(x0, ctrl)
+			x0 += ydot * SIM_DT  # euler integration
+		# x0 = model.dynamics(x0, ctrl)
 		print(i, x0, ctrl)
 		# print(x0horizon)
 		X[i, :] = x0
 		U[i, :] = ctrl
 
-	results.append({'t':t, 'desTraj':desTraj, 'X':X, 'U':U, 'label':label})
+	results.append({'t':tvec, 'desTraj':desTraj, 'X':X, 'U':U, 'label':label})
 
 # if exp == EXP_SINE:
 # 	# Sine experiments
@@ -324,15 +328,13 @@ else:
 	# ax[1].plot(results[1]['X'][:, 1])
 	# ax[1].plot(results[1]['X'][:, 2])
 	for res in results:
-		tvec = params['dt'] * np.arange(res['X'].shape[0])
-		ax[1].plot(tvec, res['X'][:, 3], color=res['col'])
-		ax[1].plot(tvec, res['X'][:, 4], '--', color=res['col'])
+		ax[1].plot(res['t'], res['X'][:, 3], color=res['col'])
+		ax[1].plot(res['t'], res['X'][:, 4], '--', color=res['col'])
 	ax[1].set_xlabel('t (sec)')
 	ax[1].set_ylabel('dxdz')
 
 	for res in results:
-		tvec = params['dt'] * np.arange(res['X'].shape[0])
-		ax[2].plot(tvec, res['X'][:, 5], color=res['col'])
+		ax[2].plot(res['t'], res['X'][:, 5], color=res['col'])
 	ax[2].set_xlabel('t (sec)')
 	ax[2].set_ylabel('dphi')
 
