@@ -8,7 +8,7 @@ import controlutils.py.lqr as lqr
 import FlappingModels
 import matplotlib.animation as animation
 
-np.set_printoptions(precision=2, suppress=True, linewidth=200)
+np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
 # Select here
 paramstr = 'somersault'
@@ -113,7 +113,8 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 		wx = np.array(wx) / dt
 		# wu = np.array(wu) / dt
 
-		ltvmpc = mpc.LTVMPC(model, N, wx, wu, verbose=False, scaling=0, eps_abs=peps, eps_rel=peps, kdamping=0)
+		# default for eps_prim_inf = 1.0e-04, eps_dual_inf = 1.0e-04
+		ltvmpc = mpc.LTVMPC(model, N, wx, wu, verbose=False, polish=False, scaling=0, eps_rel=1e-4, kdamping=0, eps_prim_inf=1e-6, eps_dual_inf=1e-6)
 		ltvmpc.MAX_ULIM_VIOL_FRAC = 0.5
 
 	# Initial and reference states
