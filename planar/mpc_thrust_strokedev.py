@@ -20,7 +20,7 @@ paramsets = {
 	'defaults': {'eps': 1e-2, 'wx': [1000, 1000, 0.05, 5, 5, 0.005], 'wu': [0.01,0.01], 'nsim': 200, 'dt': 0.01, 'N': 5},
 	# Both of these seem to need two "stages" think about what that means
 	# SOMERSAULT flip and hover
-	'somersault': {'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-2, 'wu': [0.01,0.01], 'dt': 0.01},
+	'somersault': {'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-4, 'wu': [0.01,0.01], 'dt': 0.01},
 	# SIDEPERCH position, orientation
 	'sideperch': {'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [10,10,1, 10, 10, 0.015]], 'wu':[0.01, 0.01], 'dt':0.003, 'N': 15},
 	# hover
@@ -114,8 +114,11 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 		# wu = np.array(wu) / dt
 
 		# default for eps_prim_inf = 1.0e-04, eps_dual_inf = 1.0e-04
-		ltvmpc = mpc.LTVMPC(model, N, wx, wu, verbose=False, polish=False, scaling=0, eps_rel=1e-4, kdamping=0, eps_prim_inf=1e-6, eps_dual_inf=1e-6)
+		# print(peps)
+		# sys.exit(0)
+		ltvmpc = mpc.LTVMPC(model, N, wx, wu, verbose=False, polish=False, scaling=0, eps_rel=peps, eps_abs=peps, max_iter=1000000, kdamping=0)
 		ltvmpc.MAX_ULIM_VIOL_FRAC = 0.5
+		# sys.exit(0)
 
 	# Initial and reference states
 	# x0 = 0.01 * np.random.rand(model.nx)
