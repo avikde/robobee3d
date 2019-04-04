@@ -110,6 +110,43 @@ class PlanarThrustStrokeDev:
 		return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy), pcop, Faeroscale * Faero, strokeExtents
 
 
+class PlanarStrokeSpeed:
+	# also trying rescaling the problem
+	
+
+	def getLinearDynamics(self, y, u):
+		'''Returns Ad, Bd[, fd]
+		where fd is only there if the system is affine.
+		x[k+1] = Ad @ x[k] + Bd @ u[k] + fd
+		'''
+		raise NotImplementedError
+	
+	def getLimits(self):
+		# return umin, umax, xmin, xmax
+		raise NotImplementedError
+
+	def dydt(self, y, u):
+		# Full continuous nonlinear vector field
+		raise NotImplementedError
+		# return np.hstack((y1dot, y2dot))
+
+
+	def dynamics(self, y, u, useLinearization=False):
+		# Full nonlinear dynamics
+		if useLinearization:
+			Ad, Bd, fd = self.getLinearDynamics(y, u)
+			# print(Ad)
+			return Ad @ y + Bd @ u + fd
+		else:
+			# 1st order integration
+			# FIXME: need to figure out time to stroke end
+			return y + self.dydt(y, u) * dt
+
+	# Non-standard model functions
+	def visualizationInfo(self, y, u, Faeroscale=1, rawxy=False):
+		raise NotImplementedError
+	
+
 def visualizeTraj(ax, traj, model, col='r'):
 	# Plots what RefTraj.generate() returns
 	from matplotlib.patches import Rectangle, Circle
