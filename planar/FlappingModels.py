@@ -135,13 +135,25 @@ class PlanarStrokeSpeed:
 		raise NotImplementedError
 
 	def dydt(self, y, u):
+		# TODO:
+		kat = 1
+		omegat = 1
 		# Full continuous nonlinear vector field
+		phi = y[2]
+		uss = u[0]
+		v = y[-1]
+		# v'(psi) is the stroke speed
+		dv = u[0]
+		sdv = np.sign(dv)
+
 		cphi = np.cos(phi)
 		sphi = np.sin(phi)
 		ddxzphi = np.array([dv**2 * kat * omegat * (cphi * sdv + sphi) / self.mb, 
 		-self.g / omegat + dv**2 * kat * omegat * (cphi - sphi * sdv) / self.mb,
 		dv**2 * kat * omegat * (v + self.d * sdv) / self.ib])
 		# return np.hstack((y1dot, y2dot))
+
+		return np.hstack([y[3:6], ddxzphi, dv])
 
 
 	def dynamics(self, y, u, useLinearization=False):
