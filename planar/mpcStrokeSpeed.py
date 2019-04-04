@@ -62,8 +62,22 @@ while True:
 
 # print(sols[1])
 
-plt.plot(tt, yy[-1,:])
-# plt.plot(tt, sol.y[0,:])
+fig, ax = plt.subplots(4)
+ax[0].plot(tt, yy[-1,:])
+ax[0].set_ylabel('sigma')
+
+ax[1].plot(tt, yy[0,:])
+ax[1].plot(tt, yy[1,:])
+ax[1].set_ylabel('xz')
+
+ax[2].plot(tt, yy[2,:])
+ax[2].set_ylabel('phi')
+
+ax[3].set_aspect(1)
+ax[3].plot(yy[0,:], yy[1,:], '.-')
+ax[3].grid(True)
+
+ax[-1].set_xlabel('t')
 
 plt.show()
 
