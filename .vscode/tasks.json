@@ -25,7 +25,7 @@
 			"options": {
 				"cwd": "${workspaceFolder}/planar"
 			},
-			"command": "python mpc_thrust_strokedev.py",
+			"command": "python mpcStrokeSpeed.py",
 			"presentation": {
 				"echo": true,
 				"reveal": "always",

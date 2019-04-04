@@ -112,7 +112,16 @@ class PlanarThrustStrokeDev:
 
 class PlanarStrokeSpeed:
 	# also trying rescaling the problem
-	
+	mb = 100e-6
+	l = 12e-3  # body length
+	w = 2e-3  # body width (for visualization only)
+	g = 9.81
+	ib = 1/12. * mb * l**2
+	d = 2e-3
+
+	nx = 7
+	nu = 2
+	y0 = np.array([0,0,0,0,0,0,0])
 
 	def getLinearDynamics(self, y, u):
 		'''Returns Ad, Bd[, fd]
@@ -127,7 +136,11 @@ class PlanarStrokeSpeed:
 
 	def dydt(self, y, u):
 		# Full continuous nonlinear vector field
-		raise NotImplementedError
+		cphi = np.cos(phi)
+		sphi = np.sin(phi)
+		ddxzphi = np.array([dv**2 * kat * omegat * (cphi * sdv + sphi) / self.mb, 
+		-self.g / omegat + dv**2 * kat * omegat * (cphi - sphi * sdv) / self.mb,
+		dv**2 * kat * omegat * (v + self.d * sdv) / self.ib])
 		# return np.hstack((y1dot, y2dot))
 
 
