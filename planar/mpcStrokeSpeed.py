@@ -16,26 +16,54 @@ U = np.zeros((Nt, model.nu))
 Y[0,:] = model.y0
 U[0,:] = np.array([0,0])
 
-u0 = np.array([1.0,0.0])
 
 def dydt(t, y):
 	dydt = model.dydt(y, u0)
 	return dydt
 
-def endStroke(t, y):
-	return y[-1] - 1e-2
+strokeEnd = 1e-2  # will be changed by the code
 
-endStroke.terminal = True
-endStroke.direction = 1
+def strokeEvent(t, y):
+	return y[-1] - strokeEnd
+
+strokeEvent.terminal = True
+strokeEvent.direction = 1
+
 
 tf = 0.1
-sol = solve_ivp(dydt, [0.0,tf], model.y0, t_eval=np.arange(0,tf,SIM_DT), events=endStroke, dense_output=True)
+t0 = 0.
+y0 = model.y0
+u0 = np.array([1.0,0.0])
 
-print(sol.t_events)
-print(sol.status)
+sols = []
 
-plt.plot(sol.t, sol.y[0,:])
-plt.plot(sol.t, sol.y[0,:])
+tt = np.zeros(0)
+yy = np.zeros((model.nx,0))
+
+while True:
+	sol = solve_ivp(dydt, [t0,tf], y0, t_eval=np.arange(t0,tf,SIM_DT), events=strokeEvent, dense_output=True)
+	# sols.append(sol)
+
+	tt = np.hstack((tt, sol.t))
+	yy = np.hstack((yy, sol.y))
+
+	if sol.status == 1:  # termination event
+		# restart
+		t0 = sol.t_events[0][0]
+		y0 = sol.sol(t0)
+		# strokeReset()
+		strokeEnd = -strokeEnd
+		strokeEvent.direction = -strokeEvent.direction
+		u0[0] = -u0[0]
+	elif sol.status == 0:
+		# end of time
+		break
+	
+
+# print(sols[1])
+
+plt.plot(tt, yy[-1,:])
+# plt.plot(tt, sol.y[0,:])
 
 plt.show()
 
