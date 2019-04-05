@@ -194,9 +194,9 @@ class PlanarStrokeSpeed:
 			return y + self.dydt(y, u) * dt
 
 	# Non-standard model functions
-	def visualizationInfo(self, y, u, ax, col='r', Faeroscale=1, rawxy=False):
-		Ryaw = kin.rot2(y[2])
-		strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([-2*self.STROKE_EXTENT, self.d]), y[0:2] + Ryaw @ np.array([2*self.STROKE_EXTENT, self.d])))
+	def visualizationInfo(self, y, u, ax, col='r', rawxy=False):
+		Rb = kin.rot2(y[2])
+		strokeExtents = np.vstack((y[0:2] + Rb @ np.array([-2*self.STROKE_EXTENT, self.d]), y[0:2] + Rb @ np.array([2*self.STROKE_EXTENT, self.d])))
 		# Plot these custom things from here
 		ax.plot(strokeExtents[:,0], strokeExtents[:,1], 'k--', linewidth=1,  alpha=0.3)
 
@@ -204,8 +204,13 @@ class PlanarStrokeSpeed:
 		Rhinge = kin.rot2(0.25*np.pi if u[0] < 0 else -0.25*np.pi)
 		wingStartB = np.array([y[-1], self.d])
 		wingEndB = wingStartB + Rhinge @ np.array([0, -self.maxChord])
-		wingExtents = np.vstack((y[0:2] + Ryaw @ wingStartB, y[0:2] + Ryaw @ wingEndB))
+		wingExtents = np.vstack((y[0:2] + Rb @ wingStartB, y[0:2] + Rb @ wingEndB))
 		ax.plot(wingExtents[:,0], wingExtents[:,1], 'k-', linewidth=2,  alpha=0.5)
+		# stroke vel arrow
+		STROKE_VEL_ARROW_SCALE = 2 * self.STROKE_EXTENT
+		strokeVelDirection = Rb @ np.array([u[0], 0]) * STROKE_VEL_ARROW_SCALE
+		midWing = np.mean(wingExtents, axis=0)
+		ax.arrow(midWing[0], midWing[1], strokeVelDirection[0], strokeVelDirection[1], width=0.0002, alpha=0.5, facecolor=col)
 		
 		return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy)
 	
