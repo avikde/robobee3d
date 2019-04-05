@@ -29,7 +29,7 @@ def strokeEvent(t, y):
 strokeEvent.terminal = True
 strokeEvent.direction = 1
 
-tf = 0.1
+tf = 0.5
 t0 = 0.
 y0 = model.y0
 u0 = np.array([1.0,0.0])
@@ -84,11 +84,12 @@ ax[1].set_ylabel('xz')
 ax[2].plot(tt, yy[2,:])
 ax[2].set_ylabel('phi')
 
-ax[3].set_aspect(1)
-ax[3].plot(yy[0,:], yy[1,:], '.-', label='nl')
-ax[3].plot(Yav[0,:], Yav[1,:], '.-', label='av')
-ax[3].grid(True)
-ax[3].legend()
+# ax[3].set_aspect(1)
+# ax[3].plot(yy[0,:], yy[1,:], '.-', label='nl')
+# ax[3].plot(Yav[0,:], Yav[1,:], '.-', label='av')
+# ax[3].grid(True)
+# ax[3].legend()
+FlappingModels.visualizeTraj(ax[3], {'q':yy[0:3,:].T, 'u':None}, model, col='b', xylim=[-0.2,0.2,-0.05,0.05])
 
 ax[-1].set_xlabel('t')
 

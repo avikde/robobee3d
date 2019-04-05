@@ -102,12 +102,15 @@ class PlanarThrustStrokeDev:
 			return y[0:6] + self.dydt(y, u) * self.dt # np.hstack((yNog, self.g))
 
 	# Non-standard model functions
-	def visualizationInfo(self, y, u, Faeroscale=1, rawxy=False):
+	def visualizationInfo(self, y, u, ax, col='r', Faeroscale=1, rawxy=False):
 		Ryaw = kin.rot2(y[2])
 		pcop = y[0:2] + Ryaw @ np.array([u[1],self.d])
 		Faero = Ryaw @ np.array([0, self.mb * self.g + u[0]])
 		strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([-2*self.STROKE_EXTENT, self.d]), y[0:2] + Ryaw @ np.array([2*self.STROKE_EXTENT, self.d])))
-		return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy), pcop, Faeroscale * Faero, strokeExtents
+		# Plot these custom things from here
+		ax.plot(strokeExtents[:,0], strokeExtents[:,1], 'k--', linewidth=1,  alpha=0.3)
+		ax.arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0002, alpha=0.3, facecolor=col)
+		return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy)
 
 
 class PlanarStrokeSpeed:
@@ -189,11 +192,18 @@ class PlanarStrokeSpeed:
 			return y + self.dydt(y, u) * dt
 
 	# Non-standard model functions
-	def visualizationInfo(self, y, u, Faeroscale=1, rawxy=False):
-		raise NotImplementedError
+	def visualizationInfo(self, y, u, ax, col='r', Faeroscale=1, rawxy=False):
+		# Ryaw = kin.rot2(y[2])
+		# pcop = y[0:2] + Ryaw @ np.array([u[1],self.d])
+		# Faero = Ryaw @ np.array([0, self.mb * self.g + u[0]])
+		# strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([-2*self.STROKE_EXTENT, self.d]), y[0:2] + Ryaw @ np.array([2*self.STROKE_EXTENT, self.d])))
+		# # Plot these custom things from here
+		# ax.plot(strokeExtents[:,0], strokeExtents[:,1], 'k--', linewidth=1,  alpha=0.3)
+		# ax.arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0002, alpha=0.3, facecolor=col)
+		return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy)
 	
 
-def visualizeTraj(ax, traj, model, col='r'):
+def visualizeTraj(ax, traj, model, col='r', xylim=None):
 	# Plots what RefTraj.generate() returns
 	from matplotlib.patches import Rectangle, Circle
 	from matplotlib.collections import PatchCollection
@@ -203,21 +213,20 @@ def visualizeTraj(ax, traj, model, col='r'):
 	robotBodies = []
 	for k in range(N):
 		qk = traj['q'][k,:]
-		uk = traj['u'][k,:]
+		uk = traj['u'][k,:] if traj['u'] is not None else None
 
 		# get info from model
-		body, pcop, Faero, strokeExtents = model.visualizationInfo(qk, uk)
+		body = model.visualizationInfo(qk, uk, ax, col)
 		
 		robotBodies.append(body)
-		ax.plot(strokeExtents[:,0], strokeExtents[:,1], 'k--', linewidth=1,  alpha=0.3)
-		ax.arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0002, alpha=0.3, facecolor=col)
 	
 	pc = PatchCollection(robotBodies, facecolor=col, edgecolor='k', alpha=0.3)
 	ax.add_collection(pc)
 
 	ax.set_aspect(1)
-	# ax.set_xlim([-0.05,0.05])
-	# ax.set_ylim([-0.05,0.05])
+	if xylim is not None:
+		ax.set_xlim(xylim[0:2])
+		ax.set_ylim(xylim[2:4])
 	ax.grid(True)
 	ax.set_xlabel('x')
 	ax.set_ylabel('z')
