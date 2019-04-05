@@ -58,6 +58,18 @@ while True:
 		# end of time
 		break
 	
+# Compare to averaged model
+tav = 0
+Yav = np.zeros((model.nx, 1))
+Yav[:,0] = model.y0
+Uav = np.zeros((model.nu, 1))
+Uav[:,0] = np.array([1.0, 0.0])
+for aiter in range(2):
+	# this is really valid near equilibrium
+	dydsigma = model.dydt(Yav[:,-1], Uav[:,-1], avg=True)
+	tmode = 0.001#Uav[1,-1]
+	ynew = Yav[:,-1] + dydsigma * tmode
+	Yav = np.hstack((Yav, ynew[:,np.newaxis]))
 
 # print(sols[1])
 
@@ -73,8 +85,10 @@ ax[2].plot(tt, yy[2,:])
 ax[2].set_ylabel('phi')
 
 ax[3].set_aspect(1)
-ax[3].plot(yy[0,:], yy[1,:], '.-')
+ax[3].plot(yy[0,:], yy[1,:], '.-', label='nl')
+ax[3].plot(Yav[0,:], Yav[1,:], '.-', label='av')
 ax[3].grid(True)
+ax[3].legend()
 
 ax[-1].set_xlabel('t')
 

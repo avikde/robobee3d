@@ -123,6 +123,10 @@ class PlanarStrokeSpeed:
 	nu = 2
 	y0 = np.array([0,0,0,0,0,0,0])
 
+		# TODO:
+	kat = 1e-3
+	omegat = 1
+
 	def getLinearDynamics(self, y, u):
 		'''Returns Ad, Bd[, fd]
 		where fd is only there if the system is affine.
@@ -134,26 +138,43 @@ class PlanarStrokeSpeed:
 		# return umin, umax, xmin, xmax
 		raise NotImplementedError
 
-	def dydt(self, y, u):
-		# TODO:
-		kat = 1
-		omegat = 1
-		# Full continuous nonlinear vector field
+	def dydt(self, y, u, avg=False):
+		''' Full continuous nonlinear vector field when avg=False
+		Otherwise return dydsigma
+		'''
 		phi = y[2]
 		uss = u[0]
 		v = y[-1]
 		# v'(psi) is the stroke speed
 		dv = u[0]
 		sdv = np.sign(dv)
-
 		cphi = np.cos(phi)
 		sphi = np.sin(phi)
-		ddxzphi = np.array([dv**2 * kat * omegat * (cphi * sdv + sphi) / self.mb, 
-		-self.g / omegat + dv**2 * kat * omegat * (cphi - sphi * sdv) / self.mb,
-		dv**2 * kat * omegat * (v + self.d * sdv) / self.ib])
-		# return np.hstack((y1dot, y2dot))
 
-		return np.hstack([y[3:6], ddxzphi, dv])
+		if avg:
+			dphi = y[5]
+			u1 = u[0]
+			psi0 = u[1]  # reversal point
+			sigma0 = y[-1]  #initial stroke
+
+			# from mathematica. for y = (phi,dx,dz,dphi)
+			fav = np.array([dphi/self.omegat, 
+			-self.kat * u1**2 * psi0 * self.omegat * ((1-2*psi0) * cphi + sphi) / (self.mb * (-1. + psi0)),
+			-self.g / self.omegat + self.kat * u1**2 * psi0 * self.omegat * (-cphi + (1-2*psi0) * sphi) / (self.mb * (-1. + psi0)),
+			-(self.kat * u1**2 * (2 * sigma0 * (1 + (-1+psi0)*psi0) + psi0*(u1 + self.d*(2-4*psi0) + u1*(-1+psi0)*psi0)) * self.omegat)/(2*self.ib*(-1+psi0))
+			])
+			
+			# return 
+			dxzphi = y[3:6]/self.omegat
+			ddxzphi = fav[1:]
+			return np.hstack((dxzphi, ddxzphi, dv / self.omegat))
+		else:
+			ddxzphi = np.array([dv**2 * self.kat * self.omegat * (cphi * sdv + sphi) / self.mb, 
+			-self.g / self.omegat + dv**2 * self.kat * self.omegat * (cphi - sphi * sdv) / self.mb,
+			dv**2 * self.kat * self.omegat * (v + self.d * sdv) / self.ib])
+			# return np.hstack((y1dot, y2dot))
+
+			return np.hstack((y[3:6], ddxzphi, dv))
 
 
 	def dynamics(self, y, u, useLinearization=False):
