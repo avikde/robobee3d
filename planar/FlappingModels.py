@@ -118,9 +118,11 @@ class PlanarStrokeSpeed:
 	mb = 100e-6
 	l = 12e-3  # body length
 	w = 2e-3  # body width (for visualization only)
+	maxChord = 5e-3  # wing chord for vis
 	g = 9.81
 	ib = 1/12. * mb * l**2
 	d = 2e-3
+	STROKE_EXTENT = 3e-3
 
 	nx = 7
 	nu = 2
@@ -193,13 +195,18 @@ class PlanarStrokeSpeed:
 
 	# Non-standard model functions
 	def visualizationInfo(self, y, u, ax, col='r', Faeroscale=1, rawxy=False):
-		# Ryaw = kin.rot2(y[2])
-		# pcop = y[0:2] + Ryaw @ np.array([u[1],self.d])
-		# Faero = Ryaw @ np.array([0, self.mb * self.g + u[0]])
-		# strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([-2*self.STROKE_EXTENT, self.d]), y[0:2] + Ryaw @ np.array([2*self.STROKE_EXTENT, self.d])))
-		# # Plot these custom things from here
-		# ax.plot(strokeExtents[:,0], strokeExtents[:,1], 'k--', linewidth=1,  alpha=0.3)
-		# ax.arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0002, alpha=0.3, facecolor=col)
+		Ryaw = kin.rot2(y[2])
+		strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([-2*self.STROKE_EXTENT, self.d]), y[0:2] + Ryaw @ np.array([2*self.STROKE_EXTENT, self.d])))
+		# Plot these custom things from here
+		ax.plot(strokeExtents[:,0], strokeExtents[:,1], 'k--', linewidth=1,  alpha=0.3)
+
+		# plt the wing
+		Rhinge = kin.rot2(0.25*np.pi if u[0] < 0 else -0.25*np.pi)
+		wingStartB = np.array([y[-1], self.d])
+		wingEndB = wingStartB + Rhinge @ np.array([0, -self.maxChord])
+		wingExtents = np.vstack((y[0:2] + Ryaw @ wingStartB, y[0:2] + Ryaw @ wingEndB))
+		ax.plot(wingExtents[:,0], wingExtents[:,1], 'k-', linewidth=2,  alpha=0.5)
+		
 		return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy)
 	
 

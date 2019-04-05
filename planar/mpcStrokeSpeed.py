@@ -38,6 +38,7 @@ sols = []
 
 tt = np.zeros(0)
 yy = np.zeros((model.nx,0))
+uu = np.zeros((model.nu,0))
 
 while True:
 	sol = solve_ivp(dydt, [t0,tf], y0, events=strokeEvent, dense_output=True)
@@ -45,6 +46,7 @@ while True:
 
 	tt = np.hstack((tt, sol.t))
 	yy = np.hstack((yy, sol.y))
+	uu = np.hstack((uu, np.tile(u0[:,np.newaxis], (1,len(sol.t)))))
 
 	if sol.status == 1:  # termination event
 		# restart
@@ -89,7 +91,7 @@ ax[2].set_ylabel('phi')
 # ax[3].plot(Yav[0,:], Yav[1,:], '.-', label='av')
 # ax[3].grid(True)
 # ax[3].legend()
-FlappingModels.visualizeTraj(ax[3], {'t': tt, 'q':yy[0:3,:].T, 'u':None}, model, col='b', xylim=[-0.2,0.2,-0.05,0.05], tplot=np.arange(min(tt), max(tt), 0.01))
+FlappingModels.visualizeTraj(ax[3], {'t': tt, 'q':yy.T, 'u':uu.T}, model, col='b', xylim=[-0.2,0.2,-0.05,0.05], tplot=np.arange(min(tt), max(tt), 0.02))
 
 ax[-1].set_xlabel('t')
 
