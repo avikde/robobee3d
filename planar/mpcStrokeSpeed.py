@@ -89,7 +89,7 @@ ax[2].set_ylabel('phi')
 # ax[3].plot(Yav[0,:], Yav[1,:], '.-', label='av')
 # ax[3].grid(True)
 # ax[3].legend()
-FlappingModels.visualizeTraj(ax[3], {'q':yy[0:3,:].T, 'u':None}, model, col='b', xylim=[-0.2,0.2,-0.05,0.05])
+FlappingModels.visualizeTraj(ax[3], {'t': tt, 'q':yy[0:3,:].T, 'u':None}, model, col='b', xylim=[-0.2,0.2,-0.05,0.05], tplot=np.arange(min(tt), max(tt), 0.01))
 
 ax[-1].set_xlabel('t')
 

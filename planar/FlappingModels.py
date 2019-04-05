@@ -203,17 +203,30 @@ class PlanarStrokeSpeed:
 		return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy)
 	
 
-def visualizeTraj(ax, traj, model, col='r', xylim=None):
-	# Plots what RefTraj.generate() returns
-	from matplotlib.patches import Rectangle, Circle
+def visualizeTraj(ax, traj, model, col='r', xylim=None, tplot=None):
+	'''Plots a trajectory, with model info from model.visualizationInfo'''
 	from matplotlib.collections import PatchCollection
-	import controlutils.py.misc as misc
+	from scipy.interpolate import interp1d
 	
-	N = traj['q'].shape[0]
 	robotBodies = []
-	for k in range(N):
-		qk = traj['q'][k,:]
-		uk = traj['u'][k,:] if traj['u'] is not None else None
+
+	if tplot is None:
+		# plot the entire trajectory
+		trajp = traj
+	else:
+		# use tplot as the keyframe times to display
+		assert 't' in traj
+		trajp = {}
+		for keyi in ['q','u']:
+			if traj[keyi] is not None:
+				trajfunc = interp1d(traj['t'], traj[keyi], axis=0)
+				trajp[keyi] = trajfunc(tplot)
+			else:
+				trajp[keyi] = None 
+
+	for k in range(trajp['q'].shape[0]):
+		qk = trajp['q'][k,:]
+		uk = trajp['u'][k,:] if trajp['u'] is not None else None
 
 		# get info from model
 		body = model.visualizationInfo(qk, uk, ax, col)
