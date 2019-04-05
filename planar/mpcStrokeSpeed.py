@@ -3,6 +3,7 @@ import FlappingModels
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
 
+np.set_printoptions(precision=4, suppress=True, linewidth=200)
 model = FlappingModels.PlanarStrokeSpeed()
 
 # crude sim
@@ -29,9 +30,9 @@ def strokeEvent(t, y):
 strokeEvent.terminal = True
 strokeEvent.direction = 1
 
-tf = 0.5
+tf = 0.05
 t0 = 0.
-y0 = model.y0
+y0 = np.array([0,0,0.5,0,0,0,0])
 u0 = np.array([1.0,0.0])
 
 sols = []
@@ -39,14 +40,19 @@ sols = []
 tt = np.zeros(0)
 yy = np.zeros((model.nx,0))
 uu = np.zeros((model.nu,0))
+# store only at events times
+tev = np.zeros(0)
+yev = np.zeros((0,model.nx))
+uev = np.zeros((0,model.nu))
 
 while True:
+	print(y0)
 	sol = solve_ivp(dydt, [t0,tf], y0, events=strokeEvent, dense_output=True)
 	# sols.append(sol)
 
 	tt = np.hstack((tt, sol.t))
 	yy = np.hstack((yy, sol.y))
-	uu = np.hstack((uu, np.tile(u0[:,np.newaxis], (1,len(sol.t)))))
+	uu = np.hstack((uu, ))
 
 	if sol.status == 1:  # termination event
 		# restart
@@ -56,6 +62,10 @@ while True:
 		strokeEnd = -strokeEnd
 		strokeEvent.direction = -strokeEvent.direction
 		u0[0] = -u0[0]
+		# logging at event times
+		tev = np.hstack((tev, t0))
+		yev = np.vstack((yev, y0))
+		uev = np.vstack((uev, u0))
 	elif sol.status == 0:
 		# end of time
 		break
@@ -96,8 +106,7 @@ ax[-1].set_xlabel('t')
 
 
 fig, ax = plt.subplots()
-FlappingModels.visualizeTraj(ax, {'t': tt, 'q':yy.T, 'u':uu.T}, model, col='b', xylim=[-0.2,0.2,-0.05,0.05], tplot=np.arange(min(tt), max(tt), 0.02))
-
+FlappingModels.visualizeTraj(ax, {'t': tev, 'q':yev, 'u':uev}, model, col='b', xylim=[-0.05,0.05,-0.05,0.05])
 
 plt.show()
 
