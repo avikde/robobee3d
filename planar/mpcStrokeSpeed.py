@@ -82,6 +82,7 @@ u0 = np.array([1.5,0.0])
 
 # Run some sims
 r1 = nonLinSim([0.02,0,0.3,0,0,0,0], u0, tf, strokeExtents=[-2e-3,1.5e-3])
+print('Number of strokes =',len(r1['t']))
 r2 = nonLinSim([0.0,0,0,0,0,0,0], u0, tf, strokeExtents=[-1.5e-3,1.5e-3])
 
 u0[0] = 2
@@ -92,13 +93,14 @@ tav = 0
 Yav = np.zeros((model.nx, 1))
 Yav[:,0] = model.y0
 Uav = np.zeros((model.nu, 1))
-Uav[:,0] = np.array([1.0, 0.0])
-for aiter in range(2):
+Uav[:,0] = np.array([1.5, 1.5e-3])
+for aiter in range(69):
 	# this is really valid near equilibrium
 	dydsigma = model.dydt(Yav[:,-1], Uav[:,-1], avg=True)
 	tmode = 0.001#Uav[1,-1]
 	ynew = Yav[:,-1] + dydsigma * tmode
 	Yav = np.hstack((Yav, ynew[:,np.newaxis]))
+	Uav = np.hstack((Uav, np.array([1.5,1.5e-3])[:,np.newaxis]))
 
 # print(sols[1])
 
@@ -122,11 +124,16 @@ ax[3].legend()
 ax[-1].set_xlabel('t')
 
 
+# fig, ax = plt.subplots()
+# snapshotsPlot(ax, r1, 'b')
+# snapshotsPlot(ax, r2, 'g')
+# snapshotsPlot(ax, r3, 'r')
+# ax.set_title('Test controllability of nonlinear stroke/speed model')
+
 fig, ax = plt.subplots()
 snapshotsPlot(ax, r1, 'b')
-snapshotsPlot(ax, r2, 'g')
-snapshotsPlot(ax, r3, 'r')
-ax.set_title('Test controllability of nonlinear stroke/speed model')
+print(Yav.shape, Uav.shape)
+FlappingModels.visualizeTraj(ax, {'t': range(69), 'q':Yav.T, 'u':Uav.T}, model, col='r', xylim=[-0.05,0.05,-0.05,0.05])
 
 plt.show()
 
