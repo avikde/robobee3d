@@ -17,58 +17,69 @@ model = FlappingModels.PlanarStrokeSpeed()
 # Y[0,:] = model.y0
 # U[0,:] = np.array([0,0])
 
+def nonLinSim(y0, u0, tf):
+	def dydt(t, y):
+		dydt = model.dydt(y, u0)
+		return dydt
 
-def dydt(t, y):
-	dydt = model.dydt(y, u0)
-	return dydt
+	strokeEnd = 1.5e-3  # will be changed by the code
 
-strokeEnd = 1.5e-3  # will be changed by the code
+	def strokeEvent(t, y):
+		return y[-1] - strokeEnd
 
-def strokeEvent(t, y):
-	return y[-1] - strokeEnd
+	strokeEvent.terminal = True
+	strokeEvent.direction = 1
 
-strokeEvent.terminal = True
-strokeEvent.direction = 1
+	t0 = 0.
 
-tf = 0.05
-t0 = 0.
+	sols = []
+
+	tt = np.zeros(0)
+	yy = np.zeros((model.nx,0))
+	uu = np.zeros((model.nu,0))
+	# store only at events times
+	tev = np.zeros(0)
+	yev = np.zeros((0,model.nx))
+	uev = np.zeros((0,model.nu))
+
+	while True:
+		# print(y0)
+		sol = solve_ivp(dydt, [t0,tf], y0, events=strokeEvent, dense_output=True)
+		# sols.append(sol)
+
+		tt = np.hstack((tt, sol.t))
+		yy = np.hstack((yy, sol.y))
+		uu = np.hstack((uu, ))
+
+		if sol.status == 1:  # termination event
+			# restart
+			t0 = sol.t_events[0][0]
+			y0 = sol.sol(t0)
+			# strokeReset()
+			if strokeEnd > 0:
+				strokeEnd = -2e-3
+			else:
+				strokeEnd = 1.5e-3
+			# strokeEnd = -strokeEnd
+			strokeEvent.direction = -strokeEvent.direction
+			u0[0] = -u0[0]
+			# logging at event times
+			tev = np.hstack((tev, t0))
+			yev = np.vstack((yev, y0))
+			uev = np.vstack((uev, u0))
+		elif sol.status == 0:
+			# end of time
+			break
+	
+	return tt, yy, uu, tev, yev, uev
+
+			
+tf = 0.06
 y0 = np.array([0,0,0.3,0,0,0,0])
 u0 = np.array([1.5,0.0])
 
-sols = []
+tt, yy, uu, tev, yev, uev = nonLinSim(y0, u0, tf)
 
-tt = np.zeros(0)
-yy = np.zeros((model.nx,0))
-uu = np.zeros((model.nu,0))
-# store only at events times
-tev = np.zeros(0)
-yev = np.zeros((0,model.nx))
-uev = np.zeros((0,model.nu))
-
-while True:
-	print(y0)
-	sol = solve_ivp(dydt, [t0,tf], y0, events=strokeEvent, dense_output=True)
-	# sols.append(sol)
-
-	tt = np.hstack((tt, sol.t))
-	yy = np.hstack((yy, sol.y))
-	uu = np.hstack((uu, ))
-
-	if sol.status == 1:  # termination event
-		# restart
-		t0 = sol.t_events[0][0]
-		y0 = sol.sol(t0)
-		# strokeReset()
-		strokeEnd = -strokeEnd
-		strokeEvent.direction = -strokeEvent.direction
-		u0[0] = -u0[0]
-		# logging at event times
-		tev = np.hstack((tev, t0))
-		yev = np.vstack((yev, y0))
-		uev = np.vstack((uev, u0))
-	elif sol.status == 0:
-		# end of time
-		break
 	
 # Compare to averaged model
 tav = 0
