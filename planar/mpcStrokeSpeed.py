@@ -17,12 +17,12 @@ model = FlappingModels.PlanarStrokeSpeed()
 # Y[0,:] = model.y0
 # U[0,:] = np.array([0,0])
 
-def nonLinSim(y0, u0, tf):
+def nonLinSim(y0, u0, tf, strokeExtents=[-1.5e-3,1.5e-3]):
 	def dydt(t, y):
 		dydt = model.dydt(y, u0)
 		return dydt
 
-	strokeEnd = 1.5e-3  # will be changed by the code
+	strokeEnd = strokeExtents[1]  # will be changed by the code
 
 	def strokeEvent(t, y):
 		return y[-1] - strokeEnd
@@ -56,12 +56,12 @@ def nonLinSim(y0, u0, tf):
 			t0 = sol.t_events[0][0]
 			y0 = sol.sol(t0)
 			# strokeReset()
-			if strokeEnd > 0:
-				strokeEnd = -2e-3
-			else:
-				strokeEnd = 1.5e-3
-			# strokeEnd = -strokeEnd
 			strokeEvent.direction = -strokeEvent.direction
+			if strokeEvent.direction > 0:
+				strokeEnd = strokeExtents[1]
+			else:
+				strokeEnd = strokeExtents[0]
+			# strokeEnd = -strokeEnd
 			u0[0] = -u0[0]
 			# logging at event times
 			tev = np.hstack((tev, t0))
@@ -75,10 +75,10 @@ def nonLinSim(y0, u0, tf):
 
 			
 tf = 0.06
-y0 = np.array([0,0,0.3,0,0,0,0])
+y0 = np.array([0.02,0,0.3,0,0,0,0])
 u0 = np.array([1.5,0.0])
 
-tt, yy, uu, tev, yev, uev = nonLinSim(y0, u0, tf)
+tt, yy, uu, tev, yev, uev = nonLinSim(y0, u0, tf, strokeExtents=[-2e-3,1.5e-3])
 
 	
 # Compare to averaged model
