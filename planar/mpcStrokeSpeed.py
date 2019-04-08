@@ -19,7 +19,7 @@ model = FlappingModels.PlanarStrokeSpeed()
 
 def nonLinSim(y0, u0, tf, strokeExtents=[-1.5e-3,1.5e-3]):
 	def dydt(t, y):
-		dydt = model.dydt(y, u0)
+		dydt = model.dydt(y, np.asarray(u0))
 		return dydt
 
 	strokeEnd = strokeExtents[1]  # will be changed by the code
@@ -44,7 +44,7 @@ def nonLinSim(y0, u0, tf, strokeExtents=[-1.5e-3,1.5e-3]):
 
 	while True:
 		# print(y0)
-		sol = solve_ivp(dydt, [t0,tf], y0, events=strokeEvent, dense_output=True)
+		sol = solve_ivp(dydt, [t0,tf], np.asarray(y0), events=strokeEvent, dense_output=True)
 		# sols.append(sol)
 
 		tt = np.hstack((tt, sol.t))
@@ -66,20 +66,26 @@ def nonLinSim(y0, u0, tf, strokeExtents=[-1.5e-3,1.5e-3]):
 			# logging at event times
 			tev = np.hstack((tev, t0))
 			yev = np.vstack((yev, y0))
-			uev = np.vstack((uev, u0))
+			uev = np.vstack((uev, np.asarray(u0)))
 		elif sol.status == 0:
 			# end of time
 			break
 	
-	return tt, yy, uu, tev, yev, uev
+	return {'t':tt, 'y':yy, 'u':uu, 'tev':tev, 'yev':yev, 'uev':uev}
 
+def snapshotsPlot(ax, r, col='b'):
+	FlappingModels.visualizeTraj(ax, {'t': r['tev'], 'q':r['yev'], 'u':r['uev']}, model, col=col, xylim=[-0.05,0.05,-0.05,0.05])
 			
 tf = 0.06
 y0 = np.array([0.02,0,0.3,0,0,0,0])
 u0 = np.array([1.5,0.0])
 
-tt, yy, uu, tev, yev, uev = nonLinSim(y0, u0, tf, strokeExtents=[-2e-3,1.5e-3])
+# Run some sims
+r1 = nonLinSim([0.02,0,0.3,0,0,0,0], u0, tf, strokeExtents=[-2e-3,1.5e-3])
+r2 = nonLinSim([0.0,0,0,0,0,0,0], u0, tf, strokeExtents=[-1.5e-3,1.5e-3])
 
+u0[0] = 2
+r3 = nonLinSim([-0.02,0,0,0,0,0,0], u0, tf, strokeExtents=[-1.5e-3,2e-3])
 	
 # Compare to averaged model
 tav = 0
@@ -97,18 +103,18 @@ for aiter in range(2):
 # print(sols[1])
 
 fig, ax = plt.subplots(4)
-ax[0].plot(tt, yy[-1,:])
+ax[0].plot(r1['t'], r1['y'][-1,:])
 ax[0].set_ylabel('sigma')
 
-ax[1].plot(tt, yy[0,:])
-ax[1].plot(tt, yy[1,:])
+ax[1].plot(r1['t'], r1['y'][0,:])
+ax[1].plot(r1['t'], r1['y'][1,:])
 ax[1].set_ylabel('xz')
 
-ax[2].plot(tt, yy[2,:])
+ax[2].plot(r1['t'], r1['y'][2,:])
 ax[2].set_ylabel('phi')
 
 ax[3].set_aspect(1)
-ax[3].plot(yy[0,:], yy[1,:], '.-', label='nl')
+ax[3].plot(r1['y'][0,:], r1['y'][1,:], '.-', label='nl')
 ax[3].plot(Yav[0,:], Yav[1,:], '.-', label='av')
 ax[3].grid(True)
 ax[3].legend()
@@ -117,7 +123,10 @@ ax[-1].set_xlabel('t')
 
 
 fig, ax = plt.subplots()
-FlappingModels.visualizeTraj(ax, {'t': tev, 'q':yev, 'u':uev}, model, col='b', xylim=[-0.05,0.05,-0.05,0.05])
+snapshotsPlot(ax, r1, 'b')
+snapshotsPlot(ax, r2, 'g')
+snapshotsPlot(ax, r3, 'r')
+ax.set_title('Test controllability of nonlinear stroke/speed model')
 
 plt.show()
 
