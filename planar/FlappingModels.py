@@ -163,9 +163,10 @@ class PlanarStrokeSpeed:
 			sigma0 = y[-1]  #initial stroke
 
 			# from mathematica. for y = (phi,dx,dz,dphi)
+			# FIXME: I reversed the sign of dv in the orig dynamics below and they need to be updated in this. 
 			fav = np.array([dphi/self.omegat, 
-			-self.kat * u1**2 * psi0 * self.omegat * ((1-2*psi0) * cphi + sphi) / (self.mb * (-1. + psi0)),
-			-self.g / self.omegat + self.kat * u1**2 * psi0 * self.omegat * (-cphi + (1-2*psi0) * sphi) / (self.mb * (-1. + psi0)),
+			-self.kat * u1**2 * psi0 * self.omegat * ((-1+2*psi0) * cphi + sphi) / (self.mb * (-1. + psi0)),
+			-self.g / self.omegat + self.kat * u1**2 * psi0 * self.omegat * (-cphi + (-1+2*psi0) * sphi) / (self.mb * (-1. + psi0)),
 			-(self.kat * u1**2 * (2 * sigma0 * (1 + (-1+psi0)*psi0) + psi0*(u1 + self.d*(2-4*psi0) + u1*(-1+psi0)*psi0)) * self.omegat)/(2*self.ib*(-1+psi0))
 			])
 			
