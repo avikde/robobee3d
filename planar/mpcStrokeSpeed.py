@@ -32,8 +32,8 @@ strokeEvent.direction = 1
 
 tf = 0.05
 t0 = 0.
-y0 = np.array([0,0,0.5,0,0,0,0])
-u0 = np.array([1.0,0.0])
+y0 = np.array([0,0,0.3,0,0,0,0])
+u0 = np.array([1.5,0.0])
 
 sols = []
 
