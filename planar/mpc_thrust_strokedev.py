@@ -11,7 +11,7 @@ import matplotlib.animation as animation
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
 # Select here
-paramstr = 'somersault'
+paramstr = 'sideperch'
 y0 = np.zeros(6)
 
 # Experiment params
@@ -24,7 +24,8 @@ paramsets = {
 	# scaled
 	'somersault': {'period': 0.4, 'num': 1, 'wx': [[100,100,1, 100, 100, 10], [100,100, 1, 10, 10, 0.1]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-5, 'wu': [0.01,0.01], 'dt': 0.03},
 	# SIDEPERCH position, orientation
-	'sideperch': {'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [10,10,1, 10, 10, 0.015]], 'wu':[0.01, 0.01], 'dt':0.003, 'N': 15},
+	# 'sideperch': {'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [10,10,1, 10, 10, 0.015]], 'wu':[0.01, 0.01], 'dt':0.003, 'N': 15},
+	'sideperch': {'period': 0.5, 'periodO': 0.7, 'wx': [[100,100,1, 100, 100, 0.01], [100,100,10, 1000, 1000, 1]], 'wu':[0.01, 0.01], 'dt':0.03, 'N':5, 'eps':1e-5, 'trajMode': mpc.GIVEN_POINT_OR_TRAJ},
 	# hover
 	'hover': {'wx': [100,100,1, 10, 10, 0.1], 'wu':[0.01, 0.01], 'dt':0.03, 'nsim': 50, 'N':5, 'eps':1e-5},
 	# others
@@ -36,7 +37,7 @@ params = paramsets[paramstr]
 if paramstr == 'somersault':
 	params['nsim'] = int((params['period'] * params['num'] + 2)/ params['dt'])
 elif paramstr == 'sideperch':
-	params['nsim'] = int((params['period'] + params['periodO'])/params['dt'])
+	params['nsim'] = int((params['periodO'] + 0.5)/params['dt'])
 elif paramstr == 'hover':
 	y0[3:6] = np.array([1,0,10])  # give it some initial velocity
 	# y0[2] = 3  # or start almost upside down
@@ -52,7 +53,7 @@ CTRL_LIN_HORIZON = 1
 CTRL_OPEN_LOOP = 2
 CTRL_LQR = 3
 
-saveMovie = 0  #1 shows movie, 2 saves, 3 plots arrow
+saveMovie = 2  #1 shows movie, 2 saves, 3 plots arrow
 model = FlappingModels.PlanarThrustStrokeDev(rescale=True)
 results = []  # List of sim results: is populated by runSim  below
 
@@ -66,13 +67,14 @@ def goal(t):
 			xr = np.array([0, 0, 2 * np.pi * params['num'],0.,0.,0])
 	elif paramstr == 'sideperch':
 		angDes = np.pi
-		omega = angDes / params['period']
+		initspeed = 1.0
+		omega = angDes / (params['periodO']-params['period'])
 		if t < params['period']:
-			xr = np.array([0.2 * t, 0, 0, 0.2,0.,0])
-		elif t < params['periodO']:
-			xr = np.array([0.2 * params['period'], 0, omega * (t - params['period']),0.,0.,omega])
+			xr = np.array([initspeed * t, 0, 0, initspeed,0.,0])
+		elif t < params['period']:
+			xr = np.array([initspeed * params['period'], 0, omega * (t - params['period']),0.,0.,omega])
 		else:
-			xr = np.array([0.2 * params['period'], 0, angDes,0.,0.,0])
+			xr = np.array([initspeed * params['period'], 0, angDes,0.,0.,0])
 	elif paramstr in ['hover', 'waypoint']:
 		xr = np.array([-0.03, 0.02, 0, 0, 0, 0])
 	# elif exp == EXP_11:
