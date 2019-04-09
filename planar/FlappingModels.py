@@ -122,7 +122,7 @@ class PlanarThrustStrokeDev:
 			return y[0:6] + self.dydt(y, u) * self.dt # np.hstack((yNog, self.g))
 
 	# Non-standard model functions
-	def visualizationInfo(self, y, u, ax, col='r', Faeroscale=1, rawxy=False):
+	def visualizationInfo(self, y, u, ax=None, col='r', Faeroscale=1, rawxy=False):
 		Ryaw = kin.rot2(y[2])
 		pcop = y[0:2] + Ryaw @ np.array([u[1],self.d])
 		
@@ -132,12 +132,16 @@ class PlanarThrustStrokeDev:
 			Faero = Ryaw @ np.array([0, self.mb * self.g + u[0]])
 		umin, umax, _, _ = self.getLimits()
 		strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([umin[1], self.d]), y[0:2] + Ryaw @ np.array([umax[1], self.d])))
-		# plot onto ax
-		ax.plot(strokeExtents[:,0], strokeExtents[:,1], 'k--', linewidth=1,  alpha=0.3)
-		Faero *= Faeroscale
-		ax.arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0002, alpha=0.3, facecolor=col)
+		if ax is not None:
+			# plot onto ax
+			ax.plot(strokeExtents[:,0], strokeExtents[:,1], 'k--', linewidth=1,  alpha=0.3)
+			Faero *= Faeroscale
+			ax.arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0002, alpha=0.3, facecolor=col)
 
-		return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy)
+			return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy)
+		else:
+			# return all the stuff necessary to draw
+			return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy), pcop, Faero, strokeExtents
 
 
 class PlanarStrokeSpeed:
