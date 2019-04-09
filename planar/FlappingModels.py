@@ -125,7 +125,10 @@ class PlanarThrustStrokeDev:
 	def visualizationInfo(self, y, u, Faeroscale=1, rawxy=False):
 		Ryaw = kin.rot2(y[2])
 		pcop = y[0:2] + Ryaw @ np.array([u[1],self.d])
-		Faero = Ryaw @ np.array([0, self.mb * self.g + u[0]])
+		if self.rescale:
+			Faero = Ryaw @ np.array([0, self.g + u[0]])
+		else:
+			Faero = Ryaw @ np.array([0, self.mb * self.g + u[0]])
 		umin, umax, _, _ = self.getLimits()
 		strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([umin[1], self.d]), y[0:2] + Ryaw @ np.array([umax[1], self.d])))
 		return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy), pcop, Faeroscale * Faero, strokeExtents
@@ -137,7 +140,7 @@ def visualizeTraj(ax, traj, model, col='r', Faeroscale=1):
 	from matplotlib.collections import PatchCollection
 	import controlutils.py.misc as misc
 
-	Faeroscale = 1e-2 if model.rescale else 1
+	Faeroscale = 1e-4 if model.rescale else 1
 	
 	N = traj['q'].shape[0]
 	robotBodies = []
