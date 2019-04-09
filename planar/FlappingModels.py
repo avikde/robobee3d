@@ -19,6 +19,13 @@ class PlanarThrustStrokeDev:
 	# can be reset
 	dt = 0.005
 	STROKE_EXTENT = 3e-3
+	
+	# rescaled system
+	lscaled = 0.1
+
+	def __init__(self, rescale=False):
+		self.rescale = rescale
+		self.ibmb = 1./12. * self.lscaled**2 if rescale else self.ib / self.mb
 
 	def getLinearDynamics(self, y, u):
 		'''Returns Ad, Bd[, fd]
@@ -33,18 +40,26 @@ class PlanarThrustStrokeDev:
 		cphi0 = np.cos(phi)
 		sphi0 = np.sin(phi)
 
-		thrust = self.g + u[0]/self.mb
+		thrust = self.g + u[0] if self.rescale else self.g + u[0]/self.mb
 
 		All = np.array([
 			[0,0,-thrust * cphi0],
 			[0,0,-thrust * sphi0],
 			[0,0,0]
 		])
-		Bl = np.array([
-			[-(sphi0/self.mb),0],
-			[cphi0/self.mb,0],
-			[u[1]/self.ib,thrust * self.mb / self.ib]
-		])
+		if self.rescale:
+			# inputs are u0tilde or "thrust", and u1
+			Bl = np.array([
+				[-(sphi0),0],
+				[cphi0,0],
+				[u[1]/self.ibmb, thrust/self.ibmb]
+			])
+		else:
+			Bl = np.array([
+				[-(sphi0/self.mb),0],
+				[cphi0/self.mb,0],
+				[u[1]/self.ib,thrust * self.mb / self.ib]
+			])
 		# Jac wrt state
 		dfdy = np.vstack((
 			np.hstack((np.zeros((3,3)), np.eye(3))),
@@ -56,7 +71,7 @@ class PlanarThrustStrokeDev:
 			Bl
 		))
 
-		# Compute the affine term
+		# Compute the affine term. Look at notes, this is right.
 		fd = self.dt * (fy - dfdy @ y[0:6] - dfdu @ u)
 
 		# New linearization: see https://github.com/avikde/robobee3d/pull/29#issuecomment-475222003
@@ -66,10 +81,14 @@ class PlanarThrustStrokeDev:
 		return Ad, Bd, fd
 	
 	def getLimits(self):
-		umin = np.array([-self.mb*self.g, -self.STROKE_EXTENT])
-		umax = np.array([3*self.mb*self.g, self.STROKE_EXTENT])
-		# umin = np.array([-np.inf, -50e-3])
-		# umax = np.array([np.inf, 50e-3])
+		if self.rescale:
+			umin = np.array([-self.g, -0.05 * self.lscaled])
+			umax = np.array([3*self.g, 0.05 * self.lscaled])
+		else:
+			umin = np.array([-self.mb*self.g, -self.STROKE_EXTENT])
+			umax = np.array([3*self.mb*self.g, self.STROKE_EXTENT])
+			# umin = np.array([-np.inf, -50e-3])
+			# umax = np.array([np.inf, 50e-3])
 		xmin = np.array([-np.inf,-np.inf,-10*np.pi,-np.inf,-np.inf,-np.inf])
 		xmax = -xmin
 		return umin, umax, xmin, xmax
@@ -77,11 +96,12 @@ class PlanarThrustStrokeDev:
 	def dydt(self, y, u):
 		# Full continuous nonlinear vector field
 		phi = y[2]
-		thrust = self.g + u[0]/self.mb
+		thrust = self.g + u[0] if self.rescale else self.g + u[0]/self.mb
+		
 		# accelerations
 		y2dot = np.array([-thrust * np.sin(phi), 
 		-self.g + thrust * np.cos(phi), 
-		thrust * u[1] * self.mb / self.ib
+		thrust * u[1] / self.ibmb
 		])
 		y1dot = y[3:6]
 		return np.hstack((y1dot, y2dot))
@@ -105,16 +125,22 @@ class PlanarThrustStrokeDev:
 	def visualizationInfo(self, y, u, Faeroscale=1, rawxy=False):
 		Ryaw = kin.rot2(y[2])
 		pcop = y[0:2] + Ryaw @ np.array([u[1],self.d])
-		Faero = Ryaw @ np.array([0, self.mb * self.g + u[0]])
-		strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([-2*self.STROKE_EXTENT, self.d]), y[0:2] + Ryaw @ np.array([2*self.STROKE_EXTENT, self.d])))
+		if self.rescale:
+			Faero = Ryaw @ np.array([0, self.g + u[0]])
+		else:
+			Faero = Ryaw @ np.array([0, self.mb * self.g + u[0]])
+		umin, umax, _, _ = self.getLimits()
+		strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([umin[1], self.d]), y[0:2] + Ryaw @ np.array([umax[1], self.d])))
 		return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy), pcop, Faeroscale * Faero, strokeExtents
 
 
-def visualizeTraj(ax, traj, model, col='r'):
+def visualizeTraj(ax, traj, model, col='r', Faeroscale=1):
 	# Plots what RefTraj.generate() returns
 	from matplotlib.patches import Rectangle, Circle
 	from matplotlib.collections import PatchCollection
 	import controlutils.py.misc as misc
+
+	Faeroscale = 1e-4 if model.rescale else 1
 	
 	N = traj['q'].shape[0]
 	robotBodies = []
@@ -123,7 +149,7 @@ def visualizeTraj(ax, traj, model, col='r'):
 		uk = traj['u'][k,:]
 
 		# get info from model
-		body, pcop, Faero, strokeExtents = model.visualizationInfo(qk, uk)
+		body, pcop, Faero, strokeExtents = model.visualizationInfo(qk, uk, Faeroscale=Faeroscale)
 		
 		robotBodies.append(body)
 		ax.plot(strokeExtents[:,0], strokeExtents[:,1], 'k--', linewidth=1,  alpha=0.3)
@@ -144,25 +170,35 @@ if __name__ == "__main__":
 	import controlutils.py.lqr as lqr
 	np.set_printoptions(suppress=True, linewidth=100, precision=3)
 	
-	model = PlanarThrustStrokeDev()
-	model.dt = 0.01
+	rescale = True
+
+	model = PlanarThrustStrokeDev(rescale=rescale)
+	model.dt = 0.1 if rescale else 0.01
+	Faeroscale = 1e-5 if rescale else 1
 
 	# For visualization
 	fig, ax = plt.subplots(1)
-	Ndraw = 100
+	Ndraw = 10
 
+	# LQR
+	wx = np.diag([100,100,10,1,1,1])
+	wu = np.diag([0.1,0.1])
 	Y = np.zeros((Ndraw, model.nx))
 	U = np.zeros((Ndraw, model.nu))
 	# initial conditions
 	Y[0,:], U[0,:] = model.y0, model.u0
 	# Openloop
-	U[0,:] = np.zeros(2)
+	U[0,:] = np.array([0.01, 0.0]) if rescale else np.zeros(2)
 	lqrgoal = np.array([-0.03, -0.02, 0, 0, 0, 0])
 	for ti in range(1, Ndraw):
 		# get linearization
 		Ad, Bd, fd = model.getLinearDynamics(Y[ti-1,:], U[ti-1,:])
 		# actually compute u
-		K, X = lqr.dlqr(Ad, Bd, np.diag([100,100,10,1,1,1]), np.diag([0.1,0.1]))
+		try:
+			K, X = lqr.dlqr(Ad, Bd, wx, wu)
+		except np.linalg.linalg.LinAlgError:
+			print("Ad =", Ad, "Bd =", Bd, "fd =", fd)
+			raise
 		ulqr = K @ (lqrgoal - Y[ti-1,:])
 		Y[ti,:] = Ad @ Y[ti-1,:] + Bd @ ulqr + fd  # actual dynamics
 		U[ti,:] = ulqr  # for next linearization
@@ -172,22 +208,30 @@ if __name__ == "__main__":
 
 	Ndraw = 5
 	Y = np.zeros((Ndraw, model.nx))
+	Ynl = np.zeros_like(Y)
 	U = np.zeros((Ndraw, model.nu))
 	# initial conditions
 	Y[0,:], U[0,:] = model.y0, model.u0
 	# Openloop
 	Y[0,0] = 0.02
-	U[0,:] = np.array([1e-3,1e-3])
+	Ynl[0,0] = 0.03
+	U[0,:] = np.array([0.1, 0.05 * model.lscaled]) if rescale else np.array([1e-3,1e-3])
 	for ti in range(1, Ndraw):
 		Y[ti,:] = model.dynamics(Y[ti-1,:], U[ti-1,:], useLinearization=True)
+		Ynl[ti,:] = model.dynamics(Ynl[ti-1,:], U[ti-1,:], useLinearization=False)
 		U[ti,:] = U[ti-1,:]
 	visualizeTraj(ax, {'q':Y[:, 0:3], 'u':U}, model, col='b')
+	visualizeTraj(ax, {'q':Ynl[:, 0:3], 'u':U}, model, col='g')
+	if rescale:
+		ax.set_xlim([-0.05, 0.05])
+		ax.set_ylim([-0.05, 0.05])
 	print(Y)
 
 	# custom legend
 	from matplotlib.lines import Line2D
 	custom_lines = [Line2D([0], [0], color='r', alpha=0.3), 
-		Line2D([0], [0], color='b', alpha=0.3)]
-	ax.legend(custom_lines, ['LQR', 'Linearized'])
+		Line2D([0], [0], color='b', alpha=0.3), 
+		Line2D([0], [0], color='g', alpha=0.3)]
+	ax.legend(custom_lines, ['LQR', 'Lin OL', 'Nonlin OL'])
 
 	plt.show()
