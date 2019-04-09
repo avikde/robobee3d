@@ -47,11 +47,19 @@ class PlanarThrustStrokeDev:
 			[0,0,-thrust * sphi0],
 			[0,0,0]
 		])
-		Bl = np.array([
-			[-(sphi0/self.mb),0],
-			[cphi0/self.mb,0],
-			[u[1]/self.ib,thrust * self.mb / self.ib]
-		])
+		if self.rescale:
+			# inputs are u0tilde or "thrust", and u1
+			Bl = np.array([
+				[-(sphi0),0],
+				[cphi0,0],
+				[u[1]/self.ibmb, u[0]/self.ibmb]
+			])
+		else:
+			Bl = np.array([
+				[-(sphi0/self.mb),0],
+				[cphi0/self.mb,0],
+				[u[1]/self.ib,thrust * self.mb / self.ib]
+			])
 		# Jac wrt state
 		dfdy = np.vstack((
 			np.hstack((np.zeros((3,3)), np.eye(3))),
@@ -63,7 +71,7 @@ class PlanarThrustStrokeDev:
 			Bl
 		))
 
-		# Compute the affine term
+		# Compute the affine term FIXME: is this right?
 		fd = self.dt * (fy - dfdy @ y[0:6] - dfdu @ u)
 
 		# New linearization: see https://github.com/avikde/robobee3d/pull/29#issuecomment-475222003
@@ -152,13 +160,18 @@ if __name__ == "__main__":
 	import controlutils.py.lqr as lqr
 	np.set_printoptions(suppress=True, linewidth=100, precision=3)
 	
-	model = PlanarThrustStrokeDev()
-	model.dt = 0.01
+	rescale = True
+
+	model = PlanarThrustStrokeDev(rescale=rescale)
+	model.dt = 0.1 if rescale else 0.01
 
 	# For visualization
 	fig, ax = plt.subplots(1)
 	Ndraw = 100
 
+	# LQR
+	wx = np.diag([10,10,1,0.1,0.1,0.1]) if rescale else np.diag([100,100,10,1,1,1])
+	wu = np.diag([0.1,0.1])
 	Y = np.zeros((Ndraw, model.nx))
 	U = np.zeros((Ndraw, model.nu))
 	# initial conditions
@@ -170,7 +183,7 @@ if __name__ == "__main__":
 		# get linearization
 		Ad, Bd, fd = model.getLinearDynamics(Y[ti-1,:], U[ti-1,:])
 		# actually compute u
-		K, X = lqr.dlqr(Ad, Bd, np.diag([100,100,10,1,1,1]), np.diag([0.1,0.1]))
+		K, X = lqr.dlqr(Ad, Bd, wx, wu)
 		ulqr = K @ (lqrgoal - Y[ti-1,:])
 		Y[ti,:] = Ad @ Y[ti-1,:] + Bd @ ulqr + fd  # actual dynamics
 		U[ti,:] = ulqr  # for next linearization
