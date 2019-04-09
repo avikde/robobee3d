@@ -326,34 +326,41 @@ else:
 	# custom legend
 	from matplotlib.lines import Line2D
 	custom_lines = [Line2D([0], [0], color=res['col'], alpha=0.3) for res in results]
-	ax.legend(custom_lines, ['LQR', 'MPC', 'OL'])
+	ax.legend(custom_lines, ['MPC', 'OL'])
+	ax.set_xlim([np.amin(res['X'][:,0])-0.05,np.amax(res['X'][:,0])+0.05])
+	ax.set_ylim([np.amin(res['X'][:,1])-0.05,np.amax(res['X'][:,1])+0.05])
 
-	fig, ax = plt.subplots(nrows=4)
 
+	fig, ax = plt.subplots(nrows=5)
+
+	for res in results:
+		ax[0].plot(res['t'], res['X'][:, 2], '.-', color=res['col'])
+	ax[0].set_ylabel('phi')
+	
 	# Plot time traces
 	# ax[1].plot(results[1]['X'][:, 0])
 	# ax[1].plot(results[1]['X'][:, 1])
 	# ax[1].plot(results[1]['X'][:, 2])
 	for res in results:
-		ax[1].plot(res['t'], res['X'][:, 3], color=res['col'])
+		ax[1].plot(res['t'], res['X'][:, 3], '.-', color=res['col'])
 		ax[1].plot(res['t'], res['X'][:, 4], '--', color=res['col'])
 	ax[1].set_ylabel('dxdz')
 
 	for res in results:
-		ax[2].plot(res['t'], res['X'][:, 5], color=res['col'])
+		ax[2].plot(res['t'], res['X'][:, 5], '.-', color=res['col'])
 	ax[2].set_ylabel('dphi')
 	
 	# u stuff
 	
 	for res in results:
-		ax[3].plot(res['t'], res['U'][:, 0], color=res['col'])
+		ax[3].plot(res['t'], res['U'][:, 0], '.-', color=res['col'])
 	umin, umax, _, _ = model.getLimits()
 	ax[3].axhline(umin[0])
 	ax[3].axhline(umax[0])
 	ax[3].set_ylabel('u0')
 
 	for res in results:
-		ax[4].plot(res['t'], res['U'][:, 1], color=res['col'])
+		ax[4].plot(res['t'], res['U'][:, 1], '.-', color=res['col'])
 	umin, umax, _, _ = model.getLimits()
 	ax[4].axhline(umin[1])
 	ax[4].axhline(umax[1])
