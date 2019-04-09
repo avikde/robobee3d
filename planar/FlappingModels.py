@@ -81,10 +81,14 @@ class PlanarThrustStrokeDev:
 		return Ad, Bd, fd
 	
 	def getLimits(self):
-		umin = np.array([-self.mb*self.g, -self.STROKE_EXTENT])
-		umax = np.array([3*self.mb*self.g, self.STROKE_EXTENT])
-		# umin = np.array([-np.inf, -50e-3])
-		# umax = np.array([np.inf, 50e-3])
+		if self.rescale:
+			umin = np.array([-self.g, -0.1 * self.lscaled])
+			umax = np.array([3*self.g, 0.1 * self.lscaled])
+		else:
+			umin = np.array([-self.mb*self.g, -self.STROKE_EXTENT])
+			umax = np.array([3*self.mb*self.g, self.STROKE_EXTENT])
+			# umin = np.array([-np.inf, -50e-3])
+			# umax = np.array([np.inf, 50e-3])
 		xmin = np.array([-np.inf,-np.inf,-10*np.pi,-np.inf,-np.inf,-np.inf])
 		xmax = -xmin
 		return umin, umax, xmin, xmax
@@ -122,7 +126,8 @@ class PlanarThrustStrokeDev:
 		Ryaw = kin.rot2(y[2])
 		pcop = y[0:2] + Ryaw @ np.array([u[1],self.d])
 		Faero = Ryaw @ np.array([0, self.mb * self.g + u[0]])
-		strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([-2*self.STROKE_EXTENT, self.d]), y[0:2] + Ryaw @ np.array([2*self.STROKE_EXTENT, self.d])))
+		umin, umax, _, _ = self.getLimits()
+		strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([umin[1], self.d]), y[0:2] + Ryaw @ np.array([umax[1], self.d])))
 		return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy), pcop, Faeroscale * Faero, strokeExtents
 
 
