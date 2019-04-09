@@ -74,7 +74,7 @@ def nonLinSim(y0, u0, tf, strokeExtents=[-1.5e-3,1.5e-3]):
 	return {'t':tt, 'y':yy, 'u':uu, 'tev':tev, 'yev':yev, 'uev':uev}
 
 def snapshotsPlot(ax, r, col='b'):
-	FlappingModels.visualizeTraj(ax, {'t': r['tev'], 'q':r['yev'], 'u':r['uev']}, model, col=col, xylim=[-0.05,0.05,-0.05,0.05])
+	FlappingModels.visualizeTraj(ax, {'t': r['tev'], 'q':r['yev'], 'u':r['uev']}, model, col=col)
 			
 tf = 0.06
 y0 = np.array([0.02,0,0.3,0,0,0,0])
@@ -133,7 +133,7 @@ ax[-1].set_xlabel('t')
 fig, ax = plt.subplots()
 snapshotsPlot(ax, r1, 'b')
 print(Yav.shape, Uav.shape)
-FlappingModels.visualizeTraj(ax, {'t': range(69), 'q':Yav.T, 'u':Uav.T}, model, col='r', xylim=[-0.05,0.05,-0.05,0.05])
+FlappingModels.visualizeTraj(ax, {'t': range(69), 'q':Yav.T, 'u':Uav.T}, model, col='r')
 
 plt.show()
 

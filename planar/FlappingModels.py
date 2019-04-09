@@ -132,7 +132,12 @@ class PlanarThrustStrokeDev:
 			Faero = Ryaw @ np.array([0, self.mb * self.g + u[0]])
 		umin, umax, _, _ = self.getLimits()
 		strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([umin[1], self.d]), y[0:2] + Ryaw @ np.array([umax[1], self.d])))
-		return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy), pcop, Faeroscale * Faero, strokeExtents
+		# plot onto ax
+		ax.plot(strokeExtents[:,0], strokeExtents[:,1], 'k--', linewidth=1,  alpha=0.3)
+		Faero *= Faeroscale
+		ax.arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0002, alpha=0.3, facecolor=col)
+
+		return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy)
 
 
 class PlanarStrokeSpeed:
@@ -150,9 +155,10 @@ class PlanarStrokeSpeed:
 	nu = 2
 	y0 = np.array([0,0,0,0,0,0,0])
 
-		# TODO:
+	# TODO:
 	kat = 1e-3
 	omegat = 1
+	rescale = False
 
 	def getLinearDynamics(self, y, u):
 		'''Returns Ad, Bd[, fd]
@@ -217,7 +223,7 @@ class PlanarStrokeSpeed:
 			return y + self.dydt(y, u) * dt
 
 	# Non-standard model functions
-	def visualizationInfo(self, y, u, ax, col='r', rawxy=False):
+	def visualizationInfo(self, y, u, ax, col='r', rawxy=False, Faeroscale=2 * STROKE_EXTENT):
 		Rb = kin.rot2(y[2])
 		strokeExtents = np.vstack((y[0:2] + Rb @ np.array([-2*self.STROKE_EXTENT, self.d]), y[0:2] + Rb @ np.array([2*self.STROKE_EXTENT, self.d])))
 		# Plot these custom things from here
@@ -230,8 +236,7 @@ class PlanarStrokeSpeed:
 		wingExtents = np.vstack((y[0:2] + Rb @ wingStartB, y[0:2] + Rb @ wingEndB))
 		ax.plot(wingExtents[:,0], wingExtents[:,1], 'k-', linewidth=2,  alpha=0.5)
 		# stroke vel arrow
-		STROKE_VEL_ARROW_SCALE = 2 * self.STROKE_EXTENT
-		strokeVelDirection = Rb @ np.array([u[0], 0]) * STROKE_VEL_ARROW_SCALE
+		strokeVelDirection = Rb @ np.array([u[0], 0]) * Faeroscale
 		midWing = np.mean(wingExtents, axis=0)
 		ax.arrow(midWing[0], midWing[1], strokeVelDirection[0], strokeVelDirection[1], width=0.0002, alpha=0.5, facecolor=col)
 		
@@ -268,7 +273,7 @@ def visualizeTraj(ax, traj, model, col='r', Faeroscale=1, tplot=None):
 
 		# get info from model
 		# body = model.visualizationInfo(qk, uk, ax, col)
-		body, pcop, Faero, strokeExtents = model.visualizationInfo(qk, uk, ax, Faeroscale=Faeroscale)
+		body = model.visualizationInfo(qk, uk, ax, Faeroscale=Faeroscale)
 		
 		robotBodies.append(body)
 	
@@ -276,6 +281,8 @@ def visualizeTraj(ax, traj, model, col='r', Faeroscale=1, tplot=None):
 	ax.add_collection(pc)
 
 	ax.set_aspect(1)
+	ax.set_xlim([np.amin(traj['q'][:,0])-0.05,np.amax(traj['q'][:,0])+0.05])
+	ax.set_ylim([np.amin(traj['q'][:,1])-0.05,np.amax(traj['q'][:,1])+0.05])
 	ax.grid(True)
 	ax.set_xlabel('x')
 	ax.set_ylabel('z')
