@@ -52,7 +52,7 @@ class PlanarThrustStrokeDev:
 			Bl = np.array([
 				[-(sphi0),0],
 				[cphi0,0],
-				[u[1]/self.ibmb, u[0]/self.ibmb]
+				[u[1]/self.ibmb, thrust/self.ibmb]
 			])
 		else:
 			Bl = np.array([
@@ -131,6 +131,8 @@ def visualizeTraj(ax, traj, model, col='r', Faeroscale=1):
 	from matplotlib.patches import Rectangle, Circle
 	from matplotlib.collections import PatchCollection
 	import controlutils.py.misc as misc
+
+	Faeroscale = 1e-2 if model.rescale else 1
 	
 	N = traj['q'].shape[0]
 	robotBodies = []
@@ -168,27 +170,31 @@ if __name__ == "__main__":
 
 	# For visualization
 	fig, ax = plt.subplots(1)
-	Ndraw = 100
+	Ndraw = 10
 
 	# LQR
-	wx = np.diag([10,10,1,0.1,0.1,0.1]) if rescale else np.diag([100,100,10,1,1,1])
+	wx = np.diag([100,100,10,1,1,1])
 	wu = np.diag([0.1,0.1])
 	Y = np.zeros((Ndraw, model.nx))
 	U = np.zeros((Ndraw, model.nu))
 	# initial conditions
 	Y[0,:], U[0,:] = model.y0, model.u0
 	# Openloop
-	U[0,:] = np.zeros(2)
+	U[0,:] = np.array([0.01, 0.0]) if rescale else np.zeros(2)
 	lqrgoal = np.array([-0.03, -0.02, 0, 0, 0, 0])
 	for ti in range(1, Ndraw):
 		# get linearization
 		Ad, Bd, fd = model.getLinearDynamics(Y[ti-1,:], U[ti-1,:])
 		# actually compute u
-		# K, X = lqr.dlqr(Ad, Bd, wx, wu)
-		ulqr = np.zeros(2)#K @ (lqrgoal - Y[ti-1,:])
+		try:
+			K, X = lqr.dlqr(Ad, Bd, wx, wu)
+		except np.linalg.linalg.LinAlgError:
+			print("Ad =", Ad, "Bd =", Bd, "fd =", fd)
+			raise
+		ulqr = K @ (lqrgoal - Y[ti-1,:])
 		Y[ti,:] = Ad @ Y[ti-1,:] + Bd @ ulqr + fd  # actual dynamics
 		U[ti,:] = ulqr  # for next linearization
-	# visualizeTraj(ax, {'q':Y[:, 0:3], 'u':U}, model)
+	visualizeTraj(ax, {'q':Y[:, 0:3], 'u':U}, model)
 	ax.plot(lqrgoal[0], lqrgoal[1], 'c*')
 	print(Y)
 
@@ -206,10 +212,10 @@ if __name__ == "__main__":
 		Y[ti,:] = model.dynamics(Y[ti-1,:], U[ti-1,:], useLinearization=True)
 		Ynl[ti,:] = model.dynamics(Ynl[ti-1,:], U[ti-1,:], useLinearization=False)
 		U[ti,:] = U[ti-1,:]
-	visualizeTraj(ax, {'q':Y[:, 0:3], 'u':U}, model, col='b', Faeroscale=Faeroscale)
-	visualizeTraj(ax, {'q':Ynl[:, 0:3], 'u':U}, model, col='g', Faeroscale=Faeroscale)
+	visualizeTraj(ax, {'q':Y[:, 0:3], 'u':U}, model, col='b')
+	visualizeTraj(ax, {'q':Ynl[:, 0:3], 'u':U}, model, col='g')
 	if rescale:
-		ax.set_xlim([-0.1, 0.1])
+		ax.set_xlim([-0.05, 0.05])
 		ax.set_ylim([-0.05, 0.05])
 	print(Y)
 
