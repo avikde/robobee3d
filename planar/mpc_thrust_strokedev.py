@@ -11,7 +11,7 @@ import matplotlib.animation as animation
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
 # Select here
-paramstr = 'hover'
+paramstr = 'somersault'
 y0 = np.zeros(6)
 
 # Experiment params
@@ -20,11 +20,13 @@ paramsets = {
 	'defaults': {'eps': 1e-2, 'wx': [1000, 1000, 0.05, 5, 5, 0.005], 'wu': [0.01,0.01], 'nsim': 200, 'dt': 0.01, 'N': 5},
 	# Both of these seem to need two "stages" think about what that means
 	# SOMERSAULT flip and hover
-	'somersault': {'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-4, 'wu': [0.01,0.01], 'dt': 0.01},
+	# 'somersault': {'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-4, 'wu': [0.01,0.01], 'dt': 0.01},
+	# scaled
+	'somersault': {'period': 0.4, 'num': 1, 'wx': [[100,100,1, 100, 100, 10], [100,100, 1, 10, 10, 0.1]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-5, 'wu': [0.01,0.01], 'dt': 0.03},
 	# SIDEPERCH position, orientation
 	'sideperch': {'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [10,10,1, 10, 10, 0.015]], 'wu':[0.01, 0.01], 'dt':0.003, 'N': 15},
 	# hover
-	'hover': {'wx': [1,1,1, 10, 10, 0.1], 'wu':[0.01, 0.01], 'dt':0.03, 'nsim': 50, 'eps':1e-5},
+	'hover': {'wx': [100,100,1, 10, 10, 0.1], 'wu':[0.01, 0.01], 'dt':0.03, 'nsim': 50, 'N':5, 'eps':1e-5},
 	# others
 	'waypoint': {},
 	'sine': {}
@@ -32,11 +34,12 @@ paramsets = {
 params = paramsets[paramstr]
 
 if paramstr == 'somersault':
-	params['nsim'] = int((params['period'] * params['num'] + 0.01)/ params['dt'])
+	params['nsim'] = int((params['period'] * params['num'] + 2)/ params['dt'])
 elif paramstr == 'sideperch':
 	params['nsim'] = int((params['period'] + params['periodO'])/params['dt'])
 elif paramstr == 'hover':
 	y0[3:6] = np.array([1,0,10])  # give it some initial velocity
+	# y0[2] = 3  # or start almost upside down
 
 # get parameters or default
 def _pget(pname):
@@ -157,7 +160,7 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 			K = lqr.dlqr(Ad, Bd, np.diag(wx), np.diag(wu))[0]
 			ctrl = K @ (xr - x0)
 		elif ctrlType == CTRL_MPC:
-			if ((paramstr == 'somersault' and tgoal > params['period'] * params['num'] * 1.5) or (paramstr == 'sideperch' and tgoal > params['period'])) and weightsIdx == 0:
+			if ((paramstr == 'somersault' and tgoal > params['period'] * params['num']) or (paramstr == 'sideperch' and tgoal > params['period'])) and weightsIdx == 0:
 				weightsIdx += 1
 				print('Updating weights to', pwx[weightsIdx])
 				ltvmpc.updateWeights(wx=np.array(pwx[weightsIdx])/dt)
@@ -268,8 +271,9 @@ if saveMovie > 0:
 
 	def init():
 		ax.set_aspect(1)
-		ax.set_xlim([-0.05,0.05])
-		ax.set_ylim([-0.05,0.05])
+		ax.set_xlim([np.amin(res['X'][:,0])-0.05,np.amax(res['X'][:,0])+0.05])
+		ax.set_ylim([np.amin(res['X'][:,1])-0.05,np.amax(res['X'][:,1])+0.05])
+		ax.set_aspect('equal')
 		ax.grid(True)
 		ax.set_xlabel('x')
 		ax.set_ylabel('z')
@@ -309,20 +313,22 @@ if saveMovie > 0:
 
 else:
 	# Regular plots
-	fig, ax = plt.subplots(nrows=5)
+	fig, ax = plt.subplots()
 
 	for res in results:
-		FlappingModels.visualizeTraj(ax[0], {'q':res['X'][:, 0:3], 'u':res['U']}, model, col=res['col'])
+		FlappingModels.visualizeTraj(ax, {'q':res['X'][:, 0:3], 'u':res['U']}, model, col=res['col'])
 	if paramstr == 'sine':
-		ax[0].plot(results[1]['desTraj'][:,0], results[1]['desTraj'][:,1], 'k--', label='des')
+		ax.plot(results[1]['desTraj'][:,0], results[1]['desTraj'][:,1], 'k--', label='des')
 	elif paramstr == 'waypoint':
 		lqrgoal = goal(0)
-		ax[0].plot(lqrgoal[0], lqrgoal[1], 'c*')
+		ax.plot(lqrgoal[0], lqrgoal[1], 'c*')
 
 	# custom legend
 	from matplotlib.lines import Line2D
 	custom_lines = [Line2D([0], [0], color=res['col'], alpha=0.3) for res in results]
-	ax[0].legend(custom_lines, ['LQR', 'MPC', 'OL'])
+	ax.legend(custom_lines, ['LQR', 'MPC', 'OL'])
+
+	fig, ax = plt.subplots(nrows=4)
 
 	# Plot time traces
 	# ax[1].plot(results[1]['X'][:, 0])
