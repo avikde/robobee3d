@@ -11,7 +11,7 @@ import matplotlib.animation as animation
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
 # Select here
-paramstr = 'somersault'
+paramstr = 'hover'
 y0 = np.zeros(6)
 
 # Experiment params
@@ -24,7 +24,7 @@ paramsets = {
 	# SIDEPERCH position, orientation
 	'sideperch': {'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [10,10,1, 10, 10, 0.015]], 'wu':[0.01, 0.01], 'dt':0.003, 'N': 15},
 	# hover
-	'hover': {'wx': [1,1,1, 10, 10, 0.1], 'wu':[0.01, 0.01], 'dt':0.03, 'nsim': 50},
+	'hover': {'wx': [1,1,1, 10, 10, 0.1], 'wu':[0.01, 0.01], 'dt':0.03, 'nsim': 50, 'eps':1e-5},
 	# others
 	'waypoint': {},
 	'sine': {}
@@ -50,7 +50,7 @@ CTRL_OPEN_LOOP = 2
 CTRL_LQR = 3
 
 saveMovie = 0  #1 shows movie, 2 saves, 3 plots arrow
-model = FlappingModels.PlanarThrustStrokeDev()
+model = FlappingModels.PlanarThrustStrokeDev(rescale=True)
 results = []  # List of sim results: is populated by runSim  below
 
 # Trajectory following?
@@ -117,7 +117,7 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 		# print(peps)
 		# sys.exit(0)
 		ltvmpc = mpc.LTVMPC(model, N, wx, wu, verbose=False, polish=False, scaling=0, eps_rel=peps, eps_abs=peps, max_iter=1000000, kdamping=0)
-		ltvmpc.MAX_ULIM_VIOL_FRAC = 0.5
+		# ltvmpc.MAX_ULIM_VIOL_FRAC = 0.5
 		# sys.exit(0)
 
 	# Initial and reference states
@@ -309,7 +309,7 @@ if saveMovie > 0:
 
 else:
 	# Regular plots
-	fig, ax = plt.subplots(nrows=3)
+	fig, ax = plt.subplots(nrows=5)
 
 	for res in results:
 		FlappingModels.visualizeTraj(ax[0], {'q':res['X'][:, 0:3], 'u':res['U']}, model, col=res['col'])
@@ -331,12 +331,28 @@ else:
 	for res in results:
 		ax[1].plot(res['t'], res['X'][:, 3], color=res['col'])
 		ax[1].plot(res['t'], res['X'][:, 4], '--', color=res['col'])
-	ax[1].set_xlabel('t (sec)')
 	ax[1].set_ylabel('dxdz')
 
 	for res in results:
 		ax[2].plot(res['t'], res['X'][:, 5], color=res['col'])
-	ax[2].set_xlabel('t (sec)')
 	ax[2].set_ylabel('dphi')
+	
+	# u stuff
+	
+	for res in results:
+		ax[3].plot(res['t'], res['U'][:, 0], color=res['col'])
+	umin, umax, _, _ = model.getLimits()
+	ax[3].axhline(umin[0])
+	ax[3].axhline(umax[0])
+	ax[3].set_ylabel('u0')
+
+	for res in results:
+		ax[4].plot(res['t'], res['U'][:, 1], color=res['col'])
+	umin, umax, _, _ = model.getLimits()
+	ax[4].axhline(umin[1])
+	ax[4].axhline(umax[1])
+	ax[4].set_ylabel('u1')
+
+	ax[-1].set_xlabel('t (sec)')
 
 	plt.show()

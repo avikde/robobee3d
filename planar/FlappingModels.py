@@ -82,8 +82,8 @@ class PlanarThrustStrokeDev:
 	
 	def getLimits(self):
 		if self.rescale:
-			umin = np.array([-self.g, -0.1 * self.lscaled])
-			umax = np.array([3*self.g, 0.1 * self.lscaled])
+			umin = np.array([-self.g, -0.05 * self.lscaled])
+			umax = np.array([3*self.g, 0.05 * self.lscaled])
 		else:
 			umin = np.array([-self.mb*self.g, -self.STROKE_EXTENT])
 			umax = np.array([3*self.mb*self.g, self.STROKE_EXTENT])
