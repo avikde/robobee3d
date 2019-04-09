@@ -19,6 +19,13 @@ class PlanarThrustStrokeDev:
 	# can be reset
 	dt = 0.005
 	STROKE_EXTENT = 3e-3
+	
+	# rescaled system
+	lscaled = 0.1
+
+	def __init__(self, rescale=False):
+		self.rescale = rescale
+		self.ibmb = 1./12. * self.lscaled**2 if rescale else self.ib / self.mb
 
 	def getLinearDynamics(self, y, u):
 		'''Returns Ad, Bd[, fd]
@@ -33,7 +40,7 @@ class PlanarThrustStrokeDev:
 		cphi0 = np.cos(phi)
 		sphi0 = np.sin(phi)
 
-		thrust = self.g + u[0]/self.mb
+		thrust = u[0] if self.rescale else self.g + u[0]/self.mb
 
 		All = np.array([
 			[0,0,-thrust * cphi0],
@@ -77,11 +84,12 @@ class PlanarThrustStrokeDev:
 	def dydt(self, y, u):
 		# Full continuous nonlinear vector field
 		phi = y[2]
-		thrust = self.g + u[0]/self.mb
+		thrust = u[0] if self.rescale else self.g + u[0]/self.mb
+		
 		# accelerations
 		y2dot = np.array([-thrust * np.sin(phi), 
 		-self.g + thrust * np.cos(phi), 
-		thrust * u[1] * self.mb / self.ib
+		thrust * u[1] / self.ibmb
 		])
 		y1dot = y[3:6]
 		return np.hstack((y1dot, y2dot))
