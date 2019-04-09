@@ -40,7 +40,7 @@ class PlanarThrustStrokeDev:
 		cphi0 = np.cos(phi)
 		sphi0 = np.sin(phi)
 
-		thrust = u[0] if self.rescale else self.g + u[0]/self.mb
+		thrust = self.g + u[0] if self.rescale else self.g + u[0]/self.mb
 
 		All = np.array([
 			[0,0,-thrust * cphi0],
@@ -92,7 +92,7 @@ class PlanarThrustStrokeDev:
 	def dydt(self, y, u):
 		# Full continuous nonlinear vector field
 		phi = y[2]
-		thrust = u[0] if self.rescale else self.g + u[0]/self.mb
+		thrust = self.g + u[0] if self.rescale else self.g + u[0]/self.mb
 		
 		# accelerations
 		y2dot = np.array([-thrust * np.sin(phi), 
@@ -194,25 +194,30 @@ if __name__ == "__main__":
 
 	Ndraw = 5
 	Y = np.zeros((Ndraw, model.nx))
+	Ynl = np.zeros_like(Y)
 	U = np.zeros((Ndraw, model.nu))
 	# initial conditions
 	Y[0,:], U[0,:] = model.y0, model.u0
 	# Openloop
 	Y[0,0] = 0.02
-	U[0,:] = np.array([10, 0.1 * model.lscaled]) if rescale else np.array([1e-3,1e-3])
+	Ynl[0,0] = 0.03
+	U[0,:] = np.array([0.1, 0.05 * model.lscaled]) if rescale else np.array([1e-3,1e-3])
 	for ti in range(1, Ndraw):
 		Y[ti,:] = model.dynamics(Y[ti-1,:], U[ti-1,:], useLinearization=True)
+		Ynl[ti,:] = model.dynamics(Ynl[ti-1,:], U[ti-1,:], useLinearization=False)
 		U[ti,:] = U[ti-1,:]
 	visualizeTraj(ax, {'q':Y[:, 0:3], 'u':U}, model, col='b', Faeroscale=Faeroscale)
+	visualizeTraj(ax, {'q':Ynl[:, 0:3], 'u':U}, model, col='g', Faeroscale=Faeroscale)
 	if rescale:
 		ax.set_xlim([-0.1, 0.1])
-		ax.set_ylim([-0.1, 0.1])
+		ax.set_ylim([-0.05, 0.05])
 	print(Y)
 
 	# custom legend
 	from matplotlib.lines import Line2D
 	custom_lines = [Line2D([0], [0], color='r', alpha=0.3), 
-		Line2D([0], [0], color='b', alpha=0.3)]
-	ax.legend(custom_lines, ['LQR', 'Linearized'])
+		Line2D([0], [0], color='b', alpha=0.3), 
+		Line2D([0], [0], color='g', alpha=0.3)]
+	ax.legend(custom_lines, ['LQR', 'Lin OL', 'Nonlin OL'])
 
 	plt.show()
