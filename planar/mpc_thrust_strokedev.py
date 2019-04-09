@@ -20,11 +20,14 @@ paramsets = {
 	'defaults': {'eps': 1e-2, 'wx': [1000, 1000, 0.05, 5, 5, 0.005], 'wu': [0.01,0.01], 'nsim': 200, 'dt': 0.01, 'N': 5},
 	# Both of these seem to need two "stages" think about what that means
 	# SOMERSAULT flip and hover
-	'somersault': {'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-4, 'wu': [0.01,0.01], 'dt': 0.01},
+	# 'somersault': {'period': 0.2, 'num': 1, 'wx': [[1,1,1, 1, 1, 5], [100,100,1, 10, 10, 0.01]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-4, 'wu': [0.01,0.01], 'dt': 0.01},
+	# scaled
+	'somersault': {'period': 0.4, 'num': 1, 'wx': [[100,100,1, 100, 100, 10], [100,100, 1, 10, 10, 0.1]], 'trajMode': mpc.GIVEN_POINT_OR_TRAJ, 'eps': 1e-5, 'wu': [0.01,0.01], 'dt': 0.03},
 	# SIDEPERCH position, orientation
-	'sideperch': {'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [10,10,1, 10, 10, 0.015]], 'wu':[0.01, 0.01], 'dt':0.003, 'N': 15},
+	# 'sideperch': {'period': 0.2, 'periodO': 0.05, 'wx': [[100,100,1, 100, 100, 0.01], [10,10,1, 10, 10, 0.015]], 'wu':[0.01, 0.01], 'dt':0.003, 'N': 15},
+	'sideperch': {'period': 0.5, 'periodO': 0.7, 'wx': [[100,100,1, 100, 100, 0.01], [100,100,10, 1000, 1000, 1]], 'wu':[0.01, 0.01], 'dt':0.03, 'N':5, 'eps':1e-5, 'trajMode': mpc.GIVEN_POINT_OR_TRAJ},
 	# hover
-	'hover': {'wx': [1,1,1, 10, 10, 0.1], 'wu':[0.01, 0.01], 'dt':0.03, 'nsim': 50},
+	'hover': {'wx': [100,100,1, 10, 10, 0.1], 'wu':[0.01, 0.01], 'dt':0.03, 'nsim': 50, 'N':5, 'eps':1e-5},
 	# others
 	'waypoint': {},
 	'sine': {}
@@ -32,11 +35,12 @@ paramsets = {
 params = paramsets[paramstr]
 
 if paramstr == 'somersault':
-	params['nsim'] = int((params['period'] * params['num'] + 0.01)/ params['dt'])
+	params['nsim'] = int((params['period'] * params['num'] + 2)/ params['dt'])
 elif paramstr == 'sideperch':
-	params['nsim'] = int((params['period'] + params['periodO'])/params['dt'])
+	params['nsim'] = int((params['periodO'] + 0.5)/params['dt'])
 elif paramstr == 'hover':
 	y0[3:6] = np.array([1,0,10])  # give it some initial velocity
+	# y0[2] = 3  # or start almost upside down
 
 # get parameters or default
 def _pget(pname):
@@ -50,7 +54,7 @@ CTRL_OPEN_LOOP = 2
 CTRL_LQR = 3
 
 saveMovie = 0  #1 shows movie, 2 saves, 3 plots arrow
-model = FlappingModels.PlanarThrustStrokeDev()
+model = FlappingModels.PlanarThrustStrokeDev(rescale=True)
 results = []  # List of sim results: is populated by runSim  below
 
 # Trajectory following?
@@ -63,13 +67,14 @@ def goal(t):
 			xr = np.array([0, 0, 2 * np.pi * params['num'],0.,0.,0])
 	elif paramstr == 'sideperch':
 		angDes = np.pi
-		omega = angDes / params['period']
+		initspeed = 1.0
+		omega = angDes / (params['periodO']-params['period'])
 		if t < params['period']:
-			xr = np.array([0.2 * t, 0, 0, 0.2,0.,0])
-		elif t < params['periodO']:
-			xr = np.array([0.2 * params['period'], 0, omega * (t - params['period']),0.,0.,omega])
+			xr = np.array([initspeed * t, 0, 0, initspeed,0.,0])
+		elif t < params['period']:
+			xr = np.array([initspeed * params['period'], 0, omega * (t - params['period']),0.,0.,omega])
 		else:
-			xr = np.array([0.2 * params['period'], 0, angDes,0.,0.,0])
+			xr = np.array([initspeed * params['period'], 0, angDes,0.,0.,0])
 	elif paramstr in ['hover', 'waypoint']:
 		xr = np.array([-0.03, 0.02, 0, 0, 0, 0])
 	# elif exp == EXP_11:
@@ -117,7 +122,7 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 		# print(peps)
 		# sys.exit(0)
 		ltvmpc = mpc.LTVMPC(model, N, wx, wu, verbose=False, polish=False, scaling=0, eps_rel=peps, eps_abs=peps, max_iter=1000000, kdamping=0)
-		ltvmpc.MAX_ULIM_VIOL_FRAC = 0.5
+		# ltvmpc.MAX_ULIM_VIOL_FRAC = 0.5
 		# sys.exit(0)
 
 	# Initial and reference states
@@ -157,7 +162,7 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 			K = lqr.dlqr(Ad, Bd, np.diag(wx), np.diag(wu))[0]
 			ctrl = K @ (xr - x0)
 		elif ctrlType == CTRL_MPC:
-			if ((paramstr == 'somersault' and tgoal > params['period'] * params['num'] * 1.5) or (paramstr == 'sideperch' and tgoal > params['period'])) and weightsIdx == 0:
+			if ((paramstr == 'somersault' and tgoal > params['period'] * params['num']) or (paramstr == 'sideperch' and tgoal > params['period'])) and weightsIdx == 0:
 				weightsIdx += 1
 				print('Updating weights to', pwx[weightsIdx])
 				ltvmpc.updateWeights(wx=np.array(pwx[weightsIdx])/dt)
@@ -268,8 +273,9 @@ if saveMovie > 0:
 
 	def init():
 		ax.set_aspect(1)
-		ax.set_xlim([-0.05,0.05])
-		ax.set_ylim([-0.05,0.05])
+		ax.set_xlim([np.amin(res['X'][:,0])-0.05,np.amax(res['X'][:,0])+0.05])
+		ax.set_ylim([np.amin(res['X'][:,1])-0.05,np.amax(res['X'][:,1])+0.05])
+		ax.set_aspect('equal')
 		ax.grid(True)
 		ax.set_xlabel('x')
 		ax.set_ylabel('z')
@@ -285,7 +291,7 @@ if saveMovie > 0:
 		uk = traj['u'][k,:]
 
 		# get info from model
-		body, pcop, Faero, strokeExtents = model.visualizationInfo(qk, uk, rawxy=True)
+		body, pcop, Faero, strokeExtents = model.visualizationInfo(qk, uk, ax, rawxy=True)
 
 		bodyPatch.set_xy(body)
 		
@@ -309,34 +315,59 @@ if saveMovie > 0:
 
 else:
 	# Regular plots
-	fig, ax = plt.subplots(nrows=3)
+	fig, ax = plt.subplots()
 
 	for res in results:
-		FlappingModels.visualizeTraj(ax[0], {'q':res['X'][:, 0:3], 'u':res['U']}, model, col=res['col'])
+		FlappingModels.visualizeTraj(ax, {'q':res['X'][:, 0:3], 'u':res['U']}, model, col=res['col'])
 	if paramstr == 'sine':
-		ax[0].plot(results[1]['desTraj'][:,0], results[1]['desTraj'][:,1], 'k--', label='des')
+		ax.plot(results[1]['desTraj'][:,0], results[1]['desTraj'][:,1], 'k--', label='des')
 	elif paramstr == 'waypoint':
 		lqrgoal = goal(0)
-		ax[0].plot(lqrgoal[0], lqrgoal[1], 'c*')
+		ax.plot(lqrgoal[0], lqrgoal[1], 'c*')
 
 	# custom legend
 	from matplotlib.lines import Line2D
 	custom_lines = [Line2D([0], [0], color=res['col'], alpha=0.3) for res in results]
-	ax[0].legend(custom_lines, ['LQR', 'MPC', 'OL'])
+	ax.legend(custom_lines, ['MPC', 'OL'])
+	ax.set_xlim([np.amin(res['X'][:,0])-0.05,np.amax(res['X'][:,0])+0.05])
+	ax.set_ylim([np.amin(res['X'][:,1])-0.05,np.amax(res['X'][:,1])+0.05])
 
+
+	fig, ax = plt.subplots(nrows=5)
+
+	for res in results:
+		ax[0].plot(res['t'], res['X'][:, 2], '.-', color=res['col'])
+	ax[0].set_ylabel('phi')
+	
 	# Plot time traces
 	# ax[1].plot(results[1]['X'][:, 0])
 	# ax[1].plot(results[1]['X'][:, 1])
 	# ax[1].plot(results[1]['X'][:, 2])
 	for res in results:
-		ax[1].plot(res['t'], res['X'][:, 3], color=res['col'])
+		ax[1].plot(res['t'], res['X'][:, 3], '.-', color=res['col'])
 		ax[1].plot(res['t'], res['X'][:, 4], '--', color=res['col'])
-	ax[1].set_xlabel('t (sec)')
 	ax[1].set_ylabel('dxdz')
 
 	for res in results:
-		ax[2].plot(res['t'], res['X'][:, 5], color=res['col'])
-	ax[2].set_xlabel('t (sec)')
+		ax[2].plot(res['t'], res['X'][:, 5], '.-', color=res['col'])
 	ax[2].set_ylabel('dphi')
+	
+	# u stuff
+	
+	for res in results:
+		ax[3].plot(res['t'], res['U'][:, 0], '.-', color=res['col'])
+	umin, umax, _, _ = model.getLimits()
+	ax[3].axhline(umin[0])
+	ax[3].axhline(umax[0])
+	ax[3].set_ylabel('u0')
+
+	for res in results:
+		ax[4].plot(res['t'], res['U'][:, 1], '.-', color=res['col'])
+	umin, umax, _, _ = model.getLimits()
+	ax[4].axhline(umin[1])
+	ax[4].axhline(umax[1])
+	ax[4].set_ylabel('u1')
+
+	ax[-1].set_xlabel('t (sec)')
 
 	plt.show()

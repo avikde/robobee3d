@@ -33,6 +33,22 @@
 				"clear": true
 			},
 			"problemMatcher": []
+		},
+		{
+			"label": "thrust/moving cop",
+			"type": "shell",
+			"group": "build",
+			"options": {
+				"cwd": "${workspaceFolder}/planar"
+			},
+			"command": "python mpc_thrust_strokedev.py",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"panel": "shared",
+				"clear": true
+			},
+			"problemMatcher": []
 		}
 	]
 }
