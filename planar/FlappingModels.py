@@ -71,7 +71,7 @@ class PlanarThrustStrokeDev:
 			Bl
 		))
 
-		# Compute the affine term FIXME: is this right?
+		# Compute the affine term. Look at notes, this is right.
 		fd = self.dt * (fy - dfdy @ y[0:6] - dfdu @ u)
 
 		# New linearization: see https://github.com/avikde/robobee3d/pull/29#issuecomment-475222003
@@ -126,7 +126,7 @@ class PlanarThrustStrokeDev:
 		return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy), pcop, Faeroscale * Faero, strokeExtents
 
 
-def visualizeTraj(ax, traj, model, col='r'):
+def visualizeTraj(ax, traj, model, col='r', Faeroscale=1):
 	# Plots what RefTraj.generate() returns
 	from matplotlib.patches import Rectangle, Circle
 	from matplotlib.collections import PatchCollection
@@ -139,7 +139,7 @@ def visualizeTraj(ax, traj, model, col='r'):
 		uk = traj['u'][k,:]
 
 		# get info from model
-		body, pcop, Faero, strokeExtents = model.visualizationInfo(qk, uk)
+		body, pcop, Faero, strokeExtents = model.visualizationInfo(qk, uk, Faeroscale=Faeroscale)
 		
 		robotBodies.append(body)
 		ax.plot(strokeExtents[:,0], strokeExtents[:,1], 'k--', linewidth=1,  alpha=0.3)
@@ -164,6 +164,7 @@ if __name__ == "__main__":
 
 	model = PlanarThrustStrokeDev(rescale=rescale)
 	model.dt = 0.1 if rescale else 0.01
+	Faeroscale = 1e-5 if rescale else 1
 
 	# For visualization
 	fig, ax = plt.subplots(1)
@@ -183,11 +184,11 @@ if __name__ == "__main__":
 		# get linearization
 		Ad, Bd, fd = model.getLinearDynamics(Y[ti-1,:], U[ti-1,:])
 		# actually compute u
-		K, X = lqr.dlqr(Ad, Bd, wx, wu)
-		ulqr = K @ (lqrgoal - Y[ti-1,:])
+		# K, X = lqr.dlqr(Ad, Bd, wx, wu)
+		ulqr = np.zeros(2)#K @ (lqrgoal - Y[ti-1,:])
 		Y[ti,:] = Ad @ Y[ti-1,:] + Bd @ ulqr + fd  # actual dynamics
 		U[ti,:] = ulqr  # for next linearization
-	visualizeTraj(ax, {'q':Y[:, 0:3], 'u':U}, model)
+	# visualizeTraj(ax, {'q':Y[:, 0:3], 'u':U}, model)
 	ax.plot(lqrgoal[0], lqrgoal[1], 'c*')
 	print(Y)
 
@@ -198,11 +199,14 @@ if __name__ == "__main__":
 	Y[0,:], U[0,:] = model.y0, model.u0
 	# Openloop
 	Y[0,0] = 0.02
-	U[0,:] = np.array([1e-3,1e-3])
+	U[0,:] = np.array([10, 0.1 * model.lscaled]) if rescale else np.array([1e-3,1e-3])
 	for ti in range(1, Ndraw):
 		Y[ti,:] = model.dynamics(Y[ti-1,:], U[ti-1,:], useLinearization=True)
 		U[ti,:] = U[ti-1,:]
-	visualizeTraj(ax, {'q':Y[:, 0:3], 'u':U}, model, col='b')
+	visualizeTraj(ax, {'q':Y[:, 0:3], 'u':U}, model, col='b', Faeroscale=Faeroscale)
+	if rescale:
+		ax.set_xlim([-0.1, 0.1])
+		ax.set_ylim([-0.1, 0.1])
 	print(Y)
 
 	# custom legend
