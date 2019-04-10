@@ -17,9 +17,9 @@ model = FlappingModels.PlanarStrokeSpeed()
 # Y[0,:] = model.y0
 # U[0,:] = np.array([0,0])
 
-def nonLinSim(y0, u0, tf, strokeExtents=[-1.5e-3,1.5e-3]):
+def nonLinSim(y0, u0, tf, strokeExtents=[-1.5e-3,1.5e-3], avg=False):
 	def dydt(t, y):
-		dydt = model.dydt(y, np.asarray(u0))
+		dydt = model.dydt(y, np.asarray(u0), avg=avg)
 		return dydt
 
 	strokeEnd = strokeExtents[1]  # will be changed by the code
@@ -83,24 +83,24 @@ u0 = np.array([1.5,0.0])
 # Run some sims
 r1 = nonLinSim([0.02,0,0.3,0,0,0,0], u0, tf, strokeExtents=[-2e-3,1.5e-3])
 print('Number of strokes =',len(r1['t']))
-r2 = nonLinSim([0.0,0,0,0,0,0,0], u0, tf, strokeExtents=[-1.5e-3,1.5e-3])
+r2 = nonLinSim([0.0,0,0.3,0,0,0,0], u0, tf, strokeExtents=[-2e-3,1.5e-3], avg=True)
 
-u0[0] = 2
-r3 = nonLinSim([-0.02,0,0,0,0,0,0], u0, tf, strokeExtents=[-1.5e-3,2e-3])
+# u0[0] = 2
+# r3 = nonLinSim([-0.02,0,0,0,0,0,0], u0, tf, strokeExtents=[-1.5e-3,2e-3])
 	
-# Compare to averaged model
-tav = 0
-Yav = np.zeros((model.nx, 1))
-Yav[:,0] = model.y0
-Uav = np.zeros((model.nu, 1))
-Uav[:,0] = np.array([1.5, 1.5e-3])
-for aiter in range(69):
-	# this is really valid near equilibrium
-	dydsigma = model.dydt(Yav[:,-1], Uav[:,-1], avg=True)
-	tmode = 0.001#Uav[1,-1]
-	ynew = Yav[:,-1] + dydsigma * tmode
-	Yav = np.hstack((Yav, ynew[:,np.newaxis]))
-	Uav = np.hstack((Uav, np.array([1.5,1.5e-3])[:,np.newaxis]))
+# # Compare to averaged model
+# tav = 0
+# Yav = np.zeros((model.nx, 1))
+# Yav[:,0] = model.y0
+# Uav = np.zeros((model.nu, 1))
+# Uav[:,0] = np.array([1.5, 1.5e-3])
+# for aiter in range(69):
+# 	# this is really valid near equilibrium
+# 	dydsigma = model.dydt(Yav[:,-1], Uav[:,-1], avg=True)
+# 	tmode = 0.001#Uav[1,-1]
+# 	ynew = Yav[:,-1] + dydsigma * tmode
+# 	Yav = np.hstack((Yav, ynew[:,np.newaxis]))
+# 	Uav = np.hstack((Uav, np.array([1.5,1.5e-3])[:,np.newaxis]))
 
 # print(sols[1])
 
@@ -117,7 +117,8 @@ ax[2].set_ylabel('phi')
 
 ax[3].set_aspect(1)
 ax[3].plot(r1['y'][0,:], r1['y'][1,:], '.-', label='nl')
-ax[3].plot(Yav[0,:], Yav[1,:], '.-', label='av')
+ax[3].plot(r2['y'][0,:], r2['y'][1,:], '.-', label='nl')
+# ax[3].plot(Yav[0,:], Yav[1,:], '.-', label='av')
 ax[3].grid(True)
 ax[3].legend()
 
@@ -132,8 +133,9 @@ ax[-1].set_xlabel('t')
 
 fig, ax = plt.subplots()
 snapshotsPlot(ax, r1, 'b')
-print(Yav.shape, Uav.shape)
-FlappingModels.visualizeTraj(ax, {'t': range(69), 'q':Yav.T, 'u':Uav.T}, model, col='r')
+snapshotsPlot(ax, r2, 'r')
+# print(Yav.shape, Uav.shape)
+# FlappingModels.visualizeTraj(ax, {'t': range(69), 'q':Yav.T, 'u':Uav.T}, model, col='r')
 
 plt.show()
 
