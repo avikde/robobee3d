@@ -160,7 +160,9 @@ class PlanarStrokeSpeed:
 	y0 = np.array([0,0,0,0,0,0,0])
 
 	# TODO:
-	kat = 1e-3
+	eps = 1e-2
+	ka = 1e-3
+	kat = ka/eps**2
 	omegat = 1
 	rescale = False
 
@@ -216,9 +218,9 @@ class PlanarStrokeSpeed:
 			ddxzphi = fav[1:]
 			return np.hstack((dxzphi, ddxzphi, dv / self.omegat))
 		else:
-			ddxzphi = np.array([-dv**2 * self.kat * self.omegat * (cphi * sdv + sphi) / self.mb, 
-			-self.g / self.omegat + dv**2 * self.kat * self.omegat * (cphi - sphi * sdv) / self.mb,
-			dv**2 * self.kat * self.omegat * (v - self.d * sdv) / self.ib])
+			ddxzphi = np.array([-dv**2 * self.ka * (cphi * sdv + sphi) / self.mb, 
+			-self.g + dv**2 * self.ka * (cphi - sphi * sdv) / self.mb,
+			dv**2 * self.ka * (v - self.d * sdv) / self.ib])
 			# return np.hstack((y1dot, y2dot))
 
 			return np.hstack((y[3:6], ddxzphi, dv))
