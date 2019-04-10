@@ -158,13 +158,18 @@ class PlanarStrokeSpeed:
 	nx = 7
 	nu = 2
 	y0 = np.array([0,0,0,0,0,0,0])
+	
+	rescale = False
 
-	# TODO:
+	# Parameter values
 	eps = 1e-2
 	ka = 1e-3
+	
+	# TODO:
+	omega = 100
+	# Relate params by eps
 	kat = ka/eps**2
-	omegat = 1
-	rescale = False
+	omegat = omega * eps
 
 	def getLinearDynamics(self, y, u):
 		'''Returns Ad, Bd[, fd]
@@ -206,16 +211,19 @@ class PlanarStrokeSpeed:
 			u12 = u1**2
 			g = self.g
 			d = self.d
+			w1 = u[0] / self.omega
+			w12 = w1**2
 
-			# from mathematica. for y = (phi,dx,dz,dphi)
-			fav = np.array([dphi/omegat,(kat*omegat*psi0*(cphi*(1 - 2*psi0) + sphi)*u12)/(mb*(-1 + psi0)),
-			-(g/omegat) + (kat*omegat*psi0*(-cphi + (1 - 2*psi0)*sphi)*u12)/(mb*(-1 + psi0)),
-			-(kat*omegat*(2*(1 + (-1 + psi0)*psi0)*sigma0 + psi0*(d*(-2 + 4*psi0) + u1 + (-1 + psi0)*psi0*u1))*u12)/(2.*ib*(-1 + psi0))
+			# from mathematica. for (dx,dz,dphi)
+			fav = np.array([
+				-((kat*omegat*(cphi*(1 - 2*psi0) + (1 - 2*psi0 + 2*psi0**2)*sphi)*w12)/(mb*(-1 + psi0)**2)),
+				-(g/omegat) + (cphi*kat*omegat*(1 + psi0**2/(-1 + psi0)**2)* w12)/mb + (kat*omegat*(-1 + 2*psi0)*sphi*w12)/(mb*(-1 + psi0)**2),
+				(kat*omegat*(d*(-2 + 4*psi0) + (1 - 2*psi0 + 2*(psi0)**2)*(2*sigma0 + psi0*w1))*w12)/(2.*ib*(-1 + psi0)**2)
 			])
 			
 			# return 
 			dxzphi = y[3:6]/self.omegat
-			ddxzphi = fav[1:]
+			ddxzphi = fav
 			return np.hstack((dxzphi, ddxzphi, dv / self.omegat))
 		else:
 			ddxzphi = np.array([-dv**2 * self.ka * (cphi * sdv + sphi) / self.mb, 
