@@ -114,6 +114,9 @@ prob = osqp.OSQP()
 # Setup workspace
 prob.setup(P, q, A, l, u, warm_start=True)
 
+# TEST codegen
+prob.codegen('code', '', parameters='vectors', python_ext_name='emosqp')
+
 # Simulate in closed loop
 nsim = 15
 X = np.zeros((nsim, x0.shape[0]))
