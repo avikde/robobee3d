@@ -188,18 +188,27 @@ class PlanarStrokeSpeed:
 		cphi = np.cos(phi)
 		sphi = np.sin(phi)
 
+		#
+
 		if avg:
 			dphi = y[5]
 			u1 = u[0]
 			psi0 = u[1]  # reversal point
 			sigma0 = y[-1]  #initial stroke
 
+			# 
+			mb = self.mb
+			ib = self.ib
+			kat = self.kat
+			omegat = self.omegat
+			u12 = u1**2
+			g = self.g
+			d = self.d
+
 			# from mathematica. for y = (phi,dx,dz,dphi)
-			# FIXME: I reversed the sign of dv in the orig dynamics below and they need to be updated in this. 
-			fav = np.array([dphi/self.omegat, 
-			-self.kat * u1**2 * psi0 * self.omegat * ((-1+2*psi0) * cphi + sphi) / (self.mb * (-1. + psi0)),
-			-self.g / self.omegat + self.kat * u1**2 * psi0 * self.omegat * (-cphi + (-1+2*psi0) * sphi) / (self.mb * (-1. + psi0)),
-			-(self.kat * u1**2 * (2 * sigma0 * (1 + (-1+psi0)*psi0) + psi0*(u1 + self.d*(2-4*psi0) + u1*(-1+psi0)*psi0)) * self.omegat)/(2*self.ib*(-1+psi0))
+			fav = np.array([dphi/omegat,(kat*omegat*psi0*(cphi*(1 - 2*psi0) + sphi)*u12)/(mb*(-1 + psi0)),
+			-(g/omegat) + (kat*omegat*psi0*(-cphi + (1 - 2*psi0)*sphi)*u12)/(mb*(-1 + psi0)),
+			-(kat*omegat*(2*(1 + (-1 + psi0)*psi0)*sigma0 + psi0*(d*(-2 + 4*psi0) + u1 + (-1 + psi0)*psi0*u1))*u12)/(2.*ib*(-1 + psi0))
 			])
 			
 			# return 
