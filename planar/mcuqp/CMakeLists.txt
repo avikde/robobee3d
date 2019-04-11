@@ -52,6 +52,35 @@ set(
 )
 
 # add_subdirectory(${EMOSQP_DIR} emosqp)
+
+# Is the code generated for embedded platforms?
+#   1 :   Yes. Matrix update not allowed.
+#   2 :   Yes. Matrix update allowed.
+
+if (NOT DEFINED EMBEDDED)  # enable embedded anyway
+    set (EMBEDDED 2)
+endif()
+
+message(STATUS "Embedded is ${EMBEDDED}")
+message(STATUS "Passing EMBEDDED flag to compiler")
+
+# Is printing enabled?
+option (PRINTING "Enable solver printing" ON)
+if (DEFINED EMBEDDED)
+    message(STATUS "Disabling printing for embedded")
+    set(PRINTING OFF)
+endif()
+message(STATUS "Printing is ${PRINTING}")
+
+
+# Is profiling enabled?
+option (PROFILING "Enable solver profiling (timing)" ON)
+if (DEFINED EMBEDDED)
+    message(STATUS "Disabling profiling for embedded")
+    set(PROFILING OFF)
+endif()
+message(STATUS "Profiling is ${PROFILING}")
+
 # Use floats instead of integers
 option (DFLOAT "Use float numbers instead of doubles" OFF)
 message(STATUS "Floats are ${DFLOAT}")
@@ -77,16 +106,40 @@ if(DLONG)
 else()
 	set(QDLDL_INT_TYPE "int")
 endif()
+set(QDLDL_BOOL_TYPE "int")
+
+configure_file(${EMOSQP_DIR}/configure/qdldl_types.h.in
+               ${EMOSQP_DIR}/include/qdldl_types.h
+							 NEWLINE_STYLE LF)
+							 
+
+if (NOT(EMBEDDED EQUAL 1))
+	set (osqp_src ${osqp_src} ${EMOSQP_DIR}/src/osqp/kkt.c)
+	set (osqp_headers ${osqp_headers} ${EMOSQP_DIR}/include/kkt.h)
+endif()
+
 # ----
 
 # Compile flags
-set(BFLAGS "-mcpu=cortex-m4 -mthumb -mlittle-endian -mfloat-abi=hard -mfpu=fpv4-sp-d16 -O1 -fmessage-length=0 -ffunction-sections -fdata-sections -ffreestanding -fsingle-precision-constant -Wall -Wextra -DARM_MATH_CM4 -D__FPU_PRESENT -Wl,--no-wchar-size-warning")
+set(BFLAGS "-mcpu=cortex-m4 -mthumb -mlittle-endian -mfloat-abi=hard -mfpu=fpv4-sp-d16 -fmessage-length=0 -ffunction-sections -fdata-sections -ffreestanding -fsingle-precision-constant -Wall -Wextra -DARM_MATH_CM4 -D__FPU_PRESENT -Wl,--no-wchar-size-warning")
 add_definitions(${BFLAGS} -DUSE_STDPERIPH_DRIVER -DHSE_VALUE=8000000 -DKODUINO_ISRS_INLINE -DUSING_RTOS -MMD -MP)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fabi-version=0 -fno-exceptions -fno-rtti -fno-use-cxa-atexit -fno-threadsafe-statics")
 
+# from osqp
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -g")
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)  # -fPIC
+
 set(CMAKE_EXE_LINKER_FLAGS "${BFLAGS} -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -ffreestanding -fno-move-loop-invariants -Wall -Wextra -nostartfiles -Xlinker --gc-sections --specs=nano.specs -u _printf_float")
 
+
+# Generate header file with the global options
+# ---------------------------------------------
+configure_file(${EMOSQP_DIR}/configure/osqp_configure.h.in
+               ${EMOSQP_DIR}/include/osqp_configure.h
+							 NEWLINE_STYLE LF)
+							 
 # Include from Koduino directories
 set(KODUINO_DIR ${SRC_DIR}/koduino/stm32)
 include_directories(

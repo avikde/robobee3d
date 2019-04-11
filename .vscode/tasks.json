@@ -41,7 +41,7 @@
 			"options": {
 				"cwd": "${workspaceFolder}/planar/mcuqp/build"
 			},
-			"command": "cmake .. -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Debug && make -j4",
+			"command": "cmake .. -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Debug -DPRINTING=OFF -DPROFILING=OFF -DDFLOAT=ON -DDLONG=OFF && make -j4",
 			"presentation": {
 				"echo": true,
 				"reveal": "always",

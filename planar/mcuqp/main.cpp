@@ -5,7 +5,11 @@
 #include <Arduino.h>
 #include <variant.h>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnarrowing"
 #include "workspace.h"
+#pragma GCC diagnostic pop
+
 #include "osqp.h"
 
 const uint8_t LEDB = PD8, LEDG = PD10, LEDR = PD15;

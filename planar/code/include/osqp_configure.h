@@ -11,7 +11,7 @@ extern "C" {
 /* #undef IS_WINDOWS */
 
 /* EMBEDDED */
-#define EMBEDDED (1)
+#define EMBEDDED (2)
 
 /* PRINTING */
 /* #undef PRINTING */
@@ -23,7 +23,7 @@ extern "C" {
 /* #undef CTRLC */
 
 /* DFLOAT */
-/* #undef DFLOAT */
+#define DFLOAT
 
 /* DLONG */
 /* #undef DLONG */

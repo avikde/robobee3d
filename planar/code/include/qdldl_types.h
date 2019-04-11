@@ -8,7 +8,7 @@ extern "C" {
 // QDLDL integer and float types
 
 typedef int    QDLDL_int;   /* for indices */
-typedef double  QDLDL_float; /* for numerical values  */
+typedef float  QDLDL_float; /* for numerical values  */
 typedef int   QDLDL_bool;  /* for boolean values  */
 
 # ifdef __cplusplus
