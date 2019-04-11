@@ -58,7 +58,7 @@ set(
 #   2 :   Yes. Matrix update allowed.
 
 if (NOT DEFINED EMBEDDED)  # enable embedded anyway
-    set (EMBEDDED 2)
+    set (EMBEDDED 1)
 endif()
 
 message(STATUS "Embedded is ${EMBEDDED}")
@@ -121,15 +121,15 @@ endif()
 # ----
 
 # Compile flags
-set(BFLAGS "-mcpu=cortex-m4 -mthumb -mlittle-endian -mfloat-abi=hard -mfpu=fpv4-sp-d16 -fmessage-length=0 -ffunction-sections -fdata-sections -ffreestanding -fsingle-precision-constant -Wall -Wextra -DARM_MATH_CM4 -D__FPU_PRESENT -Wl,--no-wchar-size-warning")
+set(BFLAGS "-mcpu=cortex-m4 -mthumb -mlittle-endian -mfloat-abi=hard -O1 -mfpu=fpv4-sp-d16 -fmessage-length=0 -ffunction-sections -fdata-sections -ffreestanding -fsingle-precision-constant -Wall -Wextra -DARM_MATH_CM4 -D__FPU_PRESENT -Wl,--no-wchar-size-warning")
 add_definitions(${BFLAGS} -DUSE_STDPERIPH_DRIVER -DHSE_VALUE=8000000 -DKODUINO_ISRS_INLINE -DUSING_RTOS -MMD -MP)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fabi-version=0 -fno-exceptions -fno-rtti -fno-use-cxa-atexit -fno-threadsafe-statics")
 
 # from osqp
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -g")
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)  # -fPIC
+# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+# set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -g")
+# set(CMAKE_POSITION_INDEPENDENT_CODE ON)  # -fPIC
 
 set(CMAKE_EXE_LINKER_FLAGS "${BFLAGS} -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -ffreestanding -fno-move-loop-invariants -Wall -Wextra -nostartfiles -Xlinker --gc-sections --specs=nano.specs -u _printf_float")
 
