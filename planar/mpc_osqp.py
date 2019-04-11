@@ -77,7 +77,7 @@ x0 = np.zeros(12)
 xr = np.array([1.,1., 1.,0.,0.,0.,0.,0.,0.,0.,0.,0.])
 
 # Prediction horizon
-N = 10
+N = 5
 
 # Cast MPC problem to a QP: x = (x(0),x(1),...,x(N),u(0),...,u(N-1))
 # - quadratic objective
@@ -112,7 +112,10 @@ prob = osqp.OSQP()
 
 # sys.exit(0)
 # Setup workspace
-prob.setup(P, q, A, l, u, warm_start=True)
+prob.setup(P, q, A, l, u, warm_start=True, eps_rel=1e-2, eps_abs=1e-2)
+
+# TEST codegen
+# prob.codegen('code', '', parameters='vectors', python_ext_name='emosqp')
 
 # Simulate in closed loop
 nsim = 15

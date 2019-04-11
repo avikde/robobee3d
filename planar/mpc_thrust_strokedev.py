@@ -11,7 +11,7 @@ import matplotlib.animation as animation
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
 # Select here
-paramstr = 'sideperch'
+paramstr = 'hover'
 y0 = np.zeros(6)
 
 # Experiment params
@@ -53,7 +53,7 @@ CTRL_LIN_HORIZON = 1
 CTRL_OPEN_LOOP = 2
 CTRL_LQR = 3
 
-saveMovie = 2  #1 shows movie, 2 saves, 3 plots arrow
+saveMovie = 0  #1 shows movie, 2 saves, 3 plots arrow
 model = FlappingModels.PlanarThrustStrokeDev(rescale=True)
 results = []  # List of sim results: is populated by runSim  below
 
@@ -190,6 +190,9 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 		# print(x0horizon)
 		X[i, :] = x0
 		U[i, :] = ctrl
+
+	# Test codegen
+	# ltvmpc.prob.codegen('code', project_type='', parameters='matrices')
 
 	results.append({'t':tvec, 'desTraj':desTraj, 'X':X, 'U':U, 'label':label})
 
