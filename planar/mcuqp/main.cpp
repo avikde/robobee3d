@@ -122,12 +122,13 @@ int main(int argc, char **argv)
 	// printf("Dual residual:         %.4e\n", (&workspace)->info->dua_res);
 
 	pinMode(LEDB, OUTPUT);
+	volatile int test = 0;
 
 	while (1)
 	{
 		delay(1000);
 		digitalWrite(LEDB, TOGGLE);
-
+		test++;
 	}
 	return 0;
 }
