@@ -111,24 +111,28 @@ int main(int argc, char **argv)
 	// External interrupts
 	interrupts();
 
-	// // Solve Problem
-	// osqp_solve(&workspace);
-
-	// // Print status
-	// printf("Status:                %s\n", (&workspace)->info->status);
-	// printf("Number of iterations:  %d\n", (int)((&workspace)->info->iter));
-	// printf("Objective value:       %.4e\n", (&workspace)->info->obj_val);
-	// printf("Primal residual:       %.4e\n", (&workspace)->info->pri_res);
-	// printf("Dual residual:         %.4e\n", (&workspace)->info->dua_res);
 
 	pinMode(LEDB, OUTPUT);
 	volatile int test = 0;
+	volatile uint32_t tic = 0, toc = 0;
 
 	while (1)
 	{
-		delay(1000);
+		delay(100);
 		digitalWrite(LEDB, TOGGLE);
 		test++;
+
+		tic = micros();
+		// Solve Problem
+		osqp_solve(&workspace);
+
+		// Print status
+		volatile char *status = (&workspace)->info->status;
+		volatile int niter = (int)(&workspace)->info->iter;
+		volatile float obj_val = (&workspace)->info->obj_val;
+		volatile float pri_res = (&workspace)->info->pri_res;
+		volatile float dua_res = (&workspace)->info->dua_res;
+		toc = micros() - tic;
 	}
 	return 0;
 }
