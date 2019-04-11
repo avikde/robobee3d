@@ -1,0 +1,7 @@
+
+code/build/**
+code/CMakeLists.txt
+code/src/build/**
+code/src/*.c
+code/src/*.py
+code/src/*.pyd
