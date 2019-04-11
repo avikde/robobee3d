@@ -172,8 +172,8 @@ firmware_size(main.elf)
 if (CMAKE_BUILD_TYPE MATCHES "Release")
 	generate_object(main.elf .bin binary)
 	
-	# # Using ST-link
-	# add_custom_command(TARGET main.elf POST_BUILD COMMAND "C:/Program Files (x86)/STMicroelectronics/STM32 ST-LINK Utility/ST-LINK Utility/ST-LINK_CLI.exe" -ME -P main.elf.bin 0x08000000 -Rst)
+	# Using ST-link
+	add_custom_command(TARGET main.elf POST_BUILD COMMAND "C:/Program Files (x86)/STMicroelectronics/STM32 ST-LINK Utility/ST-LINK Utility/ST-LINK_CLI.exe" -ME -P main.elf.bin 0x08000000 -Rst)
 
 	# Using dfu
 	# 1. Download dfu-util and add to path

@@ -8,6 +8,7 @@
 #include "workspace.h"
 #include "osqp.h"
 
+const uint8_t LEDB = PD8, LEDG = PD10, LEDR = PD15;
 
 // libc_init_array
 extern void (*__preinit_array_start[])(void) WEAK;
@@ -25,7 +26,7 @@ extern "C" int _write(int file, char *data, int len)
 	case STDIN_FILENO:
 	case STDOUT_FILENO:
 	case STDERR_FILENO:
-		// return Serial1.write((const uint8_t *)data, len);
+		return Serial1.write((const uint8_t *)data, len);
 		// TODO figure out how to use this for log file writing (user params) / open / close etc.
 	default:
 		return -1;
@@ -45,16 +46,16 @@ extern "C" int _read(int file, char *ptr, int len)
 	case STDIN_FILENO:
 	case STDOUT_FILENO:
 	case STDERR_FILENO:
-		// avail = Serial1.available();
-		// // must fit in output buffer
-		// if (avail > len)
-		// 	avail = len;
-		// // Note this is a primitive Arduino-style read. This could be replaced with readLatestDMA
-		// for (int i = 0; i < avail; ++i)
-		// {
-		// 	ptr[i] = (char)Serial1.read();
-		// }
-		// return avail;
+		avail = Serial1.available();
+		// must fit in output buffer
+		if (avail > len)
+			avail = len;
+		// Note this is a primitive Arduino-style read. This could be replaced with readLatestDMA
+		for (int i = 0; i < avail; ++i)
+		{
+			ptr[i] = (char)Serial1.read();
+		}
+		return avail;
 	default:
 		return -1;
 	}
@@ -110,18 +111,22 @@ int main(int argc, char **argv)
 	// External interrupts
 	interrupts();
 
-	// Solve Problem
-	osqp_solve(&workspace);
+	// // Solve Problem
+	// osqp_solve(&workspace);
 
-	// Print status
-	printf("Status:                %s\n", (&workspace)->info->status);
-	printf("Number of iterations:  %d\n", (int)((&workspace)->info->iter));
-	printf("Objective value:       %.4e\n", (&workspace)->info->obj_val);
-	printf("Primal residual:       %.4e\n", (&workspace)->info->pri_res);
-	printf("Dual residual:         %.4e\n", (&workspace)->info->dua_res);
+	// // Print status
+	// printf("Status:                %s\n", (&workspace)->info->status);
+	// printf("Number of iterations:  %d\n", (int)((&workspace)->info->iter));
+	// printf("Objective value:       %.4e\n", (&workspace)->info->obj_val);
+	// printf("Primal residual:       %.4e\n", (&workspace)->info->pri_res);
+	// printf("Dual residual:         %.4e\n", (&workspace)->info->dua_res);
+
+	pinMode(LEDB, OUTPUT);
 
 	while (1)
 	{
+		delay(1000);
+		digitalWrite(LEDB, TOGGLE);
 
 	}
 	return 0;
