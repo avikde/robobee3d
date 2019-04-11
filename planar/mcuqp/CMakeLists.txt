@@ -17,7 +17,67 @@ set(default_build_type "Release")
 set(CMAKE_C_FLAGS "-std=c99")
 
 # options
+set(EMOSQP_DIR ${CMAKE_SOURCE_DIR}/../code)
 
+# Set sources
+# ----------------------------------------------
+set(
+    osqp_src
+    ${EMOSQP_DIR}/src/osqp/auxil.c
+    ${EMOSQP_DIR}/src/osqp/lin_alg.c
+    ${EMOSQP_DIR}/src/osqp/osqp.c
+    ${EMOSQP_DIR}/src/osqp/proj.c
+    ${EMOSQP_DIR}/src/osqp/qdldl.c
+    ${EMOSQP_DIR}/src/osqp/qdldl_interface.c
+    ${EMOSQP_DIR}/src/osqp/scaling.c
+    ${EMOSQP_DIR}/src/osqp/util.c
+)
+
+set(
+    osqp_headers
+    ${EMOSQP_DIR}/include/auxil.h
+    ${EMOSQP_DIR}/include/constants.h
+    ${EMOSQP_DIR}/include/glob_opts.h
+    ${EMOSQP_DIR}/include/osqp_configure.h
+    ${EMOSQP_DIR}/include/lin_alg.h
+    ${EMOSQP_DIR}/include/osqp.h
+    ${EMOSQP_DIR}/include/proj.h
+    ${EMOSQP_DIR}/include/qdldl.h
+    ${EMOSQP_DIR}/include/qdldl_interface.h
+    ${EMOSQP_DIR}/include/qdldl_types.h
+    ${EMOSQP_DIR}/include/scaling.h
+    ${EMOSQP_DIR}/include/types.h
+    ${EMOSQP_DIR}/include/util.h
+    ${EMOSQP_DIR}/include/workspace.h
+)
+
+# add_subdirectory(${EMOSQP_DIR} emosqp)
+# Use floats instead of integers
+option (DFLOAT "Use float numbers instead of doubles" OFF)
+message(STATUS "Floats are ${DFLOAT}")
+
+# Use long integers for indexing
+option (DLONG "Use long integers (64bit) for indexing" ON)
+if (NOT (CMAKE_SIZEOF_VOID_P EQUAL 8))
+	message(STATUS "Disabling long integers (64bit) on 32bit machine")
+	set(DLONG OFF)
+endif()
+message(STATUS "Long integers (64bit) are ${DLONG}")
+
+# Types for QDLDL
+# ----------------------------------------------
+if(DFLOAT)
+  set(QDLDL_FLOAT_TYPE "float")
+else()
+	set(QDLDL_FLOAT_TYPE "double")
+endif()
+
+if(DLONG)
+  set(QDLDL_INT_TYPE "long long")
+else()
+	set(QDLDL_INT_TYPE "int")
+endif()
+# ----
 
 # Compile flags
 set(BFLAGS "-mcpu=cortex-m4 -mthumb -mlittle-endian -mfloat-abi=hard -mfpu=fpv4-sp-d16 -O1 -fmessage-length=0 -ffunction-sections -fdata-sections -ffreestanding -fsingle-precision-constant -Wall -Wextra -DARM_MATH_CM4 -D__FPU_PRESENT -Wl,--no-wchar-size-warning")
@@ -28,10 +88,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fabi-version=0 -fno-exceptions -fno-rtt
 set(CMAKE_EXE_LINKER_FLAGS "${BFLAGS} -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -ffreestanding -fno-move-loop-invariants -Wall -Wextra -nostartfiles -Xlinker --gc-sections --specs=nano.specs -u _printf_float")
 
 # Include from Koduino directories
-set(KODUINO_DIR ${SDK_DIR}/src/koduino/stm32)
+set(KODUINO_DIR ${SRC_DIR}/koduino/stm32)
 include_directories(
-	${SDK_DIR}/src
-	${SDK_DIR}/inc
  	${KODUINO_DIR}/cores/arduino 
 	${KODUINO_DIR}/system/CMSIS/Include 
  	${KODUINO_DIR}/system/trace
@@ -80,6 +138,9 @@ file(GLOB SRC_PROJECT
 "${CMAKE_SOURCE_DIR}/*.c" "${CMAKE_SOURCE_DIR}/*.cpp"
 )
 
+# 
+include_directories(${EMOSQP_DIR}/include)
+
 # Set MCU definitions
 add_definitions(-DSERIES_${MCU_SERIES} -DCLKSRC_${CLKSRC} -D${MCU_PART} -DHSE_VALUE=8000000 -DNO_SDK)
 
@@ -103,7 +164,7 @@ link_libraries(arm_cortexM4lf_math)
 # Set linker flags
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -T ${LINKER_SCRIPT}")
 
-add_executable(main.elf ${SRC_PROJECT} ${SRC_KODUINO} ${SRC_STDPERIPH} ${MCU_STARTUP})
+add_executable(main.elf ${SRC_PROJECT} ${SRC_KODUINO} ${SRC_STDPERIPH} ${MCU_STARTUP} ${osqp_src})
 
 include(${SRC_DIR}/utils.cmake)
 firmware_size(main.elf)
