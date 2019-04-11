@@ -11,7 +11,7 @@ extern "C" {
 /* #undef IS_WINDOWS */
 
 /* EMBEDDED */
-#define EMBEDDED (2)
+#define EMBEDDED (1)
 
 /* PRINTING */
 /* #undef PRINTING */
