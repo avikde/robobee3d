@@ -115,24 +115,27 @@ int main(int argc, char **argv)
 	pinMode(LEDB, OUTPUT);
 	volatile int test = 0;
 	volatile uint32_t tic = 0, toc = 0;
+	volatile char status[32];
+	volatile float avgToc = 0;
 
 	while (1)
 	{
-		delay(100);
+		delay(10);
 		digitalWrite(LEDB, TOGGLE);
 		test++;
 
 		tic = micros();
 		// Solve Problem
 		osqp_solve(&workspace);
+		toc = micros() - tic;
+		avgToc = 0.9 * avgToc + 0.1 * toc;
 
 		// Print status
-		volatile char *status = (&workspace)->info->status;
+		memcpy((void *)status, (&workspace)->info->status, 32);
 		volatile int niter = (int)(&workspace)->info->iter;
 		volatile float obj_val = (&workspace)->info->obj_val;
 		volatile float pri_res = (&workspace)->info->pri_res;
 		volatile float dua_res = (&workspace)->info->dua_res;
-		toc = micros() - tic;
 	}
 	return 0;
 }
