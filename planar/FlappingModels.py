@@ -200,9 +200,9 @@ class PlanarStrokeSpeed:
 		if avg:
 			dphi = y[5]
 			u1 = u[0]
-			psi0 = u[1]  # reversal point
 			# FIXME: this needs to be sampled at the section
 			sigma0 = self.sigma0  #initial stroke
+			psi0 = 0.42  # reversal point
 
 			# 
 			mb = self.mb
@@ -221,10 +221,6 @@ class PlanarStrokeSpeed:
 				-(g/omegat) + (cphi*kat*omegat*(1 + psi0**2/(-1 + psi0)**2)* w12)/mb + (kat*omegat*(-1 + 2*psi0)*sphi*w12)/(mb*(-1 + psi0)**2),
 				(kat*omegat*(d*(-2 + 4*psi0) + (1 - 2*psi0 + 2*(psi0)**2)*(2*sigma0 + psi0*w1))*w12)/(2.*ib*(-1 + psi0)**2)
 			])
-
-			fav[0] *= 1e-1
-			fav[1] *= 1.5
-			# fav[2] *= 1e-1
 			
 			# return 
 			dxzphi = y[3:6]
