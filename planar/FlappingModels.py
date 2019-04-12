@@ -201,7 +201,8 @@ class PlanarStrokeSpeed:
 			dphi = y[5]
 			u1 = u[0]
 			psi0 = u[1]  # reversal point
-			sigma0 = y[-1]  #initial stroke
+			# FIXME: this needs to be sampled at the section
+			sigma0 = self.sigma0  #initial stroke
 
 			# 
 			mb = self.mb
@@ -223,7 +224,7 @@ class PlanarStrokeSpeed:
 
 			fav[0] *= 1e-1
 			fav[1] *= 1.5
-			fav[2] *= 1e-1
+			# fav[2] *= 1e-1
 			
 			# return 
 			dxzphi = y[3:6]

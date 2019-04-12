@@ -41,6 +41,8 @@ def nonLinSim(y0, u0, tf, strokeExtents=[-1.5e-3,1.5e-3], avg=False):
 	tev = np.zeros(0)
 	yev = np.zeros((0,model.nx))
 	uev = np.zeros((0,model.nu))
+	if avg:
+		model.sigma0 = y0[-1]
 
 	while True:
 		# print(y0)
@@ -55,6 +57,8 @@ def nonLinSim(y0, u0, tf, strokeExtents=[-1.5e-3,1.5e-3], avg=False):
 			# restart
 			t0 = sol.t_events[0][0]
 			y0 = sol.sol(t0)
+			if avg:
+				model.sigma0 = y0[-1]
 			# strokeReset()
 			strokeEvent.direction = -strokeEvent.direction
 			if strokeEvent.direction > 0:
