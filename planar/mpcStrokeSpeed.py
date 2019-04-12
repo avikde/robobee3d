@@ -83,7 +83,7 @@ u0 = np.array([1.5,0.0])
 # Run some sims
 r1 = nonLinSim([0.02,0,0.3,0,0,0,0], u0, tf, strokeExtents=[-2e-3,1.5e-3])
 print('Number of strokes =',len(r1['t']))
-r2 = nonLinSim([0.0,0,0.3,0,0,0,0], u0, tf, strokeExtents=[-2e-3,1.5e-3], avg=True)
+r2 = nonLinSim([0.0,0,0.3,0,0,0,0], u0, tf, strokeExtents=[-1.5e-3,2e-3], avg=True)
 
 # u0[0] = 2
 # r3 = nonLinSim([-0.02,0,0,0,0,0,0], u0, tf, strokeExtents=[-1.5e-3,2e-3])
@@ -105,19 +105,24 @@ r2 = nonLinSim([0.0,0,0.3,0,0,0,0], u0, tf, strokeExtents=[-2e-3,1.5e-3], avg=Tr
 # print(sols[1])
 
 fig, ax = plt.subplots(4)
-ax[0].plot(r1['t'], r1['y'][-1,:])
+ax[0].plot(r1['t'], r1['y'][-1,:], label='nl')
+ax[0].plot(r2['t'], r2['y'][-1,:], label='avg')
 ax[0].set_ylabel('sigma')
+ax[0].legend()
+ax[0].grid(True)
 
 ax[1].plot(r1['t'], r1['y'][0,:])
 ax[1].plot(r1['t'], r1['y'][1,:])
 ax[1].set_ylabel('xz')
 
-ax[2].plot(r1['t'], r1['y'][2,:])
+ax[2].plot(r1['t'], r1['y'][2,:], label='nl')
+ax[2].plot(r2['t'], r2['y'][2,:], label='avg')
 ax[2].set_ylabel('phi')
+ax[0].legend()
 
 ax[3].set_aspect(1)
 ax[3].plot(r1['y'][0,:], r1['y'][1,:], '.-', label='nl')
-ax[3].plot(r2['y'][0,:], r2['y'][1,:], '.-', label='nl')
+ax[3].plot(r2['y'][0,:], r2['y'][1,:], '.-', label='avg')
 # ax[3].plot(Yav[0,:], Yav[1,:], '.-', label='av')
 ax[3].grid(True)
 ax[3].legend()
