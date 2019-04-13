@@ -200,9 +200,10 @@ class PlanarStrokeSpeed:
 		if avg:
 			dphi = y[5]
 			u1 = u[0]
-			# FIXME: this needs to be sampled at the section
 			sigma0 = self.sigma0  #initial stroke
-			psi0 = 0.42  # reversal point
+			# FIXME: this needs to be sampled at the section
+			psi0 = 0.42 # (u[1] - sigma0)/u[0]  # reversal point in phase
+			# print(psi0)
 
 			# 
 			mb = self.mb

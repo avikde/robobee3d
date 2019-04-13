@@ -43,6 +43,7 @@ def nonLinSim(y0, u0, tf, strokeExtents=[-1.5e-3,1.5e-3], avg=False):
 	uev = np.zeros((0,model.nu))
 	if avg:
 		model.sigma0 = y0[-1]
+		model.strokeExtents = strokeExtents
 
 	while True:
 		# print(y0)
@@ -87,7 +88,7 @@ u0 = np.array([1.5,0.0])
 # Run some sims
 r1 = nonLinSim([0.02,0,0.3,0,0,0,0], u0, tf, strokeExtents=[-2e-3,1.5e-3])
 print('Number of strokes =',len(r1['t']))
-r2 = nonLinSim([0.0,0,0.3,0,0,0,0], u0, tf, strokeExtents=[-1.5e-3,2e-3], avg=True)
+r2 = nonLinSim([0.0,0,0.3,0,0,0,0], u0, tf, strokeExtents=[-2e-3,1.5e-3], avg=True)
 
 # u0[0] = 2
 # r3 = nonLinSim([-0.02,0,0,0,0,0,0], u0, tf, strokeExtents=[-1.5e-3,2e-3])
