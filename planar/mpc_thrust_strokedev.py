@@ -168,7 +168,12 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 				ltvmpc.updateWeights(wx=np.array(pwx[weightsIdx])/dt)
 			# elif exp == EXP_SIDEPERCH and tgoal > sidePerchParams['period'] + sidePerchParams['periodO']:
 			# 	ltvmpc.updateWeights(wx=np.array(sidePerchParams['wx'][0])/dt)
-			ctrl = ltvmpc.update(x0, xr, costMode=mpc.FINAL)
+			try:
+				ctrl = ltvmpc.update(x0, xr, costMode=mpc.FINAL)
+			except ValueError:
+				# solve failed: stop
+				nsim = i+1
+				break
 		elif ctrlType == CTRL_LIN_HORIZON:
 			# traj to linearize around
 			# x0horizon = np.zeros((N,model.nx))
