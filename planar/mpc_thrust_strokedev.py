@@ -191,7 +191,7 @@ def runSim(params, label='', ctrlType=CTRL_LQR, x0=None, u0=None):
 			ydot = model.dydt(x0, ctrl)
 			x0 += ydot * SIM_DT  # euler integration
 		# x0 = model.dynamics(x0, ctrl)
-		print(i, x0, ctrl)
+		print(i, str(int(ltvmpc.tqpsolve * 1e3)) + 'ms', ltvmpc.niter, x0, ctrl)
 		# print(x0horizon)
 		X[i, :] = x0
 		U[i, :] = ctrl
