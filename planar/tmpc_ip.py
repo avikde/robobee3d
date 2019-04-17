@@ -39,7 +39,8 @@ R = np.eye(1)
 K, X = lqr.lqr(Aup, B, Q, R)
 
 # Simulation
-sol = solve_ivp(lambda t, y: pendulum(y, -K @ y), [0, 10], np.array([np.pi + 0.1,0.0]), dense_output=True)
+y0 = np.array([2,0.0]) 
+sol = solve_ivp(lambda t, y: pendulum(y, K @ (yup - y)), [0, 10], y0, dense_output=True)
 t, y = sol.t, sol.y
 
 # Display -------------------
