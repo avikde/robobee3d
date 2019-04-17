@@ -45,20 +45,20 @@ sol = solve_ivp(lambda t, y: pendulum(y, K @ (yup - y)), [0, 10], y0, dense_outp
 t, y = sol.t, sol.y
 
 # visualize value function
-def f(x1,x2):
+def lqrValueFunc(x1,x2):
     # quadratic
-    val = P[0,0] * x1**2 + P[1,1] * x2**2 + (P[0,1] + P[1,0]) * x1*x2
+    val = P[0,0] * (x1 - yup[0])**2 + P[1,1] * x2**2 + (P[0,1] + P[1,0]) * (x1 - yup[0])*x2
     return val
 
-xx, yy = np.meshgrid(np.linspace(-np.pi, np.pi, 30), np.linspace(-10, 10, 30))
-zz = f(xx, yy)
+xx, yy = np.meshgrid(np.linspace(0, 2*np.pi, 30), np.linspace(-10, 10, 30))
 
 # Display -------------------
 
 fig, ax = plt.subplots(2)
 
 ax[0].plot(t, y[0,:])
-ax[1].contourf(xx, yy, zz, cmap='gray')
+ax[1].contourf(xx, yy, lqrValueFunc(xx, yy), cmap='gray_r')
+ax[1].plot(yup[0], yup[1], 'r*')
 
 # # plot
 # fig = plt.figure()
