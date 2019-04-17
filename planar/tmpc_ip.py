@@ -27,6 +27,22 @@ def pendulum(y, u):
     # y = (theta, dtheta)
     return np.array([y[1], -g * np.sin(y[0]) / l - kd * y[1] + u])
 
+def doublePendulum(y, u):
+    # from mathematica
+    y2dot = np.array([(g*l1*l2*m1*s1 + g*l1*l2*m2*s1 - c2*g*l1*l2*m2*s12 + 
+      dq12*l1*l2*(c2*l1 + l2)*m2*s2 + 2*dq1*dq2*l1*l22*m2*s2 + 
+      dq22*l1*l22*m2*s2 + l2*tau1 - c2*l1*tau2 - l2*tau2)/
+    (l1**2*l2*(m1 + m2 - c2**2*m2)), 
+    -((g*l1*l22*m1*m2*s1 + g*l1*l22*m22*s1 - c2**2*g*l1*l22*m22*s1 - 
+        c1*g*l12*l2*m1*m2*s2 + 
+        dq12*l1*l2*m2*(2*c2*l1*l2*m2 + l22*m2 + l12*(m1 + m2))*s2 - 
+        c1*g*l12*l2*m22*s2 - c1*c2*g*l1*l22*m22*s2 + 
+        2*dq1*dq2*l1*(c2*l1 + l2)*l22*m22*s2 + 
+        dq22*l1*(c2*l1 + l2)*l22*m22*s2 + c2*l1*l2*m2*tau1 + l22*m2*tau1 - 
+        l12*m1*tau2 - l12*m2*tau2 - 2*c2*l1*l2*m2*tau2 - l22*m2*tau2)/
+      (l1**2*l2**2*m2*(m1 + m2 - c2**2*m2)))
+    ])
+
 # auto linearization
 yup = np.array([np.pi, 0.0])
 uup = 0.0
