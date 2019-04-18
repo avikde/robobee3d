@@ -12,7 +12,7 @@ from matplotlib import animation
 from mpl_toolkits import mplot3d
 
 sys.path.append('..')
-from controlutils.py import lqr
+from controlutils.py import lqr, mpc
 from controlutils.py.models.pendulums import Pendulum, DoublePendulum
 
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
@@ -41,9 +41,20 @@ dt = 0.01
 t_eval = np.arange(0, tf, dt)
 y0 = np.array([2,0.0])
 sol = solve_ivp(lambda t, y: pendulum.dynamics(y, K @ (yup - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
-# double pendulum
+
+# double pendulum with MPC controller
+N = 5
+wx = np.full(4, 1)
+wu = np.full(4, 0.01)
+dpmpc = mpc.LTVMPC(doublePendulum, N, wx, wu, verbose=False, polish=False, scaling=0, eps_rel=1e-2, eps_abs=1e-2, kdamping=0)
+
+def mpcDoublePendulum(t,y):
+    """Closed-loop dynamics with MPC controller"""
+    return doublePendulum.dynamics(y, np.zeros(2))
+
+# simulate
 y02 = np.array([1,-1, 0, 0])
-sol2 = solve_ivp(lambda t, y: doublePendulum.dynamics(y, np.zeros(2)), [0, tf], y02, dense_output=True, t_eval=t_eval)
+sol2 = solve_ivp(mpcDoublePendulum, [0, tf], y02, dense_output=True, t_eval=t_eval)
 
 # visualize value function
 def lqrValueFunc(x1,x2):
