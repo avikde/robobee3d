@@ -66,8 +66,9 @@ ax[1].contourf(xx, yy, lqrValueFunc(xx, yy), cmap='gray_r')
 ax[1].plot(yup[0], yup[1], 'r*')
 
 # animation
-# ax[2] = plt.axes(xlim=(-2, 2), ylim=(-2, 2))
-line, = ax[2].plot([], [], lw=2)
+line1, = ax[2].plot([], [], '.-', lw=2)
+line2, = ax[2].plot([], [], '.-', lw=2)
+patches = [line1, line2]
 ax[2].set_aspect(1)
 ax[2].set_xlim((-2,2))
 ax[2].set_ylim((-2,2))
@@ -75,16 +76,18 @@ ax[2].grid(True)
 plt.tight_layout()
 
 def _init():
-    line.set_data([], [])
-    return line,
+    line1.set_data([], [])
+    line2.set_data([], [])
+    return patches
 
 def _animate(i):
     # get the vertices of the pendulum
+    p1 = pendulum.kinematics(sol.y[0:1, i])
+    line1.set_data([0, p1[0]], [0, p1[1]])
+
     p1, p2 = doublePendulum.kinematics(sol2.y[0:2, i])
-    x = [0, p1[0], p2[0]]
-    y = [0, p1[1], p2[1]]
-    line.set_data(x, y)
-    return line,
+    line2.set_data([0, p1[0], p2[0]], [0, p1[1], p2[1]])
+    return patches
 
 anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(sol2.t), interval=1000*dt, blit=True)
 
