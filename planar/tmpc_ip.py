@@ -69,24 +69,24 @@ discretizationEvent.terminal = True
 
 # initial states
 tev = np.zeros(1)
-uev = np.zeros((1, 2))
-yev = np.zeros((1, 4))
-yev[0, :] = y02
-uev[0, :] = dpmpc.update(y02, yup2)
+uev = np.zeros((2, 1))
+yev = np.zeros((4, 1))
+yev[:, 0] = y02
+uev[:, 0] = dpmpc.update(y02, yup2)
 pendulum2['tt'] = np.zeros(0)
-pendulum2['yy'] = np.zeros((0, 4))
+pendulum2['yy'] = np.zeros((4, 0))
 
 while True:
-    sol = solve_ivp(lambda t, y: pendulum2['model'].dynamics(y, uev[-1, :]), [tev[-1], tf], yev[-1, :], dense_output=True, events=discretizationEvent, t_eval=np.arange(tev[-1], tf - 1e-3, dt))
+    sol = solve_ivp(lambda t, y: pendulum2['model'].dynamics(y, uev[:, -1]), [tev[-1], tf], yev[:, -1], dense_output=True, events=discretizationEvent, t_eval=np.arange(tev[-1], tf - 1e-3, dt))
 
     if sol.status == 1:
         # events
         tev = np.hstack((tev, sol.t_events[0][0]))
-        yev = np.vstack((yev, sol.sol(tev[-1])))
-        uev = np.vstack((uev, dpmpc.update(yev[-1, :], yup2)))
+        yev = np.hstack((yev, sol.sol(tev[-1])[:, np.newaxis]))
+        uev = np.hstack((uev, dpmpc.update(yev[:, -1], yup2)[:, np.newaxis]))
         # continuous for plotting
         pendulum2['tt'] = np.hstack((pendulum2['tt'], sol.t))
-        pendulum2['yy'] = np.vstack((pendulum2['yy'], sol.y.T))
+        pendulum2['yy'] = np.hstack((pendulum2['yy'], sol.y))
         # should we go again?
         if tf - tev[-1] < dt:
             break
@@ -123,7 +123,7 @@ print(pendulum2['yy'].shape)
 
 ax[0].plot(pendulum['sol'].t, pendulum['sol'].y[0, :], label='sp')
 ax[0].plot(pendulum2['sol'].t, pendulum2['sol'].y[:2, :].T, label='dp')
-ax[0].plot(pendulum2['tt'], pendulum2['yy'][:, 0:2], label='dpmpc')
+ax[0].plot(pendulum2['tt'], pendulum2['yy'][:2, :].T, label='dpmpc')
 ax[0].legend()
 
 ax[1].contourf(xx, yy, lqrValueFunc(xx, yy, pendulum['P']), cmap='gray_r')
@@ -160,7 +160,7 @@ def _animate(i):
         line2.set_data([0, p1[0], p2[0]], [0, p1[1], p2[1]])
 
     if i < len(pendulum2['tt']):
-        p1, p2 = pendulum2['model'].kinematics(pendulum2['yy'][i, 0:2])
+        p1, p2 = pendulum2['model'].kinematics(pendulum2['yy'][0:2, i])
         line3.set_data([0, p1[0], p2[0]], [0, p1[1], p2[1]])
 
     if i < len(acrobot['sol'].t):
