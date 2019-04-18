@@ -20,7 +20,7 @@ np.set_printoptions(precision=4, suppress=True, linewidth=200)
 # Models
 pendulum = {'model': Pendulum()}
 pendulum2 = {'model': DoublePendulum()}
-acrobot = {'model': DoublePendulum()}
+acrobot = {'model': DoublePendulum(nu=1)}
 
 """Single ----------------------------
 """
