@@ -64,7 +64,7 @@ def mpcDoublePendulum(t, y):
     return doublePendulum.dynamics(y, umpc)
 
 # simulate
-y02 = np.array([2, 1, 0, 0])
+y02 = np.array([0.2, 0.3, 0, 0])
 sol2 = solve_ivp(lambda t, y: doublePendulum.dynamics(y, K2 @ (yup2 - y)), [0, tf], y02, dense_output=True, t_eval=t_eval)
 # sol2 = solve_ivp(mpcDoublePendulum, [0, tf], y02, dense_output=True, t_eval=t_eval)
 
