@@ -63,7 +63,7 @@ print(K3, K3 @ (yup2 - y03))
 acrobot['sol'] = solve_ivp(lambda t, y: acrobot['model'].dynamics(y, np.zeros(2)), [0, tf], y03, dense_output=True, t_eval=t_eval)
 
 # MPC
-acrobot['sol2'] = solver.solve_ivp_dmpc(acrobot['model'], t_span=[0.0, tf], y0=y03, dt=dt, mpcdt=0.2, mpcgoal=yup2, N=10, wx=np.full(4, 1), wu=np.full(1, 10))
+acrobot['sol2'] = solver.solve_ivp_dmpc(acrobot['model'], t_span=[0.0, tf], y0=y03, dt=dt, mpcdt=0.1, mpcgoal=yup2, N=5, wx=np.full(4, 100), wu=np.full(1, 0.001))
 
 # ---
 
