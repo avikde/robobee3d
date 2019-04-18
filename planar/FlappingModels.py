@@ -80,7 +80,7 @@ class PlanarThrustStrokeDev:
 
         return Ad, Bd, fd
     
-    def getLimits(self):
+    def _getLimits(self):
         if self.rescale:
             umin = np.array([-self.g, -0.05 * self.lscaled])
             umax = np.array([3*self.g, 0.05 * self.lscaled])
@@ -92,6 +92,7 @@ class PlanarThrustStrokeDev:
         xmin = np.array([-np.inf,-np.inf,-10*np.pi,-np.inf,-np.inf,-np.inf])
         xmax = -xmin
         return umin, umax, xmin, xmax
+    limits = property(_getLimits)
 
     def dydt(self, y, u):
         # Full continuous nonlinear vector field
@@ -108,7 +109,7 @@ class PlanarThrustStrokeDev:
 
 
     def dynamics(self, y, u, useLinearization=False):
-        umin, umax, _, _ = self.getLimits()
+        umin, umax, _, _ = self.limits
         # FIXME: input constraints are not being satisfied. See #36
         # u = np.clip(u, umin, umax)
         u[1] = np.clip(u[1], umin[1], umax[1])
@@ -130,7 +131,7 @@ class PlanarThrustStrokeDev:
             Faero = Ryaw @ np.array([0, self.g + u[0]])
         else:
             Faero = Ryaw @ np.array([0, self.mb * self.g + u[0]])
-        umin, umax, _, _ = self.getLimits()
+        umin, umax, _, _ = self.limits
         strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([umin[1], self.d]), y[0:2] + Ryaw @ np.array([umax[1], self.d])))
         if ax is not None:
             # plot onto ax
@@ -176,10 +177,6 @@ class PlanarStrokeSpeed:
         where fd is only there if the system is affine.
         x[k+1] = Ad @ x[k] + Bd @ u[k] + fd
         '''
-        raise NotImplementedError
-    
-    def getLimits(self):
-        # return umin, umax, xmin, xmax
         raise NotImplementedError
 
     def dydt(self, y, u, avg=False):
