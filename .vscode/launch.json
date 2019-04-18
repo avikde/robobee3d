@@ -5,6 +5,17 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
+			"cwd": "${workspaceRoot}/planar/h7bee",
+			"executable": "build/h7bee.elf",
+			"name": "debug h7bee",
+			"request": "launch",
+			"type": "cortex-debug",
+			"servertype": "jlink",
+			"device": "STM32H743ZI",
+			"preLaunchTask": "build h7bee",
+			"svdFile": "STM32H7x3.svd",
+		},
+		{
 			"cwd": "${workspaceRoot}/planar/mcuqp/build",
 			"executable": "main.elf",
 			"name": "mcuqp debug",
