@@ -37,8 +37,14 @@ t_eval = np.arange(0, tf, dt)
 y0 = np.array([2,0.0])
 sol = solve_ivp(lambda t, y: pendulum.dynamics(y, K1 @ (yup - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
 
-# double pendulum with MPC controller
-yup2 = np.array([np.pi, np.pi, 0, 0])
+# double pendulum with MPC controller ---
+yup2 = np.array([np.pi, 0, 0, 0])
+uup2 = np.zeros(2)
+# LQR
+A, B, c = doublePendulum.autoLin(yup2, uup2)
+print(A)
+K2, P2 = lqr.lqr(A, B, Q=np.eye(4), R=np.eye(2))
+
 N = 5
 wx = np.full(4, 1)
 wu = np.full(2, 0.01)
@@ -58,8 +64,9 @@ def mpcDoublePendulum(t, y):
     return doublePendulum.dynamics(y, umpc)
 
 # simulate
-y02 = np.array([1,-1, 0, 0])
-sol2 = solve_ivp(mpcDoublePendulum, [0, tf], y02, dense_output=True, t_eval=t_eval)
+y02 = np.array([2, 1, 0, 0])
+sol2 = solve_ivp(lambda t, y: doublePendulum.dynamics(y, K2 @ (yup2 - y)), [0, tf], y02, dense_output=True, t_eval=t_eval)
+# sol2 = solve_ivp(mpcDoublePendulum, [0, tf], y02, dense_output=True, t_eval=t_eval)
 
 # visualize value function
 def lqrValueFunc(x1, x2, P):
