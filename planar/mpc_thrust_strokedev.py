@@ -364,14 +364,14 @@ else:
     
     for res in results:
         ax[3].plot(res['t'], res['U'][:, 0], '.-', color=res['col'])
-    umin, umax, _, _ = model.getLimits()
+    umin, umax = model.limits[0:2]
     ax[3].axhline(umin[0])
     ax[3].axhline(umax[0])
     ax[3].set_ylabel('u0')
 
     for res in results:
         ax[4].plot(res['t'], res['U'][:, 1], '.-', color=res['col'])
-    umin, umax, _, _ = model.getLimits()
+    umin, umax = model.limits[0:2]
     ax[4].axhline(umin[1])
     ax[4].axhline(umax[1])
     ax[4].set_ylabel('u1')
