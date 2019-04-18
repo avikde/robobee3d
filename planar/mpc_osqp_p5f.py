@@ -43,46 +43,46 @@ tf = 0.5
 
 # Discrete time model
 def getLin(u, sigma, phi):
-	# q = (x,z,phi), y = (sigma, q, dq)
+    # q = (x,z,phi), y = (sigma, q, dq)
 
-	# Need to reverse hinge deflection
-	if u < 0:
-		khinge = -khinge0
-	else:
-		khinge = khinge0
+    # Need to reverse hinge deflection
+    if u < 0:
+        khinge = -khinge0
+    else:
+        khinge = khinge0
 
-	Ad = np.matrix([
-		[0., 0., 0., 0, 0., 0., 0.],
-		[0., 0., 0., 0, 1., 0., 0.],
-		[0., 0., 0., 0., 0., 1., 0.],
-		[0., 0., 0., 0., 0., 0., 1.],
-		[0., 0.,      0.,     -(kaero*u*(2*CLmax*np.cos(phi)*np.sin(2*khinge*u**2) + (CD0 + CDmax + (CD0 - CDmax)*np.cos(2*khinge*u**2))*np.sin(phi)))/(2.*mb) , 0., 0., 0.],
-		[0., 0.,      0.,     (kaero*u*((CD0 + CDmax + (CD0 - CDmax)*np.cos(2*khinge*u**2))*np.cos(phi) - 2*CLmax*np.sin(2*khinge*u**2)*np.sin(phi)))/(2.*mb), 0., 0., 0.],
-		[0., 0.,      0.,         0.   , 0., 0., 0. ]
-	])
+    Ad = np.matrix([
+        [0., 0., 0., 0, 0., 0., 0.],
+        [0., 0., 0., 0, 1., 0., 0.],
+        [0., 0., 0., 0., 0., 1., 0.],
+        [0., 0., 0., 0., 0., 0., 1.],
+        [0., 0.,      0.,     -(kaero*u*(2*CLmax*np.cos(phi)*np.sin(2*khinge*u**2) + (CD0 + CDmax + (CD0 - CDmax)*np.cos(2*khinge*u**2))*np.sin(phi)))/(2.*mb) , 0., 0., 0.],
+        [0., 0.,      0.,     (kaero*u*((CD0 + CDmax + (CD0 - CDmax)*np.cos(2*khinge*u**2))*np.cos(phi) - 2*CLmax*np.sin(2*khinge*u**2)*np.sin(phi)))/(2.*mb), 0., 0., 0.],
+        [0., 0.,      0.,         0.   , 0., 0., 0. ]
+    ])
 
-	Bd = np.matrix([
-		[1.],
-		[0.],
-		[0.],
-		[0.],
-		[(kaero*(np.cos(phi)*(CD0 + CDmax + (CD0 - CDmax)*np.cos(2*khinge*u**2) - 
+    Bd = np.matrix([
+        [1.],
+        [0.],
+        [0.],
+        [0.],
+        [(kaero*(np.cos(phi)*(CD0 + CDmax + (CD0 - CDmax)*np.cos(2*khinge*u**2) - 
           4*(CD0 - CDmax)*khinge*u**2*np.sin(2*khinge*u**2)) - 
        2*CLmax*(4*khinge*u**2*np.cos(2*khinge*u**2) + 
           np.sin(2*khinge*u**2))*np.sin(phi)))/(2.*mb)],
-		[(kaero*(2*CLmax*np.cos(phi)*np.sin(2*khinge*u**2) + 
+        [(kaero*(2*CLmax*np.cos(phi)*np.sin(2*khinge*u**2) + 
        (CD0 + CDmax - 4*(CD0 - CDmax)*khinge*u**2*
            np.sin(2*khinge*u**2))*np.sin(phi) + 
        np.cos(2*khinge*u**2)*
         (8*CLmax*khinge*u**2*np.cos(phi) + (CD0 - CDmax)*np.sin(phi))))/
    (2.*mb)],
-		[(kaero*(-(d*(CD0 + CDmax + (CD0 - CDmax)*np.cos(2*khinge*u**2) - 
+        [(kaero*(-(d*(CD0 + CDmax + (CD0 - CDmax)*np.cos(2*khinge*u**2) - 
             4*(CD0 - CDmax)*khinge*u**2*np.sin(2*khinge*u**2))) + 
        2*CLmax*(4*khinge*u**2*np.cos(2*khinge*u**2) + 
           np.sin(2*khinge*u**2))*sigma))/(2.*ib)]
-		])
+        ])
 
-	return Ad, Bd
+    return Ad, Bd
 # [nx, nu] = Bd.shape
 nx = 7
 nu = 1
@@ -149,31 +149,31 @@ prob.setup(P, q, A, l, u, warm_start=True)
 # LTV version: need to generate new A,B as time goes on
 
 for ti in range(len(tvec)):
-	if ti == 1:
-		continue
+    if ti == 1:
+        continue
 
-	# need u(t)
-	t = tvec[ti]
-	unom = np.array([15 * np.sin(2 * np.pi * 170 * t)])
-	# need sigma(t)
-	sigma = y[ti - 1, 0]
-	phi = y[ti - 1, 3]
-	Ad, Bd = getLin(unom, sigma, phi)	
-	
-	# LTV set different Ad according to a nominal stroke pattern
-	# FIXME make 
-	Ax = np.kron(np.eye(N+1),-np.eye(nx)) + np.kron(np.eye(N+1, k=-1), Ad)
-	Bu = np.kron(np.vstack([np.zeros((1, N)), np.eye(N)]), Bd)
-	Aeq = np.hstack([Ax, Bu])
-	A = np.vstack([Aeq, Aineq])
-	# print(A.shape)
+    # need u(t)
+    t = tvec[ti]
+    unom = np.array([15 * np.sin(2 * np.pi * 170 * t)])
+    # need sigma(t)
+    sigma = y[ti - 1, 0]
+    phi = y[ti - 1, 3]
+    Ad, Bd = getLin(unom, sigma, phi)	
+    
+    # LTV set different Ad according to a nominal stroke pattern
+    # FIXME make 
+    Ax = np.kron(np.eye(N+1),-np.eye(nx)) + np.kron(np.eye(N+1, k=-1), Ad)
+    Bu = np.kron(np.vstack([np.zeros((1, N)), np.eye(N)]), Bd)
+    Aeq = np.hstack([Ax, Bu])
+    A = np.vstack([Aeq, Aineq])
+    # print(A.shape)
 
-	# Need to update the dynamics
-	prob.update(Ax=A)
+    # Need to update the dynamics
+    prob.update(Ax=A)
 
-	u = unom
+    u = unom
 
-	y[ti, :] = y[ti - 1, :] + (Ad.dot(y[ti - 1, :]) + Bd * u) * dt
+    y[ti, :] = y[ti - 1, :] + (Ad.dot(y[ti - 1, :]) + Bd * u) * dt
 
 
 # PLOT ---
