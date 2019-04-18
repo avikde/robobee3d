@@ -49,50 +49,48 @@ y02 = np.array([0.2, 0.3, 0, 0])
 pendulum2['sol'] = solve_ivp(lambda t, y: pendulum2['model'].dynamics(y, K2 @ (yup2 - y)), [0, tf], y02, dense_output=True, t_eval=t_eval)
 
 # MPC
-N = 10
-wx = np.full(4, 100000)
-wu = np.full(2, 0.01)
-# add model limits here by munging
-umax = np.full(2, np.inf)
-xmax = np.full(4, np.inf)
-pendulum2['model'].limits = -umax, umax, -xmax, xmax
-# Instantiate MPC
-pendulum2['model'].dt = 0.2
-dpmpc = mpc.LTVMPC(pendulum2['model'], N, wx, wu, verbose=False, polish=False, scaling=0, eps_rel=1e-2, eps_abs=1e-2, kdamping=0)
+def solve_ivp_dmpc(model, t_span, y0, dt, mpcdt, mpcgoal, N, wx, wu):
+    # Instantiate MPC
+    model.dt = mpcdt
+    dpmpc = mpc.LTVMPC(model, N, wx, wu, verbose=False, polish=False, scaling=0, eps_rel=1e-2, eps_abs=1e-2, kdamping=0)
 
-# simulate
-# need to have discrete changes to the MPC
-def discretizationEvent(t, y):
-    return t - tev[-1] - pendulum2['model'].dt
-discretizationEvent.direction = 1
-discretizationEvent.terminal = True
+    # simulate
+    # need to have discrete changes to the MPC
+    def discretizationEvent(t, y):
+        return t - tev[-1] - mpcdt
+    discretizationEvent.direction = 1
+    discretizationEvent.terminal = True
 
-# initial states
-tev = np.zeros(1)
-uev = np.zeros((2, 1))
-yev = np.zeros((4, 1))
-yev[:, 0] = y02
-uev[:, 0] = dpmpc.update(y02, yup2)
-pendulum2['tt'] = np.zeros(0)
-pendulum2['yy'] = np.zeros((4, 0))
+    # initial states
+    tev = np.zeros(1)
+    uev = np.zeros((len(wu), 1))
+    yev = np.zeros((len(wx), 1))
+    yev[:, 0] = y0
+    uev[:, 0] = dpmpc.update(y0, mpcgoal)
+    tt = np.zeros(0)
+    yy = np.zeros((len(wx), 0))
 
-while True:
-    sol = solve_ivp(lambda t, y: pendulum2['model'].dynamics(y, uev[:, -1]), [tev[-1], tf], yev[:, -1], dense_output=True, events=discretizationEvent, t_eval=np.arange(tev[-1], tf - 1e-3, dt))
+    while True:
+        sol = solve_ivp(lambda t, y: model.dynamics(y, uev[:, -1]), [tev[-1], tf], yev[:, -1], dense_output=True, events=discretizationEvent, t_eval=np.arange(tev[-1], tf - 1e-3, dt))
 
-    if sol.status == 1:
-        # events
-        tev = np.hstack((tev, sol.t_events[0][0]))
-        yev = np.hstack((yev, sol.sol(tev[-1])[:, np.newaxis]))
-        uev = np.hstack((uev, dpmpc.update(yev[:, -1], yup2)[:, np.newaxis]))
-        # continuous for plotting
-        pendulum2['tt'] = np.hstack((pendulum2['tt'], sol.t))
-        pendulum2['yy'] = np.hstack((pendulum2['yy'], sol.y))
-        # should we go again?
-        if tf - tev[-1] < dt:
+        if sol.status == 1:
+            # events
+            tev = np.hstack((tev, sol.t_events[0][0]))
+            yev = np.hstack((yev, sol.sol(tev[-1])[:, np.newaxis]))
+            uev = np.hstack((uev, dpmpc.update(yev[:, -1], mpcgoal)[:, np.newaxis]))
+            # continuous for plotting
+            tt = np.hstack((tt, sol.t))
+            yy = np.hstack((yy, sol.y))
+            # should we go again?
+            if tf - tev[-1] < dt:
+                break
+
+        if sol.status == 0:
             break
+    
+    return tt, yy
 
-    if sol.status == 0:
-        break
+pendulum2['tt'], pendulum2['yy'] = solve_ivp_dmpc(pendulum2['model'], t_span=[0.0, tf], y0=y02, dt=dt, mpcdt=0.2, mpcgoal=yup2, N=10, wx=np.full(4, 100000), wu=np.full(2, 0.01))
 
 """Acrobot ----------------------------
 """
