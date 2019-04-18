@@ -45,7 +45,12 @@ sol = solve_ivp(lambda t, y: pendulum.dynamics(y, K @ (yup - y)), [0, tf], y0, d
 # double pendulum with MPC controller
 N = 5
 wx = np.full(4, 1)
-wu = np.full(4, 0.01)
+wu = np.full(2, 0.01)
+# add model limits here by munging
+umax = np.full(2, np.inf)
+xmax = np.full(4, np.inf)
+doublePendulum.limits = -umax, umax, -xmax, xmax
+# Instantiate MPC
 dpmpc = mpc.LTVMPC(doublePendulum, N, wx, wu, verbose=False, polish=False, scaling=0, eps_rel=1e-2, eps_abs=1e-2, kdamping=0)
 
 def mpcDoublePendulum(t,y):
