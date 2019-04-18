@@ -299,7 +299,7 @@ if saveMovie > 0:
         uk = traj['u'][k,:]
 
         # get info from model
-        body, pcop, Faero, strokeExtents = model.visualizationInfo(qk, uk, rawxy=True)
+        body, pcop, Faero, strokeExtents = model.visualizationInfo(qk, uk, ax=None, rawxy=True)
 
         bodyPatch.set_xy(body)
         

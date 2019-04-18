@@ -109,7 +109,7 @@ class PlanarThrustStrokeDev:
 
 
     def dynamics(self, y, u, useLinearization=False):
-        umin, umax = self.limits[0:2]
+        umin, umax, _, _ = self.limits
         # FIXME: input constraints are not being satisfied. See #36
         # u = np.clip(u, umin, umax)
         u[1] = np.clip(u[1], umin[1], umax[1])
@@ -123,45 +123,189 @@ class PlanarThrustStrokeDev:
             return y[0:6] + self.dydt(y, u) * self.dt # np.hstack((yNog, self.g))
 
     # Non-standard model functions
-    def visualizationInfo(self, y, u, Faeroscale=1, rawxy=False):
+    def visualizationInfo(self, y, u, ax=None, col='r', Faeroscale=1, rawxy=False):
         Ryaw = kin.rot2(y[2])
         pcop = y[0:2] + Ryaw @ np.array([u[1],self.d])
+        
         if self.rescale:
             Faero = Ryaw @ np.array([0, self.g + u[0]])
         else:
             Faero = Ryaw @ np.array([0, self.mb * self.g + u[0]])
-        umin, umax = self.limits[0:2]
+        umin, umax, _, _ = self.limits
         strokeExtents = np.vstack((y[0:2] + Ryaw @ np.array([umin[1], self.d]), y[0:2] + Ryaw @ np.array([umax[1], self.d])))
-        return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy), pcop, Faeroscale * Faero, strokeExtents
+        if ax is not None:
+            # plot onto ax
+            ax.plot(strokeExtents[:,0], strokeExtents[:,1], 'k--', linewidth=1,  alpha=0.3)
+            Faero *= Faeroscale
+            ax.arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0002, alpha=0.3, facecolor=col)
+
+            return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy)
+        else:
+            # return all the stuff necessary to draw
+            return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy), pcop, Faero, strokeExtents
 
 
-def visualizeTraj(ax, traj, model, col='r', Faeroscale=1):
-    # Plots what RefTraj.generate() returns
+class PlanarStrokeSpeed:
+    # also trying rescaling the problem
+    mb = 100e-6
+    l = 12e-3  # body length
+    w = 2e-3  # body width (for visualization only)
+    maxChord = 5e-3  # wing chord for vis
+    g = 9.81
+    ib = 1/12. * mb * l**2
+    d = 2e-3
+    STROKE_EXTENT = 3e-3
+
+    nx = 7
+    nu = 2
+    y0 = np.array([0,0,0,0,0,0,0])
+    
+    rescale = True
+
+    # Parameter values
+    eps = 1e-2
+    ka = 1e-3
+    
+    # TODO:
+    omega = 100
+    # Relate params by eps
+    kat = ka/eps**2
+    omegat = omega * eps
+
+    def getLinearDynamics(self, y, u):
+        '''Returns Ad, Bd[, fd]
+        where fd is only there if the system is affine.
+        x[k+1] = Ad @ x[k] + Bd @ u[k] + fd
+        '''
+        raise NotImplementedError
+
+    def dydt(self, y, u, avg=False):
+        ''' Full continuous nonlinear vector field when avg=False
+        Otherwise return dydsigma
+        '''
+        phi = y[2]
+        uss = u[0]
+        v = y[-1]
+        # v'(psi) is the stroke speed
+        dv = u[0]
+        sdv = np.sign(dv)
+        cphi = np.cos(phi)
+        sphi = np.sin(phi)
+
+        #
+
+        if avg:
+            dphi = y[5]
+            u1 = u[0]
+            sigma0 = self.sigma0  #initial stroke
+            # FIXME: this needs to be sampled at the section
+            psi0 = 0.42 # (u[1] - sigma0)/u[0]  # reversal point in phase
+            # print(psi0)
+
+            # 
+            mb = self.mb
+            ib = self.ib
+            kat = self.kat
+            omegat = self.omegat
+            u12 = u1**2
+            g = self.g
+            d = self.d
+            w1 = u[0] / self.omega
+            w12 = w1**2
+
+            # from mathematica. for (dx,dz,dphi)
+            fav = np.array([
+                -((kat*omegat*(cphi*(1 - 2*psi0) + (1 - 2*psi0 + 2*psi0**2)*sphi)*w12)/(mb*(-1 + psi0)**2)),
+                -(g/omegat) + (cphi*kat*omegat*(1 + psi0**2/(-1 + psi0)**2)* w12)/mb + (kat*omegat*(-1 + 2*psi0)*sphi*w12)/(mb*(-1 + psi0)**2),
+                (kat*omegat*(d*(-2 + 4*psi0) + (1 - 2*psi0 + 2*(psi0)**2)*(2*sigma0 + psi0*w1))*w12)/(2.*ib*(-1 + psi0)**2)
+            ])
+            
+            # return 
+            dxzphi = y[3:6]
+            # fav = avg(dy/dpsi), so dy/dt ~= fav * dpsi/dt
+            ddxzphi = fav * omegat
+            return np.hstack((dxzphi, ddxzphi, dv))
+        else:
+            ddxzphi = np.array([-dv**2 * self.ka * (cphi * sdv + sphi) / self.mb, 
+            -self.g + dv**2 * self.ka * (cphi - sphi * sdv) / self.mb,
+            dv**2 * self.ka * (v - self.d * sdv) / self.ib])
+            # return np.hstack((y1dot, y2dot))
+
+            return np.hstack((y[3:6], ddxzphi, dv))
+
+
+    def dynamics(self, y, u, useLinearization=False):
+        # Full nonlinear dynamics
+        if useLinearization:
+            Ad, Bd, fd = self.getLinearDynamics(y, u)
+            # print(Ad)
+            return Ad @ y + Bd @ u + fd
+        else:
+            # 1st order integration
+            # FIXME: need to figure out time to stroke end
+            return y + self.dydt(y, u) * dt
+
+    # Non-standard model functions
+    def visualizationInfo(self, y, u, ax, col='r', rawxy=False, Faeroscale=2 * STROKE_EXTENT):
+        Rb = kin.rot2(y[2])
+        strokeExtents = np.vstack((y[0:2] + Rb @ np.array([-2*self.STROKE_EXTENT, self.d]), y[0:2] + Rb @ np.array([2*self.STROKE_EXTENT, self.d])))
+        # Plot these custom things from here
+        ax.plot(strokeExtents[:,0], strokeExtents[:,1], 'k--', linewidth=1,  alpha=0.3)
+
+        # plt the wing
+        Rhinge = kin.rot2(0.25*np.pi if u[0] < 0 else -0.25*np.pi)
+        wingStartB = np.array([y[-1], self.d])
+        wingEndB = wingStartB + Rhinge @ np.array([0, -self.maxChord])
+        wingExtents = np.vstack((y[0:2] + Rb @ wingStartB, y[0:2] + Rb @ wingEndB))
+        ax.plot(wingExtents[:,0], wingExtents[:,1], 'k-', linewidth=2,  alpha=0.5)
+        # stroke vel arrow
+        strokeVelDirection = Rb @ np.array([u[0], 0]) * Faeroscale
+        midWing = np.mean(wingExtents, axis=0)
+        ax.arrow(midWing[0], midWing[1], strokeVelDirection[0], strokeVelDirection[1], width=0.0002, alpha=0.5, facecolor=col)
+        
+        return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy)
+    
+
+def visualizeTraj(ax, traj, model, col='r', Faeroscale=1, tplot=None):
+    '''Plots a trajectory, with model info from model.visualizationInfo'''
     from matplotlib.patches import Rectangle, Circle
     from matplotlib.collections import PatchCollection
     import controlutils.py.misc as misc
 
     Faeroscale = 1e-4 if model.rescale else 1
     
-    N = traj['q'].shape[0]
     robotBodies = []
-    for k in range(N):
-        qk = traj['q'][k,:]
-        uk = traj['u'][k,:]
+
+    if tplot is None:
+        # plot the entire trajectory
+        trajp = traj
+    else:
+        # use tplot as the keyframe times to display
+        assert 't' in traj
+        trajp = {}
+        for keyi in ['q','u']:
+            if traj[keyi] is not None:
+                trajfunc = interp1d(traj['t'], traj[keyi], axis=0)
+                trajp[keyi] = trajfunc(tplot)
+            else:
+                trajp[keyi] = None 
+
+    for k in range(trajp['q'].shape[0]):
+        qk = trajp['q'][k,:]
+        uk = trajp['u'][k,:] if trajp['u'] is not None else None
 
         # get info from model
-        body, pcop, Faero, strokeExtents = model.visualizationInfo(qk, uk, Faeroscale=Faeroscale)
+        # body = model.visualizationInfo(qk, uk, ax, col)
+        body = model.visualizationInfo(qk, uk, ax, Faeroscale=Faeroscale)
         
         robotBodies.append(body)
-        ax.plot(strokeExtents[:,0], strokeExtents[:,1], 'k--', linewidth=1,  alpha=0.3)
-        ax.arrow(pcop[0], pcop[1], Faero[0], Faero[1], width=0.0002, alpha=0.3, facecolor=col)
     
     pc = PatchCollection(robotBodies, facecolor=col, edgecolor='k', alpha=0.3)
     ax.add_collection(pc)
 
     ax.set_aspect(1)
-    # ax.set_xlim([-0.05,0.05])
-    # ax.set_ylim([-0.05,0.05])
+    ax.set_xlim([np.amin(traj['q'][:,0])-0.05,np.amax(traj['q'][:,0])+0.05])
+    ax.set_ylim([np.amin(traj['q'][:,1])-0.05,np.amax(traj['q'][:,1])+0.05])
     ax.grid(True)
     ax.set_xlabel('x')
     ax.set_ylabel('z')
