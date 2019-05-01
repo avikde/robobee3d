@@ -106,6 +106,7 @@ int main(void)
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
+  
 
   /* Enable I-Cache---------------------------------------------------------*/
   SCB_EnableICache();
@@ -191,15 +192,12 @@ void SystemClock_Config(void)
 
   /** Supply configuration update enable 
   */
-  MODIFY_REG(PWR->CR3, PWR_CR3_SCUEN, 0);
+  HAL_PWREx_ConfigSupply(PWR_LDO_SUPPLY);
   /** Configure the main internal regulator output voltage 
   */
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-  while ((PWR->D3CR & (PWR_D3CR_VOSRDY)) != PWR_D3CR_VOSRDY) 
-  {
-    
-  }
+  while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
   /** Initializes the CPU, AHB and APB busses clocks 
   */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI48|RCC_OSCILLATORTYPE_HSE;
@@ -243,6 +241,9 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+  /** Enable USB Voltage detector 
+  */
+  HAL_PWREx_EnableUSBVoltageDetector();
 }
 
 /**
@@ -318,12 +319,21 @@ static void MX_USART3_UART_Init(void)
   huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart3.Init.OverSampling = UART_OVERSAMPLING_16;
   huart3.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart3.Init.Prescaler = UART_PRESCALER_DIV1;
-  huart3.Init.FIFOMode = UART_FIFOMODE_DISABLE;
-  huart3.Init.TXFIFOThreshold = UART_TXFIFO_THRESHOLD_1_8;
-  huart3.Init.RXFIFOThreshold = UART_RXFIFO_THRESHOLD_1_8;
+  huart3.Init.ClockPrescaler = UART_PRESCALER_DIV1;
   huart3.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
   if (HAL_UART_Init(&huart3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetTxFifoThreshold(&huart3, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetRxFifoThreshold(&huart3, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_DisableFifoMode(&huart3) != HAL_OK)
   {
     Error_Handler();
   }
