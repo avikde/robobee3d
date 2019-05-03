@@ -23,7 +23,7 @@ K1, P1 = lqr.lqr(A, B, Q=np.eye(2), R=0.01*np.eye(1))
 print(K1, P1)
 
 # Simulation
-tf = 1.0
+tf = 0.2
 dt = 0.01
 t_eval = np.arange(0, tf, dt)
 y0 = np.array([2,0.0])
@@ -49,11 +49,19 @@ xx, yy = np.meshgrid(np.linspace(0, 2*np.pi, 30), np.linspace(-10, 10, 30))
 fig, ax = plt.subplots(3)
 
 for dispsol in dispsols:
-    ax[0].plot(dispsol['sol'].t, dispsol['sol'].y[0, :], label=dispsol['name'])
+    ax[0].plot(dispsol['sol'].t, dispsol['sol'].y[0, :], '.-', label=dispsol['name'])
 ax[0].legend()
 
 # ax[1].contourf(xx, yy, lqrValueFunc(xx, yy, pendulum['P']), cmap='gray_r')
-ax[1].plot(yup[0], yup[1], 'r*')
+# ax[1].plot(yup[0], yup[1], 'r*')
+
+# Plot value along trajectory
+lipval = np.zeros_like(lipsol.t)
+for ti in range(len(lipval)):
+    yi = lipsol.y[:, ti]
+    lipval[ti] = yi @ P1 @ yi
+ax[1].plot(lipsol.t, lipval, '.-')
+ax[1].set_ylabel('value')
 
 # animation
 patches = []
