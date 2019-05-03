@@ -2,6 +2,7 @@ import autograd.numpy as np
 from autograd import jacobian
 import sys
 from scipy.integrate import solve_ivp
+import scipy.sparse as sparse
 import matplotlib.pyplot as plt
 from matplotlib import animation
 from mpl_toolkits import mplot3d
@@ -22,14 +23,39 @@ Q1 = np.eye(2)
 R1 = np.eye(1)
 # NOTE: the one step cost g(y,u) = y.Q.y + u.R.u
 # LQR
-K1, P1 = lqr.lqr(A, B, Q=Q1, R=R1)
+K1, S1 = lqr.lqr(A, B, Q=Q1, R=R1)
 
 prob = osqp.OSQP()
-prob.setup(P=np.full)
+
+# # the QP decision var, x = [y, u]
+# nx = 5
+# # col-major 1..nx^2 elements
+# Pqp = np.reshape(np.arange(1,nx*nx+1), (nx,nx), order='F')
+# Pqp = sparse.csc_matrix(Pqp)
+# # now Pqp.data is just 1..nx^2
+# qqp = np.zeros(nx)
+
+# the QP decision var is u
+nx = 1
+# col-major 1..nx^2 elementss
+Pqp = sparse.csc_matrix(R1)
+# now Pqp.data is just 1..nx^2
+qqp = np.full(nx, 1)
+
+Aqp = sparse.csc_matrix(np.zeros((0,nx)))
+lqp = np.zeros(0)
+uqp = np.zeros(0)
+prob.setup(Pqp, qqp, Aqp, lqp, uqp, verbose=False)
 
 # print(K1, P1)
 def valFuncQP(t, y):
-
+    global prob
+    # update
+    qqp = B.T @ S1 @ y
+    # prob.update(Px=np.reshape(Pqp, nx*nx, order='F'))
+    prob.update(q=qqp)
+    res = prob.solve()
+    return lip.dynamics(y, res.x)
 
 # Simulation
 tf = 0.2
@@ -38,9 +64,12 @@ t_eval = np.arange(0, tf, dt)
 y0 = np.array([2,0.0])
 lipsol = solve_ivp(lambda t, y: lip.dynamics(y, K1 @ (yup - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
 
+lipqpsol = solve_ivp(valFuncQP, [0, tf], y0, dense_output=True, t_eval=t_eval)
+
 # make a list for display
 dispsols = [
-    {'name': 'lip', 'col': 'b', 'sol': lipsol, 'model': lip}
+    {'name': 'lip', 'col': 'b', 'sol': lipsol, 'model': lip},
+    {'name': 'lipqp', 'col': 'r', 'sol': lipqpsol, 'model': lip}
 ]
 
 # ---
@@ -68,7 +97,7 @@ ax[0].legend()
 lipval = np.zeros_like(lipsol.t)
 for ti in range(len(lipval)):
     yi = lipsol.y[:, ti]
-    lipval[ti] = yi @ P1 @ yi
+    lipval[ti] = yi @ S1 @ yi
 ax[1].plot(lipsol.t, lipval, '.-')
 ax[1].set_ylabel('CTG')
 
