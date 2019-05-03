@@ -5,6 +5,7 @@ from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
 from matplotlib import animation
 from mpl_toolkits import mplot3d
+import osqp
 
 sys.path.append('..')
 from controlutils.py import lqr, solver
@@ -17,10 +18,18 @@ lip = LIP()
 yup = np.array([0.0, 0.0])
 uup = np.array([0.0])
 A, B, c = lip.autoLin(yup, uup)
+Q1 = np.eye(2)
+R1 = np.eye(1)
+# NOTE: the one step cost g(y,u) = y.Q.y + u.R.u
 # LQR
-K1, P1 = lqr.lqr(A, B, Q=np.eye(2), R=0.01*np.eye(1))
+K1, P1 = lqr.lqr(A, B, Q=Q1, R=R1)
 
-print(K1, P1)
+prob = osqp.OSQP()
+prob.setup(P=np.full)
+
+# print(K1, P1)
+def valFuncQP(t, y):
+
 
 # Simulation
 tf = 0.2
@@ -61,7 +70,7 @@ for ti in range(len(lipval)):
     yi = lipsol.y[:, ti]
     lipval[ti] = yi @ P1 @ yi
 ax[1].plot(lipsol.t, lipval, '.-')
-ax[1].set_ylabel('value')
+ax[1].set_ylabel('CTG')
 
 # animation
 patches = []
