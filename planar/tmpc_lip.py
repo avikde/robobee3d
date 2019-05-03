@@ -16,10 +16,10 @@ np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
 lip = LIP()
 
-yup = np.array([0.0, 0.0])
+yup = np.zeros(4)
 uup = np.array([0.0])
 A, B, c = lip.autoLin(yup, uup)
-Q1 = np.eye(2)
+Q1 = np.eye(4)
 R1 = np.eye(1)
 # NOTE: the one step cost g(y,u) = y.Q.y + u.R.u
 # LQR
@@ -58,13 +58,15 @@ def valFuncQP(t, y):
     return lip.dynamics(y, res.x)
 
 # Simulation
-tf = 0.2
+tf = 2
 dt = 0.01
 t_eval = np.arange(0, tf, dt)
-y0 = np.array([2,0.0])
+y0 = np.array([2.,0.,0.,0.])
 lipsol = solve_ivp(lambda t, y: lip.dynamics(y, K1 @ (yup - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
-
+# LIP but with QP controller
 lipqpsol = solve_ivp(valFuncQP, [0, tf], y0, dense_output=True, t_eval=t_eval)
+# IP with QP controller
+# y0ip = np.array([y0[0]])
 
 # make a list for display
 dispsols = [
@@ -87,7 +89,7 @@ xx, yy = np.meshgrid(np.linspace(0, 2*np.pi, 30), np.linspace(-10, 10, 30))
 fig, ax = plt.subplots(3)
 
 for dispsol in dispsols:
-    ax[0].plot(dispsol['sol'].t, dispsol['sol'].y[0, :], '.-', label=dispsol['name'])
+    ax[0].plot(dispsol['sol'].t, dispsol['sol'].y[0, :], label=dispsol['name'])
 ax[0].legend()
 
 # ax[1].contourf(xx, yy, lqrValueFunc(xx, yy, pendulum['P']), cmap='gray_r')
@@ -98,13 +100,13 @@ lipval = np.zeros_like(lipsol.t)
 for ti in range(len(lipval)):
     yi = lipsol.y[:, ti]
     lipval[ti] = yi @ S1 @ yi
-ax[1].plot(lipsol.t, lipval, '.-')
+ax[1].plot(lipsol.t, lipval)
 ax[1].set_ylabel('CTG')
 
 # animation
 patches = []
 for dispsol in dispsols:
-    linei, = ax[2].plot([], [], '.-', lw=2, label=dispsol['name'])
+    linei, = ax[2].plot([], [], lw=2, label=dispsol['name'])
     patches.append(linei)
 ax[2].set_aspect(1)
 ax[2].set_xlim((-0.3,0.3))
