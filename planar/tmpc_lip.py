@@ -97,8 +97,14 @@ lipsol = solve_ivp(lambda t, y: lip.dynamics(y, K1 @ (yup - y)), [0, tf], y0, de
 lipqpsol = solve_ivp(valFuncQP, [0, tf], y0, dense_output=True, t_eval=t_eval)
 
 # IP with LQR controller
-y0ip = np.array([y0[0], 0.15, y0[1], y0[2], 0.0, y0[3]])
-iplqrsol = solve_ivp(lambda t, y: ip.dynamics(y, np.zeros(2)), [0, tf], y0ip, dense_output=True, t_eval=t_eval)
+def ipClosedLoop(t, y):
+    # l = np.sqrt(y[0]**2 + y[1]**2)
+    # dl = 2 * (y[0] * y[3] + y[1] * y[4])
+    fk = 10000 * (lip.z0 - y[1]) - 100 * y[4]  # attract to z0
+    tauh = 100 * y[0] + 1 * y[3]
+    return ip.dynamics(y, np.array([fk, tauh]))
+y0ip = np.array([0.1, 0.11, y0[1], y0[2], 0.0, y0[3]])
+iplqrsol = solve_ivp(ipClosedLoop, [0, tf], y0ip, dense_output=True, t_eval=t_eval)
 # IP with QP controller
 # ipsol = solve_ivp(valFuncQP, [0, tf], y0ip, dense_output=True, t_eval=t_eval)
 
@@ -125,6 +131,7 @@ fig, ax = plt.subplots(3)
 
 for dispsol in dispsols:
     ax[0].plot(dispsol['sol'].t, dispsol['sol'].y[0, :], label=dispsol['name'])
+# ax[0].plot(iplqrsol.t, iplqrsol.y[1,:])
 ax[0].legend()
 
 # ax[1].contourf(xx, yy, lqrValueFunc(xx, yy, pendulum['P']), cmap='gray_r')
