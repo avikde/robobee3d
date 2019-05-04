@@ -15,7 +15,9 @@ from controlutils.py.models.pendulums import PendulumFlyWheel, LIP
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
 lip = LIP()
+ip = PendulumFlyWheel()
 
+# LQR solutions here
 yup = np.zeros(4)
 uup = np.array([0.0])
 A, B, c = lip.autoLin(yup, uup)
@@ -24,7 +26,17 @@ R1 = np.eye(1)
 # NOTE: the one step cost g(y,u) = y.Q.y + u.R.u
 # LQR
 K1, S1 = lqr.lqr(A, B, Q=Q1, R=R1)
+# print(K1, P1)
 
+yupip = np.array([0., 0.1, 0., 0., 0., 0.])
+uupip = np.array([ip.m * ip.g, 0.0])
+Aip, Bip, cip = ip.autoLin(yupip, uupip)
+Qip = np.eye(6)
+Rip = np.eye(2)
+Kip, Sip = lqr.lqr(Aip, Bip, Q=Qip, R=Rip)
+# print(Sip)
+
+# ---
 prob = osqp.OSQP()
 
 # # the QP decision var, x = [y, u]
@@ -47,15 +59,33 @@ lqp = np.zeros(0)
 uqp = np.zeros(0)
 prob.setup(Pqp, qqp, Aqp, lqp, uqp, verbose=False)
 
-# print(K1, P1)
+# ---
+# probIP = osqp.OSQP()
+# # QP decision var is u for IP
+# nx = 2
+# Pqp = sparse.csc_matrix([[R1, 0], [0, 0]])
+# qqp = np.full(nx, 1)
+# # no constraints, as before
+# probIP.setup(Pqp, qqp, Aqp, lqp, uqp, verbose=False)
+
+# ---
 def valFuncQP(t, y):
-    global prob
+    global prob, probIP
     # update
-    qqp = B.T @ S1 @ y
-    # prob.update(Px=np.reshape(Pqp, nx*nx, order='F'))
-    prob.update(q=qqp)
-    res = prob.solve()
-    return lip.dynamics(y, res.x)
+    if len(y) == 4:
+        qqp = B.T @ S1 @ y
+        # prob.update(Px=np.reshape(Pqp, nx*nx, order='F'))
+        prob.update(q=qqp)
+        res = prob.solve()
+        return lip.dynamics(y, res.x)
+    elif len(y) == 6:
+        qqp = B.T @ S1 @ y
+        probIP.update(q=qqp)
+        res = probIP.solve()
+        return ip.dynamics(y, res.x)
+    else:
+        raise ValueError("Should be LIP or IP")
+
 
 # Simulation
 tf = 2
@@ -65,13 +95,18 @@ y0 = np.array([2.,0.,0.,0.])
 lipsol = solve_ivp(lambda t, y: lip.dynamics(y, K1 @ (yup - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
 # LIP but with QP controller
 lipqpsol = solve_ivp(valFuncQP, [0, tf], y0, dense_output=True, t_eval=t_eval)
+
+# IP with LQR controller
+y0ip = np.array([y0[0], 0.15, y0[1], y0[2], 0.0, y0[3]])
+iplqrsol = solve_ivp(lambda t, y: ip.dynamics(y, np.zeros(2)), [0, tf], y0ip, dense_output=True, t_eval=t_eval)
 # IP with QP controller
-# y0ip = np.array([y0[0]])
+# ipsol = solve_ivp(valFuncQP, [0, tf], y0ip, dense_output=True, t_eval=t_eval)
 
 # make a list for display
 dispsols = [
-    {'name': 'lip', 'col': 'b', 'sol': lipsol, 'model': lip},
-    {'name': 'lipqp', 'col': 'r', 'sol': lipqpsol, 'model': lip}
+    {'name': 'liplqr', 'col': 'b', 'sol': lipsol, 'model': lip},
+    {'name': 'lipqp', 'col': 'r', 'sol': lipqpsol, 'model': lip},
+    {'name': 'iplqr', 'col': 'g', 'sol': iplqrsol, 'model': ip}
 ]
 
 # ---
@@ -125,7 +160,7 @@ def _animate(i):
     for mi in range(len(dispsols)):
         dispsol = dispsols[mi]
         if i < len(dispsol['sol'].t):
-            p1 = dispsol['model'].kinematics(dispsol['sol'].y[0:1, i])
+            p1 = dispsol['model'].kinematics(dispsol['sol'].y[:, i])
             patches[mi].set_data([0, p1[0]], [0, p1[1]])
 
     return patches
