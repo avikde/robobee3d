@@ -10,12 +10,12 @@ import osqp
 
 sys.path.append('..')
 from controlutils.py import lqr, solver
-from controlutils.py.models.pendulums import PendulumFlyWheel, LIP
+import controlutils.py.models.pendulums as pendulums
 
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
-lip = LIP()
-ip = PendulumFlyWheel()
+lip = pendulums.LIP()
+ip = pendulums.PendulumFlyWheel()
 
 # LQR solutions here
 yup = np.zeros(4)
@@ -28,13 +28,15 @@ R1 = np.eye(1)
 K1, S1 = lqr.lqr(A, B, Q=Q1, R=R1)
 # print(K1, P1)
 
-yupip = np.array([0., 0.1, 0., 0., 0., 0.])
-uupip = np.array([ip.m * ip.g, 0.0])
+yupip = np.array([0., lip.z0, 0., 0., 0., 0.])
+uupip = np.array([ip.m * pendulums.g, 0.0])
+# check that is an equilibrium
+assert np.allclose(ip.dynamics(yupip, uupip), np.zeros(6))
 Aip, Bip, cip = ip.autoLin(yupip, uupip)
 Qip = np.eye(6)
 Rip = np.eye(2)
 Kip, Sip = lqr.lqr(Aip, Bip, Q=Qip, R=Rip)
-# print(Sip)
+print(Kip)
 
 # ---
 prob = osqp.OSQP()
@@ -85,8 +87,12 @@ def valFuncQP(t, y):
         res = prob.solve()
         return lip.dynamics(y, res.x)
     elif len(y) == 6:
+        # Linearize at the current state
+        # TODO: store the jacobians and evaluate
+        # Aip, Bip, cip = ip.autoLin(y, uupip)
         # Use value function from the template (with the appropriate Jacobians)--compare to above
-        qqp = Bip.T @ PiT.T @ S1 @ PiT @ y
+        Vanch = np.array([0, 0 * (y[1] - lip.z0), 0, 0, -100 * y[4], 0])
+        qqp = Bip.T @ (Vanch)# + PiT.T @ S1 @ PiT @ y)
         probIP.update(q=qqp)
         res = probIP.solve()
         return ip.dynamics(y, res.x)
@@ -95,7 +101,7 @@ def valFuncQP(t, y):
 
 
 # Simulation setup
-tf = 2
+tf = 0.1
 dt = 0.01
 t_eval = np.arange(0, tf, dt)
 y0 = np.array([2., 0., 0., 0.])  # for 4dim LIP
@@ -108,9 +114,11 @@ lipqpsol = solve_ivp(valFuncQP, [0, tf], y0, dense_output=True, t_eval=t_eval)
 def ipClosedLoop(t, y):
     # l = np.sqrt(y[0]**2 + y[1]**2)
     # dl = 2 * (y[0] * y[3] + y[1] * y[4])
-    fk = 10000 * (lip.z0 - y[1]) - 100 * y[4]  # attract to z0
-    tauh = 100 * y[0] + 1 * y[3]
-    return ip.dynamics(y, np.array([fk, tauh]))
+    # fk = 10000 * (lip.z0 - y[1]) - 100 * y[4]  # attract to z0
+    # tauh = 100 * y[0] + 1 * y[3]
+    # return ip.dynamics(y, np.array([fk, tauh]))
+
+    return ip.dynamics(y, Kip @ (yupip - y))
 iplqrsol = solve_ivp(ipClosedLoop, [0, tf], y0ip, dense_output=True, t_eval=t_eval)
 # IP with QP controller
 ipqpsol = solve_ivp(valFuncQP, [0, tf], y0ip, dense_output=True, t_eval=t_eval)
@@ -137,9 +145,9 @@ xx, yy = np.meshgrid(np.linspace(0, 2*np.pi, 30), np.linspace(-10, 10, 30))
 
 fig, ax = plt.subplots(3)
 
-for dispsol in dispsols:
-    ax[0].plot(dispsol['sol'].t, dispsol['sol'].y[0, :], label=dispsol['name'])
-# ax[0].plot(iplqrsol.t, iplqrsol.y[1,:])
+# for dispsol in dispsols:
+#     ax[0].plot(dispsol['sol'].t, dispsol['sol'].y[0, :], label=dispsol['name'])
+ax[0].plot(ipqpsol.t, ipqpsol.y[0:2,:].T)
 ax[0].legend()
 
 # ax[1].contourf(xx, yy, lqrValueFunc(xx, yy, pendulum['P']), cmap='gray_r')
