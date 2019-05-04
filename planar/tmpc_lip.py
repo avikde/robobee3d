@@ -60,13 +60,19 @@ uqp = np.zeros(0)
 prob.setup(Pqp, qqp, Aqp, lqp, uqp, verbose=False)
 
 # ---
-# probIP = osqp.OSQP()
-# # QP decision var is u for IP
-# nx = 2
-# Pqp = sparse.csc_matrix([[R1, 0], [0, 0]])
-# qqp = np.full(nx, 1)
-# # no constraints, as before
-# probIP.setup(Pqp, qqp, Aqp, lqp, uqp, verbose=False)
+probIP = osqp.OSQP()
+# QP decision var is u for IP
+nx = 2
+# add a ganch regularization of forces = u.Rip.u
+Pqp = sparse.csc_matrix([[R1[0,0] + Rip[0,0], 0], [0, Rip[1,1]]])
+qqp = np.full(nx, 1)
+# no constraints, as before
+probIP.setup(Pqp, qqp, Aqp, lqp, uqp, verbose=False)
+# Proj to template
+PiT = np.array([[1, 0, 0, 0, 0, 0],
+                [0, 0, 1, 0, 0, 0],
+                [0, 0, 0, 1, 0, 0],
+                [0, 0, 0, 0, 0, 1]])
 
 # ---
 def valFuncQP(t, y):
@@ -79,7 +85,8 @@ def valFuncQP(t, y):
         res = prob.solve()
         return lip.dynamics(y, res.x)
     elif len(y) == 6:
-        qqp = B.T @ S1 @ y
+        # Use value function from the template (with the appropriate Jacobians)--compare to above
+        qqp = Bip.T @ PiT.T @ S1 @ PiT @ y
         probIP.update(q=qqp)
         res = probIP.solve()
         return ip.dynamics(y, res.x)
@@ -87,32 +94,33 @@ def valFuncQP(t, y):
         raise ValueError("Should be LIP or IP")
 
 
-# Simulation
+# Simulation setup
 tf = 2
 dt = 0.01
 t_eval = np.arange(0, tf, dt)
-y0 = np.array([2.,0.,0.,0.])
+y0 = np.array([2., 0., 0., 0.])  # for 4dim LIP
+y0ip = np.array([0.1, 0.11, y0[1], y0[2], 0.0, y0[3]])  # for 6dim IP
 lipsol = solve_ivp(lambda t, y: lip.dynamics(y, K1 @ (yup - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
 # LIP but with QP controller
 lipqpsol = solve_ivp(valFuncQP, [0, tf], y0, dense_output=True, t_eval=t_eval)
 
-# IP with LQR controller
+# IP with feedback controller
 def ipClosedLoop(t, y):
     # l = np.sqrt(y[0]**2 + y[1]**2)
     # dl = 2 * (y[0] * y[3] + y[1] * y[4])
     fk = 10000 * (lip.z0 - y[1]) - 100 * y[4]  # attract to z0
     tauh = 100 * y[0] + 1 * y[3]
     return ip.dynamics(y, np.array([fk, tauh]))
-y0ip = np.array([0.1, 0.11, y0[1], y0[2], 0.0, y0[3]])
 iplqrsol = solve_ivp(ipClosedLoop, [0, tf], y0ip, dense_output=True, t_eval=t_eval)
 # IP with QP controller
-# ipsol = solve_ivp(valFuncQP, [0, tf], y0ip, dense_output=True, t_eval=t_eval)
+ipqpsol = solve_ivp(valFuncQP, [0, tf], y0ip, dense_output=True, t_eval=t_eval)
 
 # make a list for display
 dispsols = [
     {'name': 'liplqr', 'col': 'b', 'sol': lipsol, 'model': lip},
     {'name': 'lipqp', 'col': 'r', 'sol': lipqpsol, 'model': lip},
-    {'name': 'iplqr', 'col': 'g', 'sol': iplqrsol, 'model': ip}
+    {'name': 'iplqr', 'col': 'g', 'sol': iplqrsol, 'model': ip},
+    {'name': 'ipqp', 'col': 'g', 'sol': ipqpsol, 'model': ip}
 ]
 
 # ---
