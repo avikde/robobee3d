@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib import animation
 from mpl_toolkits import mplot3d
 import osqp
-import control
+# import control
 
 sys.path.append('..')
 from controlutils.py import lqr, solver
@@ -21,7 +21,8 @@ lip = pendulums.LIP()
 ip = pendulums.PendulumFlyWheel()
 q2d = aerial.Quadrotor2D()
 
-# LQR solutions here
+# LQR sols here --------------------------------
+# LIP
 yup = np.zeros(4)
 uup = np.array([0.0])
 A, B, c = lip.autoLin(yup, uup)
@@ -32,6 +33,7 @@ R1 = np.eye(1)
 K1, S1 = lqr.lqr(A, B, Q=Q1, R=R1)
 # print(K1, P1)
 
+# IP
 yupip = np.array([0., lip.z0, 0., 0., 0., 0.])
 uupip = np.array([ip.m * pendulums.g, 0.0])
 # check that is an equilibrium
@@ -42,17 +44,24 @@ Rip = np.eye(2)
 Kip, Sip = lqr.lqr(Aip, Bip, Q=Qip, R=Rip)
 print(Kip)
 
+# planar quadrotor
 yhover = np.zeros(6)
 uhover = np.full(2, q2d.m * aerial.g / 2.0)
 # check that is an equilibrium
 assert np.allclose(q2d.dynamics(yhover, uhover), np.zeros(6))
-q2d.fakeDamping = True
+# q2d.fakeDamping = True
 Aq2d, Bq2d, cq2d = q2d.autoLin(yhover, uhover)
 Qq2d = np.eye(6)
 Rq2d = np.eye(2)
 print(Aq2d, Bq2d)  # , Kq2d)
-Kq2d, Sq2d = control.lqr(Aq2d, Bq2d, Qq2d, Rq2d)
-print(Kq2d)
+# FIXME: LQR solution
+# Kq2d, Sq2d = control.lqr(Aq2d, Bq2d, Qq2d, Rq2d)
+# control.care / sb02md: Hamiltonian or symplectic matrix H has less than N stable eigenvalues
+# scipy.solve_continuous_are: Failed to find a finite solution
+# FIXME: this isn't solving
+Kq2d = np.array([[-0.707107, 0.707107, 4.5069, -1.07185, 0.92363, 0.974983], 
+[0.707107, 0.707107, -4.5069, 1.07185, 0.92363, -0.974983]])
+# print(Kq2d)
 
 # ---
 prob = osqp.OSQP()
@@ -139,15 +148,22 @@ iplqrsol = solve_ivp(ipClosedLoop, [0, tf], y0ip, dense_output=True, t_eval=t_ev
 # IP with QP controller
 ipqpsol = solve_ivp(valFuncQP, [0, tf], y0ip, dense_output=True, t_eval=t_eval)
 
+# Quadrotor 2d ---
+tf = 5
+dt = 0.01
+t_eval = np.arange(0, tf, dt)
+y0 = np.array([0,1,0,0,0,0])
+q2dsol = solve_ivp(lambda t, y: q2d.dynamics(y, Kq2d @ (yhover - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
+
+# ------------ Display -----------------------
+
 # make a list for display
 dispsols = [
     {'name': 'liplqr', 'col': 'b', 'sol': lipsol, 'model': lip},
     {'name': 'lipqp', 'col': 'r', 'sol': lipqpsol, 'model': lip},
     {'name': 'iplqr', 'col': 'g', 'sol': iplqrsol, 'model': ip},
-    {'name': 'ipqp', 'col': 'g', 'sol': ipqpsol, 'model': ip}
+    # {'name': 'ipqp', 'col': 'g', 'sol': ipqpsol, 'model': ip}
 ]
-
-# ---
 
 # visualize value function
 def lqrValueFunc(x1, x2, P):
@@ -157,12 +173,13 @@ def lqrValueFunc(x1, x2, P):
 
 xx, yy = np.meshgrid(np.linspace(0, 2*np.pi, 30), np.linspace(-10, 10, 30))
 
-# Quadrotor ---
+# ---
+fig, ax = plt.subplots(2)
+
+ax[0].plot(q2dsol.t, q2dsol.y[1,:])
 
 
-
-# Display -------------------
-
+# ---
 fig, ax = plt.subplots(3)
 
 # for dispsol in dispsols:
