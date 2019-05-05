@@ -54,13 +54,7 @@ Aq2d, Bq2d, cq2d = q2d.autoLin(yhover, uhover)
 Qq2d = np.eye(6)
 Rq2d = np.eye(2)
 print(Aq2d, Bq2d)  # , Kq2d)
-# FIXME: LQR solution
-# Kq2d, Sq2d = control.lqr(Aq2d, Bq2d, Qq2d, Rq2d)
-# control.care / sb02md: Hamiltonian or symplectic matrix H has less than N stable eigenvalues
-# scipy.solve_continuous_are: Failed to find a finite solution
-# FIXME: this isn't solving
-Kq2d = np.array([[-0.707107, 0.707107, 4.5069, -1.07185, 0.92363, 0.974983], 
-[0.707107, 0.707107, -4.5069, 1.07185, 0.92363, -0.974983]])
+Kq2d, Sq2d = lqr.lqr(Aq2d, Bq2d, Qq2d, Rq2d)
 # print(Kq2d)
 
 # ---
@@ -152,7 +146,7 @@ ipqpsol = solve_ivp(valFuncQP, [0, tf], y0ip, dense_output=True, t_eval=t_eval)
 tf = 5
 dt = 0.01
 t_eval = np.arange(0, tf, dt)
-y0 = np.array([0,1,0,0,0,0])
+y0 = np.array([1,1,0,0,0,0])
 q2dsol = solve_ivp(lambda t, y: q2d.dynamics(y, Kq2d @ (yhover - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
 
 # ------------ Display -----------------------
