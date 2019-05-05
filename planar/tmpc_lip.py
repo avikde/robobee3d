@@ -7,15 +7,19 @@ import matplotlib.pyplot as plt
 from matplotlib import animation
 from mpl_toolkits import mplot3d
 import osqp
+import control
 
 sys.path.append('..')
 from controlutils.py import lqr, solver
 import controlutils.py.models.pendulums as pendulums
+import controlutils.py.models.aerial as aerial
 
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
+# Create all the models
 lip = pendulums.LIP()
 ip = pendulums.PendulumFlyWheel()
+q2d = aerial.Quadrotor2D()
 
 # LQR solutions here
 yup = np.zeros(4)
@@ -37,6 +41,18 @@ Qip = np.eye(6)
 Rip = np.eye(2)
 Kip, Sip = lqr.lqr(Aip, Bip, Q=Qip, R=Rip)
 print(Kip)
+
+yhover = np.zeros(6)
+uhover = np.full(2, q2d.m * aerial.g / 2.0)
+# check that is an equilibrium
+assert np.allclose(q2d.dynamics(yhover, uhover), np.zeros(6))
+q2d.fakeDamping = True
+Aq2d, Bq2d, cq2d = q2d.autoLin(yhover, uhover)
+Qq2d = np.eye(6)
+Rq2d = np.eye(2)
+print(Aq2d, Bq2d)  # , Kq2d)
+Kq2d, Sq2d = control.lqr(Aq2d, Bq2d, Qq2d, Rq2d)
+print(Kq2d)
 
 # ---
 prob = osqp.OSQP()
@@ -140,6 +156,10 @@ def lqrValueFunc(x1, x2, P):
     return val
 
 xx, yy = np.meshgrid(np.linspace(0, 2*np.pi, 30), np.linspace(-10, 10, 30))
+
+# Quadrotor ---
+
+
 
 # Display -------------------
 
