@@ -3,6 +3,28 @@ import sys
 sys.path.append('..')
 import controlutils.py.kinematics as kin
 import controlutils.py.misc as misc
+from controlutils.py.model import Model
+
+g = 9.81
+
+# FIXME: combine with the next thing
+class PlanarThrustStrokeDev2(Model):
+    """config q is SE(2). From [Underactuated book, 3.3.1]"""
+    m = 0.5
+    r = 0.1
+    ib = 0.001
+
+    def dynamics(self, y, u):
+        nq = 3
+        u1 = u[0]
+        u2 = u[1]
+        ydot = np.hstack((y[nq:], np.array([
+            -u1 / self.m * np.sin(y[2]),
+            u1 / self.m * np.cos(y[2]) - g,
+            u1 * u2 / self.ib
+        ])))
+        return ydot
+
 
 class PlanarThrustStrokeDev:
     mb = 100e-6
