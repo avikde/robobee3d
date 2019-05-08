@@ -6,6 +6,7 @@ import scipy.sparse as sparse
 import matplotlib.pyplot as plt
 from matplotlib import animation
 from mpl_toolkits import mplot3d
+from matplotlib.collections import PatchCollection
 import osqp
 # import control
 
@@ -144,76 +145,117 @@ iplqrsol = solve_ivp(ipClosedLoop, [0, tf], y0ip, dense_output=True, t_eval=t_ev
 ipqpsol = solve_ivp(valFuncQP, [0, tf], y0ip, dense_output=True, t_eval=t_eval)
 
 # Quadrotor 2d ---
+
+# QP for control with LQR VF
+probQ1 = osqp.OSQP()
+# the QP decision var is u
+nx = 2
+# col-major 1..nx^2 elementss
+Pqp = sparse.csc_matrix(Rq2d)
+# now Pqp.data is just 1..nx^2
+qqp = np.full(nx, 1)
+
+Aqp = sparse.csc_matrix(np.zeros((0, nx)))
+lqp = np.zeros(0)
+uqp = np.zeros(0)
+probQ1.setup(Pqp, qqp, Aqp, lqp, uqp, verbose=False)
+
+def valFuncQuadQP(t, y):
+    global probQ1
+    # update
+    if len(y) == 6:
+        # Linearize at the current state
+        # TODO: store the jacobians and evaluate
+        # Aip, Bip, cip = ip.autoLin(y, uupip)
+        # Use value function from the template (with the appropriate Jacobians)--compare to above
+        qqp = Bq2d.T @ Sq2d @ y
+        # prob.update(Px=np.reshape(Pqp, nx*nx, order='F'))
+        probQ1.update(q=qqp)
+        res = probQ1.solve()
+        return q2d.dynamics(y, res.x)
+    else:
+        raise ValueError("Should be LIP or IP")
+
+
 tf = 3
 dt = 0.05
 t_eval = np.arange(0, tf, dt)
-y0 = np.array([2,-1,0,0,0,0])
-q2dsol = solve_ivp(lambda t, y: q2d.dynamics(y, Kq2d @ (yhover - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
+y0 = np.array([2, -1, 0, 0, 0, 0])
+qlqrsol = solve_ivp(lambda t, y: q2d.dynamics(y, Kq2d @ (yhover - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
+# ---
+qsols = [
+    {'name': 'lqr', 'col': 'b', 'sol': qlqrsol, 'model': q2d},
+    {'name': 'qp', 'col': 'r--', 'sol': solve_ivp(valFuncQuadQP, [0, tf], np.array([2, 1, 0, 0, 0, 0]), dense_output=True, t_eval=t_eval), 'model': q2d},
+]
+
 
 # ------------ Display -----------------------
 
-# make a list for display
-dispsols = [
-    {'name': 'liplqr', 'col': 'b', 'sol': lipsol, 'model': lip},
-    {'name': 'lipqp', 'col': 'r', 'sol': lipqpsol, 'model': lip},
-    {'name': 'iplqr', 'col': 'g', 'sol': iplqrsol, 'model': ip},
-    # {'name': 'ipqp', 'col': 'g', 'sol': ipqpsol, 'model': ip}
-]
+# Quadrotor display ---
+fig, ax = plt.subplots(4)
 
-# visualize value function
-def lqrValueFunc(x1, x2, P):
-    # TODO: will need slices
-    val = P[0,0] * (x1 - yup[0])**2 + P[1,1] * x2**2 + (P[0,1] + P[1,0]) * (x1 - yup[0])*x2
-    return val
-
-xx, yy = np.meshgrid(np.linspace(0, 2*np.pi, 30), np.linspace(-10, 10, 30))
-
-# ---
-fig, ax = plt.subplots(3)
-
-ax[0].plot(q2dsol.y[0,:], q2dsol.y[1,:])
+for qsol in qsols:
+    ax[0].plot(qsol['sol'].y[0, :], qsol['sol'].y[1, :], qsol['col'])
 ax[0].set_aspect(1)
 ax[0].set_ylabel('xz')
 
-ax[1].plot(q2dsol.t, q2dsol.y[2, :])
+for qsol in qsols:
+    ax[1].plot(qsol['sol'].t, qsol['sol'].y[2, :], qsol['col'])
 ax[1].set_ylabel('phi')
 plt.tight_layout()
 
+# Plot CTG along trajectory
+for qsol in qsols:
+    q2dval = np.zeros_like(qsol['sol'].t)
+    for ti in range(len(q2dval)):
+        yi = qsol['sol'].y[:, ti]
+        q2dval[ti] = yi @ Sq2d @ yi
+    ax[2].plot(qsol['sol'].t, q2dval, qsol['col'])
+ax[2].set_ylabel('CTG')
+
 # Animation --
-bodyPatch = misc.rectangle(y0[0:2], y0[2], 2*q2d.r, 0.1*q2d.r)
-ax[2].set_aspect(1)
-ax[2].set_xlim((-2,2))
-ax[2].set_ylim((-1,1))
-ax[2].grid(True)
-# ax[2].legend()
+patches = [misc.rectangle(y0[0:2], y0[2], 2*q2d.r, 0.1*q2d.r, color=qsol['col'][0]) for qsol in qsols]
+ax[3].set_aspect(1)
+ax[3].set_xlim((-2,2))
+ax[3].set_ylim((-1,1))
+ax[3].grid(True)
+ax[3].add_patch(patches[0])
+ax[3].add_patch(patches[1])
 plt.tight_layout()
 
 def _init():
-    ax[2].add_patch(bodyPatch)
-    return bodyPatch, 
+    return patches[0], patches[1], 
 
 def _animate(i):
-    # get the vertices of the pendulum
-    # for mi in range(len(patches)):
-    if i < len(q2dsol.t):
-        rawxy = misc.rectangle(q2dsol.y[0:2,i], q2dsol.y[2,i], 2*q2d.r, 0.5*q2d.r, rawxy=True)
-        bodyPatch.set_xy(rawxy)
+    for mi in range(len(qsols)):
+        qsol = qsols[mi]['sol']
+        if i < len(qsol.t):
+            rawxy = misc.rectangle(qsol.y[0:2, i], qsol.y[2, i], 2*q2d.r, 0.5*q2d.r, rawxy=True)
+            patches[mi].set_xy(rawxy)
 
-    return bodyPatch,
+    return patches[0], patches[1],
 
-anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(q2dsol.t), interval=1000*dt, blit=True)
+anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(qsols[0]['sol'].t), interval=1000*dt, blit=True)
 # --
 
-# Plot CTG along trajectory
-q2dval = np.zeros_like(q2dsol.t)
-for ti in range(len(q2dval)):
-    yi = q2dsol.y[:, ti]
-    q2dval[ti] = yi @ Sq2d @ yi
-ax[3].plot(q2dsol.t, q2dval)
-ax[3].set_ylabel('CTG')
 
+# # --- IP display ---
 
-# # ---
+# dispsols = [
+#     {'name': 'liplqr', 'col': 'b', 'sol': lipsol, 'model': lip},
+#     {'name': 'lipqp', 'col': 'r', 'sol': lipqpsol, 'model': lip},
+#     {'name': 'iplqr', 'col': 'g', 'sol': iplqrsol, 'model': ip},
+#     # {'name': 'ipqp', 'col': 'g', 'sol': ipqpsol, 'model': ip}
+# ]
+
+# # visualize value function
+# def lqrValueFunc(x1, x2, P):
+#     # TODO: will need slices
+#     val = P[0,0] * (x1 - yup[0])**2 + P[1,1] * x2**2 + (P[0,1] + P[1,0]) * (x1 - yup[0])*x2
+#     return val
+
+xx, yy = np.meshgrid(np.linspace(0, 2*np.pi, 30), np.linspace(-10, 10, 30))
+
 # fig, ax = plt.subplots(3)
 
 # # for dispsol in dispsols:
