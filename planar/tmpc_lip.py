@@ -42,7 +42,7 @@ Aip, Bip, cip = ip.autoLin(yupip, uupip)
 Qip = np.eye(6)
 Rip = np.eye(2)
 Kip, Sip = lqr.lqr(Aip, Bip, Q=Qip, R=Rip)
-print(Kip)
+# print(Kip)
 
 # planar quadrotor
 yhover = np.zeros(6)
@@ -52,8 +52,8 @@ assert np.allclose(q2d.dynamics(yhover, uhover), np.zeros(6))
 # q2d.fakeDamping = True
 Aq2d, Bq2d, cq2d = q2d.autoLin(yhover, uhover)
 Qq2d = np.eye(6)
-Rq2d = np.eye(2)
-print(Aq2d, Bq2d)  # , Kq2d)
+Rq2d = 0.001 * np.eye(2)
+# print(Aq2d, Bq2d)  # , Kq2d)
 Kq2d, Sq2d = lqr.lqr(Aq2d, Bq2d, Qq2d, Rq2d)
 # print(Kq2d)
 
@@ -170,55 +170,58 @@ xx, yy = np.meshgrid(np.linspace(0, 2*np.pi, 30), np.linspace(-10, 10, 30))
 # ---
 fig, ax = plt.subplots(2)
 
-ax[0].plot(q2dsol.t, q2dsol.y[1,:])
+ax[0].plot(q2dsol.y[0,:], q2dsol.y[1,:])
+ax[0].set_aspect(1)
 
+ax[1].plot(q2dsol.t, q2dsol.y[2, :])
+ax[1].set_ylabel('phi')
 
-# ---
-fig, ax = plt.subplots(3)
+# # ---
+# fig, ax = plt.subplots(3)
 
+# # for dispsol in dispsols:
+# #     ax[0].plot(dispsol['sol'].t, dispsol['sol'].y[0, :], label=dispsol['name'])
+# ax[0].plot(ipqpsol.t, ipqpsol.y[0:2,:].T)
+# ax[0].legend()
+
+# # ax[1].contourf(xx, yy, lqrValueFunc(xx, yy, pendulum['P']), cmap='gray_r')
+# # ax[1].plot(yup[0], yup[1], 'r*')
+
+# # Plot value along trajectory
+# lipval = np.zeros_like(lipsol.t)
+# for ti in range(len(lipval)):
+#     yi = lipsol.y[:, ti]
+#     lipval[ti] = yi @ S1 @ yi
+# ax[1].plot(lipsol.t, lipval)
+# ax[1].set_ylabel('CTG')
+
+# # animation
+# patches = []
 # for dispsol in dispsols:
-#     ax[0].plot(dispsol['sol'].t, dispsol['sol'].y[0, :], label=dispsol['name'])
-ax[0].plot(ipqpsol.t, ipqpsol.y[0:2,:].T)
-ax[0].legend()
+#     linei, = ax[2].plot([], [], lw=2, label=dispsol['name'])
+#     patches.append(linei)
+# ax[2].set_aspect(1)
+# ax[2].set_xlim((-0.3,0.3))
+# ax[2].set_ylim((-0.3,0.3))
+# ax[2].grid(True)
+# ax[2].legend(bbox_to_anchor=(2,1))
+# plt.tight_layout()
 
-# ax[1].contourf(xx, yy, lqrValueFunc(xx, yy, pendulum['P']), cmap='gray_r')
-# ax[1].plot(yup[0], yup[1], 'r*')
+# def _init():
+#     for pp in patches:
+#         pp.set_data([], [])
+#     return patches
 
-# Plot value along trajectory
-lipval = np.zeros_like(lipsol.t)
-for ti in range(len(lipval)):
-    yi = lipsol.y[:, ti]
-    lipval[ti] = yi @ S1 @ yi
-ax[1].plot(lipsol.t, lipval)
-ax[1].set_ylabel('CTG')
+# def _animate(i):
+#     # get the vertices of the pendulum
+#     for mi in range(len(dispsols)):
+#         dispsol = dispsols[mi]
+#         if i < len(dispsol['sol'].t):
+#             p1 = dispsol['model'].kinematics(dispsol['sol'].y[:, i])
+#             patches[mi].set_data([0, p1[0]], [0, p1[1]])
 
-# animation
-patches = []
-for dispsol in dispsols:
-    linei, = ax[2].plot([], [], lw=2, label=dispsol['name'])
-    patches.append(linei)
-ax[2].set_aspect(1)
-ax[2].set_xlim((-0.3,0.3))
-ax[2].set_ylim((-0.3,0.3))
-ax[2].grid(True)
-ax[2].legend(bbox_to_anchor=(2,1))
-plt.tight_layout()
+#     return patches
 
-def _init():
-    for pp in patches:
-        pp.set_data([], [])
-    return patches
-
-def _animate(i):
-    # get the vertices of the pendulum
-    for mi in range(len(dispsols)):
-        dispsol = dispsols[mi]
-        if i < len(dispsol['sol'].t):
-            p1 = dispsol['model'].kinematics(dispsol['sol'].y[:, i])
-            patches[mi].set_data([0, p1[0]], [0, p1[1]])
-
-    return patches
-
-anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(lipsol.t), interval=1000*dt, blit=True)
+# anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(lipsol.t), interval=1000*dt, blit=True)
 
 plt.show()
