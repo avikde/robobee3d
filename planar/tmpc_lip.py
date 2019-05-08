@@ -13,6 +13,7 @@ sys.path.append('..')
 from controlutils.py import lqr, solver
 import controlutils.py.models.pendulums as pendulums
 import controlutils.py.models.aerial as aerial
+import controlutils.py.misc as misc
 
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
@@ -51,7 +52,7 @@ uhover = np.full(2, q2d.m * aerial.g / 2.0)
 assert np.allclose(q2d.dynamics(yhover, uhover), np.zeros(6))
 # q2d.fakeDamping = True
 Aq2d, Bq2d, cq2d = q2d.autoLin(yhover, uhover)
-Qq2d = np.eye(6)
+Qq2d = np.diag([10,10,1,1,1,0.1])
 Rq2d = 0.001 * np.eye(2)
 # print(Aq2d, Bq2d)  # , Kq2d)
 Kq2d, Sq2d = lqr.lqr(Aq2d, Bq2d, Qq2d, Rq2d)
@@ -143,10 +144,10 @@ iplqrsol = solve_ivp(ipClosedLoop, [0, tf], y0ip, dense_output=True, t_eval=t_ev
 ipqpsol = solve_ivp(valFuncQP, [0, tf], y0ip, dense_output=True, t_eval=t_eval)
 
 # Quadrotor 2d ---
-tf = 5
-dt = 0.01
+tf = 3
+dt = 0.05
 t_eval = np.arange(0, tf, dt)
-y0 = np.array([1,1,0,0,0,0])
+y0 = np.array([2,-1,0,0,0,0])
 q2dsol = solve_ivp(lambda t, y: q2d.dynamics(y, Kq2d @ (yhover - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
 
 # ------------ Display -----------------------
@@ -168,13 +169,39 @@ def lqrValueFunc(x1, x2, P):
 xx, yy = np.meshgrid(np.linspace(0, 2*np.pi, 30), np.linspace(-10, 10, 30))
 
 # ---
-fig, ax = plt.subplots(2)
+fig, ax = plt.subplots(3)
 
 ax[0].plot(q2dsol.y[0,:], q2dsol.y[1,:])
 ax[0].set_aspect(1)
+ax[0].set_ylabel('xz')
 
 ax[1].plot(q2dsol.t, q2dsol.y[2, :])
 ax[1].set_ylabel('phi')
+plt.tight_layout()
+
+# Animation
+bodyPatch = misc.rectangle(y0[0:2], y0[2], 2*q2d.r, 0.1*q2d.r)
+ax[2].set_aspect(1)
+ax[2].set_xlim((-2,2))
+ax[2].set_ylim((-1,1))
+ax[2].grid(True)
+# ax[2].legend()
+plt.tight_layout()
+
+def _init():
+    ax[2].add_patch(bodyPatch)
+    return bodyPatch, 
+
+def _animate(i):
+    # get the vertices of the pendulum
+    # for mi in range(len(patches)):
+    if i < len(q2dsol.t):
+        rawxy = misc.rectangle(q2dsol.y[0:2,i], q2dsol.y[2,i], 2*q2d.r, 0.5*q2d.r, rawxy=True)
+        bodyPatch.set_xy(rawxy)
+
+    return bodyPatch,
+
+anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(q2dsol.t), interval=1000*dt, blit=True)
 
 # # ---
 # fig, ax = plt.subplots(3)
