@@ -15,6 +15,7 @@ from controlutils.py import lqr, solver
 import controlutils.py.models.pendulums as pendulums
 import controlutils.py.models.aerial as aerial
 import controlutils.py.misc as misc
+from FlappingModels import PlanarThrustStrokeDev2
 
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
@@ -135,6 +136,7 @@ ipqpsol = solve_ivp(valFuncQP, [0, tf], y0ip, dense_output=True, t_eval=t_eval)
 
 # planar quadrotor
 q2d = aerial.Quadrotor2D()
+ptsd = PlanarThrustStrokeDev2()
 
 # LQR --
 yhover = np.zeros(6)
@@ -163,24 +165,32 @@ lqp = np.zeros(0)
 uqp = np.zeros(0)
 probQ1.setup(Pqp, qqp, Aqp, lqp, uqp, verbose=False)
 uprev = uhover
-def valFuncQuadQP(t, y):
+def valFuncQuadQP(t, y, anch):
     global probQ1, uprev
     # update
-    if len(y) == 6:
-        # Use value function from the template (with the appropriate Jacobians)--compare to above
+    # Use value function from the template (with the appropriate Jacobians)--compare to above
 
+    if anch == 'q2d':
         # Linearize at the current state
         # Bnow = jacobian(lambda u: q2d.dynamics(y, u))
         # qqp = (Bnow(uprev)).T @ Sq2d @ y
 
+        # B from eq
         qqp = (Bq2d).T @ Sq2d @ y
-        # prob.update(Px=np.reshape(Pqp, nx*nx, order='F'))
-        probQ1.update(q=qqp)
-        res = probQ1.solve()
-        uprev = res.x
-        return q2d.dynamics(y, uprev)
+    elif anch == 'ptsd':
+        Bnow = jacobian(lambda u: ptsd.dynamics(y, u))
+        qqp = (Bnow(uprev)).T @ Sq2d @ y
     else:
-        raise ValueError("Should be LIP or IP")
+        raise ValueError("specify anch")
+
+    # prob.update(Px=np.reshape(Pqp, nx*nx, order='F'))
+    probQ1.update(q=qqp)
+    res = probQ1.solve()
+    uprev = res.x
+    if anch == 'q2d':
+        return q2d.dynamics(y, uprev)
+    elif anch == 'ptsd':
+        return ptsd.dynamics(y, uprev)
 
 # Simulations --
 
@@ -189,10 +199,16 @@ dt = 0.05
 t_eval = np.arange(0, tf, dt)
 y0 = np.array([2, -1, 0, 0, 0, 0])
 qlqrsol = solve_ivp(lambda t, y: q2d.dynamics(y, Kq2d @ (yhover - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
+
+qqpsol = solve_ivp(lambda t, y: valFuncQuadQP(t, y, 'q2d'), [0, tf], np.array([2, 1, 0, 0, 0, 0]), dense_output=True, t_eval=t_eval)
+
+uhover = np.array([ptsd.m * 9.81, 0])
+qptsdsol = solve_ivp(lambda t, y: valFuncQuadQP(t, y, 'ptsd'), [0, tf], np.array([1, 0, 0, 0, 0, 0]), dense_output=True, t_eval=t_eval)
 # ---
 qsols = [
     {'name': 'lqr', 'col': 'b', 'sol': qlqrsol, 'model': q2d},
-    {'name': 'qp', 'col': 'r--', 'sol': solve_ivp(valFuncQuadQP, [0, tf], np.array([2, -1, 0, 0, 0, 0]), dense_output=True, t_eval=t_eval), 'model': q2d},
+    {'name': 'qp', 'col': 'r', 'sol': qqpsol, 'model': q2d},
+    {'name': 'ptsd', 'col': 'g', 'sol': qptsdsol, 'model': ptsd},
 ]
 
 
