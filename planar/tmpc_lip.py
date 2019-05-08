@@ -21,7 +21,6 @@ np.set_printoptions(precision=4, suppress=True, linewidth=200)
 # Create all the models
 lip = pendulums.LIP()
 ip = pendulums.PendulumFlyWheel()
-q2d = aerial.Quadrotor2D()
 
 # LQR sols here --------------------------------
 # LIP
@@ -46,18 +45,6 @@ Rip = np.eye(2)
 Kip, Sip = lqr.lqr(Aip, Bip, Q=Qip, R=Rip)
 # print(Kip)
 
-# planar quadrotor
-yhover = np.zeros(6)
-uhover = np.full(2, q2d.m * aerial.g / 2.0)
-# check that is an equilibrium
-assert np.allclose(q2d.dynamics(yhover, uhover), np.zeros(6))
-# q2d.fakeDamping = True
-Aq2d, Bq2d, cq2d = q2d.autoLin(yhover, uhover)
-Qq2d = np.diag([10,10,1,1,1,0.1])
-Rq2d = 0.001 * np.eye(2)
-# print(Aq2d, Bq2d)  # , Kq2d)
-Kq2d, Sq2d = lqr.lqr(Aq2d, Bq2d, Qq2d, Rq2d)
-# print(Kq2d)
 
 # ---
 prob = osqp.OSQP()
@@ -144,9 +131,25 @@ iplqrsol = solve_ivp(ipClosedLoop, [0, tf], y0ip, dense_output=True, t_eval=t_ev
 # IP with QP controller
 ipqpsol = solve_ivp(valFuncQP, [0, tf], y0ip, dense_output=True, t_eval=t_eval)
 
-# Quadrotor 2d ---
+# Quadrotor 2d ---------------------------------------
 
-# QP for control with LQR VF
+# planar quadrotor
+q2d = aerial.Quadrotor2D()
+
+# LQR --
+yhover = np.zeros(6)
+uhover = np.full(2, q2d.m * aerial.g / 2.0)
+# check that is an equilibrium
+assert np.allclose(q2d.dynamics(yhover, uhover), np.zeros(6))
+# q2d.fakeDamping = True
+Aq2d, Bq2d, cq2d = q2d.autoLin(yhover, uhover)
+Qq2d = np.diag([10, 10, 1, 1, 1, 0.1])
+Rq2d = 0.001 * np.eye(2)
+# print(Aq2d, Bq2d)  # , Kq2d)
+Kq2d, Sq2d = lqr.lqr(Aq2d, Bq2d, Qq2d, Rq2d)
+# print(Kq2d)
+
+# QP for control with LQR VF --
 probQ1 = osqp.OSQP()
 # the QP decision var is u
 nx = 2
@@ -159,23 +162,27 @@ Aqp = sparse.csc_matrix(np.zeros((0, nx)))
 lqp = np.zeros(0)
 uqp = np.zeros(0)
 probQ1.setup(Pqp, qqp, Aqp, lqp, uqp, verbose=False)
-
+uprev = uhover
 def valFuncQuadQP(t, y):
-    global probQ1
+    global probQ1, uprev
     # update
     if len(y) == 6:
-        # Linearize at the current state
-        # TODO: store the jacobians and evaluate
-        # Aip, Bip, cip = ip.autoLin(y, uupip)
         # Use value function from the template (with the appropriate Jacobians)--compare to above
-        qqp = Bq2d.T @ Sq2d @ y
+
+        # Linearize at the current state
+        # Bnow = jacobian(lambda u: q2d.dynamics(y, u))
+        # qqp = (Bnow(uprev)).T @ Sq2d @ y
+
+        qqp = (Bq2d).T @ Sq2d @ y
         # prob.update(Px=np.reshape(Pqp, nx*nx, order='F'))
         probQ1.update(q=qqp)
         res = probQ1.solve()
-        return q2d.dynamics(y, res.x)
+        uprev = res.x
+        return q2d.dynamics(y, uprev)
     else:
         raise ValueError("Should be LIP or IP")
 
+# Simulations --
 
 tf = 3
 dt = 0.05
@@ -185,7 +192,7 @@ qlqrsol = solve_ivp(lambda t, y: q2d.dynamics(y, Kq2d @ (yhover - y)), [0, tf], 
 # ---
 qsols = [
     {'name': 'lqr', 'col': 'b', 'sol': qlqrsol, 'model': q2d},
-    {'name': 'qp', 'col': 'r--', 'sol': solve_ivp(valFuncQuadQP, [0, tf], np.array([2, 1, 0, 0, 0, 0]), dense_output=True, t_eval=t_eval), 'model': q2d},
+    {'name': 'qp', 'col': 'r--', 'sol': solve_ivp(valFuncQuadQP, [0, tf], np.array([2, -1, 0, 0, 0, 0]), dense_output=True, t_eval=t_eval), 'model': q2d},
 ]
 
 
