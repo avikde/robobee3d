@@ -179,7 +179,7 @@ ax[1].plot(q2dsol.t, q2dsol.y[2, :])
 ax[1].set_ylabel('phi')
 plt.tight_layout()
 
-# Animation
+# Animation --
 bodyPatch = misc.rectangle(y0[0:2], y0[2], 2*q2d.r, 0.1*q2d.r)
 ax[2].set_aspect(1)
 ax[2].set_xlim((-2,2))
@@ -202,6 +202,16 @@ def _animate(i):
     return bodyPatch,
 
 anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(q2dsol.t), interval=1000*dt, blit=True)
+# --
+
+# Plot CTG along trajectory
+q2dval = np.zeros_like(q2dsol.t)
+for ti in range(len(q2dval)):
+    yi = q2dsol.y[:, ti]
+    q2dval[ti] = yi @ Sq2d @ yi
+ax[3].plot(q2dsol.t, q2dval)
+ax[3].set_ylabel('CTG')
+
 
 # # ---
 # fig, ax = plt.subplots(3)
