@@ -11,7 +11,6 @@ g = 9.81
 class PlanarThrustStrokeDev2(Model):
     """config q is SE(2). From [Underactuated book, 3.3.1]"""
     m = 0.5
-    r = 0.1
     ib = 0.001
 
     def dynamics(self, y, u):

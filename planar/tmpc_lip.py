@@ -141,6 +141,7 @@ ptsd = PlanarThrustStrokeDev2()
 # LQR --
 yhover = np.zeros(6)
 uhover = np.full(2, q2d.m * aerial.g / 2.0)
+uhoverPTSD = np.array([ptsd.m * aerial.g, 0])
 # check that is an equilibrium
 assert np.allclose(q2d.dynamics(yhover, uhover), np.zeros(6))
 # q2d.fakeDamping = True
@@ -163,7 +164,7 @@ qqp = np.full(nx, 1)
 Aqp = sparse.csc_matrix(np.zeros((0, nx)))
 lqp = np.zeros(0)
 uqp = np.zeros(0)
-probQ1.setup(Pqp, qqp, Aqp, lqp, uqp, verbose=False)
+probQ1.setup(Pqp, qqp, Aqp, lqp, uqp, verbose=False, eps_rel=1e-4, eps_abs=1e-4, max_iter=20)
 uprev = uhover
 def valFuncQuadQP(t, y, anch):
     global probQ1, uprev
@@ -178,8 +179,22 @@ def valFuncQuadQP(t, y, anch):
         # B from eq
         qqp = (Bq2d).T @ Sq2d @ y
     elif anch == 'ptsd':
+        # FIXME: autograd not working on this
         Bnow = jacobian(lambda u: ptsd.dynamics(y, u))
-        qqp = (Bnow(uprev)).T @ Sq2d @ y
+        # qqp = (Bnow(uhoverPTSD)).T @ Sq2d @ y
+        
+        # u1 = ptsd.m * aerial.g
+        # u2 = 0
+        u1 = uprev[0]
+        u2 = uprev[1]
+        # print(uhoverPTSD, u1, u2)
+        sphi = np.sin(y[2])
+        cphi = np.cos(y[2])
+        Bsym = np.vstack((np.zeros((3,2)), 
+        np.array([[-sphi / ptsd.m, 0], [cphi/ptsd.m, 0], [u2/ptsd.ib, u1/ptsd.ib]])))
+        # print(Bnow(uhoverPTSD))
+        # print(Bnow(uhoverPTSD), Bsym)
+        qqp = Bq2d.T @ Sq2d @ y
     else:
         raise ValueError("specify anch")
 
@@ -187,6 +202,7 @@ def valFuncQuadQP(t, y, anch):
     probQ1.update(q=qqp)
     res = probQ1.solve()
     uprev = res.x
+    # print(uprev)
     if anch == 'q2d':
         return q2d.dynamics(y, uprev)
     elif anch == 'ptsd':
@@ -202,7 +218,8 @@ qlqrsol = solve_ivp(lambda t, y: q2d.dynamics(y, Kq2d @ (yhover - y)), [0, tf], 
 
 qqpsol = solve_ivp(lambda t, y: valFuncQuadQP(t, y, 'q2d'), [0, tf], np.array([2, 1, 0, 0, 0, 0]), dense_output=True, t_eval=t_eval)
 
-uhover = np.array([ptsd.m * 9.81, 0])
+uprev = uhoverPTSD
+probQ1.update(Px=np.array([1, 10]))  # more input weight
 qptsdsol = solve_ivp(lambda t, y: valFuncQuadQP(t, y, 'ptsd'), [0, tf], np.array([1, 0, 0, 0, 0, 0]), dense_output=True, t_eval=t_eval)
 # ---
 qsols = [
