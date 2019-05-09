@@ -259,12 +259,12 @@ ax[3].set_aspect(1)
 ax[3].set_xlim((-2,2))
 ax[3].set_ylim((-1,1))
 ax[3].grid(True)
-ax[3].add_patch(patches[0])
-ax[3].add_patch(patches[1])
+for patch in patches:
+    ax[3].add_patch(patch)
 plt.tight_layout()
 
 def _init():
-    return patches[0], patches[1], 
+    return patches[0], patches[1], patches[2], 
 
 def _animate(i):
     for mi in range(len(qsols)):
@@ -273,7 +273,7 @@ def _animate(i):
             rawxy = misc.rectangle(qsol.y[0:2, i], qsol.y[2, i], 2*q2d.r, 0.5*q2d.r, rawxy=True)
             patches[mi].set_xy(rawxy)
 
-    return patches[0], patches[1],
+    return patches[0], patches[1], patches[2],
 
 anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(qsols[0]['sol'].t), interval=1000*dt, blit=True)
 # --
