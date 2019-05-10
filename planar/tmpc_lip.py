@@ -202,10 +202,12 @@ def valFuncQuadQP(t, y, anch):
     probQ1.update(q=qqp)
     res = probQ1.solve()
     uprev = res.x
-    # print(uprev)
     if anch == 'q2d':
         return q2d.dynamics(y, uprev)
     elif anch == 'ptsd':
+        uprev[0] = 5
+        uprev[1] = 0
+        print(uprev)
         return ptsd.dynamics(y, uprev)
 
 # Simulations --
