@@ -20,29 +20,33 @@ np.set_printoptions(precision=4, suppress=True, linewidth=200)
 # Quadrotor 2d ---------------------------------------
 
 # planar quadrotor
-q2d = aerial.Quadrotor2D()
-ptsd = PlanarThrustStrokeDev2()
+q2d = {'m': aerial.Quadrotor2D()}
+ptsd = {'m': PlanarThrustStrokeDev2()}
 
 # LQR --
-yhover = np.zeros(6)
-uhover = np.full(2, q2d.m * aerial.g / 2.0)
-uhoverPTSD = np.array([ptsd.m * aerial.g, 0])
-# check that is an equilibrium
-assert np.allclose(q2d.dynamics(yhover, uhover), np.zeros(6))
-# q2d.fakeDamping = True
-Aq2d, Bq2d, cq2d = q2d.autoLin(yhover, uhover)
-Qq2d = np.diag([10, 10, 1, 1, 1, 0.1])
-Rq2d = 0.001 * np.eye(2)
-# print(Aq2d, Bq2d)  # , Kq2d)
-Kq2d, Sq2d = lqr.lqr(Aq2d, Bq2d, Qq2d, Rq2d)
-# print(Kq2d)
+# Hover conditions
+q2d['y0'] = np.zeros(6)
+ptsd['y0'] = np.zeros(6)
+q2d['u0'] = np.full(2, q2d['m'].m * aerial.g / 2.0)
+ptsd['u0'] = np.array([ptsd['m'].m * aerial.g, 0])
+
+# Some computation for all the systems
+for S in [q2d, ptsd]:
+    # check that is an equilibrium
+    assert np.allclose(S['m'].dynamics(S['y0'], S['u0']), np.zeros(6))
+    # q2d.fakeDamping = True
+    S['A'], S['B'], S['c'] = S['m'].autoLin(S['y0'], S['u0'])
+    S['Q'] = np.diag([10, 10, 1, 1, 1, 0.1])
+    S['R'] = 0.001 * np.eye(2)
+    # print(Aq2d, Bq2d)  # , Kq2d)
+    S['K'], S['S'] = lqr.lqr(S['A'], S['B'], S['Q'], S['R'])
 
 # QP for control with LQR VF --
 probQ1 = osqp.OSQP()
 # the QP decision var is u
 nx = 2
 # col-major 1..nx^2 elementss
-Pqp = sparse.csc_matrix(Rq2d)
+Pqp = sparse.csc_matrix(q2d['R'])
 # now Pqp.data is just 1..nx^2
 qqp = np.full(nx, 1)
 
@@ -50,8 +54,7 @@ Aqp = sparse.csc_matrix(np.zeros((0, nx)))
 lqp = np.zeros(0)
 uqp = np.zeros(0)
 probQ1.setup(Pqp, qqp, Aqp, lqp, uqp, verbose=False, eps_rel=1e-4, eps_abs=1e-4, max_iter=20)
-uprev = uhover
-
+uprev = q2d['u0']
 
 def valFuncQuadQP(t, y, anch):
     global probQ1, uprev
@@ -64,10 +67,10 @@ def valFuncQuadQP(t, y, anch):
         # qqp = (Bnow(uprev)).T @ Sq2d @ y
 
         # B from eq
-        qqp = (Bq2d).T @ Sq2d @ y
+        qqp = (q2d['B']).T @ q2d['S'] @ y
     elif anch == 'ptsd':
         # FIXME: autograd not working on this
-        Bnow = jacobian(lambda u: ptsd.dynamics(y, u))
+        Bnow = jacobian(lambda u: ptsd['m'].dynamics(y, u))
         # qqp = (Bnow(uhoverPTSD)).T @ Sq2d @ y
 
         # u1 = ptsd.m * aerial.g
@@ -77,11 +80,13 @@ def valFuncQuadQP(t, y, anch):
         # print(uhoverPTSD, u1, u2)
         sphi = np.sin(y[2])
         cphi = np.cos(y[2])
+        mb = ptsd['m'].m
+        ib = ptsd['m'].ib
         Bsym = np.vstack((np.zeros((3, 2)),
-                          np.array([[-sphi / ptsd.m, 0], [cphi/ptsd.m, 0], [u2/ptsd.ib, u1/ptsd.ib]])))
+                          np.array([[-sphi/mb, 0], [cphi/mb, 0], [u2/ib, u1/ib]])))
         # print(Bnow(uhoverPTSD))
         # print(Bnow(uhoverPTSD), Bsym)
-        qqp = Bq2d.T @ Sq2d @ y
+        qqp = q2d['B'].T @ q2d['S'] @ y
     else:
         raise ValueError("specify anch")
 
@@ -90,12 +95,12 @@ def valFuncQuadQP(t, y, anch):
     res = probQ1.solve()
     uprev = res.x
     if anch == 'q2d':
-        return q2d.dynamics(y, uprev)
+        return q2d['m'].dynamics(y, uprev)
     elif anch == 'ptsd':
         uprev[0] = 5
         uprev[1] = 0
         print(uprev)
-        return ptsd.dynamics(y, uprev)
+        return ptsd['m'].dynamics(y, uprev)
 
 # Simulations --
 
@@ -104,18 +109,20 @@ tf = 3
 dt = 0.05
 t_eval = np.arange(0, tf, dt)
 y0 = np.array([2, -1, 0, 0, 0, 0])
-qlqrsol = solve_ivp(lambda t, y: q2d.dynamics(y, Kq2d @ (yhover - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
+qlqrsol = solve_ivp(lambda t, y: q2d['m'].dynamics(y, q2d['K'] @ (q2d['y0'] - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
 
 qqpsol = solve_ivp(lambda t, y: valFuncQuadQP(t, y, 'q2d'), [0, tf], np.array([2, 1, 0, 0, 0, 0]), dense_output=True, t_eval=t_eval)
 
-uprev = uhoverPTSD
+uprev = ptsd['u0']
 probQ1.update(Px=np.array([1, 10]))  # more input weight
 qptsdsol = solve_ivp(lambda t, y: valFuncQuadQP(t, y, 'ptsd'), [0, tf], np.array([1, 0, 0, 0, 0, 0]), dense_output=True, t_eval=t_eval)
+
 # ---
 qsols = [
-    {'name': 'lqr', 'col': 'b', 'sol': qlqrsol, 'model': q2d},
-    {'name': 'qp', 'col': 'r', 'sol': qqpsol, 'model': q2d},
-    {'name': 'ptsd', 'col': 'g', 'sol': qptsdsol, 'model': ptsd},
+    {'name': 'lqr', 'col': 'b', 'sol': qlqrsol, 'model': q2d['m']},
+    {'name': 'qp', 'col': 'r', 'sol': qqpsol, 'model': q2d['m']},
+    # {'name': 'ptslqr', 'col': 'g', 'sol': qptsdlqrsol, 'model': ptsd['m']},
+    {'name': 'ptsd', 'col': 'c', 'sol': qptsdsol, 'model': ptsd['m']},
 ]
 
 
@@ -139,12 +146,13 @@ for qsol in qsols:
     q2dval = np.zeros_like(qsol['sol'].t)
     for ti in range(len(q2dval)):
         yi = qsol['sol'].y[:, ti]
-        q2dval[ti] = yi @ Sq2d @ yi
+        q2dval[ti] = yi @ q2d['S'] @ yi
     ax[2].plot(qsol['sol'].t, q2dval, qsol['col'])
 ax[2].set_ylabel('CTG')
 
 # Animation --
-patches = [misc.rectangle(y0[0:2], y0[2], 2*q2d.r, 0.1*q2d.r, color=qsol['col'][0]) for qsol in qsols]
+r = q2d['m'].r
+patches = [misc.rectangle(y0[0:2], y0[2], 2*r, 0.1*r, color=qsol['col'][0]) for qsol in qsols]
 ax[3].set_aspect(1)
 ax[3].set_xlim((-2, 2))
 ax[3].set_ylim((-1, 1))
@@ -162,7 +170,7 @@ def _animate(i):
     for mi in range(len(qsols)):
         qsol = qsols[mi]['sol']
         if i < len(qsol.t):
-            rawxy = misc.rectangle(qsol.y[0:2, i], qsol.y[2, i], 2*q2d.r, 0.5*q2d.r, rawxy=True)
+            rawxy = misc.rectangle(qsol.y[0:2, i], qsol.y[2, i], 2*r, 0.5*r, rawxy=True)
             patches[mi].set_xy(rawxy)
 
     return patches[0], patches[1], patches[2],

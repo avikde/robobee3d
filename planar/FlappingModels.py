@@ -1,4 +1,4 @@
-import numpy as np
+import autograd.numpy as np
 import sys
 sys.path.append('..')
 import controlutils.py.kinematics as kin
