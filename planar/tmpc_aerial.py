@@ -40,8 +40,10 @@ for S in [q2d, ptsd]:
     S['R'] = 0.001 * np.eye(2)
     # print(Aq2d, Bq2d)  # , Kq2d)
     S['K'], S['S'] = lqr.lqr(S['A'], S['B'], S['Q'], S['R'])
-    print(S['K'], S['S'])
-
+    print(S['K'])
+    # LQR solution u* = - K y = - R^{-1} B^T S y
+    assert np.allclose(np.linalg.inv(S['R']) @ S['B'].T @ S['S'], S['K'])
+# sys.exit(0)
 # QP for control with LQR VF --
 probQ1 = osqp.OSQP()
 # the QP decision var is u
@@ -106,7 +108,7 @@ def valFuncQuadQP(t, y, anch):
 # Simulations --
 
 
-tf = 3
+tf = 2
 dt = 0.05
 t_eval = np.arange(0, tf, dt)
 y0 = np.array([2, -1, 0, 0, 0, 0])
@@ -114,7 +116,11 @@ qlqrsol = solve_ivp(lambda t, y: q2d['m'].dynamics(y, q2d['K'] @ (q2d['y0'] - y)
 
 qqpsol = solve_ivp(lambda t, y: valFuncQuadQP(t, y, 'q2d'), [0, tf], np.array([2, 1, 0, 0, 0, 0]), dense_output=True, t_eval=t_eval)
 
-ptsdlqrsol = solve_ivp(lambda t, y: ptsd['m'].dynamics(y, ptsd['K'] @ (ptsd['y0'] - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
+# NOTE: using S from PTSD
+Ktest = np.diag([1,0.01]) @ np.linalg.inv(ptsd['R']) @ ptsd['B'].T @ q2d['S']  # ptsd['K']
+print(Ktest)
+# sys.exit(0)
+ptsdlqrsol = solve_ivp(lambda t, y: ptsd['m'].dynamics(y, Ktest @ (ptsd['y0'] - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
 
 uprev = ptsd['u0']
 probQ1.update(Px=np.array([1, 10]))  # more input weight
