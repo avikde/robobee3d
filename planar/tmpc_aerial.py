@@ -30,14 +30,18 @@ ptsd['y0'] = np.zeros(6)
 q2d['u0'] = np.full(2, q2d['m'].m * aerial.g / 2.0)
 ptsd['u0'] = np.array([ptsd['m'].m * aerial.g, 0])
 
+# Costs
+q2d['Q'] = np.diag([10, 10, 1, 1, 1, 0.1])
+q2d['R'] = 0.001 * np.eye(2)
+ptsd['Q'] = np.diag([10, 10, 1, 1, 1, 0.1])
+ptsd['R'] = np.diag([0.001, 0.1])
+
 # Some computation for all the systems
 for S in [q2d, ptsd]:
     # check that is an equilibrium
     assert np.allclose(S['m'].dynamics(S['y0'], S['u0']), np.zeros(6))
     # q2d.fakeDamping = True
     S['A'], S['B'], S['c'] = S['m'].autoLin(S['y0'], S['u0'])
-    S['Q'] = np.diag([10, 10, 1, 1, 1, 0.1])
-    S['R'] = 0.001 * np.eye(2)
     # print(Aq2d, Bq2d)  # , Kq2d)
     S['K'], S['S'] = lqr.lqr(S['A'], S['B'], S['Q'], S['R'])
     print(S['K'])
@@ -117,8 +121,10 @@ qlqrsol = solve_ivp(lambda t, y: q2d['m'].dynamics(y, q2d['K'] @ (q2d['y0'] - y)
 qqpsol = solve_ivp(lambda t, y: valFuncQuadQP(t, y, 'q2d'), [0, tf], np.array([2, 1, 0, 0, 0, 0]), dense_output=True, t_eval=t_eval)
 
 # NOTE: using S from PTSD
-Ktest = np.diag([1,0.01]) @ np.linalg.inv(ptsd['R']) @ ptsd['B'].T @ q2d['S']  # ptsd['K']
-print(Ktest)
+Ktest = np.linalg.inv(ptsd['R']) @ ptsd['B'].T @ q2d['S']  # ptsd['K']
+# print(Ktest)
+# print(q2d['S'] - ptsd['S'])
+# print(np.linalg.inv(ptsd['R']) @ ptsd['B'].T)
 # sys.exit(0)
 ptsdlqrsol = solve_ivp(lambda t, y: ptsd['m'].dynamics(y, Ktest @ (ptsd['y0'] - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
 
