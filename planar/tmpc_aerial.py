@@ -40,6 +40,7 @@ for S in [q2d, ptsd]:
     S['R'] = 0.001 * np.eye(2)
     # print(Aq2d, Bq2d)  # , Kq2d)
     S['K'], S['S'] = lqr.lqr(S['A'], S['B'], S['Q'], S['R'])
+    print(S['K'], S['S'])
 
 # QP for control with LQR VF --
 probQ1 = osqp.OSQP()
@@ -113,6 +114,8 @@ qlqrsol = solve_ivp(lambda t, y: q2d['m'].dynamics(y, q2d['K'] @ (q2d['y0'] - y)
 
 qqpsol = solve_ivp(lambda t, y: valFuncQuadQP(t, y, 'q2d'), [0, tf], np.array([2, 1, 0, 0, 0, 0]), dense_output=True, t_eval=t_eval)
 
+ptsdlqrsol = solve_ivp(lambda t, y: ptsd['m'].dynamics(y, ptsd['K'] @ (ptsd['y0'] - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
+
 uprev = ptsd['u0']
 probQ1.update(Px=np.array([1, 10]))  # more input weight
 qptsdsol = solve_ivp(lambda t, y: valFuncQuadQP(t, y, 'ptsd'), [0, tf], np.array([1, 0, 0, 0, 0, 0]), dense_output=True, t_eval=t_eval)
@@ -121,7 +124,7 @@ qptsdsol = solve_ivp(lambda t, y: valFuncQuadQP(t, y, 'ptsd'), [0, tf], np.array
 qsols = [
     {'name': 'lqr', 'col': 'b', 'sol': qlqrsol, 'model': q2d['m']},
     {'name': 'qp', 'col': 'r', 'sol': qqpsol, 'model': q2d['m']},
-    # {'name': 'ptslqr', 'col': 'g', 'sol': qptsdlqrsol, 'model': ptsd['m']},
+    {'name': 'ptsdlqr', 'col': 'g', 'sol': ptsdlqrsol, 'model': ptsd['m']},
     {'name': 'ptsd', 'col': 'c', 'sol': qptsdsol, 'model': ptsd['m']},
 ]
 
