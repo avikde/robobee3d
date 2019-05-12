@@ -83,13 +83,13 @@
 			"problemMatcher": []
 		},
 		{
-			"label": "tmc_ip",
+			"label": "tmpc_aerial",
 			"type": "shell",
 			"group": "build",
 			"options": {
 				"cwd": "${workspaceFolder}/planar"
 			},
-			"command": "python tmpc_ip.py",
+			"command": "python tmpc_aerial.py",
 			"presentation": {
 				"echo": true,
 				"reveal": "always",
