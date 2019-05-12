@@ -14,6 +14,7 @@ from controlutils.py import lqr, solver
 import controlutils.py.models.aerial as aerial
 import controlutils.py.misc as misc
 from FlappingModels import PlanarThrustStrokeDev2
+from FlappingModels3D import ThrustStrokeDev
 
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
@@ -22,6 +23,7 @@ np.set_printoptions(precision=4, suppress=True, linewidth=200)
 # planar quadrotor
 q2d = {'m': aerial.Quadrotor2D()}
 ptsd = {'m': PlanarThrustStrokeDev2()}
+tsd = {'m': ThrustStrokeDev()}
 
 # LQR --
 # Hover conditions
