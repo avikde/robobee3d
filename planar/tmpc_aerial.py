@@ -106,7 +106,7 @@ def valFuncQuadQP(t, y, anch):
     elif anch == 'ptsd':
         uprev[0] = 5
         uprev[1] = 0
-        print(uprev)
+        # print(uprev)
         return ptsd['m'].dynamics(y, uprev)
 
 # Simulations --
