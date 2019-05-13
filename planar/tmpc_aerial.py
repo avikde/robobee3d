@@ -216,40 +216,8 @@ fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 
 # Animation --
-points = np.array([[-1, -1, -1],
-                [1, -1, -1],
-                [1, 1, -1],
-                [-1, 1, -1],
-                [-1, -1, 1],
-                [1, -1, 1],
-                [1, 1, 1],
-                [-1, 1, 1]])
-
-P = [[2.06498904e-01, -6.30755443e-07,  1.07477548e-03],
-    [1.61535574e-06,  1.18897198e-01,  7.85307721e-06],
-    [7.08353661e-02,  4.48415767e-06,  2.05395893e-01]]
-
-Z = np.zeros((8, 3))
-for i in range(8):
-    Z[i, :] = np.dot(points[i, :], P)
-Z = 10.0*Z
-
-r = [-1, 1]
-
-X, Y = np.meshgrid(r, r)
-# plot vertices
-ax.scatter3D(Z[:, 0], Z[:, 1], Z[:, 2])
-
-# list of sides' polygons of figure
-verts = [[Z[0], Z[1], Z[2], Z[3]],
-        [Z[4], Z[5], Z[6], Z[7]],
-        [Z[0], Z[1], Z[5], Z[4]],
-        [Z[2], Z[3], Z[7], Z[6]],
-        [Z[1], Z[2], Z[6], Z[5]],
-        [Z[4], Z[7], Z[3], Z[0]]]
-
-body = Poly3DCollection(verts, facecolors='cyan', linewidths=1, edgecolors='r', alpha=.25)
-
+vertsW, body = misc.cuboid(y0[:3], y0[3:6], [0.1,0.2,0.5], facecolors='cyan', linewidths=1, edgecolors='r', alpha=.25)
+# ax.scatter3D(vertsW[:, 0], vertsW[:, 1], vertsW[:, 2])
 
 def _init3():
     ax.add_collection3d(body)
@@ -257,6 +225,10 @@ def _init3():
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
+    ax.set_aspect('equal')
+    ax.set_xlim((-2,2))
+    ax.set_ylim((-2,2))
+    ax.set_zlim((-2,2))
 
     return body,
 
