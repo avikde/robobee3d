@@ -1,4 +1,4 @@
-import numpy as np
+import autograd.numpy as np
 # trying to not rely on pybullet
 from scipy.spatial.transform import Rotation
 from controlutils.py.model import Model
@@ -31,7 +31,7 @@ class ThrustStrokeDev(Model):
         # assemble vector
         ydot = np.hstack((y[nq:], mpdd / self.m, omegadot))
         return ydot
-
+    
 
 class QuasiSteadySDAB:
     # Model with force control of the wing spar
