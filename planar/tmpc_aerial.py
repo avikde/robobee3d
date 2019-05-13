@@ -216,8 +216,7 @@ fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 
 # Animation --
-vertsW, body = misc.cuboid(y0[:3], y0[3:6], [0.1,0.2,0.5], facecolors='cyan', linewidths=1, edgecolors='r', alpha=.25)
-# ax.scatter3D(vertsW[:, 0], vertsW[:, 1], vertsW[:, 2])
+body = misc.cuboid(y0[:3], y0[3:6], [0.1,0.2,0.5], facecolors='cyan', linewidths=1, edgecolors='r', alpha=.25)
 
 def _init3():
     ax.add_collection3d(body)
@@ -234,10 +233,13 @@ def _init3():
 
 
 def _animate3(i):
+    # get latest
+    vertsW = misc.cuboid(y0[:3] + np.array([0,0,0.01*i]), y0[3:6], [0.1,0.2,0.5], rawxy=True)
+    body.set_verts(vertsW)
     return body,
 
 
-anim = animation.FuncAnimation(fig, _animate3, init_func=_init3, frames=100, interval=1000*dt, blit=True)
+anim = animation.FuncAnimation(fig, _animate3, init_func=_init3, frames=1000, interval=1000*dt, blit=False)
 # --
 
 plt.show()
