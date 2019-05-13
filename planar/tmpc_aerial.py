@@ -31,18 +31,23 @@ q2d['y0'] = np.zeros(6)
 ptsd['y0'] = np.zeros(6)
 q2d['u0'] = np.full(2, q2d['m'].m * aerial.g / 2.0)
 ptsd['u0'] = np.array([ptsd['m'].m * aerial.g, 0])
+tsd['y0'] = np.zeros(12)
+tsd['u0'] = np.array([tsd['m'].m * aerial.g, 0, tsd['m'].m * aerial.g, 0])
 
 # Costs
 q2d['Q'] = np.diag([10, 10, 1, 1, 1, 0.1])
 q2d['R'] = 0.001 * np.eye(2)
 ptsd['Q'] = np.diag([10, 10, 1, 1, 1, 0.1])
 ptsd['R'] = np.diag([0.001, 0.1])
+tsd['Q'] = np.diag([10, 10, 10, 1, 1, 1, 1, 1, 1, 0.1, 0.1, 0.1])
+tsd['R'] = np.diag([0.001, 0.1, 0.001, 0.1])
 
 # Some computation for all the systems
-for S in [q2d, ptsd]:
+for S in [q2d, ptsd, tsd]:
     # check that is an equilibrium
-    assert np.allclose(S['m'].dynamics(S['y0'], S['u0']), np.zeros(6))
-    # q2d.fakeDamping = True
+    assert np.allclose(S['m'].dynamics(S['y0'], S['u0']), np.zeros_like(S['y0']))
+# Calculate LQR
+for S in [q2d, ptsd]:
     S['A'], S['B'], S['c'] = S['m'].autoLin(S['y0'], S['u0'])
     # print(Aq2d, Bq2d)  # , Kq2d)
     S['K'], S['S'] = lqr.lqr(S['A'], S['B'], S['Q'], S['R'])

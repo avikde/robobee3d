@@ -9,19 +9,27 @@ class ThrustStrokeDev(Model):
     '''4 inputs: left/right thrusts and each has a stroke deviation in the x direction. There is a fixed offset of the thrusts in the y direction (~COP offset along wing).'''
     m = 0.5
     # FIXME:
-    ib = np.diag([0.001, 0.001, 0.0001])
+    Ib = np.diag([0.001, 0.001, 0.0001])
+    ycp = 0.05
 
     def dynamics(self, y, u):
         nq = 6
-        u1L = u[0]
-        u2L = u[1]
-        u1R = u[2]
-        u2R = u[3]
-        ydot = np.hstack((y[nq:], np.array([
-            -u1 / self.m * np.sin(y[2]),
-            u1 / self.m * np.cos(y[2]) - g,
-            u1 * u2 / self.ib
-        ])))
+        wRotb = Rotation.from_rotvec(y[3:6])
+        omega = y[9:]  # in world frame
+        # Compute Fb
+        FL = np.array([0, 0, u[0]])
+        FR = np.array([0, 0, u[2]])
+        # compute rb
+        rL = np.array([u[1], self.ycp, 0])
+        rR = np.array([u[3], -self.ycp, 0])
+        # Compute dynamics (RHS of the newton euler eqs)
+        mpdd = np.array([0, 0, -g]) + wRotb.apply(FL + FR)
+        Iomegadotb = np.cross(rL, FL) + np.cross(rR, FR) - np.cross(omega, self.Ib @ omega)
+        omegadotb = np.linalg.inv(self.Ib) @ Iomegadotb
+        omegadot = wRotb.inv().apply(omegadotb)
+        # apply rotation
+        # assemble vector
+        ydot = np.hstack((y[nq:], mpdd / self.m, omegadot))
         return ydot
 
 
