@@ -153,6 +153,8 @@ if PLANAR_SIMS:
 
 # 3D
 y0 = np.array([2, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+u0 = tsd['u0']
+u0[0] *= 1.01
 tsdsol = solve_ivp(lambda t, y: tsd['m'].dynamics(y, tsd['u0']), [0, tf], y0, dense_output=True, t_eval=t_eval)
 
 
@@ -234,12 +236,13 @@ def _init3():
 
 def _animate3(i):
     # get latest
-    vertsW = misc.cuboid(y0[:3] + np.array([0,0,0.01*i]), y0[3:6], [0.1,0.2,0.5], rawxy=True)
+    yy = tsdsol.y[:,i]
+    vertsW = misc.cuboid(yy[:3], yy[3:6], [0.1,0.2,0.5], rawxy=True)
     body.set_verts(vertsW)
     return body,
 
 
-anim = animation.FuncAnimation(fig, _animate3, init_func=_init3, frames=1000, interval=1000*dt, blit=False)
+anim = animation.FuncAnimation(fig, _animate3, init_func=_init3, frames=len(tsdsol.t), interval=1000*dt, blit=False)
 # --
 
 plt.show()
