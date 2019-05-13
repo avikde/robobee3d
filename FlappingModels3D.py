@@ -8,12 +8,15 @@ g = 9.81
 class ThrustStrokeDev(Model):
     '''4 inputs: left/right thrusts and each has a stroke deviation in the x direction. There is a fixed offset of the thrusts in the y direction (~COP offset along wing).'''
     m = 0.5
-    ib = 0.001
+    # FIXME:
+    ib = np.diag([0.001, 0.001, 0.0001])
 
     def dynamics(self, y, u):
-        nq = 3
-        u1 = u[0]
-        u2 = u[1]
+        nq = 6
+        u1L = u[0]
+        u2L = u[1]
+        u1R = u[2]
+        u2R = u[3]
         ydot = np.hstack((y[nq:], np.array([
             -u1 / self.m * np.sin(y[2]),
             u1 / self.m * np.cos(y[2]) - g,
