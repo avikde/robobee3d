@@ -25,7 +25,7 @@ class ThrustStrokeDev(Model):
         rL = np.array([u[1], self.ycp, 0])
         rR = np.array([u[3], -self.ycp, 0])
         # Compute dynamics (RHS of the newton euler eqs)
-        mpdd = np.array([0, 0, -g]) + wRotb @ (FL + FR)
+        mpdd = np.array([0, 0, -self.m * g]) + wRotb @ (FL + FR)
         Iomegadotb = np.cross(rL, FL) + np.cross(rR, FR) - np.cross(omega, self.Ib @ omega)
         omegadotb = np.linalg.inv(self.Ib) @ Iomegadotb
         omegadot = wRotb.T @ (omegadotb)
