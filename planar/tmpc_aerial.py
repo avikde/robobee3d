@@ -152,8 +152,7 @@ if PLANAR_SIMS:
     ]
 
 
-# 3D
-y0 = np.array([2, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+# 3D -------
 # u0 = tsd['u0']
 # u0[0] *= 1.01
 # test moving VF
@@ -193,9 +192,14 @@ tsdB = np.vstack((np.zeros((8,4)),
     ])
     ))
 
-Stsd = Pi1.T @ S1 @ Pi1 + Pi2.T @ S2 @ Pi2
+# Stsd = Pi1.T @ S1 @ Pi1 + Pi2.T @ S2 @ Pi2
+Stsd = Pi2.T @ S2 @ Pi2
 Ktsd = np.linalg.inv(tsd['R']) @ tsdB.T @ Stsd
-# Ktest = np.linalg.inv(tsd['R']) @ tsd['B'].T @ q2d['S']
+# print(Ktsd)
+# sys.exit(0)
+y0 = np.array([2, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+tf = 2
+t_eval = np.arange(0, tf, 0.05)
 tsdsol = solve_ivp(lambda t, y: tsd['m'].dynamics(y, Ktsd @ (tsd['y0'] - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
 
 
@@ -263,6 +267,7 @@ body = misc.cuboid(y0[:3], y0[3:6], [0.1,0.2,0.5], facecolors='cyan', linewidths
 
 def _init3():
     ax.add_collection3d(body)
+    ax.plot([tsd['y0'][0]], [tsd['y0'][1]], [tsd['y0'][2]], 'r*')
 
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
