@@ -42,7 +42,7 @@ q2d['R'] = 0.001 * np.eye(2)
 ptsd['Q'] = np.diag([10, 10, 1, 1, 1, 0.1])
 ptsd['R'] = np.diag([0.001, 0.1])
 tsd['Q'] = np.diag([10, 10, 10, 1, 1, 1, 1, 1, 1, 0.1, 0.1, 0.1])
-tsd['R'] = np.diag([0.001, 0.1, 0.001, 0.1])
+tsd['R'] = np.diag([0.001, 100, 0.001, 100])
 
 # Some computation for all the systems
 for S in [q2d, ptsd, tsd]:
@@ -259,8 +259,11 @@ if PLANAR_SIMS:
 
 
 # 3D plot --
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
+fig = plt.figure(figsize=plt.figaspect(2.))
+ax = fig.add_subplot(2, 1, 1)
+ax.plot(tsdsol.t, tsdsol.y[0:3, :].T)
+
+ax = fig.add_subplot(2, 1, 2, projection='3d')
 
 # Animation --
 body = misc.cuboid(y0[:3], y0[3:6], [0.1,0.2,0.5], facecolors='cyan', linewidths=1, edgecolors='r', alpha=.25)
