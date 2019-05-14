@@ -33,7 +33,7 @@ ptsd['y0'] = np.zeros(6)
 q2d['u0'] = np.full(2, q2d['m'].m * aerial.g / 2.0)
 ptsd['u0'] = np.array([ptsd['m'].m * aerial.g, 0])
 tsd['y0'] = np.zeros(12)
-tsd['u0'] = np.array([tsd['m'].m * aerial.g, 0, tsd['m'].m * aerial.g, 0])
+tsd['u0'] = np.array([tsd['m'].m * aerial.g / 2, 0, tsd['m'].m * aerial.g / 2, 0])
 
 # Costs
 q2d['Q'] = np.diag([10, 10, 1, 1, 1, 0.1])
