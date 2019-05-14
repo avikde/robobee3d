@@ -41,8 +41,6 @@ q2d['Q'] = np.diag([10, 10, 1, 1, 1, 0.1])
 q2d['R'] = 0.001 * np.eye(2)
 ptsd['Q'] = np.diag([10, 10, 1, 1, 1, 0.1])
 ptsd['R'] = np.diag([0.001, 0.1])
-tsd['Q'] = np.diag([10, 10, 10, 1, 1, 1, 1, 1, 1, 0.1, 0.1, 0.1])
-tsd['R'] = np.diag([0.001, 100, 0.001, 100])
 
 # Some computation for all the systems
 for S in [q2d, ptsd, tsd]:
@@ -192,8 +190,10 @@ tsdB = np.vstack((np.zeros((8,4)),
     ])
     ))
 
+# tsd['Q'] = np.diag([10, 10, 10, 1, 1, 1, 1, 1, 1, 0.1, 0.1, 0.1])
+tsd['R'] = np.diag([0.005, 100, 0.005, 100])
 # Stsd = Pi1.T @ S1 @ Pi1 + Pi2.T @ S2 @ Pi2
-Stsd = Pi2.T @ S2 @ Pi2
+Stsd = Pi2.T @ S2 @ Pi2 
 Ktsd = np.linalg.inv(tsd['R']) @ tsdB.T @ Stsd
 # print(Ktsd)
 # sys.exit(0)
@@ -263,14 +263,17 @@ fig = plt.figure(figsize=plt.figaspect(2.))
 ax = fig.add_subplot(2, 1, 1)
 ax.plot(tsdsol.t, tsdsol.y[0:3, :].T)
 
+# Animation --
 ax = fig.add_subplot(2, 1, 2, projection='3d')
 
-# Animation --
-body = misc.cuboid(y0[:3], y0[3:6], [0.1,0.2,0.5], facecolors='cyan', linewidths=1, edgecolors='r', alpha=.25)
+body = misc.cuboid(y0[:3], y0[3:6], tsd['m'].lwh, facecolors='cyan', linewidths=1, edgecolors='r', alpha=.25)
+FL, FR, rL, rR = tsd['m'].forcesW(y0, tsd['u0'])
+actL,  = ax.plot([rL[0], rL[0] + FL[0]], [rL[1], rL[1] + FL[1]], [rL[1], rL[1] + FL[1]], 'r-')
+actR,  = ax.plot([rR[0], rR[0] + FR[0]], [rR[1], rR[1] + FR[1]], [rR[1], rR[1] + FR[1]], 'b-')
 
 def _init3():
     ax.add_collection3d(body)
-    ax.plot([tsd['y0'][0]], [tsd['y0'][1]], [tsd['y0'][2]], 'r*')
+    ax.plot([tsd['y0'][0]], [tsd['y0'][1]], [tsd['y0'][2]], 'c*')
 
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
@@ -280,15 +283,23 @@ def _init3():
     ax.set_ylim((-2,2))
     ax.set_zlim((-2,2))
 
-    return body,
+    return body, actL, 
 
 
 def _animate3(i):
     # get latest
     yy = tsdsol.y[:,i]
-    vertsW = misc.cuboid(yy[:3], yy[3:6], [0.1,0.2,0.5], rawxy=True)
+    vertsW = misc.cuboid(yy[:3], yy[3:6], tsd['m'].lwh, rawxy=True)
     body.set_verts(vertsW)
-    return body,
+    # act lines
+    # FIXME: need to keep this in sync
+    ui = Ktsd @ (tsd['y0'] - yy)
+    FL, FR, rL, rR = tsd['m'].forcesW(yy, ui)
+    actL.set_data(np.vstack((rL[0:2], rL[0:2] + FL[0:2])).T)
+    actL.set_3d_properties([rL[2], rL[2] + FL[2]])
+    actR.set_data(np.vstack((rR[0:2], rR[0:2] + FR[0:2])).T)
+    actR.set_3d_properties([rR[2], rR[2] + FR[2]])
+    return body, actL, 
 
 
 anim = animation.FuncAnimation(fig, _animate3, init_func=_init3, frames=len(tsdsol.t), interval=1000*dt, blit=False)
