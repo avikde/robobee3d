@@ -2,6 +2,7 @@ import autograd.numpy as np
 from autograd import jacobian
 import sys
 from scipy.integrate import solve_ivp
+from scipy.linalg import block_diag
 import scipy.sparse as sparse
 import matplotlib.pyplot as plt
 from matplotlib import animation
@@ -153,9 +154,49 @@ if PLANAR_SIMS:
 
 # 3D
 y0 = np.array([2, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-u0 = tsd['u0']
-u0[0] *= 1.01
-tsdsol = solve_ivp(lambda t, y: tsd['m'].dynamics(y, tsd['u0']), [0, tf], y0, dense_output=True, t_eval=t_eval)
+# u0 = tsd['u0']
+# u0[0] *= 1.01
+# test moving VF
+# print(tsd['y0'], tsd['u0'])
+# dfdy, dfdu = tsd['m']._autoLinJac(tsd['y0'], tsd['u0'])
+# State projs
+Pi1p = np.array([
+    [1,0,0,0,0,0], 
+    [0,0,1,0,0,0],
+    [0,0,0,0,1,0]
+    ])
+Pi1 = block_diag(Pi1p, Pi1p)
+Pi2p = np.array([
+    [0,1,0,0,0,0], 
+    [0,0,1,0,0,0],
+    [0,0,0,1,0,0]
+    ])
+Pi2 = block_diag(Pi2p, Pi2p)
+
+S1 = q2d['S']
+S2 = q2d['S']
+# See https://github.com/avikde/robobee3d/pull/50#issuecomment-492364162
+ix = tsd['m'].Ib[0,0]
+iy = tsd['m'].Ib[1,1]
+mm = tsd['m'].m
+ycp = tsd['m'].ycp
+u0 = tsd['u0'][0]
+u1 = tsd['u0'][1]
+u2 = tsd['u0'][2]
+u3 = tsd['u0'][3]
+tsdB = np.vstack((np.zeros((8,4)), 
+    np.array([
+        [1/mm, 0, 1/mm, 0],
+        [ycp/ix, 0, -ycp/ix, 0],
+        [-u1/iy, -u0/iy, -u3/iy, -u2/iy],
+        [0,0,0,0]
+    ])
+    ))
+
+Stsd = Pi1.T @ S1 @ Pi1 + Pi2.T @ S2 @ Pi2
+Ktsd = np.linalg.inv(tsd['R']) @ tsdB.T @ Stsd
+# Ktest = np.linalg.inv(tsd['R']) @ tsd['B'].T @ q2d['S']
+tsdsol = solve_ivp(lambda t, y: tsd['m'].dynamics(y, Ktsd @ (tsd['y0'] - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
 
 
 # ------------ Display -----------------------
