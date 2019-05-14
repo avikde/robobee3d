@@ -160,7 +160,7 @@ if PLANAR_SIMS:
 Pi1p = np.array([
     [1,0,0,0,0,0], 
     [0,0,1,0,0,0],
-    [0,0,0,0,1,0]
+    [0,0,0,0,-1,0]
     ])
 Pi1 = block_diag(Pi1p, Pi1p)
 Pi2p = np.array([
@@ -190,15 +190,14 @@ tsdB = np.vstack((np.zeros((8,4)),
     ])
     ))
 
-# tsd['Q'] = np.diag([10, 10, 10, 1, 1, 1, 1, 1, 1, 0.1, 0.1, 0.1])
 tsd['R'] = np.diag([0.005, 100, 0.005, 100])
-# Stsd = Pi1.T @ S1 @ Pi1 + Pi2.T @ S2 @ Pi2
-Stsd = Pi2.T @ S2 @ Pi2 
+Stsd = Pi1.T @ S1 @ Pi1 + Pi2.T @ S2 @ Pi2
+# Stsd = Pi2.T @ S2 @ Pi2 
 Ktsd = np.linalg.inv(tsd['R']) @ tsdB.T @ Stsd
 # print(Ktsd)
 # sys.exit(0)
 y0 = np.array([2, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-tf = 2
+tf = 2.5
 t_eval = np.arange(0, tf, 0.05)
 tsdsol = solve_ivp(lambda t, y: tsd['m'].dynamics(y, Ktsd @ (tsd['y0'] - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
 
@@ -278,7 +277,7 @@ def _init3():
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
-    ax.set_aspect('equal')
+    # ax.set_aspect('equal')  #equal not implemented on mplot3d
     ax.set_xlim((-2,2))
     ax.set_ylim((-2,2))
     ax.set_zlim((-2,2))
