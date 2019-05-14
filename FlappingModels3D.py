@@ -2,6 +2,7 @@ import autograd.numpy as np
 # trying to not rely on pybullet
 from scipy.spatial.transform import Rotation
 from controlutils.py.model import Model
+import controlutils.py.kinematics as kinematics
 
 g = 9.81
 
@@ -14,7 +15,8 @@ class ThrustStrokeDev(Model):
 
     def dynamics(self, y, u):
         nq = 6
-        wRotb = Rotation.from_rotvec(y[3:6])
+        # FIXME: does not work with autograd see https://github.com/avikde/controlutils/issues/10
+        wRotb = Rotation.from_rotvec(y[3:6]).as_dcm()
         omega = y[9:]  # in world frame
         # Compute Fb
         FL = np.array([0, 0, u[0]])
@@ -23,10 +25,10 @@ class ThrustStrokeDev(Model):
         rL = np.array([u[1], self.ycp, 0])
         rR = np.array([u[3], -self.ycp, 0])
         # Compute dynamics (RHS of the newton euler eqs)
-        mpdd = np.array([0, 0, -g]) + wRotb.apply(FL + FR)
+        mpdd = np.array([0, 0, -g]) + wRotb @ (FL + FR)
         Iomegadotb = np.cross(rL, FL) + np.cross(rR, FR) - np.cross(omega, self.Ib @ omega)
         omegadotb = np.linalg.inv(self.Ib) @ Iomegadotb
-        omegadot = wRotb.inv().apply(omegadotb)
+        omegadot = wRotb.T @ (omegadotb)
         # apply rotation
         # assemble vector
         ydot = np.hstack((y[nq:], mpdd / self.m, omegadot))
