@@ -20,6 +20,13 @@ from FlappingModels3D import ThrustStrokeDev
 
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
+# Parameters
+PLANAR_SIMS = False
+SPATIAL_SIMS = True
+SAVE_ANIM = False
+tf = 0.02
+dt = 0.001
+
 # Quadrotor 2d ---------------------------------------
 
 # planar quadrotor
@@ -117,11 +124,6 @@ def valFuncQuadQP(t, y, anch):
         return ptsd['m'].dynamics(y, uprev)
 
 # Simulations --
-
-PLANAR_SIMS = False
-SPATIAL_SIMS = True
-tf = 0.01
-dt = 0.001
 t_eval = np.arange(0, tf, dt)
 
 if PLANAR_SIMS:
@@ -193,7 +195,7 @@ if SPATIAL_SIMS:
             [0,0,0,0]
         ])
         ))
-    print(ptsd['B'], Pi1 @ tsdB)
+    # print(ptsd['B'], Pi1 @ tsdB)
 
     tsd['R'] = np.diag([0.005, 100, 0.005, 100])
     Stsd = Pi1.T @ S1 @ Pi1 + Pi2.T @ S2 @ Pi2
@@ -313,6 +315,14 @@ if SPATIAL_SIMS:
 
 
     anim = animation.FuncAnimation(fig, _animate3, init_func=_init3, frames=len(tsdsol.t), interval=1000*dt, blit=False)
+    
+    if True:
+        # Set up formatting for the movie files
+        Writer = animation.writers['ffmpeg']
+        writer = Writer(fps=30, metadata=dict(artist='Me'), bitrate=1800)
+        import time
+        timestamp = time.strftime('%Y%m%d%H%M%S', time.localtime())
+        anim.save('tmpc_aerial'+timestamp+'.mp4', writer=writer)
     # --
 
 if PLANAR_SIMS or SPATIAL_SIMS:
