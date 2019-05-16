@@ -24,8 +24,8 @@ np.set_printoptions(precision=4, suppress=True, linewidth=200)
 PLANAR_SIMS = False
 SPATIAL_SIMS = True
 SAVE_ANIM = False
-tf = 0.01
-dt = 0.001
+tf = 2
+dt = 1/30.0
 
 # Quadrotor 2d ---------------------------------------
 
@@ -158,6 +158,20 @@ ix = tsd['m'].Ib[0,0]
 iy = tsd['m'].Ib[1,1]
 mm = tsd['m'].m
 ycp = tsd['m'].ycp
+# State projs
+Pi1p = np.array([
+    [1,0,0,0,0,0], 
+    [0,0,1,0,0,0],
+    [0,0,0,0,-1,0]
+    ])
+Pi1 = block_diag(Pi1p, Pi1p)
+Pi2p = np.array([
+    [0,1,0,0,0,0], 
+    [0,0,1,0,0,0],
+    [0,0,0,1,0,0]
+    ])
+Pi2 = block_diag(Pi2p, Pi2p)
+
 def tsdBy(y, u):
     sx = np.sin(y[-3])
     cx = np.cos(y[-3])
@@ -178,25 +192,13 @@ def tsdBy(y, u):
             [(cy*sx*u1)/iy + (sy*ycp)/ix,(cy*sx*u0)/iy,(cy*sx*u3)/iy - (sy*ycp)/ix,(cy*sx*u2)/iy]
         ])
     ))
+
 def tsdAnchController(y):
     # u0 = tsd['u0']
     # u0[0] *= 1.01
     # test moving VF
     # print(tsd['y0'], tsd['u0'])
     # dfdy, dfdu = tsd['m']._autoLinJac(tsd['y0'], tsd['u0'])
-    # State projs
-    Pi1p = np.array([
-        [1,0,0,0,0,0], 
-        [0,0,1,0,0,0],
-        [0,0,0,0,-1,0]
-        ])
-    Pi1 = block_diag(Pi1p, Pi1p)
-    Pi2p = np.array([
-        [0,1,0,0,0,0], 
-        [0,0,1,0,0,0],
-        [0,0,0,1,0,0]
-        ])
-    Pi2 = block_diag(Pi2p, Pi2p)
 
     # TODO: these should be morphReduc(S)
     S1 = q2d['S']
@@ -204,6 +206,7 @@ def tsdAnchController(y):
     # See https://github.com/avikde/robobee3d/pull/50#issuecomment-492364162
     # print(tsd['u0'])  # using eq conditions as in the planar one above
     tsdB = tsdBy(tsd['y0'], tsd['u0'])
+    # tsdB = tsdBy(y, tsd['u0'])  # FIXME: this sim doesn't converge
     # print(ptsd['B'], Pi1 @ tsdB)
 
     tsd['R'] = np.diag([0.005, 100, 0.005, 100])
@@ -223,8 +226,11 @@ def tsdAnchController(y):
 if SPATIAL_SIMS:
     # sys.exit(0)
     y0 = np.array([2, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-    tf = 2.5
-    t_eval = np.arange(0, tf, 0.05)
+    t_eval = np.arange(0, tf, dt)
+    y01 = Pi1 @ y0
+    q2dsol1 = solve_ivp(lambda t, y: q2d['m'].dynamics(y, q2d['K'] @ (q2d['y0'] - y)), [0, tf], y01, dense_output=True, t_eval=t_eval)
+    y02 = Pi2 @ y0
+    q2dsol2 = solve_ivp(lambda t, y: q2d['m'].dynamics(y, q2d['K'] @ (q2d['y0'] - y)), [0, tf], y02, dense_output=True, t_eval=t_eval)
     tsdsol = solve_ivp(lambda t, y: tsd['m'].dynamics(y, tsdAnchController(y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
 
 
@@ -296,9 +302,16 @@ if SPATIAL_SIMS:
     FL, FR, rL, rR = tsd['m'].forcesW(y0, tsd['u0'])
     actL,  = ax.plot([rL[0], rL[0] + FL[0]], [rL[1], rL[1] + FL[1]], [rL[1], rL[1] + FL[1]], 'r-')
     actR,  = ax.plot([rR[0], rR[0] + FR[0]], [rR[1], rR[1] + FR[1]], [rR[1], rR[1] + FR[1]], 'b-')
+    # draw templates
+    r = q2d['m'].r
+    q2dlwh = [0.1, 0.1, 0.05]
+    body1 = misc.cuboid(y0[:3], y0[3:6], q2dlwh, facecolors='gray', linewidths=1, edgecolors='r', alpha=.1)
+    body2 = misc.cuboid(y0[:3], y0[3:6], q2dlwh, facecolors='magenta', linewidths=1, edgecolors='r', alpha=.1)
 
     def _init3():
         ax.add_collection3d(body)
+        ax.add_collection3d(body1)
+        ax.add_collection3d(body2)
         ax.plot([tsd['y0'][0]], [tsd['y0'][1]], [tsd['y0'][2]], 'c*')
 
         ax.set_xlabel('X')
@@ -308,8 +321,9 @@ if SPATIAL_SIMS:
         ax.set_xlim((-2,2))
         ax.set_ylim((-2,2))
         ax.set_zlim((-2,2))
+        ax.view_init(elev=70, azim=-45)
 
-        return body, actL, 
+        return body, actL, body1, body2, 
 
 
     def _animate3(i):
@@ -325,7 +339,19 @@ if SPATIAL_SIMS:
         actL.set_3d_properties([rL[2], rL[2] + FL[2]])
         actR.set_data(np.vstack((rR[0:2], rR[0:2] + FR[0:2])).T)
         actR.set_3d_properties([rR[2], rR[2] + FR[2]])
-        return body, actL, 
+
+        if i < len(q2dsol1.t):
+            yy = q2dsol1.y[:,i]
+            # FIXME: do this Pi^T projection correctly (need to include parts of y0)
+            vertsW = misc.cuboid([yy[0], 1, yy[1]], [0, -yy[2], 0], q2dlwh, rawxy=True)
+            body1.set_verts(vertsW)
+        if i < len(q2dsol2.t):
+            yy = q2dsol2.y[:,i]
+            # FIXME: do this Pi^T projection correctly (need to include parts of y0)
+            vertsW = misc.cuboid([2, yy[0], yy[1]], [yy[2], 0, 0], q2dlwh, rawxy=True)
+            body2.set_verts(vertsW)
+
+        return body, actL, body1, body2, 
 
 
     anim = animation.FuncAnimation(fig, _animate3, init_func=_init3, frames=len(tsdsol.t), interval=1000*dt, blit=False)
