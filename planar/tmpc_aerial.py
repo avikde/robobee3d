@@ -154,6 +154,30 @@ if PLANAR_SIMS:
 
 
 # 3D -------
+ix = tsd['m'].Ib[0,0]
+iy = tsd['m'].Ib[1,1]
+mm = tsd['m'].m
+def tsdBy(y, u):
+    sx = np.sin(y[-3])
+    cx = np.cos(y[-3])
+    sy = np.sin(y[-2])
+    cy = np.cos(y[-2])
+    sz = np.sin(y[-1])
+    cz = np.cos(y[-1])
+    u0, u1, u2, u3 = tuple(u)
+    return np.vstack((np.zeros((6,4)), 
+        np.array([
+            [sy/mm, 0, sy/mm, 0],
+            [-cy*sx/mm, 0, -cy*sx/mm, 0],
+            [cx*cy/mm, 0, cx*cy/mm, 0],
+            [-(((cz*sx*sy + cx*sz)*u1)/iy) + (cy*cz*ycp)/ix,-(((cz*sx*sy + cx*sz)*u0)/iy),
+    -(((cz*sx*sy + cx*sz)*u3)/iy) - (cy*cz*ycp)/ix,-(((cz*sx*sy + cx*sz)*u2)/iy)],
+            [-(((cx*cz - sx*sy*sz)*u1)/iy) - (cy*sz*ycp)/ix,-(((cx*cz - sx*sy*sz)*u0)/iy),
+    -(((cx*cz - sx*sy*sz)*u3)/iy) + (cy*sz*ycp)/ix,-(((cx*cz - sx*sy*sz)*u2)/iy)],
+            [(cy*sx*u1)/iy + (sy*ycp)/ix,(cy*sx*u0)/iy,(cy*sx*u3)/iy - (sy*ycp)/ix,(cy*sx*u2)/iy]
+        ])
+    ))
+
 if SPATIAL_SIMS:
     # u0 = tsd['u0']
     # u0[0] *= 1.01
@@ -178,23 +202,9 @@ if SPATIAL_SIMS:
     S1 = q2d['S']
     S2 = q2d['S']
     # See https://github.com/avikde/robobee3d/pull/50#issuecomment-492364162
-    ix = tsd['m'].Ib[0,0]
-    iy = tsd['m'].Ib[1,1]
-    mm = tsd['m'].m
     ycp = tsd['m'].ycp
     # print(tsd['u0'])  # using eq conditions as in the planar one above
-    u0 = tsd['u0'][0]
-    u1 = tsd['u0'][1]
-    u2 = tsd['u0'][2]
-    u3 = tsd['u0'][3]
-    tsdB = np.vstack((np.zeros((8,4)), 
-        np.array([
-            [1/mm, 0, 1/mm, 0],
-            [ycp/ix, 0, -ycp/ix, 0],
-            [-u1/iy, -u0/iy, -u3/iy, -u2/iy],
-            [0,0,0,0]
-        ])
-        ))
+    tsdB = tsdBy(tsd['y0'], tsd['u0'])
     # print(ptsd['B'], Pi1 @ tsdB)
 
     tsd['R'] = np.diag([0.005, 100, 0.005, 100])
