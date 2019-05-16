@@ -120,8 +120,8 @@ def valFuncQuadQP(t, y, anch):
 
 PLANAR_SIMS = False
 SPATIAL_SIMS = True
-tf = 2
-dt = 0.05
+tf = 0.01
+dt = 0.001
 t_eval = np.arange(0, tf, dt)
 
 if PLANAR_SIMS:
@@ -196,12 +196,12 @@ if SPATIAL_SIMS:
     print(ptsd['B'], Pi1 @ tsdB)
 
     tsd['R'] = np.diag([0.005, 100, 0.005, 100])
-    # Stsd = Pi1.T @ S1 @ Pi1 + Pi2.T @ S2 @ Pi2
+    Stsd = Pi1.T @ S1 @ Pi1 + Pi2.T @ S2 @ Pi2
     # # Test add damping
     # Kd = np.diag([0,0,0,1e-2,0,0])
     # Pivel = np.hstack((np.zeros((6,6)), np.eye(6)))
     # Stsd += Pivel.T @ Kd @ Pivel
-    Stsd = Pi1.T @ S1 @ Pi1
+    # Stsd = Pi1.T @ S1 @ Pi1
     # Stsd = Pi2.T @ S2 @ Pi2
     Ktsd = np.linalg.inv(tsd['R']) @ tsdB.T @ Stsd
     # print(Ktsd)
