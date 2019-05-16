@@ -193,7 +193,7 @@ tsdB = np.vstack((np.zeros((8,4)),
 tsd['R'] = np.diag([0.005, 100, 0.005, 100])
 Stsd = Pi1.T @ S1 @ Pi1 + Pi2.T @ S2 @ Pi2
 # Test add damping
-Kd = np.diag([10000,0,0,0,0,0])
+Kd = np.diag([0,0,0,1e-2,0,0])
 Pivel = np.hstack((np.zeros((6,6)), np.eye(6)))
 Stsd = Stsd + Pivel.T @ Kd @ Pivel
 # Stsd = Pi2.T @ S2 @ Pi2 
