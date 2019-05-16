@@ -10,7 +10,7 @@ class ThrustStrokeDev(Model):
     '''4 inputs: left/right thrusts and each has a stroke deviation in the x direction. There is a fixed offset of the thrusts in the y direction (~COP offset along wing).'''
     m = 0.5
     # FIXME:
-    Ib = np.diag([0.01, 0.01, 0.001])
+    Ib = np.diag([0.0005, 0.0005, 0.001])
     ycp = 0.5
     lwh = np.array([0.05,0.05,0.2])
 

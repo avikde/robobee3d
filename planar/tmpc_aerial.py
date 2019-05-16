@@ -40,7 +40,7 @@ tsd['u0'] = np.array([tsd['m'].m * aerial.g / 2, 0, tsd['m'].m * aerial.g / 2, 0
 q2d['Q'] = np.diag([10, 10, 1, 1, 1, 0.1])
 q2d['R'] = 0.001 * np.eye(2)
 ptsd['Q'] = np.diag([10, 10, 1, 1, 1, 0.1])
-ptsd['R'] = np.diag([0.001, 0.1])
+ptsd['R'] = np.diag([0.001, 0.001])
 
 # Some computation for all the systems
 for S in [q2d, ptsd, tsd]:
@@ -119,6 +119,7 @@ def valFuncQuadQP(t, y, anch):
 # Simulations --
 
 PLANAR_SIMS = False
+SPATIAL_SIMS = True
 tf = 2
 dt = 0.05
 t_eval = np.arange(0, tf, dt)
@@ -151,59 +152,64 @@ if PLANAR_SIMS:
 
 
 # 3D -------
-# u0 = tsd['u0']
-# u0[0] *= 1.01
-# test moving VF
-# print(tsd['y0'], tsd['u0'])
-# dfdy, dfdu = tsd['m']._autoLinJac(tsd['y0'], tsd['u0'])
-# State projs
-Pi1p = np.array([
-    [1,0,0,0,0,0], 
-    [0,0,1,0,0,0],
-    [0,0,0,0,-1,0]
-    ])
-Pi1 = block_diag(Pi1p, Pi1p)
-Pi2p = np.array([
-    [0,1,0,0,0,0], 
-    [0,0,1,0,0,0],
-    [0,0,0,1,0,0]
-    ])
-Pi2 = block_diag(Pi2p, Pi2p)
+if SPATIAL_SIMS:
+    # u0 = tsd['u0']
+    # u0[0] *= 1.01
+    # test moving VF
+    # print(tsd['y0'], tsd['u0'])
+    # dfdy, dfdu = tsd['m']._autoLinJac(tsd['y0'], tsd['u0'])
+    # State projs
+    Pi1p = np.array([
+        [1,0,0,0,0,0], 
+        [0,0,1,0,0,0],
+        [0,0,0,0,-1,0]
+        ])
+    Pi1 = block_diag(Pi1p, Pi1p)
+    Pi2p = np.array([
+        [0,1,0,0,0,0], 
+        [0,0,1,0,0,0],
+        [0,0,0,1,0,0]
+        ])
+    Pi2 = block_diag(Pi2p, Pi2p)
 
-S1 = q2d['S']
-S2 = q2d['S']
-# See https://github.com/avikde/robobee3d/pull/50#issuecomment-492364162
-ix = tsd['m'].Ib[0,0]
-iy = tsd['m'].Ib[1,1]
-mm = tsd['m'].m
-ycp = tsd['m'].ycp
-u0 = tsd['u0'][0]
-u1 = tsd['u0'][1]
-u2 = tsd['u0'][2]
-u3 = tsd['u0'][3]
-tsdB = np.vstack((np.zeros((8,4)), 
-    np.array([
-        [1/mm, 0, 1/mm, 0],
-        [ycp/ix, 0, -ycp/ix, 0],
-        [-u1/iy, -u0/iy, -u3/iy, -u2/iy],
-        [0,0,0,0]
-    ])
-    ))
+    # TODO: these should be morphReduc(S)
+    S1 = q2d['S']
+    S2 = q2d['S']
+    # See https://github.com/avikde/robobee3d/pull/50#issuecomment-492364162
+    ix = tsd['m'].Ib[0,0]
+    iy = tsd['m'].Ib[1,1]
+    mm = tsd['m'].m
+    ycp = tsd['m'].ycp
+    # print(tsd['u0'])  # using eq conditions as in the planar one above
+    u0 = tsd['u0'][0]
+    u1 = tsd['u0'][1]
+    u2 = tsd['u0'][2]
+    u3 = tsd['u0'][3]
+    tsdB = np.vstack((np.zeros((8,4)), 
+        np.array([
+            [1/mm, 0, 1/mm, 0],
+            [ycp/ix, 0, -ycp/ix, 0],
+            [-u1/iy, -u0/iy, -u3/iy, -u2/iy],
+            [0,0,0,0]
+        ])
+        ))
+    print(ptsd['B'], Pi1 @ tsdB)
 
-tsd['R'] = np.diag([0.005, 100, 0.005, 100])
-Stsd = Pi1.T @ S1 @ Pi1 + Pi2.T @ S2 @ Pi2
-# Test add damping
-Kd = np.diag([0,0,0,1e-2,0,0])
-Pivel = np.hstack((np.zeros((6,6)), np.eye(6)))
-Stsd = Stsd + Pivel.T @ Kd @ Pivel
-# Stsd = Pi2.T @ S2 @ Pi2 
-Ktsd = np.linalg.inv(tsd['R']) @ tsdB.T @ Stsd
-# print(Ktsd)
-# sys.exit(0)
-y0 = np.array([2, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-tf = 2.5
-t_eval = np.arange(0, tf, 0.05)
-tsdsol = solve_ivp(lambda t, y: tsd['m'].dynamics(y, Ktsd @ (tsd['y0'] - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
+    tsd['R'] = np.diag([0.005, 100, 0.005, 100])
+    # Stsd = Pi1.T @ S1 @ Pi1 + Pi2.T @ S2 @ Pi2
+    # # Test add damping
+    # Kd = np.diag([0,0,0,1e-2,0,0])
+    # Pivel = np.hstack((np.zeros((6,6)), np.eye(6)))
+    # Stsd += Pivel.T @ Kd @ Pivel
+    Stsd = Pi1.T @ S1 @ Pi1
+    # Stsd = Pi2.T @ S2 @ Pi2
+    Ktsd = np.linalg.inv(tsd['R']) @ tsdB.T @ Stsd
+    # print(Ktsd)
+    # sys.exit(0)
+    y0 = np.array([2, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    tf = 2.5
+    t_eval = np.arange(0, tf, 0.05)
+    tsdsol = solve_ivp(lambda t, y: tsd['m'].dynamics(y, Ktsd @ (tsd['y0'] - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
 
 
 # ------------ Display -----------------------
@@ -262,50 +268,52 @@ if PLANAR_SIMS:
 
 
 # 3D plot --
-fig = plt.figure(figsize=plt.figaspect(2.))
-ax = fig.add_subplot(2, 1, 1)
-ax.plot(tsdsol.t, tsdsol.y[0:3, :].T)
+if SPATIAL_SIMS:
+    fig = plt.figure(figsize=plt.figaspect(2.))
+    ax = fig.add_subplot(2, 1, 1)
+    ax.plot(tsdsol.t, tsdsol.y[0:3, :].T)
 
-# Animation --
-ax = fig.add_subplot(2, 1, 2, projection='3d')
+    # Animation --
+    ax = fig.add_subplot(2, 1, 2, projection='3d')
 
-body = misc.cuboid(y0[:3], y0[3:6], tsd['m'].lwh, facecolors='cyan', linewidths=1, edgecolors='r', alpha=.25)
-FL, FR, rL, rR = tsd['m'].forcesW(y0, tsd['u0'])
-actL,  = ax.plot([rL[0], rL[0] + FL[0]], [rL[1], rL[1] + FL[1]], [rL[1], rL[1] + FL[1]], 'r-')
-actR,  = ax.plot([rR[0], rR[0] + FR[0]], [rR[1], rR[1] + FR[1]], [rR[1], rR[1] + FR[1]], 'b-')
+    body = misc.cuboid(y0[:3], y0[3:6], tsd['m'].lwh, facecolors='cyan', linewidths=1, edgecolors='r', alpha=.25)
+    FL, FR, rL, rR = tsd['m'].forcesW(y0, tsd['u0'])
+    actL,  = ax.plot([rL[0], rL[0] + FL[0]], [rL[1], rL[1] + FL[1]], [rL[1], rL[1] + FL[1]], 'r-')
+    actR,  = ax.plot([rR[0], rR[0] + FR[0]], [rR[1], rR[1] + FR[1]], [rR[1], rR[1] + FR[1]], 'b-')
 
-def _init3():
-    ax.add_collection3d(body)
-    ax.plot([tsd['y0'][0]], [tsd['y0'][1]], [tsd['y0'][2]], 'c*')
+    def _init3():
+        ax.add_collection3d(body)
+        ax.plot([tsd['y0'][0]], [tsd['y0'][1]], [tsd['y0'][2]], 'c*')
 
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-    # ax.set_aspect('equal')  #equal not implemented on mplot3d
-    ax.set_xlim((-2,2))
-    ax.set_ylim((-2,2))
-    ax.set_zlim((-2,2))
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+        # ax.set_aspect('equal')  #equal not implemented on mplot3d
+        ax.set_xlim((-2,2))
+        ax.set_ylim((-2,2))
+        ax.set_zlim((-2,2))
 
-    return body, actL, 
-
-
-def _animate3(i):
-    # get latest
-    yy = tsdsol.y[:,i]
-    vertsW = misc.cuboid(yy[:3], yy[3:6], tsd['m'].lwh, rawxy=True)
-    body.set_verts(vertsW)
-    # act lines
-    # FIXME: need to keep this in sync
-    ui = Ktsd @ (tsd['y0'] - yy)
-    FL, FR, rL, rR = tsd['m'].forcesW(yy, ui)
-    actL.set_data(np.vstack((rL[0:2], rL[0:2] + FL[0:2])).T)
-    actL.set_3d_properties([rL[2], rL[2] + FL[2]])
-    actR.set_data(np.vstack((rR[0:2], rR[0:2] + FR[0:2])).T)
-    actR.set_3d_properties([rR[2], rR[2] + FR[2]])
-    return body, actL, 
+        return body, actL, 
 
 
-anim = animation.FuncAnimation(fig, _animate3, init_func=_init3, frames=len(tsdsol.t), interval=1000*dt, blit=False)
-# --
+    def _animate3(i):
+        # get latest
+        yy = tsdsol.y[:,i]
+        vertsW = misc.cuboid(yy[:3], yy[3:6], tsd['m'].lwh, rawxy=True)
+        body.set_verts(vertsW)
+        # act lines
+        # FIXME: need to keep this in sync
+        ui = Ktsd @ (tsd['y0'] - yy)
+        FL, FR, rL, rR = tsd['m'].forcesW(yy, ui)
+        actL.set_data(np.vstack((rL[0:2], rL[0:2] + FL[0:2])).T)
+        actL.set_3d_properties([rL[2], rL[2] + FL[2]])
+        actR.set_data(np.vstack((rR[0:2], rR[0:2] + FR[0:2])).T)
+        actR.set_3d_properties([rR[2], rR[2] + FR[2]])
+        return body, actL, 
 
-plt.show()
+
+    anim = animation.FuncAnimation(fig, _animate3, init_func=_init3, frames=len(tsdsol.t), interval=1000*dt, blit=False)
+    # --
+
+if PLANAR_SIMS or SPATIAL_SIMS:
+    plt.show()
