@@ -24,7 +24,7 @@ np.set_printoptions(precision=4, suppress=True, linewidth=200)
 PLANAR_SIMS = False
 SPATIAL_SIMS = True
 SAVE_ANIM = False
-tf = 0.02
+tf = 0.01
 dt = 0.001
 
 # Quadrotor 2d ---------------------------------------
@@ -157,6 +157,7 @@ if PLANAR_SIMS:
 ix = tsd['m'].Ib[0,0]
 iy = tsd['m'].Ib[1,1]
 mm = tsd['m'].m
+ycp = tsd['m'].ycp
 def tsdBy(y, u):
     sx = np.sin(y[-3])
     cx = np.cos(y[-3])
@@ -177,8 +178,7 @@ def tsdBy(y, u):
             [(cy*sx*u1)/iy + (sy*ycp)/ix,(cy*sx*u0)/iy,(cy*sx*u3)/iy - (sy*ycp)/ix,(cy*sx*u2)/iy]
         ])
     ))
-
-if SPATIAL_SIMS:
+def tsdAnchController(y):
     # u0 = tsd['u0']
     # u0[0] *= 1.01
     # test moving VF
@@ -202,26 +202,30 @@ if SPATIAL_SIMS:
     S1 = q2d['S']
     S2 = q2d['S']
     # See https://github.com/avikde/robobee3d/pull/50#issuecomment-492364162
-    ycp = tsd['m'].ycp
     # print(tsd['u0'])  # using eq conditions as in the planar one above
     tsdB = tsdBy(tsd['y0'], tsd['u0'])
     # print(ptsd['B'], Pi1 @ tsdB)
 
     tsd['R'] = np.diag([0.005, 100, 0.005, 100])
     Stsd = Pi1.T @ S1 @ Pi1 + Pi2.T @ S2 @ Pi2
-    # # Test add damping
-    # Kd = np.diag([0,0,0,1e-2,0,0])
-    # Pivel = np.hstack((np.zeros((6,6)), np.eye(6)))
-    # Stsd += Pivel.T @ Kd @ Pivel
+    # Yaw
+    # # FIXME: uncontrollable in TSD for the equilibrium linearization. However, using B at the current config would result in linear controllability
+    # Piyaw = np.array([[0,0,0,0,0,1,0,0,0,0,0,0],
+    # [0,0,0,0,0,0,0,0,0,0,0,1]])
+    # Stsd += Piyaw.T @ np.diag([100,10]) @ Piyaw
     # Stsd = Pi1.T @ S1 @ Pi1
     # Stsd = Pi2.T @ S2 @ Pi2
     Ktsd = np.linalg.inv(tsd['R']) @ tsdB.T @ Stsd
     # print(Ktsd)
+
+    return Ktsd @ (tsd['y0'] - y)
+
+if SPATIAL_SIMS:
     # sys.exit(0)
     y0 = np.array([2, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     tf = 2.5
     t_eval = np.arange(0, tf, 0.05)
-    tsdsol = solve_ivp(lambda t, y: tsd['m'].dynamics(y, Ktsd @ (tsd['y0'] - y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
+    tsdsol = solve_ivp(lambda t, y: tsd['m'].dynamics(y, tsdAnchController(y)), [0, tf], y0, dense_output=True, t_eval=t_eval)
 
 
 # ------------ Display -----------------------
@@ -315,7 +319,7 @@ if SPATIAL_SIMS:
         body.set_verts(vertsW)
         # act lines
         # FIXME: need to keep this in sync
-        ui = Ktsd @ (tsd['y0'] - yy)
+        ui = tsdAnchController(yy)
         FL, FR, rL, rR = tsd['m'].forcesW(yy, ui)
         actL.set_data(np.vstack((rL[0:2], rL[0:2] + FL[0:2])).T)
         actL.set_3d_properties([rL[2], rL[2] + FL[2]])
