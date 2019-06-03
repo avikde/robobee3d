@@ -294,10 +294,8 @@ class Wing2DOF:
     
     rescale = True
 
-    def dydt(self, y, u, avg=False):
-        ''' Full continuous nonlinear vector field when avg=False
-        Otherwise return dydsigma
-
+    def dydt(self, y, u, params=[]):
+        ''' 
         See mma file flapping wing traj
         '''
         uss = u[0]
@@ -319,6 +317,7 @@ class Wing2DOF:
         CDmax = 3.4
         CD0 = 0.4
         R = 15e-3
+        rho = 1.225
 
         # intertial terms
         M = np.array([[mspar + mwing, cbar * mwing * cpsi], [cbar * mwing * cpsi, Iwing + cbar**2 * mwing]])
@@ -329,7 +328,9 @@ class Wing2DOF:
         Jaero = np.array([[1, cbar * cpsi], [0, cbar * spsi]])
         CL = CLmax * np.sin(2 * alpha)
         CD = (CDmax + CD0)/2 - (CDmax - CD0)/2 * np.cos(2 * alpha)
-        Faero = 0.5 * rho * cbar * R * (vaero.T @ vaero) * np.array([CD, CL])
+        vaero = np.array([dsigma, 0])
+        # TODO: confirm and expose design params as argument
+        Faero = 1/2 * rho * cbar * R * (vaero.T @ vaero) * np.array([CD, CL])
         tauaero = - Jaero.T @ Faero
 
         ddq = np.linalg.inv(M) @ (-corgrav + taudamp + tauaero)
