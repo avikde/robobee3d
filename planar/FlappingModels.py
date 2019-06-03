@@ -287,6 +287,48 @@ class PlanarStrokeSpeed:
         return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy)
     
 
+class Wing2DOF:
+    nx = 4
+    nu = 1
+    y0 = np.zeros(nx)
+    
+    rescale = True
+
+    def dydt(self, y, u, avg=False):
+        ''' Full continuous nonlinear vector field when avg=False
+        Otherwise return dydsigma
+
+        See mma file flapping wing traj
+        '''
+        uss = u[0]
+
+        sigma, psi, dsigma, dpsi = tuple(y)
+        cpsi = np.cos(psi)
+        spsi = np.sin(psi)
+
+        # params
+        mspar = 0
+        ka = 0
+        khinge = 0
+        cbar = 5e-3
+        mwing = 5e-3
+        Iwing = 0
+        bpsi = 0
+
+        # intertial terms
+        M = np.array([[mspar + mwing, cbar * mwing * cpsi], [cbar * mwing * cpsi, Iwing + cbar**2 * mwing]])
+        corgrav = np.array([ka * sigma - cbar * mwing * spsi * dpsi**2, khinge * psi])
+        # non-lagrangian terms
+        taudamp = np.array([0, -bpsi * dpsi])
+        # TODO:
+        # Jaero = -
+        tauaero = np.zeros(2)
+
+        ddq = np.linalg.inv(M) @ (-corgrav + taudamp + tauaero)
+
+        return np.hstack((y[:2], ddq))
+
+
 def visualizeTraj(ax, traj, model, col='r', Faeroscale=1, tplot=None):
     '''Plots a trajectory, with model info from model.visualizationInfo'''
     from matplotlib.patches import Rectangle, Circle

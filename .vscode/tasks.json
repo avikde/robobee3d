@@ -18,7 +18,7 @@
 			"description": "Select the script to use",
 			"type": "pickString",
 			"options": [
-				"trajOptStrokeSpeed.py",
+				"trajOptWing2DOF.py",
 				"mpcStrokeSpeed.py",
 				"mpc_thrust_strokedev.py",
 				"tmpc_aerial.py",

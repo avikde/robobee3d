@@ -9,7 +9,7 @@ np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
 
 # FIXME: need a new one with no body coords
-m = FlappingModels.PlanarStrokeSpeed()
+m = FlappingModels.Wing2DOF()
 
 # discrete => do not need solve_ivp
 
