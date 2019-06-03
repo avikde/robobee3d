@@ -314,15 +314,23 @@ class Wing2DOF:
         mwing = 5e-3
         Iwing = 0
         bpsi = 0
+        alpha = np.pi / 4
+        CLmax = 1.8
+        CDmax = 3.4
+        CD0 = 0.4
+        R = 15e-3
 
         # intertial terms
         M = np.array([[mspar + mwing, cbar * mwing * cpsi], [cbar * mwing * cpsi, Iwing + cbar**2 * mwing]])
         corgrav = np.array([ka * sigma - cbar * mwing * spsi * dpsi**2, khinge * psi])
         # non-lagrangian terms
         taudamp = np.array([0, -bpsi * dpsi])
-        # TODO:
-        # Jaero = -
-        tauaero = np.zeros(2)
+        # aero force
+        Jaero = np.array([[1, cbar * cpsi], [0, cbar * spsi]])
+        CL = CLmax * np.sin(2 * alpha)
+        CD = (CDmax + CD0)/2 - (CDmax - CD0)/2 * np.cos(2 * alpha)
+        Faero = 0.5 * rho * cbar * R * (vaero.T @ vaero) * np.array([CD, CL])
+        tauaero = - Jaero.T @ Faero
 
         ddq = np.linalg.inv(M) @ (-corgrav + taudamp + tauaero)
 
