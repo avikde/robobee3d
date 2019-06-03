@@ -298,20 +298,18 @@ class Wing2DOF:
         ''' 
         See mma file flapping wing traj
         '''
-        uss = u[0]
-
         sigma, psi, dsigma, dpsi = tuple(y)
         cpsi = np.cos(psi)
         spsi = np.sin(psi)
 
         # params
         mspar = 0
-        ka = 0
-        khinge = 0
+        ka = 3e2
+        khinge = 100
         cbar = 5e-3
         mwing = 5e-3
-        Iwing = 0
-        bpsi = 0
+        Iwing = 1e-3
+        bpsi = 1e-3
         alpha = np.pi / 4
         CLmax = 1.8
         CDmax = 3.4
@@ -319,7 +317,7 @@ class Wing2DOF:
         R = 15e-3
         rho = 1.225
 
-        # intertial terms
+        # inertial terms
         M = np.array([[mspar + mwing, cbar * mwing * cpsi], [cbar * mwing * cpsi, Iwing + cbar**2 * mwing]])
         corgrav = np.array([ka * sigma - cbar * mwing * spsi * dpsi**2, khinge * psi])
         # non-lagrangian terms
@@ -332,11 +330,17 @@ class Wing2DOF:
         # TODO: confirm and expose design params as argument
         Faero = 1/2 * rho * cbar * R * (vaero.T @ vaero) * np.array([CD, CL])
         tauaero = - Jaero.T @ Faero
+        # input
+        tauinp = np.array([u[0], 0])
 
-        ddq = np.linalg.inv(M) @ (-corgrav + taudamp + tauaero)
+        ddq = np.linalg.inv(M) @ (-corgrav + taudamp + tauaero + tauinp)
 
-        return np.hstack((y[:2], ddq))
+        return np.hstack((y[2:], ddq))
 
+    def dynamics(self, y, u, dt, params):
+        '''discrete dynamics'''
+        _dydt = self.dydt(y, u, params)
+        return y + _dydt * dt
 
 def visualizeTraj(ax, traj, model, col='r', Faeroscale=1, tplot=None):
     '''Plots a trajectory, with model info from model.visualizationInfo'''
