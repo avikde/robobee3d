@@ -8,7 +8,7 @@ import planar.FlappingModels as FlappingModels
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
 
-
+# FIXME: need a new one with no body coords
 m = FlappingModels.PlanarStrokeSpeed()
 
 # discrete => do not need solve_ivp
@@ -28,6 +28,6 @@ for ti in range(1, len(tvec)):
 
 fig, ax = plt.subplots(2)
 
-ax[0].plot(tvec, yi[:,0])
+ax[0].plot(tvec, yi[:,0:2], '.-')
 
 plt.show()
