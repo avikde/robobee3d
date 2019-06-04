@@ -13,18 +13,17 @@ m = FlappingModels.Wing2DOF()
 
 # discrete => do not need solve_ivp
 
-yi = m.y0
 dt = 0.001
 tf = 0.1
 tvec = np.arange(0, tf, dt)
-yi = np.zeros((len(tvec), len(yi)))
-yi[0,:]
+yi = np.zeros((len(tvec), m.nx))
+yi[0,:] = np.array([1e-2, 0, 0, 0])
 
 # params
 params = []
 
 for ti in range(1, len(tvec)):
-    u0 = 1e0 * np.sin(100 * 2 * np.pi * tvec[ti])
+    u0 = 0 * 1e0 * np.sin(100 * 2 * np.pi * tvec[ti])
     u = np.array([u0])
     yi[ti,:] = m.dynamics(yi[ti-1,:], u, dt, params)
 
