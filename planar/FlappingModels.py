@@ -295,6 +295,30 @@ class Wing2DOF:
     
     rescale = True
 
+    def aero(self, y, u, params=[]):
+        cbar = self.cbar
+        CLmax = 1.8
+        CDmax = 3.4
+        CD0 = 0.4
+        rho = 1.225
+        R = 15e-3
+        
+        sigma, psi, dsigma, dpsi = tuple(y)
+        cpsi = np.cos(psi)
+        spsi = np.sin(psi)
+        alpha = np.pi / 4 # FIXME:
+
+        # aero force
+        Jaero = np.array([[1, cbar * cpsi], [0, cbar * spsi]])
+        CL = CLmax * np.sin(2 * alpha)
+        CD = (CDmax + CD0)/2 - (CDmax - CD0)/2 * np.cos(2 * alpha)
+        vaero = np.array([dsigma, 0])
+        # TODO: confirm and expose design params as argument
+        Faero = 1/2 * rho * cbar * R * (vaero.T @ vaero) * np.array([CD * np.sign(dsigma), CL])
+
+        return Jaero, Faero
+
+
     def dydt(self, y, u, params=[]):
         ''' 
         See mma file flapping wing traj
@@ -304,32 +328,20 @@ class Wing2DOF:
         spsi = np.sin(psi)
 
         # params
+        cbar = self.cbar
         mspar = 0
         ka = 0
         khinge = 1e-3
-        cbar = self.cbar
         mwing = 5e-6
         Iwing = 1e-9#mwing * cbar**2
         bpsi = 5e-7
-        alpha = np.pi / 4
-        CLmax = 1.8
-        CDmax = 3.4
-        CD0 = 0.4
-        R = 15e-3
-        rho = 1.225
 
         # inertial terms
         M = np.array([[mspar + mwing, cbar * mwing * cpsi], [cbar * mwing * cpsi, Iwing + cbar**2 * mwing]])
         corgrav = np.array([ka * sigma - cbar * mwing * spsi * dpsi**2, khinge * psi])
         # non-lagrangian terms
         taudamp = np.array([0, -bpsi * dpsi])
-        # aero force
-        Jaero = np.array([[1, cbar * cpsi], [0, cbar * spsi]])
-        CL = CLmax * np.sin(2 * alpha)
-        CD = (CDmax + CD0)/2 - (CDmax - CD0)/2 * np.cos(2 * alpha)
-        vaero = np.array([dsigma, 0])
-        # TODO: confirm and expose design params as argument
-        Faero = 1/2 * rho * cbar * R * (vaero.T @ vaero) * np.array([CD * np.sign(dsigma), CL])
+        Jaero, Faero = self.aero(y, u, params)
         tauaero = Jaero.T @ Faero
         # input
         tauinp = np.array([u[0], 0])
