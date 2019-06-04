@@ -291,6 +291,7 @@ class Wing2DOF:
     nx = 4
     nu = 1
     y0 = np.zeros(nx)
+    cbar = 5e-3
     
     rescale = True
 
@@ -304,12 +305,12 @@ class Wing2DOF:
 
         # params
         mspar = 0
-        ka = 3e2
-        khinge = 100
-        cbar = 5e-3
-        mwing = 5e-3
-        Iwing = 1e-3
-        bpsi = 1e-3
+        ka = 0
+        khinge = 1e-7
+        cbar = self.cbar
+        mwing = 5e-6
+        Iwing = 1e-6
+        bpsi = 1e-8
         alpha = np.pi / 4
         CLmax = 1.8
         CDmax = 3.4
@@ -329,7 +330,7 @@ class Wing2DOF:
         vaero = np.array([dsigma, 0])
         # TODO: confirm and expose design params as argument
         Faero = 1/2 * rho * cbar * R * (vaero.T @ vaero) * np.array([CD, CL])
-        tauaero = - Jaero.T @ Faero
+        tauaero = Jaero.T @ Faero * (-np.sign(dsigma))
         # input
         tauinp = np.array([u[0], 0])
 
