@@ -306,7 +306,7 @@ class Wing2DOF:
         sigma, psi, dsigma, dpsi = tuple(y)
         cpsi = np.cos(psi)
         spsi = np.sin(psi)
-        alpha = np.pi / 4 # FIXME:
+        alpha = np.pi/4
 
         # aero force
         Jaero = np.array([[1, cbar * cpsi], [0, cbar * spsi]])
@@ -314,7 +314,7 @@ class Wing2DOF:
         CD = (CDmax + CD0)/2 - (CDmax - CD0)/2 * np.cos(2 * alpha)
         vaero = np.array([dsigma, 0])
         # TODO: confirm and expose design params as argument
-        Faero = 1/2 * rho * cbar * R * (vaero.T @ vaero) * np.array([CD * np.sign(dsigma), CL])
+        Faero = 1/2 * rho * cbar * R * (vaero.T @ vaero) * np.array([CD * np.sign(-dsigma), CL])
 
         return Jaero, Faero
 

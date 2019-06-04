@@ -25,10 +25,12 @@ params = []
 
 def sigmades(t):
     return 15e-3 * np.sin(150 * 2 * np.pi * t)
+def controller(t, y):
+    return 1e2 * (sigmades(t) - y[0]) - 1e-2 * y[2]
 def closedLoop(t, y):
     # u0 = 1e-3 * np.sin(100 * 2 * np.pi * tvec[ti])
     # pos servoing
-    u0 = 1e2 * (sigmades(t) - y[0]) - 1e-2 * y[2]
+    u0 = controller(t, y)
     # print(u0)
     return m.dydt(y, [u0], params)
 
@@ -59,12 +61,13 @@ _y = sol.y
 _ax = ax[2]
 
 p1, = _ax.plot([], [], 'b.-', linewidth=4)
+paero, = _ax.plot([], [], 'r', linewidth=2)
 _ax.grid(True)
 _ax.set_aspect(1)
 _ax.set_ylim(m.cbar * np.array([-2, 2]))
 
 def _init():
-    return p1,
+    return p1, paero, 
 
 def _animate(i):
     wing1 = np.array([_y[0,i], 0])
@@ -72,7 +75,14 @@ def _animate(i):
     wing2 = wing1 + np.array([[c, -s], [s, c]]) @ np.array([0, -2*m.cbar])
     p1.set_xdata([wing1[0], wing2[0]])
     p1.set_ydata([wing1[1], wing2[1]])
-    return p1,
+    u = controller(tvec[i], _y[:,i])
+    _, Faero = m.aero(_y[:,i], u)
+
+    pcop = (wing1 + wing2)/2
+    aeroEnd = pcop + 0.3 * Faero
+    paero.set_xdata([pcop[0], aeroEnd[0]])
+    paero.set_ydata([pcop[1], aeroEnd[1]])
+    return p1, paero, 
 
 anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(_t), interval=1e5*dt, blit=True)
 # makeAnim(ax[2], sol.t, sol.y)
