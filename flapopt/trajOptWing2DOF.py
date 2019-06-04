@@ -14,7 +14,7 @@ m = FlappingModels.Wing2DOF()
 
 # discrete => do not need solve_ivp
 
-dt = 0.00001
+dt = 0.0001
 tf = 0.1
 tvec = np.arange(0, tf, dt)
 yi = np.zeros((m.nx, len(tvec)))
@@ -24,7 +24,7 @@ yi[:,0] = np.array([1e-2, 0, 0, 0])
 params = []
 
 def sigmades(t):
-    return 10e-3 * np.sin(100 * 2 * np.pi * t)
+    return 15e-3 * np.sin(150 * 2 * np.pi * t)
 def closedLoop(t, y):
     # u0 = 1e-3 * np.sin(100 * 2 * np.pi * tvec[ti])
     # pos servoing
@@ -58,7 +58,7 @@ _t = sol.t
 _y = sol.y
 _ax = ax[2]
 
-p1, = _ax.plot([], [], '.-')
+p1, = _ax.plot([], [], 'b.-', linewidth=4)
 _ax.grid(True)
 _ax.set_aspect(1)
 _ax.set_ylim(m.cbar * np.array([-2, 2]))
@@ -69,12 +69,12 @@ def _init():
 def _animate(i):
     wing1 = np.array([_y[0,i], 0])
     c, s = np.cos(_y[1,i]), np.sin(_y[1,i])
-    wing2 = wing1 + np.array([[c, -s], [s, c]]) @ np.array([0, -m.cbar])
+    wing2 = wing1 + np.array([[c, -s], [s, c]]) @ np.array([0, -2*m.cbar])
     p1.set_xdata([wing1[0], wing2[0]])
     p1.set_ydata([wing1[1], wing2[1]])
     return p1,
 
-anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(_t), interval=5000*dt, blit=True)
+anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(_t), interval=1e5*dt, blit=True)
 # makeAnim(ax[2], sol.t, sol.y)
 
 plt.tight_layout()
