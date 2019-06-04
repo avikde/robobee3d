@@ -10,8 +10,6 @@ from matplotlib import animation
 from matplotlib.collections import PatchCollection
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
-
-# FIXME: need a new one with no body coords
 m = FlappingModels.Wing2DOF()
 
 # discrete => do not need solve_ivp
@@ -30,7 +28,7 @@ def sigmades(t):
 def closedLoop(t, y):
     # u0 = 1e-3 * np.sin(100 * 2 * np.pi * tvec[ti])
     # pos servoing
-    u0 = 100000 * (sigmades(tvec[ti]) - yi[0,ti-1]) - 1 * yi[2,ti-1] 
+    u0 = 1e2 * (sigmades(t) - y[0]) - 1e-2 * y[2]
     # print(u0)
     return m.dydt(y, [u0], params)
 
