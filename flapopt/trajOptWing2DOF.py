@@ -14,7 +14,7 @@ m = FlappingModels.Wing2DOF()
 
 # discrete => do not need solve_ivp
 
-dt = 0.001
+dt = 0.00001
 tf = 0.1
 tvec = np.arange(0, tf, dt)
 yi = np.zeros((m.nx, len(tvec)))
@@ -36,11 +36,11 @@ sol = solve_ivp(lambda t, y: m.dydt(y, u), [0,tf], yi[:,0], dense_output=True, t
 
 fig, ax = plt.subplots(2)
 
-ax[0].plot(tvec, yi[0,:], '.-')
-ax[0].plot(tvec, sol.y[0,:], '.-')
+ax[0].plot(tvec, yi[0,:])
+ax[0].plot(tvec, sol.y[0,:])
 
-ax[1].plot(tvec, yi[1,:], '.-')
-ax[1].plot(tvec, sol.y[1,:], '.-')
+ax[1].plot(tvec, yi[1,:])
+ax[1].plot(tvec, sol.y[1,:])
 
 # print(sol.y.shape)
 
