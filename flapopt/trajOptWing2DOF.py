@@ -14,7 +14,7 @@ m = FlappingModels.Wing2DOF()
 
 # discrete => do not need solve_ivp
 
-dt = 0.0001
+dt = 1e-4
 tf = 0.1
 tvec = np.arange(0, tf, dt)
 yi = np.zeros((m.nx, len(tvec)))
@@ -22,6 +22,8 @@ yi[:,0] = np.array([1e-2, 0, 0, 0])
 
 # params
 params = []
+
+# Functions ---
 
 def sigmades(t):
     return 15e-3 * np.sin(150 * 2 * np.pi * t)
@@ -34,12 +36,28 @@ def closedLoop(t, y):
     # print(u0)
     return m.dydt(y, [u0], params)
 
+def Jcost(y, u, params):
+    _, Faero = m.aero(y, u, params)
+    return Faero[1]
+def Jcostavg(solt, soly, params):
+    # FIXME: need to find y that make one cycle
+    # as a first pass just average over the whole time
+    Nt = len(solt)
+    Jcosti = np.zeros(Nt)
+    for i in range(Nt):
+        Jcosti[i] = Jcost(soly[:,i], controller(solt[i], soly[:,i]), params)
+    return np.mean(Jcosti)
+
+# ---
+
 for ti in range(1, len(tvec)):
     yi[:,ti] = yi[:,ti-1] + dt * closedLoop(tvec[ti], yi[:,ti-1])
 
 
 # compare to continuous
 sol = solve_ivp(closedLoop, [0,tf], yi[:,0], dense_output=True, t_eval=tvec)
+
+print('Avg cost =', Jcostavg(sol.t, sol.y, params))
 
 # plots
 
@@ -48,7 +66,7 @@ fig, ax = plt.subplots(3)
 # display
 
 
-# ax[0].plot(tvec, yi[0,:])
+ax[0].plot(tvec, yi[0,:])
 ax[0].plot(tvec, sol.y[0,:])
 ax[0].plot(tvec, sigmades(tvec))
 
