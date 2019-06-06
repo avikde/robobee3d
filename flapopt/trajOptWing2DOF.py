@@ -93,7 +93,7 @@ def Jcosttraj(yu, params):
     '''this is over a traj. yu = (nx+nu,Nt)-shaped'''
     Nt = yu.shape[1]
     c = 0
-    PENALTY = 1e1
+    PENALTY = 1e-6
     for i in range(Nt-1):
         c += Jobjinst(yu[:m.nx,i], yu[m.nx:,i], params) + PENALTY * Jcostinst_dynpenalty(yu[:m.nx,i+1], yu[:m.nx,i], yu[m.nx:,i], params)
     # TODO: any final cost?
@@ -121,21 +121,23 @@ sol = solve_ivp(closedLoop, [0,tf], yi[:,0], dense_output=True, t_eval=tvec)
 print('Avg cost =', Jcostsol(sol.t, sol.y, params))
 
 # Trajectory to begin gradient descent from ------------
-yutest = sol.y.copy()
-utest = np.zeros(yutest.shape[1])
-for i in range(yutest.shape[1]):
+yu0 = sol.y.copy()
+# yu0 = yi.copy()
+utest = np.zeros(yu0.shape[1])
+for i in range(yu0.shape[1]):
     utest[i] = controller(sol.t[i], sol.y[:,i])
-yutest = np.vstack((yutest, utest))
+yu0 = np.vstack((yu0, utest))
 
 # Test compute gradient
-print(Jcosttraj(yutest, params))
-g1 = Jgrad(yutest)
+print(Jcosttraj(yu0, params))
+g1 = Jgrad(yu0)
 # print(g1[:20])
-print(Jcosttraj(yutest - 1e-10 * g1, params))
-print(Jcosttraj(yutest - 1e-9 * g1, params))
-print(Jcosttraj(yutest - 1e-8 * g1, params))
-print(Jcosttraj(yutest - 1e-7 * g1, params))
-print(Jcosttraj(yutest - 1e-6 * g1, params))
+# # Stupid "line search" for step size
+# for i in range(-10,10):
+#     print(i, Jcosttraj(yu0 - np.power(10.0,i) * g1, params))
+# sys.exit(0)
+yu1 = yu0 - 1e1 * g1
+print(Jcosttraj(yu1, params))
 
 # --------------------------------------------------------
 
@@ -146,35 +148,35 @@ fig, ax = plt.subplots(3)
 # display
 
 
-ax[0].plot(tvec, yi[0,:])
-ax[0].plot(tvec, sol.y[0,:])
-ax[0].plot(tvec, sigmades(tvec))
+# ax[0].plot(tvec, yi[0,:])
+ax[0].plot(tvec, yu0[0,:])
+ax[0].plot(tvec, yu1[0,:])
+ax[0].plot(tvec, sigmades(tvec), 'k--')
 
 # ax[1].plot(tvec, yi[1,:])
-ax[1].plot(tvec, sol.y[1,:])
+ax[1].plot(tvec, yu0[1,:])
+ax[1].plot(tvec, yu1[1,:])
 
 # def makeAnim(_ax, _t, _y):
-_t = sol.t
-_y = sol.y
+_yu = yu0
 _ax = ax[2]
 
 p1, = _ax.plot([], [], 'b.-', linewidth=4)
 paero, = _ax.plot([], [], 'r', linewidth=2)
 _ax.grid(True)
 _ax.set_aspect(1)
-_ax.set_ylim(m.cbar * np.array([-2, 2]))
+_ax.set_ylim(m.cbar * np.array([-4, 2]))
 
 def _init():
     return p1, paero, 
 
 def _animate(i):
-    wing1 = np.array([_y[0,i], 0])
-    c, s = np.cos(_y[1,i]), np.sin(_y[1,i])
+    wing1 = np.array([_yu[0,i], 0])
+    c, s = np.cos(_yu[1,i]), np.sin(_yu[1,i])
     wing2 = wing1 + np.array([[c, -s], [s, c]]) @ np.array([0, -2*m.cbar])
     p1.set_xdata([wing1[0], wing2[0]])
     p1.set_ydata([wing1[1], wing2[1]])
-    u = controller(tvec[i], _y[:,i])
-    _, Faero = m.aero(_y[:,i], u)
+    _, Faero = m.aero(_yu[:m.nx,i], _yu[m.nx:,i])
 
     pcop = (wing1 + wing2)/2
     aeroEnd = pcop + 0.3 * Faero
@@ -182,7 +184,7 @@ def _animate(i):
     paero.set_ydata([pcop[1], aeroEnd[1]])
     return p1, paero, 
 
-anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(_t), interval=1e5*dt, blit=True)
+anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=_yu.shape[1], interval=1e5*dt, blit=True)
 # makeAnim(ax[2], sol.t, sol.y)
 
 plt.tight_layout()
