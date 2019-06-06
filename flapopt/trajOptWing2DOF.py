@@ -61,8 +61,8 @@ tvec = np.arange(0, tf, dt)
 yi = np.zeros((m.nx, len(tvec)))
 yi[:,0] = np.array([1e-2, 0, 0, 0])
 
-# params
-params = []
+# params: [cbar, ]
+params = np.array([5e-3])
 
 # Functions ---
 
@@ -127,8 +127,10 @@ utest = np.zeros(yu0.shape[1])
 for i in range(yu0.shape[1]):
     utest[i] = controller(sol.t[i], sol.y[:,i])
 yu0 = np.vstack((yu0, utest))
+# gradient wrt params
+Jgradp = jacobian(lambda p : Jcosttraj(yu0, p))
 
-# Test compute gradient
+# Gradient descent
 print(Jcosttraj(yu0, params))
 yu1 = yu0.copy()
 for i in range(5):
@@ -140,6 +142,16 @@ for i in range(5):
     # sys.exit(0)
     yu1 -= 1e1 * g1
     print(i, Jcosttraj(yu1, params))
+
+params1 = params.copy()
+for i in range(5):
+    g1 = Jgradp(params1)
+    # # Stupid "line search" for step size
+    # for i in range(-10,10):
+    #     print(i, Jcosttraj(yu0, params - np.power(10.0,i) * g1))
+    # sys.exit(0)
+    params1 -= 1e-6 * g1
+    print(i, Jcosttraj(yu0, params1))
 
 # --------------------------------------------------------
 
@@ -163,13 +175,13 @@ ax[1].legend()
 
 # def makeAnim(_ax, _t, _y):
 
-def flapkin(yui, xyoff):
+def flapkin(yui, xyoff, _params):
     # wing extents
     wing1 = np.array([yui[0], 0]) + np.asarray(xyoff)
     c, s = np.cos(yui[1]), np.sin(yui[1])
-    wing2 = wing1 + np.array([[c, -s], [s, c]]) @ np.array([0, -2*m.cbar])
+    wing2 = wing1 + np.array([[c, -s], [s, c]]) @ np.array([0, -2*_params[0]])
     # aero arrow extents
-    _, Faero = m.aero(yui[:m.nx], yui[m.nx:])
+    _, Faero = m.aero(yui[:m.nx], yui[m.nx:], _params)
     pcop = (wing1 + wing2)/2
     aeroEnd = pcop + 0.3 * Faero
     return wing1, wing2, pcop, aeroEnd
@@ -180,27 +192,34 @@ p1, = _ax.plot([], [], 'b.-', linewidth=4)
 paero, = _ax.plot([], [], 'r', linewidth=2)
 p2, = _ax.plot([], [], 'b.-', linewidth=4)
 paero2, = _ax.plot([], [], 'r', linewidth=2)
+p3, = _ax.plot([], [], 'b.-', linewidth=4)
+paero3, = _ax.plot([], [], 'r', linewidth=2)
 _ax.grid(True)
 _ax.set_aspect(1)
 _ax.set_ylim(m.cbar * np.array([-4, 2]))
 
 def _init():
-    return p1, paero, p2, paero2, 
+    return p1, paero, p2, paero2, p3, paero3, 
 
 def _animate(i):
-    wing1, wing2, pcop, aeroEnd = flapkin(yu0[:,i], [-0.01,0])
+    wing1, wing2, pcop, aeroEnd = flapkin(yu0[:,i], [-0.02,0], params)
     p1.set_xdata([wing1[0], wing2[0]])
     p1.set_ydata([wing1[1], wing2[1]])
     paero.set_xdata([pcop[0], aeroEnd[0]])
     paero.set_ydata([pcop[1], aeroEnd[1]])
-    wing1, wing2, pcop, aeroEnd = flapkin(yu1[:,i], [0.01,0])
+    wing1, wing2, pcop, aeroEnd = flapkin(yu1[:,i], [0.0,0], params)
     p2.set_xdata([wing1[0], wing2[0]])
     p2.set_ydata([wing1[1], wing2[1]])
     paero2.set_xdata([pcop[0], aeroEnd[0]])
     paero2.set_ydata([pcop[1], aeroEnd[1]])
-    return p1, paero, p2, paero2, 
+    wing1, wing2, pcop, aeroEnd = flapkin(yu0[:,i], [0.02,0], params1)
+    p3.set_xdata([wing1[0], wing2[0]])
+    p3.set_ydata([wing1[1], wing2[1]])
+    paero3.set_xdata([pcop[0], aeroEnd[0]])
+    paero3.set_ydata([pcop[1], aeroEnd[1]])
+    return p1, paero, p2, paero2, p3, paero3, 
 
-anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=yu0.shape[1], interval=1e5*dt, blit=True)
+anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=yu0.shape[1], interval=2e5*dt, blit=True)
 # makeAnim(ax[2], sol.t, sol.y)
 
 plt.tight_layout()

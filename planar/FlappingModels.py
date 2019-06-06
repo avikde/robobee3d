@@ -296,7 +296,7 @@ class Wing2DOF:
     rescale = True
 
     def aero(self, y, u, params=[]):
-        cbar = self.cbar
+        cbar = self.cbar if len(params)==0 else params[0]
         CLmax = 1.8
         CDmax = 3.4
         CD0 = 0.4
@@ -328,7 +328,7 @@ class Wing2DOF:
         spsi = np.sin(psi)
 
         # params
-        cbar = self.cbar
+        cbar = self.cbar if len(params)==0 else params[0]
         mspar = 0
         ka = 0
         khinge = 1e-3
