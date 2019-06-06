@@ -149,42 +149,56 @@ fig, ax = plt.subplots(3)
 
 
 # ax[0].plot(tvec, yi[0,:])
-ax[0].plot(tvec, yu0[0,:])
-ax[0].plot(tvec, yu1[0,:])
+ax[0].plot(tvec, yu0[0,:], label='0')
+ax[0].plot(tvec, yu1[0,:], label='1')
 ax[0].plot(tvec, sigmades(tvec), 'k--')
+ax[0].legend()
 
 # ax[1].plot(tvec, yi[1,:])
-ax[1].plot(tvec, yu0[1,:])
-ax[1].plot(tvec, yu1[1,:])
+ax[1].plot(tvec, yu0[1,:], label='0')
+ax[1].plot(tvec, yu1[1,:], label='1')
+ax[1].legend()
 
 # def makeAnim(_ax, _t, _y):
-_yu = yu0
+
+def flapkin(yui, xyoff):
+    # wing extents
+    wing1 = np.array([yui[0], 0]) + np.asarray(xyoff)
+    c, s = np.cos(yui[1]), np.sin(yui[1])
+    wing2 = wing1 + np.array([[c, -s], [s, c]]) @ np.array([0, -2*m.cbar])
+    # aero arrow extents
+    _, Faero = m.aero(yui[:m.nx], yui[m.nx:])
+    pcop = (wing1 + wing2)/2
+    aeroEnd = pcop + 0.3 * Faero
+    return wing1, wing2, pcop, aeroEnd
+
 _ax = ax[2]
 
 p1, = _ax.plot([], [], 'b.-', linewidth=4)
 paero, = _ax.plot([], [], 'r', linewidth=2)
+p2, = _ax.plot([], [], 'b.-', linewidth=4)
+paero2, = _ax.plot([], [], 'r', linewidth=2)
 _ax.grid(True)
 _ax.set_aspect(1)
 _ax.set_ylim(m.cbar * np.array([-4, 2]))
 
 def _init():
-    return p1, paero, 
+    return p1, paero, p2, paero2, 
 
 def _animate(i):
-    wing1 = np.array([_yu[0,i], 0])
-    c, s = np.cos(_yu[1,i]), np.sin(_yu[1,i])
-    wing2 = wing1 + np.array([[c, -s], [s, c]]) @ np.array([0, -2*m.cbar])
+    wing1, wing2, pcop, aeroEnd = flapkin(yu0[:,i], [-0.01,0])
     p1.set_xdata([wing1[0], wing2[0]])
     p1.set_ydata([wing1[1], wing2[1]])
-    _, Faero = m.aero(_yu[:m.nx,i], _yu[m.nx:,i])
-
-    pcop = (wing1 + wing2)/2
-    aeroEnd = pcop + 0.3 * Faero
     paero.set_xdata([pcop[0], aeroEnd[0]])
     paero.set_ydata([pcop[1], aeroEnd[1]])
-    return p1, paero, 
+    wing1, wing2, pcop, aeroEnd = flapkin(yu1[:,i], [0.01,0])
+    p2.set_xdata([wing1[0], wing2[0]])
+    p2.set_ydata([wing1[1], wing2[1]])
+    paero2.set_xdata([pcop[0], aeroEnd[0]])
+    paero2.set_ydata([pcop[1], aeroEnd[1]])
+    return p1, paero, p2, paero2, 
 
-anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=_yu.shape[1], interval=1e5*dt, blit=True)
+anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=yu0.shape[1], interval=1e5*dt, blit=True)
 # makeAnim(ax[2], sol.t, sol.y)
 
 plt.tight_layout()
