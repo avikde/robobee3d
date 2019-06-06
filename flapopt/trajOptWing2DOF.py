@@ -12,6 +12,8 @@ np.set_printoptions(precision=4, suppress=True, linewidth=200)
 from mosek.fusion import *
 import mosek as msk
 
+# MOSEK test ------------------------------------------------------
+
 def primal_problem(P):
 
     print(msk.Env.getversion())
@@ -47,6 +49,8 @@ r0,p0 = primal_problem(p)
 print ("r0^* = ", r0)
 print ("p0^* = ", p0)
 
+# ---------------------------------------------------
+
 m = FlappingModels.Wing2DOF()
 
 # discrete => do not need solve_ivp
@@ -73,17 +77,35 @@ def closedLoop(t, y):
     # print(u0)
     return m.dydt(y, [u0], params)
 
-def Jcost(y, u, params):
+def Jobjinst(y, u, params):
     _, Faero = m.aero(y, u, params)
-    return Faero[1]
-def Jcostavg(solt, soly, params):
-    # FIXME: need to find y that make one cycle
-    # as a first pass just average over the whole time
+    return -Faero[1] # minimization
+
+def Jcostinst_dynpenalty(ynext, y, u, params):
+    '''error on dynamics for penalty method'''
+    return 1/2 * (ynext - (y + m.dydt(y, u, params) * dt))**2
+
+# FIXME: need to find y that make one cycle
+# as a first pass just average over the whole time
+
+def Jcosttraj(yu, params):
+    '''this is over a traj. yu = (nx+nu,Nt)-shaped'''
+    Nt = yu.shape[1]
+    c = 0
+    PENALTY = 0#1e4
+    for i in range(Nt-1):
+        c += Jobjinst(yu[:m.nx,i], yu[m.nx:,i], params)# + PENALTY * Jcostinst_dynpenalty(yu[:m.nx,i+1], yu[:m.nx,i], yu[m.nx:,i], params)
+    # TODO: any final cost?
+    return c
+
+def Jcostsol(solt, soly, params):
     Nt = len(solt)
     Jcosti = np.zeros(Nt)
     for i in range(Nt):
-        Jcosti[i] = Jcost(soly[:,i], controller(solt[i], soly[:,i]), params)
+        Jcosti[i] = Jobjinst(soly[:,i], controller(solt[i], soly[:,i]), params)
     return np.mean(Jcosti)
+
+Jgrad = jacobian(lambda yu : Jcosttraj(yu, params))
 
 # ---
 
@@ -94,7 +116,11 @@ for ti in range(1, len(tvec)):
 # compare to continuous
 sol = solve_ivp(closedLoop, [0,tf], yi[:,0], dense_output=True, t_eval=tvec)
 
-print('Avg cost =', Jcostavg(sol.t, sol.y, params))
+print('Avg cost =', Jcostsol(sol.t, sol.y, params))
+yutest = sol.y.copy()
+# vstack u
+
+print(Jgrad(yutest))
 
 # plots
 
