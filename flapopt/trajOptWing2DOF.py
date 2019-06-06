@@ -157,21 +157,20 @@ for i in range(5):
 
 # plots
 
-fig, ax = plt.subplots(3)
+fig, ax = plt.subplots(2)
 
 # display
 
+# # ax[0].plot(tvec, yi[0,:])
+# ax[0].plot(tvec, yu0[0,:], label='0')
+# ax[0].plot(tvec, yu1[0,:], label='1')
+# ax[0].plot(tvec, sigmades(tvec), 'k--')
+# ax[0].legend()
 
-# ax[0].plot(tvec, yi[0,:])
-ax[0].plot(tvec, yu0[0,:], label='0')
-ax[0].plot(tvec, yu1[0,:], label='1')
-ax[0].plot(tvec, sigmades(tvec), 'k--')
+# ax[0].plot(tvec, yi[1,:])
+ax[0].plot(tvec, yu0[1,:], label='0')
+ax[0].plot(tvec, yu1[1,:], label='1')
 ax[0].legend()
-
-# ax[1].plot(tvec, yi[1,:])
-ax[1].plot(tvec, yu0[1,:], label='0')
-ax[1].plot(tvec, yu1[1,:], label='1')
-ax[1].legend()
 
 # def makeAnim(_ax, _t, _y):
 
@@ -186,7 +185,7 @@ def flapkin(yui, xyoff, _params):
     aeroEnd = pcop + 0.3 * Faero
     return wing1, wing2, pcop, aeroEnd
 
-_ax = ax[2]
+_ax = ax[-1]
 
 p1, = _ax.plot([], [], 'b.-', linewidth=4)
 paero, = _ax.plot([], [], 'r', linewidth=2)
@@ -220,7 +219,13 @@ def _animate(i):
     return p1, paero, p2, paero2, p3, paero3, 
 
 anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=yu0.shape[1], interval=2e5*dt, blit=True)
-# makeAnim(ax[2], sol.t, sol.y)
+if True:
+    # Set up formatting for the movie files
+    Writer = animation.writers['ffmpeg']
+    writer = Writer(fps=30, metadata=dict(artist='Me'), bitrate=1800)
+    import time
+    timestamp = time.strftime('%Y%m%d%H%M%S', time.localtime())
+    anim.save('trajOptWing2DOF'+timestamp+'.mp4', writer=writer)
 
 plt.tight_layout()
 # print(sol.y.shape)
