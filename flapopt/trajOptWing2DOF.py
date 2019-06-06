@@ -83,7 +83,8 @@ def Jobjinst(y, u, params):
 
 def Jcostinst_dynpenalty(ynext, y, u, params):
     '''error on dynamics for penalty method'''
-    return 1/2 * (ynext - (y + m.dydt(y, u, params) * dt))**2
+    dynErr = ynext - (y + m.dydt(y, u, params) * dt)
+    return 1/2 * dynErr.T @ dynErr
 
 # FIXME: need to find y that make one cycle
 # as a first pass just average over the whole time
@@ -92,9 +93,9 @@ def Jcosttraj(yu, params):
     '''this is over a traj. yu = (nx+nu,Nt)-shaped'''
     Nt = yu.shape[1]
     c = 0
-    PENALTY = 0#1e4
+    PENALTY = 1e1
     for i in range(Nt-1):
-        c += Jobjinst(yu[:m.nx,i], yu[m.nx:,i], params)# + PENALTY * Jcostinst_dynpenalty(yu[:m.nx,i+1], yu[:m.nx,i], yu[m.nx:,i], params)
+        c += Jobjinst(yu[:m.nx,i], yu[m.nx:,i], params) + PENALTY * Jcostinst_dynpenalty(yu[:m.nx,i+1], yu[:m.nx,i], yu[m.nx:,i], params)
     # TODO: any final cost?
     c += Jobjinst(yu[:m.nx,-1], yu[m.nx:,-1], params)
     return c
@@ -118,12 +119,19 @@ for ti in range(1, len(tvec)):
 sol = solve_ivp(closedLoop, [0,tf], yi[:,0], dense_output=True, t_eval=tvec)
 
 print('Avg cost =', Jcostsol(sol.t, sol.y, params))
-yutest = sol.y.copy()
-# vstack u
 
+# Trajectory to begin gradient descent from ------------
+yutest = sol.y.copy()
+utest = np.zeros(yutest.shape[1])
+for i in range(yutest.shape[1]):
+    utest[i] = controller(sol.t[i], sol.y[:,i])
+yutest = np.vstack((yutest, utest))
+
+# Test compute gradient
 print(Jcosttraj(yutest, params), yutest.shape)
 g1 = Jgrad(yutest).ravel('F')
 print(g1[:20])
+# --------------------------------------------------------
 
 # plots
 
