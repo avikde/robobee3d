@@ -96,14 +96,15 @@ def Jcosttraj(yu, params):
     for i in range(Nt-1):
         c += Jobjinst(yu[:m.nx,i], yu[m.nx:,i], params)# + PENALTY * Jcostinst_dynpenalty(yu[:m.nx,i+1], yu[:m.nx,i], yu[m.nx:,i], params)
     # TODO: any final cost?
+    c += Jobjinst(yu[:m.nx,-1], yu[m.nx:,-1], params)
     return c
 
 def Jcostsol(solt, soly, params):
     Nt = len(solt)
-    Jcosti = np.zeros(Nt)
+    Jcosti = 0
     for i in range(Nt):
-        Jcosti[i] = Jobjinst(soly[:,i], controller(solt[i], soly[:,i]), params)
-    return np.mean(Jcosti)
+        Jcosti += Jobjinst(soly[:,i], controller(solt[i], soly[:,i]), params)
+    return Jcosti
 
 Jgrad = jacobian(lambda yu : Jcosttraj(yu, params))
 
@@ -120,7 +121,9 @@ print('Avg cost =', Jcostsol(sol.t, sol.y, params))
 yutest = sol.y.copy()
 # vstack u
 
-print(Jgrad(yutest))
+print(Jcosttraj(yutest, params), yutest.shape)
+g1 = Jgrad(yutest).ravel('F')
+print(g1[:20])
 
 # plots
 
