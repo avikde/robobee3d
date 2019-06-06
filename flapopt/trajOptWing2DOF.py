@@ -130,14 +130,16 @@ yu0 = np.vstack((yu0, utest))
 
 # Test compute gradient
 print(Jcosttraj(yu0, params))
-g1 = Jgrad(yu0)
-# print(g1[:20])
-# # Stupid "line search" for step size
-# for i in range(-10,10):
-#     print(i, Jcosttraj(yu0 - np.power(10.0,i) * g1, params))
-# sys.exit(0)
-yu1 = yu0 - 1e1 * g1
-print(Jcosttraj(yu1, params))
+yu1 = yu0.copy()
+for i in range(5):
+    g1 = Jgrad(yu1)
+    # print(g1[:20])
+    # # Stupid "line search" for step size
+    # for i in range(-10,10):
+    #     print(i, Jcosttraj(yu0 - np.power(10.0,i) * g1, params))
+    # sys.exit(0)
+    yu1 -= 1e1 * g1
+    print(i, Jcosttraj(yu1, params))
 
 # --------------------------------------------------------
 
