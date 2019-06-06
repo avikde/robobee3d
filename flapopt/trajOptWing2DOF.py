@@ -128,9 +128,15 @@ for i in range(yutest.shape[1]):
 yutest = np.vstack((yutest, utest))
 
 # Test compute gradient
-print(Jcosttraj(yutest, params), yutest.shape)
-g1 = Jgrad(yutest).ravel('F')
-print(g1[:20])
+print(Jcosttraj(yutest, params))
+g1 = Jgrad(yutest)
+# print(g1[:20])
+print(Jcosttraj(yutest - 1e-10 * g1, params))
+print(Jcosttraj(yutest - 1e-9 * g1, params))
+print(Jcosttraj(yutest - 1e-8 * g1, params))
+print(Jcosttraj(yutest - 1e-7 * g1, params))
+print(Jcosttraj(yutest - 1e-6 * g1, params))
+
 # --------------------------------------------------------
 
 # plots
