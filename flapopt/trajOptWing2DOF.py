@@ -9,6 +9,43 @@ from scipy.integrate import solve_ivp
 from matplotlib import animation
 from matplotlib.collections import PatchCollection
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
+from mosek.fusion import *
+import mosek as msk
+
+def primal_problem(P):
+
+    print(msk.Env.getversion())
+    
+    k= len(P)
+    if k==0: return -1,[]
+
+    n= len(P[0])
+    
+    with Model("minimal sphere enclosing a set of points - primal") as M:
+
+        r0 = M.variable(1    , Domain.greaterThan(0.))
+        p0 = M.variable([1,n], Domain.unbounded())
+
+        R0 = Var.repeat(r0,k)
+        P0 = Var.repeat(p0,k)
+       
+        M.constraint( Expr.hstack( R0, Expr.sub(P0 , P) ), Domain.inQCone())
+
+        M.objective(ObjectiveSense.Minimize, r0)
+        M.setLogHandler(open('logp','wt'))
+
+        M.solve()
+
+        return r0.level()[0], p0.level()
+# test problem
+import random
+n = 2
+k = 500
+p=  [ [random.gauss(0.,10.) for nn in range(n)] for kk in range(k)]
+r0,p0 = primal_problem(p)
+
+print ("r0^* = ", r0)
+print ("p0^* = ", p0)
 
 m = FlappingModels.Wing2DOF()
 
