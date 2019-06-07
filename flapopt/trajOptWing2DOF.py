@@ -219,7 +219,7 @@ def _animate(i):
     return p1, paero, p2, paero2, p3, paero3, 
 
 anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=yu0.shape[1], interval=2e5*dt, blit=True)
-if True:
+if False:
     # Set up formatting for the movie files
     Writer = animation.writers['ffmpeg']
     writer = Writer(fps=30, metadata=dict(artist='Me'), bitrate=1800)
