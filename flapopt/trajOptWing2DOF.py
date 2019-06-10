@@ -13,25 +13,6 @@ import osqp
 import scipy.sparse as sparse
 import controlutils.py.mpc as mpc
 
-# -----
-
-# Define problem data
-P = sparse.csc_matrix([[4, 1], [1, 2]])
-q = np.array([1, 1])
-A = sparse.csc_matrix([[1, 1], [1, 0], [0, 1]])
-l = np.array([1, 0, 0])
-u = np.array([1, 0.7, 0.7])
-
-# Create an OSQP object
-prob = osqp.OSQP()
-
-# Setup workspace and change alpha parameter
-prob.setup(P, q, A, l, u, alpha=1.0)
-
-# Solve problem
-res = prob.solve()
-
-
 # ---------------------------------------------------
 
 m = FlappingModels.Wing2DOF()
@@ -113,7 +94,7 @@ wx = np.array([1,1,1,1])
 wu = np.array([1])
 peps = 1e-2
 Nknot = nominalTraj.shape[0]  # number of knot points in this case
-ltvqp = mpc.LTVMPC(m, Nknot, wx, wu, verbose=False, polish=False, scaling=0, eps_rel=peps, eps_abs=peps, max_iter=10, kdamping=0)
+ltvqp = mpc.LTVMPC(m, Nknot, wx, wu, verbose=True, polish=False, scaling=0, eps_rel=peps, eps_abs=peps, max_iter=100, kdamping=0)
 # x0 must be a (N,nx) trajectory
 xr = np.zeros(m.nx)  # FIXME: does not make sense
 ctrl = ltvqp.update(x0=nominalTraj, xr=xr, trajMode=mpc.GIVEN_POINT_OR_TRAJ)
