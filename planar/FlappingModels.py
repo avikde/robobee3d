@@ -287,7 +287,7 @@ class PlanarStrokeSpeed:
         return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy)
     
 
-class Wing2DOF:
+class Wing2DOF(Model):
     nx = 4
     nu = 1
     y0 = np.zeros(nx)
@@ -350,7 +350,7 @@ class Wing2DOF:
 
         return np.hstack((y[2:], ddq))
 
-    def dynamics(self, y, u, dt, params):
+    def dynamics(self, y, u, dt=1e-3, params=[]):
         '''discrete dynamics'''
         _dydt = self.dydt(y, u, params)
         return y + _dydt * dt
