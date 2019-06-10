@@ -9,45 +9,27 @@ from scipy.integrate import solve_ivp
 from matplotlib import animation
 from matplotlib.collections import PatchCollection
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
-from mosek.fusion import *
-import mosek as msk
+import osqp
+import scipy.sparse as sparse
 
-# MOSEK test ------------------------------------------------------
+# -----
 
-def primal_problem(P):
+# Define problem data
+P = sparse.csc_matrix([[4, 1], [1, 2]])
+q = np.array([1, 1])
+A = sparse.csc_matrix([[1, 1], [1, 0], [0, 1]])
+l = np.array([1, 0, 0])
+u = np.array([1, 0.7, 0.7])
 
-    print(msk.Env.getversion())
-    
-    k= len(P)
-    if k==0: return -1,[]
+# Create an OSQP object
+prob = osqp.OSQP()
 
-    n= len(P[0])
-    
-    with Model("minimal sphere enclosing a set of points - primal") as M:
+# Setup workspace and change alpha parameter
+prob.setup(P, q, A, l, u, alpha=1.0)
 
-        r0 = M.variable(1    , Domain.greaterThan(0.))
-        p0 = M.variable([1,n], Domain.unbounded())
+# Solve problem
+res = prob.solve()
 
-        R0 = Var.repeat(r0,k)
-        P0 = Var.repeat(p0,k)
-       
-        M.constraint( Expr.hstack( R0, Expr.sub(P0 , P) ), Domain.inQCone())
-
-        M.objective(ObjectiveSense.Minimize, r0)
-        M.setLogHandler(open('logp','wt'))
-
-        M.solve()
-
-        return r0.level()[0], p0.level()
-# test problem
-import random
-n = 2
-k = 500
-p=  [ [random.gauss(0.,10.) for nn in range(n)] for kk in range(k)]
-r0,p0 = primal_problem(p)
-
-print ("r0^* = ", r0)
-print ("p0^* = ", p0)
 
 # ---------------------------------------------------
 
