@@ -35,18 +35,6 @@ res = prob.solve()
 # ---------------------------------------------------
 
 m = FlappingModels.Wing2DOF()
-# Create "MPC" object which will be used for SQP
-wx = np.array([1,1,1,1])
-wu = np.array([1])
-peps = 1e-2
-Nknot = 100  # number of knot points in this case
-ltvmpc = mpc.LTVMPC(m, Nknot, wx, wu, verbose=False, polish=False, scaling=0, eps_rel=peps, eps_abs=peps, max_iter=10, kdamping=0)
-# x0 must be a (N,nx) trajectory
-nominalTraj = np.zeros((Nknot, m.nx))
-xr = np.zeros(m.nx)  # FIXME: does not make sense
-ctrl = ltvmpc.update(x0=nominalTraj, xr=xr, trajMode=mpc.GIVEN_POINT_OR_TRAJ)
-
-sys.exit(0)
 
 # discrete => do not need solve_ivp
 
@@ -114,6 +102,23 @@ for ti in range(1, len(tvec)):
 sol = solve_ivp(closedLoop, [0,tf], yi[:,0], dense_output=True, t_eval=tvec)
 
 print('Avg cost =', Jcostsol(sol.t, sol.y, params))
+
+# --------
+# At this point there is a "nominal trajectory" in sol.y
+# FIXME: update this traj and have one cycle
+nominalTraj = (sol.y.copy().T)[0:100,:]
+
+# Create "MPC" object which will be used for SQP
+wx = np.array([1,1,1,1])
+wu = np.array([1])
+peps = 1e-2
+Nknot = nominalTraj.shape[0]  # number of knot points in this case
+ltvmpc = mpc.LTVMPC(m, Nknot, wx, wu, verbose=False, polish=False, scaling=0, eps_rel=peps, eps_abs=peps, max_iter=10, kdamping=0)
+# x0 must be a (N,nx) trajectory
+xr = np.zeros(m.nx)  # FIXME: does not make sense
+ctrl = ltvmpc.update(x0=nominalTraj, xr=xr, trajMode=mpc.GIVEN_POINT_OR_TRAJ)
+
+sys.exit(0)
 
 # Trajectory to begin gradient descent from ------------
 yu0 = sol.y.copy()
