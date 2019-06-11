@@ -99,6 +99,14 @@ ltvqp = mpc.LTVMPC(m, Nknot, wx, wu, verbose=True, polish=False, scaling=0, eps_
 xr = np.zeros(m.nx)  # FIXME: does not make sense
 ctrl = ltvqp.update(x0=nominalTraj, xr=xr, trajMode=mpc.GIVEN_POINT_OR_TRAJ)
 
+# Test the linearized dynamics
+strokeEnd = 1e-3
+ytest = np.array([-strokeEnd, 0, 0, 0])
+umax = 1e-3
+utest = np.array([umax])
+A, B, c = m.getLinearDynamics(ytest, utest)
+print(A, B, c)
+
 sys.exit(0)
 
 # Trajectory to begin gradient descent from ------------
