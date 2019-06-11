@@ -17,14 +17,8 @@ import controlutils.py.mpc as mpc
 
 m = FlappingModels.Wing2DOF()
 
-# discrete => do not need solve_ivp
-
-dt = 1e-4
-tf = 0.1
-tvec = np.arange(0, tf, dt)
-yi = np.zeros((m.nx, len(tvec)))
-yi[:,0] = np.array([1e-2, 0, 0, 0])
-
+# PARAMETERS -------------
+dt = 1e-4 # need for discretization
 # params: [cbar, ]
 params = np.array([5e-3])
 
@@ -73,11 +67,21 @@ def Jcostsol(solt, soly, params):
 
 Jgrad = jacobian(lambda yu : Jcosttraj(yu, params))
 
-# ---
+# --- SIMULATIONS DISCRETIZED AND CTS ---
+# Sim params
+tf = 0.1
+tvec = np.arange(0, tf, dt)
+yi = np.zeros((m.nx, len(tvec)))
+yi[:,0] = np.array([1e-2, 0, 0, 0])
+yilin = yi.copy() # linearized for comparison TODO: remove
 
 for ti in range(1, len(tvec)):
+    # Nonlinear
     yi[:,ti] = yi[:,ti-1] + dt * closedLoop(tvec[ti], yi[:,ti-1])
-
+    # Linearized
+    ui = np.array([controller(tvec[ti], yilin[:,ti-1])])
+    A, B, c = m.getLinearDynamics(yilin[:,ti-1], ui)
+    # yilin[:,ti] = A @ yilin[:,ti-1] + B @ ui + c
 
 # compare to continuous
 sol = solve_ivp(closedLoop, [0,tf], yi[:,0], dense_output=True, t_eval=tvec)
@@ -99,13 +103,16 @@ ltvqp = mpc.LTVMPC(m, Nknot, wx, wu, verbose=True, polish=False, scaling=0, eps_
 xr = np.zeros(m.nx)  # FIXME: does not make sense
 ctrl = ltvqp.update(x0=nominalTraj, xr=xr, trajMode=mpc.GIVEN_POINT_OR_TRAJ)
 
-# Test the linearized dynamics
-strokeEnd = 1e-3
-ytest = np.array([-strokeEnd, 0, 0, 0])
-umax = 1e-3
-utest = np.array([umax])
-A, B, c = m.getLinearDynamics(ytest, utest)
-print(A, B, c)
+# # Test the linearized dynamics
+# strokeEnd = 1e-3
+# ytest = np.array([-strokeEnd, 0, 0, 0])
+# umax = 1e-3
+# utest = np.array([umax])
+# A, B, c = m.getLinearDynamics(ytest, utest)
+# print(A, B, c)
+
+# TODO: simulate forward with nonlin and lin dynamics for a short time and compare the trajectories
+
 
 sys.exit(0)
 
