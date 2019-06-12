@@ -12,6 +12,7 @@ np.set_printoptions(precision=4, suppress=True, linewidth=200)
 import osqp
 import scipy.sparse as sparse
 import controlutils.py.mpc as mpc
+import controlutils.py.ltvsystem as ltvsystem
 
 # ---------------------------------------------------
 
@@ -101,7 +102,7 @@ Nknot = nominalTraj.shape[0]  # number of knot points in this case
 ltvqp = mpc.LTVMPC(m, Nknot, wx, wu, verbose=True, polish=False, scaling=0, eps_rel=peps, eps_abs=peps, max_iter=100, kdamping=0)
 # x0 must be a (N,nx) trajectory
 xr = np.zeros(m.nx)  # FIXME: does not make sense
-ctrl = ltvqp.update(x0=nominalTraj, xr=xr, trajMode=mpc.GIVEN_POINT_OR_TRAJ)
+ctrl = ltvqp.update(x0=nominalTraj, xr=xr, trajMode=ltvsystem.GIVEN_POINT_OR_TRAJ)
 
 # # Test the linearized dynamics
 # strokeEnd = 1e-3
