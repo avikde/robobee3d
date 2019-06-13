@@ -98,16 +98,16 @@ olTrajt = sol.t[170:238:3]
 olTrajdt = np.mean(np.diff(sol.t[170:238:3]))
 m.dt = olTrajdt  # for the discretized dynamics
 
-def plot2Traj(olTraj, traj2):
+def plotTrajs(*args):
     _, ax = plt.subplots(3)
-    ax[0].plot(olTrajt, olTraj[:,0], '.-')
-    ax[0].plot(olTrajt, traj2[:,0], '.-')
+    for arg in args:
+        ax[0].plot(olTrajt, arg[:,0], '.-')
     ax[0].set_ylabel('stroke (m)')
-    ax[1].plot(olTrajt, olTraj[:,1], '.-')
-    ax[1].plot(olTrajt, traj2[:,1], '.-')
+    for arg in args:
+        ax[1].plot(olTrajt, arg[:,1], '.-')
     ax[1].set_ylabel('hinge angle (rad)')
-    ax[2].plot(olTrajt, olTraj[:,4], '.-')
-    ax[2].plot(olTrajt, traj2[:,4], '.-')
+    for arg in args:
+        ax[2].plot(olTrajt, arg[:,4], '.-')
     ax[2].set_ylabel('stroke force (N)')
     plt.show()
     sys.exit(0)
@@ -132,7 +132,7 @@ for ti in range(1, len(olTrajt)):
     # ui = np.array([controller(tvec[ti], yilin[:,ti-1])])
     A, B, c = m.getLinearDynamics(yilin[ti-1, :4], ui)
     yilin[ti, :4] = A @ yilin[ti-1, :4] + B @ ui + c
-plot2Traj(olTraj, yi2)
+plotTrajs(olTraj, yi2, yilin)
 
 # Wing traj opt using QP -------------------------------------------------
 def dirTranForm(xtraj, N, nx, nu):
@@ -200,7 +200,7 @@ wqp = WingQP(m, Nknot, wx, wu, kdampx, kdampu, verbose=True, max_iter=1)
 # wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
 traj2 = wqp.update(olTraj)
 
-# plot2Traj(olTraj, traj2)# debug the 1-step solution
+# plotTrajs(olTraj, traj2)# debug the 1-step solution
 
 # wx = np.array([1,1,1,1])
 # wu = np.array([1])
