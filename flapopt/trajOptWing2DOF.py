@@ -74,15 +74,10 @@ tf = 0.1
 tvec = np.arange(0, tf, dt)
 yi = np.zeros((m.nx, len(tvec)))
 yi[:,0] = np.array([1e-2, 0, 0, 0])
-yilin = yi.copy() # linearized for comparison TODO: remove
 
 for ti in range(1, len(tvec)):
     # Nonlinear
     yi[:,ti] = yi[:,ti-1] + dt * closedLoop(tvec[ti], yi[:,ti-1])
-    # Linearized
-    ui = np.array([controller(tvec[ti], yilin[:,ti-1])])
-    A, B, c = m.getLinearDynamics(yilin[:,ti-1], ui)
-    # yilin[:,ti] = A @ yilin[:,ti-1] + B @ ui + c
 
 # compare to continuous
 sol = solve_ivp(closedLoop, [0,tf], yi[:,0], dense_output=True, t_eval=tvec)
@@ -103,18 +98,38 @@ olTrajt = range(olTraj.shape[0])#sol.t[170:238:3]
 olTrajdt = np.mean(np.diff(sol.t[170:238:3]))
 m.dt = olTrajdt  # for the discretized dynamics
 
+def plot2Traj(olTraj, traj2):
+    _, ax = plt.subplots(3)
+    ax[0].plot(olTrajt, olTraj[:,0], '.-')
+    ax[0].plot(olTrajt, traj2[:,0], '.-')
+    ax[0].set_ylabel('stroke (m)')
+    ax[1].plot(olTrajt, olTraj[:,1], '.-')
+    ax[1].plot(olTrajt, traj2[:,1], '.-')
+    ax[1].set_ylabel('hinge angle (rad)')
+    ax[2].plot(olTrajt, olTraj[:,4], '.-')
+    ax[2].plot(olTrajt, traj2[:,4], '.-')
+    ax[2].set_ylabel('stroke force (N)')
+    plt.show()
+    sys.exit(0)
 # --------------------------------------
 
-# Test the linearized dynamics FIXME: blows up
-strokeEnd = 1e-3
-ytest = np.array([-strokeEnd, 0, 0, 0])
-umax = 1e-3
-utest = np.array([umax])
-A, B, c = m.getLinearDynamics(ytest, utest)
-print(A, B, c)
-sys.exit(0)
+# # Test the linearized dynamics FIXME: blows up
+# strokeEnd = 1e-3
+# ytest = np.array([-strokeEnd, 0, 0, 0])
+# umax = 1e-3
+# utest = np.array([umax])
+# A, B, c = m.getLinearDynamics(ytest, utest)
+# print(A, B, c)
 # TODO: simulate forward with nonlin and lin dynamics for a short time and compare the trajectories
 
+yilin = olTraj.copy()
+for ti in range(1, len(olTrajt)):
+    # Linearized
+    # ui = np.array([controller(tvec[ti], yilin[:,ti-1])])
+    ui = yilin[ti-1, 4:]
+    A, B, c = m.getLinearDynamics(yilin[ti-1, :4], ui)
+    yilin[ti, :4] = A @ yilin[ti-1, :4] + B @ ui + c
+plot2Traj(olTraj, yilin)
 
 # Wing traj opt using QP -------------------------------------------------
 def dirTranForm(xtraj, N, nx, nu):
@@ -182,19 +197,7 @@ wqp = WingQP(m, Nknot, wx, wu, kdampx, kdampu, verbose=True, max_iter=1)
 # wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
 traj2 = wqp.update(olTraj)
 
-if True: # debug the 1-step solution
-    _, ax = plt.subplots(3)
-    ax[0].plot(olTrajt, olTraj[:,0], '.-')
-    ax[0].plot(olTrajt, traj2[:,0], '.-')
-    ax[0].set_ylabel('stroke (m)')
-    ax[1].plot(olTrajt, olTraj[:,1], '.-')
-    ax[1].plot(olTrajt, traj2[:,1], '.-')
-    ax[1].set_ylabel('hinge angle (rad)')
-    ax[2].plot(olTrajt, olTraj[:,4], '.-')
-    ax[2].plot(olTrajt, traj2[:,4], '.-')
-    ax[2].set_ylabel('stroke force (N)')
-    plt.show()
-    sys.exit(0)
+# plot2Traj(olTraj, traj2)# debug the 1-step solution
 
 # wx = np.array([1,1,1,1])
 # wu = np.array([1])
