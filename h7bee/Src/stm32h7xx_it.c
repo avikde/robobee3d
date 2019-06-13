@@ -48,7 +48,7 @@
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
-
+void flapUpdate(void const *argument);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -62,7 +62,7 @@ extern UART_HandleTypeDef huart1;
 extern TIM_HandleTypeDef htim7;
 
 /* USER CODE BEGIN EV */
-extern TIM_HandleTypeDef htim4;
+
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -169,11 +169,7 @@ void TIM3_IRQHandler(void)
   /* USER CODE BEGIN TIM3_IRQn 0 */
   if (__HAL_TIM_GET_FLAG(&htim3, TIM_FLAG_UPDATE) != RESET)
   {
-    HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
-    // __HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_1, 100);
-    // __HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_2, 200);
-    // __HAL_TIM_SetCompare(&htim4, TIM_CHANNEL_1, 300);
-    // __HAL_TIM_SetCompare(&htim4, TIM_CHANNEL_2, 400);
+    flapUpdate(&htim3);
   }
   /* USER CODE END TIM3_IRQn 0 */
   HAL_TIM_IRQHandler(&htim3);
