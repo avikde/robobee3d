@@ -100,6 +100,8 @@ yu0 = np.vstack((yu0, utest))
 # This range and decimation depends on the OL traj. TODO: Should automate finding 1 cycle
 olTraj = (yu0.T)[170:238:3,:]
 olTrajt = range(olTraj.shape[0])#sol.t[170:238:3]
+olTrajdt = np.mean(np.diff(sol.t[170:238:3]))
+m.dt = olTrajdt  # for the discretized dynamics
 
 # Wing traj opt using QP -------------------------------------------------
 # Create "MPC" object which will be used for SQP
@@ -134,7 +136,7 @@ class WingQP:
             self.ltvsys.debugResult(res)
             raise ValueError(res.info.status)
         # debug
-        print(self.ltvsys.u - self.ltvsys.A @ dirtranx, self.ltvsys.A @ dirtranx - self.ltvsys.l)
+        # print(self.ltvsys.u - self.ltvsys.A @ dirtranx, self.ltvsys.A @ dirtranx - self.ltvsys.l)
         # reshape into (N,nx+nu)
         N = self.ltvsys.N
         nx = self.ltvsys.nx
@@ -143,7 +145,7 @@ class WingQP:
 
 # Use the class above to step the QP
 Nknot = olTraj.shape[0]  # number of knot points in this case
-wqp = WingQP(m, Nknot, verbose=False)
+wqp = WingQP(m, Nknot, verbose=True)
 traj2 = wqp.update(olTraj)
 
 if True: # debug the 1-step solution
