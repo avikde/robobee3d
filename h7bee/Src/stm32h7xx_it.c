@@ -57,11 +57,12 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
+extern TIM_HandleTypeDef htim3;
 extern UART_HandleTypeDef huart1;
 extern TIM_HandleTypeDef htim7;
 
 /* USER CODE BEGIN EV */
-
+extern TIM_HandleTypeDef htim4;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -159,6 +160,26 @@ void DebugMon_Handler(void)
 /* For the available peripheral interrupt handler names,                      */
 /* please refer to the startup file (startup_stm32h7xx.s).                    */
 /******************************************************************************/
+
+/**
+  * @brief This function handles TIM3 global interrupt.
+  */
+void TIM3_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM3_IRQn 0 */
+  if (__HAL_TIM_GET_FLAG(&htim3, TIM_FLAG_UPDATE) != RESET)
+  {
+    __HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_1, 100);
+    __HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_2, 200);
+    __HAL_TIM_SetCompare(&htim4, TIM_CHANNEL_1, 300);
+    __HAL_TIM_SetCompare(&htim4, TIM_CHANNEL_2, 400);
+  }
+  /* USER CODE END TIM3_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim3);
+  /* USER CODE BEGIN TIM3_IRQn 1 */
+
+  /* USER CODE END TIM3_IRQn 1 */
+}
 
 /**
   * @brief This function handles USART1 global interrupt.
