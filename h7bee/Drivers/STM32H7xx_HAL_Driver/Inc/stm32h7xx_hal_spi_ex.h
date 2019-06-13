@@ -1,8 +1,8 @@
 /**
   ******************************************************************************
-  * @file    stm32h7xx_hal_pcd_ex.h
+  * @file    stm32h7xx_hal_spi_ex.h
   * @author  MCD Application Team
-  * @brief   Header file of PCD HAL Extension module.
+  * @brief   Header file of SPI HAL Extended module.
   ******************************************************************************
   * @attention
   *
@@ -18,8 +18,8 @@
   */
 
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef STM32H7xx_HAL_PCD_EX_H
-#define STM32H7xx_HAL_PCD_EX_H
+#ifndef STM32H7xx_HAL_SPI_EX_H
+#define STM32H7xx_HAL_SPI_EX_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,42 +28,30 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include "stm32h7xx_hal_def.h"
 
-#if defined (USB_OTG_FS) || defined (USB_OTG_HS)
 /** @addtogroup STM32H7xx_HAL_Driver
   * @{
   */
 
-/** @addtogroup PCDEx
+/** @addtogroup SPIEx
   * @{
   */
+
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
 /* Exported macros -----------------------------------------------------------*/
 /* Exported functions --------------------------------------------------------*/
-/** @addtogroup PCDEx_Exported_Functions PCDEx Exported Functions
-  * @{
-  */
-/** @addtogroup PCDEx_Exported_Functions_Group1 Peripheral Control functions
+/** @addtogroup SPIEx_Exported_Functions
   * @{
   */
 
-#if defined (USB_OTG_FS) || defined (USB_OTG_HS)
-HAL_StatusTypeDef HAL_PCDEx_SetTxFiFo(PCD_HandleTypeDef *hpcd, uint8_t fifo, uint16_t size);
-HAL_StatusTypeDef HAL_PCDEx_SetRxFiFo(PCD_HandleTypeDef *hpcd, uint16_t size);
-#endif /* defined (USB_OTG_FS) || defined (USB_OTG_HS) */
-
-
-HAL_StatusTypeDef HAL_PCDEx_ActivateLPM(PCD_HandleTypeDef *hpcd);
-HAL_StatusTypeDef HAL_PCDEx_DeActivateLPM(PCD_HandleTypeDef *hpcd);
-
-
-HAL_StatusTypeDef HAL_PCDEx_ActivateBCD(PCD_HandleTypeDef *hpcd);
-HAL_StatusTypeDef HAL_PCDEx_DeActivateBCD(PCD_HandleTypeDef *hpcd);
-void HAL_PCDEx_BCD_VBUSDetect(PCD_HandleTypeDef *hpcd);
-
-void HAL_PCDEx_LPM_Callback(PCD_HandleTypeDef *hpcd, PCD_LPM_MsgTypeDef msg);
-void HAL_PCDEx_BCD_Callback(PCD_HandleTypeDef *hpcd, PCD_BCD_MsgTypeDef msg);
-
+/* Initialization and de-initialization functions  ****************************/
+/* IO operation functions *****************************************************/
+/** @addtogroup SPIEx_Exported_Functions_Group1
+  * @{
+  */
+HAL_StatusTypeDef HAL_SPIEx_FlushRxFifo(SPI_HandleTypeDef *hspi);
+HAL_StatusTypeDef HAL_SPIEx_EnableLockConfiguration(SPI_HandleTypeDef *hspi);
+HAL_StatusTypeDef HAL_SPIEx_ConfigureUnderrun(SPI_HandleTypeDef *hspi, uint32_t UnderrunDetection, uint32_t UnderrunBehaviour);
 /**
   * @}
   */
@@ -79,13 +67,11 @@ void HAL_PCDEx_BCD_Callback(PCD_HandleTypeDef *hpcd, PCD_BCD_MsgTypeDef msg);
 /**
   * @}
   */
-#endif /* defined (USB_OTG_FS) || defined (USB_OTG_HS) */
 
 #ifdef __cplusplus
 }
 #endif
 
-
-#endif /* STM32H7xx_HAL_PCD_EX_H */
+#endif /* STM32H7xx_HAL_SPI_EX_H */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
