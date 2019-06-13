@@ -106,24 +106,37 @@ m.dt = olTrajdt  # for the discretized dynamics
 # Wing traj opt using QP -------------------------------------------------
 # Create "MPC" object which will be used for SQP
 class QOFAvgLift:
-    def __init__(self, nx, nu):
-        self.nx = nx
-        self.nu = nu
+    def __init__(self, wx, wu, kdampx, kdampu):
+        self.nx = len(wx)
+        self.nu = len(wu)
+        self.wx = wx
+        self.wu = wu
+        self.kdampx = kdampx
+        self.kdampu = kdampu
 
     def getPq(self, xtraj):
         N = xtraj.shape[0]
         nX = (N+1) * self.nx + N*self.nu
+        # vector of weights for the whole dirtran x
+        w = np.hstack((np.tile(self.wx, N+1), np.tile(self.wu, N)))
+        kdamp = np.hstack((np.tile(self.kdampx, N+1), np.tile(self.kdampu, N)))
 
-        self.q = np.ones(nX)
-        self.P = sparse.eye(nX).tocsc()
+        self.P = sparse.diags(w + kdamp)
+        # get dirtran x from xtraj
+        dirtranx = np.hstack((
+            np.reshape(xtraj[:,:self.nx], (N)*self.nx, 'C'),
+            xtraj[-1,:self.nx], # repeat Nth for N+1
+            np.reshape(xtraj[:,self.nx:], (N)*self.nu, 'C')
+        ))
+        self.q = -np.multiply(w, dirtranx)
         return self.P, self.q
 
 class WingQP:
-    def __init__(self, model, N, **settings):
+    def __init__(self, model, N, wx, wu, kdampx, kdampu, **settings):
         self.ltvsys = ltvsystem.LTVSolver(model)
         # Dynamics and constraints
         self.ltvsys.initConstraints(model.nx, model.nu, N, polyBlocks=None)
-        self.ltvsys.initObjective(QOFAvgLift(model.nx, model.nu))
+        self.ltvsys.initObjective(QOFAvgLift(wx, wu, kdampx, kdampu))
         self.ltvsys.initSolver(**settings)
 
     def update(self, xtraj):
@@ -145,7 +158,11 @@ class WingQP:
 
 # Use the class above to step the QP
 Nknot = olTraj.shape[0]  # number of knot points in this case
-wqp = WingQP(m, Nknot, verbose=True)
+wx = np.ones(4) * 0.001
+wu = np.ones(1) * 0.001
+kdampx = np.ones(4)
+kdampu = np.ones(1)
+wqp = WingQP(m, Nknot, wx, wu, kdampx, kdampu, verbose=True)
 traj2 = wqp.update(olTraj)
 
 if True: # debug the 1-step solution
