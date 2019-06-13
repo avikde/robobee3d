@@ -469,7 +469,8 @@ void startHeartbeatTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+    osDelay(100);
   }
   /* USER CODE END 5 */ 
 }

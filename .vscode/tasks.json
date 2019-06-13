@@ -71,9 +71,9 @@
 			"type": "shell",
 			"group": "build",
 			"options": {
-				"cwd": "${workspaceFolder}/planar/h7bee"
+				"cwd": "${workspaceFolder}/h7bee/build"
 			},
-			"command": "make -j4",
+			"command": "cmake .. -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Debug && make -j4",
 			"presentation": {
 				"echo": true,
 				"reveal": "always",
