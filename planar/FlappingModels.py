@@ -318,7 +318,6 @@ class Wing2DOF(Model):
 
         return Jaero, Faero
 
-
     def dydt(self, y, u, params=[]):
         ''' 
         See mma file flapping wing traj
@@ -354,6 +353,16 @@ class Wing2DOF(Model):
         '''discrete dynamics'''
         _dydt = self.dydt(y, u, params)
         return y + _dydt * dt
+
+    def _getLimits(self):
+        # This is based on observing the OL trajectory
+        umin = np.array([-0.1])
+        umax = -umin
+        xmin = np.array([-0.015, -1, -np.inf, -np.inf])
+        xmax = -xmin
+        return umin, umax, xmin, xmax
+    limits = property(_getLimits)
+
 
 def visualizeTraj(ax, traj, model, col='r', Faeroscale=1, tplot=None):
     '''Plots a trajectory, with model info from model.visualizationInfo'''
