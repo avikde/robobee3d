@@ -129,7 +129,12 @@ class WingQP:
         u0 = xtraj[:,4][:,np.newaxis]
         xtraj = self.ltvsys.updateTrajectory(xtraj[:,:4], u0, trajMode=ltvsystem.GIVEN_POINT_OR_TRAJ)
         self.ltvsys.updateObjective()
-        dirtranx = self.ltvsys.solve()
+        dirtranx, res = self.ltvsys.solve(throwOnError=False)
+        if res.info.status not in ['solved', 'solved inaccurate', 'maximum iterations reached']:
+            self.ltvsys.debugResult(res)
+            raise ValueError(res.info.status)
+        # debug
+        print(self.ltvsys.u - self.ltvsys.A @ dirtranx, self.ltvsys.A @ dirtranx - self.ltvsys.l)
         # reshape into (N,nx+nu)
         N = self.ltvsys.N
         nx = self.ltvsys.nx
@@ -138,7 +143,7 @@ class WingQP:
 
 # Use the class above to step the QP
 Nknot = olTraj.shape[0]  # number of knot points in this case
-wqp = WingQP(m, Nknot)
+wqp = WingQP(m, Nknot, verbose=False)
 traj2 = wqp.update(olTraj)
 
 if True: # debug the 1-step solution
