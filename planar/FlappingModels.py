@@ -349,11 +349,6 @@ class Wing2DOF(Model):
 
         return np.hstack((y[2:], ddq))
 
-    def dynamics(self, y, u, dt=1e-3, params=[]):
-        '''discrete dynamics'''
-        _dydt = self.dydt(y, u, params)
-        return y + _dydt * dt
-
     def _getLimits(self):
         # This is based on observing the OL trajectory
         umin = np.array([-0.1])

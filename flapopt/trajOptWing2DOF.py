@@ -95,10 +95,11 @@ yu0 = np.vstack((yu0, utest))
 # This range and decimation depends on the OL traj. TODO: Should automate finding 1 cycle
 olTraj = (yu0.T)[170:238:3,:]
 olTrajt = sol.t[170:238:3]
-olTrajdt = np.mean(np.diff(sol.t[170:238:3]))
+olTrajdt = np.mean(np.diff(olTrajt))
 m.dt = olTrajdt  # for the discretized dynamics
 
 def plotTrajs(*args):
+    """Helper function to plot a bunch of trajectories superimposed"""
     _, ax = plt.subplots(3)
     for arg in args:
         ax[0].plot(olTrajt, arg[:,0], '.-')
@@ -120,7 +121,6 @@ def plotTrajs(*args):
 # utest = np.array([umax])
 # A, B, c = m.getLinearDynamics(ytest, utest)
 # print(A, B, c)
-# TODO: simulate forward with nonlin and lin dynamics for a short time and compare the trajectories
 
 yi2 = olTraj.copy()
 yilin = olTraj.copy()
