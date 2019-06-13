@@ -95,6 +95,35 @@ print('Avg cost =', Jcostsol(sol.t, sol.y, params))
 nominalTraj = (sol.y.copy().T)[0:100,:]
 
 # Create "MPC" object which will be used for SQP
+class QOFAvgLift:
+    def __init__(self, nx, nu):
+        self.nx = nx
+        self.nu = nu
+
+    def getPq(self, xtraj):
+        N = xtraj.shape[0]
+        nX = (N+1) * self.nx + N*self.nu
+
+        self.q = np.ones(nX)
+        self.P = sparse.eye(nX).tocsc()
+        return self.P, self.q
+
+class WingQP:
+    def __init__(self, model, N, **settings):
+        self.ltvsys = ltvsystem.LTVSolver(model)
+        
+        # Dynamics and constraints
+        self.ltvsys.initConstraints(model.nx, model.nu, N, polyBlocks=None)
+        self.ltvsys.initObjective(QOFAvgLift(model.nx, model.nu))
+        self.ltvsys.initSolver(**settings)
+
+    def update(self):
+        # TODO: check which traj mode
+        xtraj = self.ltvsys.updateTrajectory(x0, u0, trajMode=ltvsystem.GIVEN_POINT_OR_TRAJ)
+        self.ltvsys.updateObjective()
+
+        return self.ltvsys.solve()
+
 wx = np.array([1,1,1,1])
 wu = np.array([1])
 peps = 1e-2
@@ -103,6 +132,8 @@ ltvqp = mpc.LTVMPC(m, Nknot, wx, wu, verbose=True, polish=False, scaling=0, eps_
 # x0 must be a (N,nx) trajectory
 xr = np.zeros(m.nx)  # FIXME: does not make sense
 ctrl = ltvqp.update(x0=nominalTraj, xr=xr, trajMode=ltvsystem.GIVEN_POINT_OR_TRAJ)
+
+wqp = WingQP(m, Nknot)
 
 # # Test the linearized dynamics
 # strokeEnd = 1e-3
