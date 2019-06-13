@@ -114,14 +114,7 @@ def plotTrajs(*args):
     sys.exit(0)
 # --------------------------------------
 
-# # Test the linearized dynamics FIXME: blows up
-# strokeEnd = 1e-3
-# ytest = np.array([-strokeEnd, 0, 0, 0])
-# umax = 1e-3
-# utest = np.array([umax])
-# A, B, c = m.getLinearDynamics(ytest, utest)
-# print(A, B, c)
-
+# Test the linearized dynamics 
 yi2 = olTraj.copy()
 yilin = olTraj.copy()
 for ti in range(1, len(olTrajt)):
@@ -132,7 +125,7 @@ for ti in range(1, len(olTrajt)):
     # ui = np.array([controller(tvec[ti], yilin[:,ti-1])])
     A, B, c = m.getLinearDynamics(yilin[ti-1, :4], ui)
     yilin[ti, :4] = A @ yilin[ti-1, :4] + B @ ui + c
-plotTrajs(olTraj, yi2, yilin)
+# plotTrajs(olTraj, yi2, yilin)
 
 # Wing traj opt using QP -------------------------------------------------
 def dirTranForm(xtraj, N, nx, nu):
@@ -159,7 +152,7 @@ class QOFAvgLift:
         w = np.hstack((np.tile(self.wx, N+1), np.tile(self.wu, N)))
         kdamp = np.hstack((np.tile(self.kdampx, N+1), np.tile(self.kdampu, N)))
 
-        self.P = sparse.diags(w + kdamp)
+        self.P = sparse.diags(w + kdamp).tocsc()
         dirtranx = dirTranForm(xtraj, N, self.nx, self.nu)
         self.q = -np.multiply(w, dirtranx)
         return self.P, self.q
@@ -173,6 +166,8 @@ class WingQP:
         self.ltvsys.initSolver(**settings)
 
     def update(self, xtraj):
+        N = self.ltvsys.N
+        nx = self.ltvsys.nx
         # TODO: check which traj mode
         u0 = xtraj[:,4][:,np.newaxis]
         xtraj = self.ltvsys.updateTrajectory(xtraj[:,:4], u0, trajMode=ltvsystem.GIVEN_POINT_OR_TRAJ)
@@ -180,12 +175,13 @@ class WingQP:
         dirtranx, res = self.ltvsys.solve(throwOnError=False)
         if res.info.status not in ['solved', 'solved inaccurate', 'maximum iterations reached']:
             self.ltvsys.debugResult(res)
+            # dirtranx = dirTranForm(xtraj, N, nx, self.ltvsys.nu)
+            # print(self.ltvsys.u - self.ltvsys.A @ dirtranx, self.ltvsys.A @ dirtranx - self.ltvsys.l)
+
             raise ValueError(res.info.status)
         # debug
         # print(self.ltvsys.u - self.ltvsys.A @ dirtranx, self.ltvsys.A @ dirtranx - self.ltvsys.l)
         # reshape into (N,nx+nu)
-        N = self.ltvsys.N
-        nx = self.ltvsys.nx
         traj2 = np.hstack((np.reshape(dirtranx[:N*nx], (N,nx), 'C'), dirtranx[(N+1)*nx:][:,np.newaxis]))
         return traj2
 
@@ -195,12 +191,12 @@ wx = np.ones(4) * 0.001
 wu = np.ones(1) * 0.001
 kdampx = np.ones(4)
 kdampu = np.ones(1)
-wqp = WingQP(m, Nknot, wx, wu, kdampx, kdampu, verbose=True, max_iter=1)
+wqp = WingQP(m, Nknot, wx, wu, kdampx, kdampu, verbose=True, eps_rel=1e-2, eps_abs=1e-2)
 # Test warm start
 # wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
-traj2 = wqp.update(olTraj)
+traj2 = wqp.update(yilin)
 
-# plotTrajs(olTraj, traj2)# debug the 1-step solution
+plotTrajs(olTraj, traj2)# debug the 1-step solution
 
 # wx = np.array([1,1,1,1])
 # wu = np.array([1])
