@@ -58,12 +58,28 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define VSENSL2_Pin GPIO_PIN_0
+#define VSENSL2_GPIO_Port GPIOC
+#define VSENS1_Pin GPIO_PIN_4
+#define VSENS1_GPIO_Port GPIOA
+#define VSENSL1_Pin GPIO_PIN_5
+#define VSENSL1_GPIO_Port GPIOA
+#define VSENS2_Pin GPIO_PIN_6
+#define VSENS2_GPIO_Port GPIOA
 #define LED1_Pin GPIO_PIN_10
 #define LED1_GPIO_Port GPIOD
 #define LED2_Pin GPIO_PIN_11
 #define LED2_GPIO_Port GPIOD
 #define SSIMU_Pin GPIO_PIN_4
 #define SSIMU_GPIO_Port GPIOD
+#define H1_Pin GPIO_PIN_4
+#define H1_GPIO_Port GPIOB
+#define L1_Pin GPIO_PIN_5
+#define L1_GPIO_Port GPIOB
+#define H2_Pin GPIO_PIN_6
+#define H2_GPIO_Port GPIOB
+#define L2_Pin GPIO_PIN_7
+#define L2_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
