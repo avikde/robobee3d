@@ -94,7 +94,7 @@ for i in range(yu0.shape[1]):
 yu0 = np.vstack((yu0, utest))
 # This range and decimation depends on the OL traj. TODO: Should automate finding 1 cycle
 olTraj = (yu0.T)[170:238:3,:]
-olTrajt = range(olTraj.shape[0])#sol.t[170:238:3]
+olTrajt = sol.t[170:238:3]
 olTrajdt = np.mean(np.diff(sol.t[170:238:3]))
 m.dt = olTrajdt  # for the discretized dynamics
 
@@ -122,14 +122,17 @@ def plot2Traj(olTraj, traj2):
 # print(A, B, c)
 # TODO: simulate forward with nonlin and lin dynamics for a short time and compare the trajectories
 
+yi2 = olTraj.copy()
 yilin = olTraj.copy()
 for ti in range(1, len(olTrajt)):
+    ui = yilin[ti-1, 4:]
+    # Nonlinear
+    yi2[ti, :4] = yi2[ti-1, :4] + olTrajdt * m.dydt(yi2[ti-1, :4], ui, params)
     # Linearized
     # ui = np.array([controller(tvec[ti], yilin[:,ti-1])])
-    ui = yilin[ti-1, 4:]
     A, B, c = m.getLinearDynamics(yilin[ti-1, :4], ui)
     yilin[ti, :4] = A @ yilin[ti-1, :4] + B @ ui + c
-plot2Traj(olTraj, yilin)
+plot2Traj(olTraj, yi2)
 
 # Wing traj opt using QP -------------------------------------------------
 def dirTranForm(xtraj, N, nx, nu):
