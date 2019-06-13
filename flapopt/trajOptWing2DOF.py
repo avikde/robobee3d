@@ -99,17 +99,7 @@ for i in range(yu0.shape[1]):
 yu0 = np.vstack((yu0, utest))
 # This range and decimation depends on the OL traj. TODO: Should automate finding 1 cycle
 olTraj = (yu0.T)[170:238:3,:]
-olTrajt = sol.t[170:238:3]
-if False:
-    _, ax = plt.subplots(3)
-    ax[0].plot(range(len(olTrajt)), olTraj[:,0], '.-')
-    ax[0].set_ylabel('stroke (m)')
-    ax[1].plot(range(len(olTrajt)), olTraj[:,1], '.-')
-    ax[1].set_ylabel('hinge angle (rad)')
-    ax[2].plot(range(len(olTrajt)), olTraj[:,4], '.-')
-    ax[2].set_ylabel('stroke force (N)')
-    plt.show()
-    sys.exit(0)
+olTrajt = range(olTraj.shape[0])#sol.t[170:238:3]
 
 # Wing traj opt using QP -------------------------------------------------
 # Create "MPC" object which will be used for SQP
@@ -139,12 +129,31 @@ class WingQP:
         u0 = xtraj[:,4][:,np.newaxis]
         xtraj = self.ltvsys.updateTrajectory(xtraj[:,:4], u0, trajMode=ltvsystem.GIVEN_POINT_OR_TRAJ)
         self.ltvsys.updateObjective()
-        return self.ltvsys.solve()
+        dirtranx = self.ltvsys.solve()
+        # reshape into (N,nx+nu)
+        N = self.ltvsys.N
+        nx = self.ltvsys.nx
+        traj2 = np.hstack((np.reshape(dirtranx[:N*nx], (N,nx), 'C'), dirtranx[(N+1)*nx:][:,np.newaxis]))
+        return traj2
 
 # Use the class above to step the QP
 Nknot = olTraj.shape[0]  # number of knot points in this case
 wqp = WingQP(m, Nknot)
-wqp.update(olTraj)
+traj2 = wqp.update(olTraj)
+
+if True: # debug the 1-step solution
+    _, ax = plt.subplots(3)
+    ax[0].plot(olTrajt, olTraj[:,0], '.-')
+    ax[0].plot(olTrajt, traj2[:,0], '.-')
+    ax[0].set_ylabel('stroke (m)')
+    ax[1].plot(olTrajt, olTraj[:,1], '.-')
+    ax[1].plot(olTrajt, traj2[:,1], '.-')
+    ax[1].set_ylabel('hinge angle (rad)')
+    ax[2].plot(olTrajt, olTraj[:,4], '.-')
+    ax[2].plot(olTrajt, traj2[:,4], '.-')
+    ax[2].set_ylabel('stroke force (N)')
+    plt.show()
+    sys.exit(0)
 
 # wx = np.array([1,1,1,1])
 # wu = np.array([1])
