@@ -89,7 +89,7 @@ sol = solve_ivp(closedLoop, [0,tf], yi[:,0], dense_output=True, t_eval=tvec)
 
 print('Avg cost =', Jcostsol(sol.t, sol.y, params))
 
-# --------
+# -------- Open loop trajectory from the simulation above ------------------
 # At this point there is a "nominal trajectory" in sol.y
 yu0 = sol.y.copy()
 # yu0 = yi.copy()
@@ -97,10 +97,10 @@ utest = np.zeros(yu0.shape[1])
 for i in range(yu0.shape[1]):
     utest[i] = controller(sol.t[i], sol.y[:,i])
 yu0 = np.vstack((yu0, utest))
-# FIXME: this range and decimation depends on the OL traj
+# This range and decimation depends on the OL traj. TODO: Should automate finding 1 cycle
 olTraj = (yu0.T)[170:238:3,:]
 olTrajt = sol.t[170:238:3]
-if True:
+if False:
     _, ax = plt.subplots(3)
     ax[0].plot(range(len(olTrajt)), olTraj[:,0], '.-')
     ax[0].set_ylabel('stroke (m)')
@@ -111,6 +111,7 @@ if True:
     plt.show()
     sys.exit(0)
 
+# Wing traj opt using QP -------------------------------------------------
 # Create "MPC" object which will be used for SQP
 class QOFAvgLift:
     def __init__(self, nx, nu):
@@ -128,32 +129,36 @@ class QOFAvgLift:
 class WingQP:
     def __init__(self, model, N, **settings):
         self.ltvsys = ltvsystem.LTVSolver(model)
-        
         # Dynamics and constraints
         self.ltvsys.initConstraints(model.nx, model.nu, N, polyBlocks=None)
         self.ltvsys.initObjective(QOFAvgLift(model.nx, model.nu))
         self.ltvsys.initSolver(**settings)
 
-    def update(self):
+    def update(self, xtraj):
         # TODO: check which traj mode
-        xtraj = self.ltvsys.updateTrajectory(x0, u0, trajMode=ltvsystem.GIVEN_POINT_OR_TRAJ)
+        u0 = xtraj[:,4][:,np.newaxis]
+        xtraj = self.ltvsys.updateTrajectory(xtraj[:,:4], u0, trajMode=ltvsystem.GIVEN_POINT_OR_TRAJ)
         self.ltvsys.updateObjective()
-
         return self.ltvsys.solve()
 
-wx = np.array([1,1,1,1])
-wu = np.array([1])
-peps = 1e-2
+# Use the class above to step the QP
 Nknot = olTraj.shape[0]  # number of knot points in this case
-ltvqp = mpc.LTVMPC(m, Nknot, wx, wu, verbose=True, polish=False, scaling=0, eps_rel=peps, eps_abs=peps, max_iter=100, kdamping=0)
-# x0 must be a (N,nx) trajectory
-xr = np.zeros(m.nx)  # FIXME: does not make sense
-ctrl = ltvqp.update(x0=olTraj, xr=xr, trajMode=ltvsystem.GIVEN_POINT_OR_TRAJ)
-
 wqp = WingQP(m, Nknot)
-wqp.update()
+wqp.update(olTraj)
 
-# # Test the linearized dynamics
+# wx = np.array([1,1,1,1])
+# wu = np.array([1])
+# peps = 1e-2
+# ltvqp = mpc.LTVMPC(m, Nknot, wx, wu, verbose=True, polish=False, scaling=0, eps_rel=peps, eps_abs=peps, max_iter=100, kdamping=0)
+# # x0 must be a (N,nx) trajectory
+# xr = np.zeros(m.nx)  # FIXME: does not make sense
+# ctrl = ltvqp.update(x0=olTraj, xr=xr, trajMode=ltvsystem.GIVEN_POINT_OR_TRAJ)
+
+sys.exit(0)
+
+# --------------------------------------
+
+# # Test the linearized dynamics FIXME: blows up
 # strokeEnd = 1e-3
 # ytest = np.array([-strokeEnd, 0, 0, 0])
 # umax = 1e-3
@@ -164,9 +169,7 @@ wqp.update()
 # TODO: simulate forward with nonlin and lin dynamics for a short time and compare the trajectories
 
 
-sys.exit(0)
-
-# gradient descent ------------
+# OLD gradient descent ------------
 # gradient wrt params
 Jgradp = jacobian(lambda p : Jcosttraj(yu0, p))
 
