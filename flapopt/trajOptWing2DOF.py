@@ -104,6 +104,13 @@ olTrajdt = np.mean(np.diff(sol.t[170:238:3]))
 m.dt = olTrajdt  # for the discretized dynamics
 
 # Wing traj opt using QP -------------------------------------------------
+def dirTranForm(xtraj, N, nx, nu):
+    # convert from the (N,nx+nu) array to the dirtran form
+    return np.hstack((
+            np.reshape(xtraj[:,:nx], (N)*nx, 'C'),
+            xtraj[-1,:nx], # repeat Nth for N+1
+            np.reshape(xtraj[:,nx:], (N)*nu, 'C')
+        ))
 # Create "MPC" object which will be used for SQP
 class QOFAvgLift:
     def __init__(self, wx, wu, kdampx, kdampu):
@@ -122,12 +129,7 @@ class QOFAvgLift:
         kdamp = np.hstack((np.tile(self.kdampx, N+1), np.tile(self.kdampu, N)))
 
         self.P = sparse.diags(w + kdamp)
-        # get dirtran x from xtraj
-        dirtranx = np.hstack((
-            np.reshape(xtraj[:,:self.nx], (N)*self.nx, 'C'),
-            xtraj[-1,:self.nx], # repeat Nth for N+1
-            np.reshape(xtraj[:,self.nx:], (N)*self.nu, 'C')
-        ))
+        dirtranx = dirTranForm(xtraj, N, self.nx, self.nu)
         self.q = -np.multiply(w, dirtranx)
         return self.P, self.q
 
@@ -162,7 +164,9 @@ wx = np.ones(4) * 0.001
 wu = np.ones(1) * 0.001
 kdampx = np.ones(4)
 kdampu = np.ones(1)
-wqp = WingQP(m, Nknot, wx, wu, kdampx, kdampu, verbose=True)
+wqp = WingQP(m, Nknot, wx, wu, kdampx, kdampu, verbose=True, max_iter=1)
+# Test warm start
+# wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
 traj2 = wqp.update(olTraj)
 
 if True: # debug the 1-step solution
