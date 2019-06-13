@@ -91,8 +91,25 @@ print('Avg cost =', Jcostsol(sol.t, sol.y, params))
 
 # --------
 # At this point there is a "nominal trajectory" in sol.y
-# FIXME: update this traj and have one cycle
-nominalTraj = (sol.y.copy().T)[0:100,:]
+yu0 = sol.y.copy()
+# yu0 = yi.copy()
+utest = np.zeros(yu0.shape[1])
+for i in range(yu0.shape[1]):
+    utest[i] = controller(sol.t[i], sol.y[:,i])
+yu0 = np.vstack((yu0, utest))
+# FIXME: this range and decimation depends on the OL traj
+olTraj = (yu0.T)[170:238:3,:]
+olTrajt = sol.t[170:238:3]
+if True:
+    _, ax = plt.subplots(3)
+    ax[0].plot(range(len(olTrajt)), olTraj[:,0], '.-')
+    ax[0].set_ylabel('stroke (m)')
+    ax[1].plot(range(len(olTrajt)), olTraj[:,1], '.-')
+    ax[1].set_ylabel('hinge angle (rad)')
+    ax[2].plot(range(len(olTrajt)), olTraj[:,4], '.-')
+    ax[2].set_ylabel('stroke force (N)')
+    plt.show()
+    sys.exit(0)
 
 # Create "MPC" object which will be used for SQP
 class QOFAvgLift:
@@ -127,13 +144,14 @@ class WingQP:
 wx = np.array([1,1,1,1])
 wu = np.array([1])
 peps = 1e-2
-Nknot = nominalTraj.shape[0]  # number of knot points in this case
+Nknot = olTraj.shape[0]  # number of knot points in this case
 ltvqp = mpc.LTVMPC(m, Nknot, wx, wu, verbose=True, polish=False, scaling=0, eps_rel=peps, eps_abs=peps, max_iter=100, kdamping=0)
 # x0 must be a (N,nx) trajectory
 xr = np.zeros(m.nx)  # FIXME: does not make sense
-ctrl = ltvqp.update(x0=nominalTraj, xr=xr, trajMode=ltvsystem.GIVEN_POINT_OR_TRAJ)
+ctrl = ltvqp.update(x0=olTraj, xr=xr, trajMode=ltvsystem.GIVEN_POINT_OR_TRAJ)
 
 wqp = WingQP(m, Nknot)
+wqp.update()
 
 # # Test the linearized dynamics
 # strokeEnd = 1e-3
@@ -148,13 +166,7 @@ wqp = WingQP(m, Nknot)
 
 sys.exit(0)
 
-# Trajectory to begin gradient descent from ------------
-yu0 = sol.y.copy()
-# yu0 = yi.copy()
-utest = np.zeros(yu0.shape[1])
-for i in range(yu0.shape[1]):
-    utest[i] = controller(sol.t[i], sol.y[:,i])
-yu0 = np.vstack((yu0, utest))
+# gradient descent ------------
 # gradient wrt params
 Jgradp = jacobian(lambda p : Jcosttraj(yu0, p))
 
