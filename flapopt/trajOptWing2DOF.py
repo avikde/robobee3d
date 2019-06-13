@@ -103,6 +103,19 @@ olTrajt = range(olTraj.shape[0])#sol.t[170:238:3]
 olTrajdt = np.mean(np.diff(sol.t[170:238:3]))
 m.dt = olTrajdt  # for the discretized dynamics
 
+# --------------------------------------
+
+# Test the linearized dynamics FIXME: blows up
+strokeEnd = 1e-3
+ytest = np.array([-strokeEnd, 0, 0, 0])
+umax = 1e-3
+utest = np.array([umax])
+A, B, c = m.getLinearDynamics(ytest, utest)
+print(A, B, c)
+sys.exit(0)
+# TODO: simulate forward with nonlin and lin dynamics for a short time and compare the trajectories
+
+
 # Wing traj opt using QP -------------------------------------------------
 def dirTranForm(xtraj, N, nx, nu):
     # convert from the (N,nx+nu) array to the dirtran form
@@ -192,19 +205,6 @@ if True: # debug the 1-step solution
 # ctrl = ltvqp.update(x0=olTraj, xr=xr, trajMode=ltvsystem.GIVEN_POINT_OR_TRAJ)
 
 sys.exit(0)
-
-# --------------------------------------
-
-# # Test the linearized dynamics FIXME: blows up
-# strokeEnd = 1e-3
-# ytest = np.array([-strokeEnd, 0, 0, 0])
-# umax = 1e-3
-# utest = np.array([umax])
-# A, B, c = m.getLinearDynamics(ytest, utest)
-# print(A, B, c)
-
-# TODO: simulate forward with nonlin and lin dynamics for a short time and compare the trajectories
-
 
 # OLD gradient descent ------------
 # gradient wrt params
