@@ -1,4 +1,13 @@
-
+/**
+ * @file FlapTask.c
+ * @author Avik De (avikde@gmail.com)
+ * @brief Task for flap to flap control
+ * @version 0.1
+ * @date 2019-06-14
+ * 
+ * @copyright Copyright (c) 2019
+ * 
+ */
 #include "stm32h7xx_hal.h"
 #include "main.h"
 

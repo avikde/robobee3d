@@ -58,11 +58,12 @@ void flapUpdate(void const *argument);
 
 /* External variables --------------------------------------------------------*/
 extern TIM_HandleTypeDef htim3;
+extern TIM_HandleTypeDef htim6;
 extern UART_HandleTypeDef huart1;
 extern TIM_HandleTypeDef htim7;
 
 /* USER CODE BEGIN EV */
-
+volatile uint32_t _millis;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -190,6 +191,23 @@ void USART1_IRQHandler(void)
   /* USER CODE BEGIN USART1_IRQn 1 */
 
   /* USER CODE END USART1_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM6 global interrupt, DAC1_CH1 and DAC1_CH2 underrun error interrupts.
+  */
+void TIM6_DAC_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM6_DAC_IRQn 0 */
+  if (__HAL_TIM_GET_FLAG(&htim6, TIM_FLAG_UPDATE) != RESET)
+  {
+    _millis++;
+  }
+  /* USER CODE END TIM6_DAC_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim6);
+  /* USER CODE BEGIN TIM6_DAC_IRQn 1 */
+
+  /* USER CODE END TIM6_DAC_IRQn 1 */
 }
 
 /**
