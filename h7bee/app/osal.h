@@ -18,6 +18,7 @@ extern "C" {
 
 uint32_t millis();
 uint32_t micros();
+int osal_usleep(uint32_t usec);
 
 #ifdef __cplusplus
 }

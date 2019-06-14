@@ -75,6 +75,30 @@ uint32_t micros()
 	return (_millis * 1000) + TIM6->CNT;
 }
 
+static void delayMicroseconds(uint32_t n)
+{
+	// fudge for function call overhead
+	if (n > 0)
+	{
+		n--;
+		uint32_t start = micros();
+		while (micros() - start < n)
+			;
+	}
+}
+
+int osal_usleep(uint32_t usec)
+{
+	if (usec < 1000)
+		delayMicroseconds(usec);
+	else
+	{
+		delayMicroseconds(usec % (uint32_t)1000);
+		HAL_Delay(usec / 1000);
+	}
+
+	return 1;
+}
 
 // Other tasks -------------------------------------------------------
 
