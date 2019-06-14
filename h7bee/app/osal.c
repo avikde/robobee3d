@@ -12,6 +12,8 @@
 #include <stdint.h>
 #include <errno.h>
 #include <stm32h7xx_hal.h>
+#include "cmsis_os.h"
+#include <string.h>
 
 // stdio --------------------------------------------
 
@@ -48,7 +50,7 @@ extern int _write(int file, char *data, int len)
 
 extern int _read(int file, char *ptr, int len)
 {
-	static int avail;
+	// static int avail;
 	switch (file)
 	{
 	case STDIN_FILENO:
@@ -102,11 +104,15 @@ int osal_usleep(uint32_t usec)
 
 // Other tasks -------------------------------------------------------
 
+extern float extest, eytest, eztest;
+
 void startPrintfTask(void const *argument)
 {
 	for (;;)
 	{
-		printf("hi %d %d\n", millis(), micros());
+		printf("hi %d %d\t", millis(), micros());
+		printf("%.2f\t%.2f\t%.2f", extest, eytest, eztest);
+		printf("\n");
 		osDelay(10);
 	}
 }
