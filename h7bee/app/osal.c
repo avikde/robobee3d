@@ -65,7 +65,24 @@ extern int _read(int file, char *ptr, int len)
 // System clock ----------------------------------------------------
 
 extern volatile uint32_t _millis;
+uint32_t millis()
+{
+	return _millis;
+}
+
 uint32_t micros()
 {
 	return (_millis * 1000) + TIM6->CNT;
+}
+
+
+// Other tasks -------------------------------------------------------
+
+void startPrintfTask(void const *argument)
+{
+	for (;;)
+	{
+		printf("hi %d %d\n", millis(), micros());
+		osDelay(10);
+	}
 }

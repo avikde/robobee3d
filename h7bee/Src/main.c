@@ -57,6 +57,7 @@ UART_HandleTypeDef huart2;
 
 osThreadId heartbeatTaskHandle;
 osThreadId ImuTaskHandle;
+osThreadId printfTaskHandle;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -75,6 +76,7 @@ static void MX_TIM4_Init(void);
 static void MX_TIM6_Init(void);
 void startHeartbeatTask(void const * argument);
 extern void startImuTask(void const * argument);
+extern void startPrintfTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -158,6 +160,10 @@ int main(void)
   /* definition and creation of ImuTask */
   osThreadDef(ImuTask, startImuTask, osPriorityNormal, 0, 1024);
   ImuTaskHandle = osThreadCreate(osThread(ImuTask), NULL);
+
+  /* definition and creation of printfTask */
+  osThreadDef(printfTask, startPrintfTask, osPriorityLow, 0, 1024);
+  printfTaskHandle = osThreadCreate(osThread(printfTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -702,7 +708,7 @@ static void MX_GPIO_Init(void)
   * @retval None
   */
 /* USER CODE END Header_startHeartbeatTask */
-void startHeartbeatTask(void const * argument)
+__weak void startHeartbeatTask(void const * argument)
 {
 
   /* USER CODE BEGIN 5 */
