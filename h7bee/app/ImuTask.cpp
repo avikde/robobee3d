@@ -1,7 +1,7 @@
 /**
  * @file ImuTask.cpp
  * @author Avik De (avikde@gmail.com)
- * @brief Task for flap to flap control
+ * @brief IMU reading and filtering task
  * @version 0.1
  * @date 2019-06-14
  * 
