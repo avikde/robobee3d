@@ -111,8 +111,8 @@ void startPrintfTask(void const *argument)
 	for (;;)
 	{
 		printf("hi %d %d\t", millis(), micros());
-		printf("%.2f\t%.2f\t%.2f", extest, eytest, eztest);
+		printf("%.2f\t%.2f\t%.2f\t", extest, eytest, eztest);
 		printf("\n");
-		osDelay(10);
+		osDelay(20);
 	}
 }

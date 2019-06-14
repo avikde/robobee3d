@@ -13,14 +13,18 @@ float extest, eytest, eztest;
 void startImuTask(void const *argument)
 {
 	InvensenseIMU imu;
-	invensenseIMUInit(&imu, &hspi2);
+	int invres = invensenseIMUInit(&imu, &hspi2);
 
 	for (;;)
 	{
-		invensenseIMUUpdate(&imu);
-		extest = imu.acc[0];
-		eytest = imu.acc[1];
-		eztest = imu.acc[2];
+		if (invres >= 0)
+		{
+			invensenseIMUUpdate(&imu);
+			// TODO: EKF
+			extest = imu.acc[0];
+			eytest = imu.acc[1];
+			eztest = imu.acc[2];
+		}
 		osDelay(1);
 	}
 }

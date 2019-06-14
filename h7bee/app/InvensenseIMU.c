@@ -56,8 +56,17 @@ int invensenseIMUInit(InvensenseIMU *imu, SPI_HandleTypeDef *_SPI)
 	_invwrite(imu, ICMREG_BANK_SEL, 0 << 4);
 
 	// Start up in reg bank 0
-	uint8_t *magic = _invread(imu, ICMREG_WHOAMI, 1);
-	if (magic[0] != 0xe1)
+	int ndetectretries = 10;
+	int res = -1; // not detected yet
+	while (res < 0 && ndetectretries > 0)
+	{
+		uint8_t *magic = _invread(imu, ICMREG_WHOAMI, 1);
+		if (magic[0] == 0xe1)
+			res = 0;
+		ndetectretries--;
+		osal_usleep(10000);
+	}
+	if (ndetectretries == 0)
 		return -1;
 
 	// Chip reset
