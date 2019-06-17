@@ -24,11 +24,12 @@ static void setPWM(float h1, float l1, float h2, float l2)
 	__HAL_TIM_SetCompare(&htim4, TIM_CHANNEL_2, (uint16_t)(arr * l2));
 }
 
+// This is called from a timer update of the PWM generating timer (see *_it.c)
 void flapUpdate(void const *argument)
 {
 	HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin); // timing debugging
 
-	float sfreq = 150;
+	float sfreq = 0.1;
 	float t = 0.001 * millis() + 0.000001 * (micros() % 1000);
 	float spwm = 0.5 * (1 + sinf(2 * PI * sfreq * t));
 	setPWM(0, spwm, 0, spwm);
