@@ -15,13 +15,23 @@
 
 extern TIM_HandleTypeDef htim3, htim4;
 
-static void setPWM(float h1, float l1, float h2, float l2)
+static void voltageControl(float vdes, float vact, TIM_HandleTypeDef *htim)
 {
-	uint16_t arr = 1000; // out of 1000 (depending on ARR setting)
-	__HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_1, (uint16_t)(arr * h1));
-	__HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_2, (uint16_t)(arr * l1));
-	__HAL_TIM_SetCompare(&htim4, TIM_CHANNEL_1, (uint16_t)(arr * h2));
-	__HAL_TIM_SetCompare(&htim4, TIM_CHANNEL_2, (uint16_t)(arr * l2));
+	const uint16_t arr = 1000; // out of 1000 (depending on ARR setting)
+
+	// hi-side, and lo-side duty cycles. only one of them can be > 0 for each period
+	float dch = 0, dcl = 0;
+	if (vact > vdes)
+	{
+		// TODO: on time (duty cycle) related to the magnitude of the difference?
+		dcl = 0.5;
+	}
+	else
+	{
+		dch = 0.5;
+	}
+	__HAL_TIM_SetCompare(htim, TIM_CHANNEL_1, (uint16_t)(arr * dch));
+	__HAL_TIM_SetCompare(htim, TIM_CHANNEL_2, (uint16_t)(arr * dcl));
 }
 
 // This is called from a timer update of the PWM generating timer (see *_it.c)
@@ -31,6 +41,9 @@ void flapUpdate(void const *argument)
 
 	float sfreq = 0.1;
 	float t = 0.001 * millis() + 0.000001 * (micros() % 1000);
-	float spwm = 0.5 * (1 + sinf(2 * PI * sfreq * t));
-	setPWM(0, spwm, 0, spwm);
+	float vdes = 0.5 * (1 + sinf(2 * PI * sfreq * t));
+	// This is the "reference"
+	// TODO: look at ADC for V1, V2
+	voltageControl(vdes, 0.5, &htim3);
+	voltageControl(vdes, 0.5, &htim4);
 }
