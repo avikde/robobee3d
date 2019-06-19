@@ -39,7 +39,7 @@ void flapUpdate(void const *argument)
 {
 	HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin); // timing debugging
 
-	float sfreq = 0.1;
+	float sfreq = 10;
 	float t = 0.001 * millis() + 0.000001 * (micros() % 1000);
 	float vdes = 0.5 * (1 + sinf(2 * PI * sfreq * t));
 	// This is the "reference"
