@@ -20,15 +20,18 @@ static void voltageControl(float vdes, float vact, TIM_HandleTypeDef *htim)
 	const uint16_t arr = 10000; //depends on ARR setting
 
 	// hi-side, and lo-side duty cycles. only one of them can be > 0 for each period
-	float dch = 0, dcl = 0;
+	static float dch, dcl;
+	// TODO: on time (duty cycle) related to the magnitude of the difference?
+	float mag = 0.02 * (vact - vdes);
 	if (vact > vdes)
 	{
-		// TODO: on time (duty cycle) related to the magnitude of the difference?
-		dcl = 0.1;
+		dcl = mag;
+		dch = 0;
 	}
 	else
 	{
-		dch = 0.1;
+		dch = -mag;
+		dcl = 0;
 	}
 	__HAL_TIM_SetCompare(htim, TIM_CHANNEL_1, (uint16_t)(arr * dch));
 	__HAL_TIM_SetCompare(htim, TIM_CHANNEL_2, (uint16_t)(arr * dcl));
