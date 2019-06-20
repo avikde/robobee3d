@@ -177,6 +177,16 @@ SECTIONS
     . = ALIGN(8);
   } >DTCMRAM
 
+
+  .d2ram (NOLOAD):
+  {
+      . = ALIGN(4);
+      PROVIDE_HIDDEN (__d2ram_start = .);
+      *(.d2ram.adc_results_mem);
+      *(.d2ram*);
+      . = ALIGN(4);
+      PROVIDE_HIDDEN (__d2ram_end = .);
+  } >RAM_D2
   
 
   /* Remove information from the standard libraries */
