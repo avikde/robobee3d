@@ -29,7 +29,7 @@ static void voltageControl(float vdes, float vact, TIM_HandleTypeDef *htim)
 	// hi-side, and lo-side duty cycles. only one of them can be > 0 for each period
 	static float dch, dcl;
 	// TODO: on time (duty cycle) related to the magnitude of the difference?
-	float mag = constrain(0.003 * (vact - vdes), -0.03, 0.03);
+	float mag = constrain(0.005 * (vact - vdes), -0.1, 0.1);
 	if (vact > vdes)
 	{
 		dcl = mag;
@@ -61,7 +61,7 @@ static void analogGetValues(float *vact, float *iact)
 
 	// scale from https://docs.google.com/spreadsheets/d/1NQQbD_Zaig3STnTJG6g7wlEqw0pASV7lOaqTsuFVBwo/edit?usp=sharing
 	const float VADC_C0 = -4.67, VADC_C1 = 0.0191;
-	const float VSMOOTH = 0.5;
+	const float VSMOOTH = 0.6;
 	// output voltage
 	vact[0] = VSMOOTH * vact[0] + (1 - VSMOOTH) * (VADC_C0 + VADC_C1 * vsens1);
 	vact[1] = VSMOOTH * vact[1] + (1 - VSMOOTH) * (VADC_C0 + VADC_C1 * vsens2);
@@ -76,8 +76,8 @@ void flapUpdate(void const *argument)
 	HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin); // timing debugging
 
 	// PARAMETERS
-	float sfreq = 300; // wave freq
-	float Vpp = 40;
+	float sfreq = 100; // wave freq
+	float Vpp = 50;
 	// --
 
 	phase += sfreq * UPDATE_DT;
