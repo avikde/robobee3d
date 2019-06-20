@@ -14,7 +14,7 @@
 #include "osal.h"
 
 extern TIM_HandleTypeDef htim3, htim4;
-// extern uint32_t adcConvertedValues[4];
+extern ADC_HandleTypeDef hadc1;
 
 static void voltageControl(float vdes, float vact, TIM_HandleTypeDef *htim)
 {
@@ -48,7 +48,12 @@ void flapUpdate(void const *argument)
 	float vdes = 0.5 * (1 + sinf(2 * PI * sfreq * t));
 	// This is the "reference"
 	// TODO: look at ADC for V1, V2
-	volatile uint32_t a1 = ADC1->DR;
+	volatile uint32_t a1 = ADC1->JDR1;
+	volatile uint32_t a2 = ADC1->JDR2;
+	volatile uint32_t a3 = ADC1->JDR3;
+	volatile uint32_t a4 = ADC1->JDR4;
+	HAL_ADCEx_InjectedStart(&hadc1);
+	
 	voltageControl(vdes, 0.5, &htim3);
 	voltageControl(vdes, 0.5, &htim4);
 }
