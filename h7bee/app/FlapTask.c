@@ -29,7 +29,7 @@ static void voltageControl(float vdes, float vact, TIM_HandleTypeDef *htim)
 	// hi-side, and lo-side duty cycles. only one of them can be > 0 for each period
 	static float dch, dcl;
 	// TODO: on time (duty cycle) related to the magnitude of the difference?
-	float mag = constrain(0.003 * (vact - vdes), -0.02, 0.02);
+	float mag = constrain(0.004 * (vact - vdes), -0.05, 0.05);
 	if (vact > vdes)
 	{
 		dcl = mag;
@@ -37,7 +37,7 @@ static void voltageControl(float vdes, float vact, TIM_HandleTypeDef *htim)
 	}
 	else
 	{
-		dch = -mag;
+		dch = -0.5 * mag; // based on looking at sine output
 		dcl = 0;
 	}
 	__HAL_TIM_SetCompare(htim, TIM_CHANNEL_1, (uint16_t)(arr * dch));
@@ -87,8 +87,10 @@ void flapUpdate(void const *argument)
 	
 	// // Sinusoid
 	// vdes = 0.5 * Vpp * (1 + sinf(2 * PI * phase));
-	// Square
-	vdes = (p1 > 0.5) ? Vpp : 0;
+	// // Square
+	// vdes = (p1 > 0.5) ? Vpp : 0;
+	// Triangle
+	vdes = (p1 < 0.5) ? 2 * p1 * Vpp : 2 * (1 - p1) * Vpp;
 
 	float vact[2], iact[2];
 	analogGetValues(vact, iact);
