@@ -21,13 +21,15 @@ extern ADC_HandleTypeDef hadc1;
 volatile float vmax[2] = {NAN, NAN}, vmin[2] = {NAN, NAN};
 bool adcValidDataYet = false;
 
+#define constrain(amt, low, high) ((amt) < (low) ? (low) : ((amt) > (high) ? (high) : (amt)))
+
 static void voltageControl(float vdes, float vact, TIM_HandleTypeDef *htim)
 {
 	const uint16_t arr = 10000; //depends on ARR setting
 	// hi-side, and lo-side duty cycles. only one of them can be > 0 for each period
 	static float dch, dcl;
 	// TODO: on time (duty cycle) related to the magnitude of the difference?
-	float mag = 0.001 * (vact - vdes);
+	float mag = constrain(0.003 * (vact - vdes), -0.02, 0.02);
 	if (vact > vdes)
 	{
 		dcl = mag;
@@ -65,15 +67,28 @@ static void analogGetValues(float *vact, float *iact)
 	// TODO: currents
 }
 
-// This is called from a timer update of the PWM generating timer (see *_it.c)
+// This is called from a timer update of the PWM generating timer (see *_it.c) at 10KHz
 void flapUpdate(void const *argument)
 {
+	const float UPDATE_DT = 0.0001; // 10KHz timebase update rate
+	static float phase = 0, vdes;
 	HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin); // timing debugging
 
-	float sfreq = 100;
-	float t = 0.001 * millis() + 0.000001 * (micros() % 1000);
+	// PARAMETERS
+	float sfreq = 100; // wave freq
 	float Vpp = 20;
-	float vdes = 0.5 * Vpp * (1 + sinf(2 * PI * sfreq * t)); // This is the "reference"
+	// --
+
+	phase += sfreq * UPDATE_DT;
+	// // keep between 0 and 1
+	// while (phase >= 1)
+	// 	phase -= 1;
+	float p1 = fmodf(phase, 1.0);
+	
+	// // Sinusoid
+	// vdes = 0.5 * Vpp * (1 + sinf(2 * PI * phase));
+	// Square
+	vdes = (p1 > 0.5) ? Vpp : 0;
 
 	float vact[2], iact[2];
 	analogGetValues(vact, iact);
