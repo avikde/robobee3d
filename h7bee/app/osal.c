@@ -105,6 +105,7 @@ int osal_usleep(uint32_t usec)
 // Other tasks -------------------------------------------------------
 
 extern float extest, eytest, eztest;
+extern float vmax[2];
 
 void startPrintfTask(void const *argument)
 {
@@ -112,6 +113,7 @@ void startPrintfTask(void const *argument)
 	{
 		printf("hi %d %d\t", millis(), micros());
 		printf("%.2f\t%.2f\t%.2f\t", extest, eytest, eztest);
+		printf("%.2f\t%.2f\t", vmax[0], vmax[1]);
 		printf("\n");
 		osDelay(20);
 	}
