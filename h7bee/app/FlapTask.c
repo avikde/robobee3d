@@ -24,11 +24,10 @@ bool adcValidDataYet = false;
 static void voltageControl(float vdes, float vact, TIM_HandleTypeDef *htim)
 {
 	const uint16_t arr = 10000; //depends on ARR setting
-
 	// hi-side, and lo-side duty cycles. only one of them can be > 0 for each period
 	static float dch, dcl;
 	// TODO: on time (duty cycle) related to the magnitude of the difference?
-	float mag = 0.02 * (vact - vdes);
+	float mag = 0.001 * (vact - vdes);
 	if (vact > vdes)
 	{
 		dcl = mag;
@@ -73,7 +72,8 @@ void flapUpdate(void const *argument)
 
 	float sfreq = 100;
 	float t = 0.001 * millis() + 0.000001 * (micros() % 1000);
-	float vdes = 0.5 * (1 + sinf(2 * PI * sfreq * t)); // This is the "reference"
+	float Vpp = 20;
+	float vdes = 0.5 * Vpp * (1 + sinf(2 * PI * sfreq * t)); // This is the "reference"
 
 	float vact[2], iact[2];
 	analogGetValues(vact, iact);
@@ -85,6 +85,6 @@ void flapUpdate(void const *argument)
 	vmin[1] = fminf(vmin[1], vact[1]);
 	// TODO: look at ADC for V1, V2
 
-	voltageControl(vdes, 0.5, &htim3);
-	voltageControl(vdes, 0.5, &htim4);
+	voltageControl(vdes, vact[0], &htim3);
+	voltageControl(vdes, vact[1], &htim4);
 }
