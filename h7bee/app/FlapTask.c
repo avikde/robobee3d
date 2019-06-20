@@ -29,7 +29,7 @@ static void voltageControl(float vdes, float vact, TIM_HandleTypeDef *htim)
 	// hi-side, and lo-side duty cycles. only one of them can be > 0 for each period
 	static float dch, dcl;
 	// TODO: on time (duty cycle) related to the magnitude of the difference?
-	float mag = constrain(0.004 * (vact - vdes), -0.05, 0.05);
+	float mag = constrain(0.005 * (vact - vdes), -0.05, 0.05);
 	if (vact > vdes)
 	{
 		dcl = mag;
@@ -61,9 +61,10 @@ static void analogGetValues(float *vact, float *iact)
 
 	// scale from https://docs.google.com/spreadsheets/d/1NQQbD_Zaig3STnTJG6g7wlEqw0pASV7lOaqTsuFVBwo/edit?usp=sharing
 	const float VADC_C0 = -4.67, VADC_C1 = 0.0191;
+	const float VSMOOTH = 0.3;
 	// output voltage
-	vact[0] = VADC_C0 + VADC_C1 * vsens1;
-	vact[1] = VADC_C0 + VADC_C1 * vsens2;
+	vact[0] = VSMOOTH * vact[0] + (1 - VSMOOTH) * (VADC_C0 + VADC_C1 * vsens1);
+	vact[1] = VSMOOTH * vact[1] + (1 - VSMOOTH) * (VADC_C0 + VADC_C1 * vsens2);
 	// TODO: currents
 }
 
@@ -85,12 +86,12 @@ void flapUpdate(void const *argument)
 	// 	phase -= 1;
 	float p1 = fmodf(phase, 1.0);
 	
-	// // Sinusoid
-	// vdes = 0.5 * Vpp * (1 + sinf(2 * PI * phase));
+	// Sinusoid
+	vdes = 0.5 * Vpp * (1 + sinf(2 * PI * phase));
 	// // Square
 	// vdes = (p1 > 0.5) ? Vpp : 0;
-	// Triangle
-	vdes = (p1 < 0.5) ? 2 * p1 * Vpp : 2 * (1 - p1) * Vpp;
+	// // Triangle
+	// vdes = (p1 < 0.5) ? 2 * p1 * Vpp : 2 * (1 - p1) * Vpp;
 
 	float vact[2], iact[2];
 	analogGetValues(vact, iact);
