@@ -57,10 +57,12 @@ static void analogGetValues(float *vact, float *iact)
 	if (!adcValidDataYet && vsens1 == 0 && vsensl1 == 0 && vsens2 == 0 && vsensl2 == 0)
 		return;
 	adcValidDataYet = true; // will short circuit the if above after this
-	
-	// output voltage TODO: scale
-	vact[0] = vsens1;
-	vact[1] = vsens2;
+
+	// scale from https://docs.google.com/spreadsheets/d/1NQQbD_Zaig3STnTJG6g7wlEqw0pASV7lOaqTsuFVBwo/edit?usp=sharing
+	const float VADC_C0 = -4.67, VADC_C1 = 0.0191;
+	// output voltage
+	vact[0] = VADC_C0 + VADC_C1 * vsens1;
+	vact[1] = VADC_C0 + VADC_C1 * vsens2;
 	// TODO: currents
 }
 
