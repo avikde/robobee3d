@@ -196,6 +196,19 @@ wqp = WingQP(m, Nknot, wx, wu, kdampx, kdampu, verbose=True, eps_rel=1e-2, eps_a
 # wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
 traj2 = wqp.update(yilin)
 
+# # Debug the solution
+# olTrajDirTran = dirTranForm(olTraj, wqp.ltvsys.N, wqp.ltvsys.nx,  wqp.ltvsys.nu)
+# traj2DirTran = dirTranForm(traj2, wqp.ltvsys.N, wqp.ltvsys.nx,  wqp.ltvsys.nu)
+# fig, ax = plt.subplots(2)
+# ax[0].plot(wqp.ltvsys.A @ olTrajDirTran - wqp.ltvsys.l)
+# ax[0].plot(wqp.ltvsys.A @ traj2DirTran - wqp.ltvsys.l)
+# ax[0].axhline(0, color='k', alpha=0.3)
+# ax[1].plot(wqp.ltvsys.u - wqp.ltvsys.A @ olTrajDirTran)
+# ax[1].plot(wqp.ltvsys.u - wqp.ltvsys.A @ traj2DirTran)
+# ax[1].axhline(0, color='k', alpha=0.3)
+# plt.show()
+print(wqp.ltvsys.N, wqp.ltvsys.nx,  wqp.ltvsys.nu)
+sys.exit(0)
 plotTrajs(olTraj, traj2)# debug the 1-step solution
 
 # wx = np.array([1,1,1,1])
