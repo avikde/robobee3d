@@ -5,3 +5,4 @@ __pycache__/
 .vscode/ipch/**
 *.mp4
 *.png
+h7bee/build

@@ -5,15 +5,19 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"cwd": "${workspaceRoot}/planar/h7bee",
+			"cwd": "${workspaceRoot}/h7bee",
 			"executable": "build/h7bee.elf",
 			"name": "debug h7bee",
 			"request": "launch",
 			"type": "cortex-debug",
-			"servertype": "jlink",
+			"servertype": "openocd",
 			"device": "STM32H743ZI",
+			"interface": "swd",
+			"runToMain": true,
 			"preLaunchTask": "build h7bee",
-			"svdFile": "STM32H7x3.svd",
+			"configFiles": [
+				"board/st_nucleo_h743zi.cfg"
+			],
 		},
 		{
 			"cwd": "${workspaceRoot}/planar/mcuqp/build",
