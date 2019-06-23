@@ -77,7 +77,7 @@ void flapUpdate(void const *argument)
 
 	// PARAMETERS
 	float sfreq = 100; // wave freq
-	float Vpp = 50;
+	float Vpp = 10; // FIXME: it seems to greatly exceed this
 	// --
 
 	phase += sfreq * UPDATE_DT;
