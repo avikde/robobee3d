@@ -196,19 +196,28 @@ wqp = WingQP(m, Nknot, wx, wu, kdampx, kdampu, verbose=True, eps_rel=1e-2, eps_a
 # wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
 traj2 = wqp.update(yilin)
 
-# # Debug the solution
-# olTrajDirTran = dirTranForm(olTraj, wqp.ltvsys.N, wqp.ltvsys.nx,  wqp.ltvsys.nu)
-# traj2DirTran = dirTranForm(traj2, wqp.ltvsys.N, wqp.ltvsys.nx,  wqp.ltvsys.nu)
-# fig, ax = plt.subplots(2)
-# ax[0].plot(wqp.ltvsys.A @ olTrajDirTran - wqp.ltvsys.l)
-# ax[0].plot(wqp.ltvsys.A @ traj2DirTran - wqp.ltvsys.l)
-# ax[0].axhline(0, color='k', alpha=0.3)
-# ax[1].plot(wqp.ltvsys.u - wqp.ltvsys.A @ olTrajDirTran)
-# ax[1].plot(wqp.ltvsys.u - wqp.ltvsys.A @ traj2DirTran)
-# ax[1].axhline(0, color='k', alpha=0.3)
-# plt.show()
-print(wqp.ltvsys.N, wqp.ltvsys.nx,  wqp.ltvsys.nu)
+# Try to fix the solution. The last dynamics constraint was violated?
+olTraj2 = olTraj.copy()
+olTraj2[-1,:4] = olTraj2[-2,:4] + olTrajdt * m.dydt(olTraj2[-2,:4], olTraj2[-2,4:], params)
+
+# Debug the solution
+olTrajDirTran = dirTranForm(olTraj, wqp.ltvsys.N, wqp.ltvsys.nx,  wqp.ltvsys.nu)
+olTraj2DirTran = dirTranForm(olTraj2, wqp.ltvsys.N, wqp.ltvsys.nx,  wqp.ltvsys.nu)
+traj2DirTran = dirTranForm(traj2, wqp.ltvsys.N, wqp.ltvsys.nx,  wqp.ltvsys.nu)
+fig, ax = plt.subplots(2)
+ax[0].plot(wqp.ltvsys.A @ olTrajDirTran - wqp.ltvsys.l, label='1')
+ax[0].plot(wqp.ltvsys.A @ olTraj2DirTran - wqp.ltvsys.l, label='2')
+ax[0].plot(wqp.ltvsys.A @ traj2DirTran - wqp.ltvsys.l, label='3')
+ax[0].axhline(0, color='k', alpha=0.3)
+ax[0].legend()
+ax[1].plot(wqp.ltvsys.u - wqp.ltvsys.A @ olTrajDirTran, label='1')
+ax[1].plot(wqp.ltvsys.u - wqp.ltvsys.A @ olTraj2DirTran, label='2')
+ax[1].plot(wqp.ltvsys.u - wqp.ltvsys.A @ traj2DirTran, label='3')
+ax[1].axhline(0, color='k', alpha=0.3)
+ax[1].legend()
+plt.show()
 sys.exit(0)
+
 plotTrajs(olTraj, traj2)# debug the 1-step solution
 
 # wx = np.array([1,1,1,1])
