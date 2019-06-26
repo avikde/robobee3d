@@ -129,12 +129,17 @@ for ti in range(1, len(olTrajt)):
 
 # Wing traj opt using QP -------------------------------------------------
 def dirTranForm(xtraj, N, nx, nu):
-    # convert from the (N,nx+nu) array to the dirtran form
+    # convert from the (N-1,nx+nu) array to the dirtran form with x0,..,x[N-1],u0,...,u[N-2] i.e. shorter by 1
     return np.hstack((
-            np.reshape(xtraj[:,:nx], (N)*nx, 'C'),
-            xtraj[-1,:nx], # repeat Nth for N+1
-            np.reshape(xtraj[:,nx:], (N)*nu, 'C')
+            np.reshape(xtraj[:,:nx], (N+1)*nx, 'C'),
+            np.reshape(xtraj[:-1,nx:], (N)*nu, 'C')
         ))
+def xuMatForm(dirtranx, N, nx):
+    Xmat = np.reshape(dirtranx[:(N)*nx], (N,nx), 'C')
+    Umat = dirtranx[(N)*nx:][:,np.newaxis]
+    # Need to add another u since dirtran form has one fewer u. Just copy the last one
+    Umat = np.vstack((Umat, Umat[-1,:]))
+    return np.hstack((Xmat, Umat))
 # Create "MPC" object which will be used for SQP
 class QOFAvgLift:
     def __init__(self, wx, wu, kdampx, kdampu):
@@ -146,7 +151,8 @@ class QOFAvgLift:
         self.kdampu = kdampu
 
     def getPq(self, xtraj):
-        N = xtraj.shape[0]
+        # NOTE: it has to be 1 smaller
+        N = xtraj.shape[0] - 1
         nX = (N+1) * self.nx + N*self.nu
         # vector of weights for the whole dirtran x
         w = np.hstack((np.tile(self.wx, N+1), np.tile(self.wu, N)))
@@ -183,8 +189,7 @@ class WingQP:
         # debug
         # print(self.ltvsys.u - self.ltvsys.A @ dirtranx, self.ltvsys.A @ dirtranx - self.ltvsys.l)
         # reshape into (N,nx+nu)
-        traj2 = np.hstack((np.reshape(dirtranx[:N*nx], (N,nx), 'C'), dirtranx[(N+1)*nx:][:,np.newaxis]))
-        return traj2
+        return xuMatForm(dirtranx, N, nx)
 
 # Use the class above to step the QP
 Nknot = olTraj.shape[0]  # number of knot points in this case
@@ -194,7 +199,8 @@ wx = np.ones(nx) * 0.001
 wu = np.ones(nu) * 0.001
 kdampx = np.ones(4)
 kdampu = np.ones(1)
-wqp = WingQP(m, Nknot, wx, wu, kdampx, kdampu, verbose=True, eps_rel=1e-2, eps_abs=1e-2)
+# Must be 1 smaller to have the correct number of xi
+wqp = WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=True, eps_rel=1e-2, eps_abs=1e-2)
 # Test warm start
 # wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
 traj2 = wqp.update(olTraj)
@@ -202,10 +208,10 @@ traj2 = wqp.update(olTraj)
 
 # Try to fix A
 A2 = wqp.ltvsys.A.copy()
-# FIXME: check these indices
-Ad, Bd, cd = m.getLinearDynamics(olTraj[-2, :nx], olTraj[-2, nx:])
+print(olTraj[wqp.ltvsys.N-1, :nx], olTraj[-2, :nx]) #< note: N-1 th element = -1 th element, i.e. olTraj = N*(nx + nu)
+Ad, Bd, cd = m.getLinearDynamics(olTraj[wqp.ltvsys.N-1, :nx], olTraj[wqp.ltvsys.N-1, nx:])
 ltvsystem.csc.updateDynamics(A2, wqp.ltvsys.N, wqp.ltvsys.N-1, Ad=Ad, Bd=Bd)
-# FIXME: these should be the same
+# NOTE: now these are the same
 print('HI', A2 - wqp.ltvsys.A)
 sys.exit(0)
 
