@@ -98,17 +98,17 @@ olTrajt = sol.t[170:238:3]
 olTrajdt = np.mean(np.diff(olTrajt))
 m.dt = olTrajdt  # for the discretized dynamics
 
-def plotTrajs(*args):
+def plotTrajs(end=0, *args):
     """Helper function to plot a bunch of trajectories superimposed"""
     _, ax = plt.subplots(3)
     for arg in args:
-        ax[0].plot(olTrajt, arg[:,0], '.-')
+        ax[0].plot(olTrajt[:end], arg[:,0], '.-')
     ax[0].set_ylabel('stroke (m)')
     for arg in args:
-        ax[1].plot(olTrajt, arg[:,1], '.-')
+        ax[1].plot(olTrajt[:end], arg[:,1], '.-')
     ax[1].set_ylabel('hinge angle (rad)')
     for arg in args:
-        ax[2].plot(olTrajt, arg[:,4], '.-')
+        ax[2].plot(olTrajt[:end], arg[:,4], '.-')
     ax[2].set_ylabel('stroke force (N)')
     plt.show()
     sys.exit(0)
@@ -206,33 +206,24 @@ wqp = WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=True, eps_rel=1e-2, eps
 traj2 = wqp.update(olTraj)
 # print(olTraj - wqp.ltvsys.xtraj) # <these are identical: OK; traj update worked
 
-# Try to fix A
-A2 = wqp.ltvsys.A.copy()
-print(olTraj[wqp.ltvsys.N-1, :nx], olTraj[-2, :nx]) #< note: N-1 th element = -1 th element, i.e. olTraj = N*(nx + nu)
-Ad, Bd, cd = m.getLinearDynamics(olTraj[wqp.ltvsys.N-1, :nx], olTraj[wqp.ltvsys.N-1, nx:])
-ltvsystem.csc.updateDynamics(A2, wqp.ltvsys.N, wqp.ltvsys.N-1, Ad=Ad, Bd=Bd)
-# NOTE: now these are the same
-print('HI', A2 - wqp.ltvsys.A)
-sys.exit(0)
-
 # Debug the solution
-olTrajDirTran = dirTranForm(olTraj, wqp.ltvsys.N, wqp.ltvsys.nx,  wqp.ltvsys.nu)
-traj2DirTran = dirTranForm(traj2, wqp.ltvsys.N, wqp.ltvsys.nx,  wqp.ltvsys.nu)
-fig, ax = plt.subplots(2)
-ax[0].plot(wqp.ltvsys.A @ olTrajDirTran - wqp.ltvsys.l, label='1')
-ax[0].plot(A2 @ olTrajDirTran - wqp.ltvsys.l, label='2')
-ax[0].plot(wqp.ltvsys.A @ traj2DirTran - wqp.ltvsys.l, label='3')
-ax[0].axhline(0, color='k', alpha=0.3)
-ax[0].legend()
-ax[1].plot(wqp.ltvsys.u - wqp.ltvsys.A @ olTrajDirTran, label='1')
-ax[1].plot(wqp.ltvsys.u - A2 @ olTrajDirTran, label='2')
-ax[1].plot(wqp.ltvsys.u - wqp.ltvsys.A @ traj2DirTran, label='3')
-ax[1].axhline(0, color='k', alpha=0.3)
-ax[1].legend()
-plt.show()
-sys.exit(0)
+# olTrajDirTran = dirTranForm(olTraj, wqp.ltvsys.N, wqp.ltvsys.nx,  wqp.ltvsys.nu)
+# traj2DirTran = dirTranForm(traj2, wqp.ltvsys.N, wqp.ltvsys.nx,  wqp.ltvsys.nu)
+# fig, ax = plt.subplots(2)
+# ax[0].plot(wqp.ltvsys.A @ olTrajDirTran - wqp.ltvsys.l, label='1')
+# ax[0].plot(A2 @ olTrajDirTran - wqp.ltvsys.l, label='2')
+# ax[0].plot(wqp.ltvsys.A @ traj2DirTran - wqp.ltvsys.l, label='3')
+# ax[0].axhline(0, color='k', alpha=0.3)
+# ax[0].legend()
+# ax[1].plot(wqp.ltvsys.u - wqp.ltvsys.A @ olTrajDirTran, label='1')
+# ax[1].plot(wqp.ltvsys.u - A2 @ olTrajDirTran, label='2')
+# ax[1].plot(wqp.ltvsys.u - wqp.ltvsys.A @ traj2DirTran, label='3')
+# ax[1].axhline(0, color='k', alpha=0.3)
+# ax[1].legend()
+# plt.show()
+# sys.exit(0)
 
-plotTrajs(olTraj, traj2)# debug the 1-step solution
+plotTrajs(-1, olTraj[:-1,:], traj2)# debug the 1-step solution
 
 # wx = np.array([1,1,1,1])
 # wu = np.array([1])
