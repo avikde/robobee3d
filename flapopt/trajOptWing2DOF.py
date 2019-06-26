@@ -100,15 +100,22 @@ m.dt = olTrajdt  # for the discretized dynamics
 
 def plotTrajs(*args):
     """Helper function to plot a bunch of trajectories superimposed"""
+    umin, umax, xmin, xmax = m.limits
     _, ax = plt.subplots(3)
     for arg in args:
         ax[0].plot(olTrajt, arg[:,0], '.-')
+    ax[0].axhline(y=xmin[0], color='k', alpha=0.3)
+    ax[0].axhline(y=xmax[0], color='k', alpha=0.3)
     ax[0].set_ylabel('stroke (m)')
     for arg in args:
         ax[1].plot(olTrajt, arg[:,1], '.-')
+    ax[1].axhline(y=xmin[1], color='k', alpha=0.3)
+    ax[1].axhline(y=xmax[1], color='k', alpha=0.3)
     ax[1].set_ylabel('hinge angle (rad)')
     for arg in args:
         ax[2].plot(olTrajt, arg[:,4], '.-')
+    ax[2].axhline(y=umin[0], color='k', alpha=0.3)
+    ax[2].axhline(y=umax[0], color='k', alpha=0.3)
     ax[2].set_ylabel('stroke force (N)')
     plt.show()
     sys.exit(0)
