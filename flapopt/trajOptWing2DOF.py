@@ -142,7 +142,8 @@ def xuMatForm(dirtranx, N, nx):
     return np.hstack((Xmat, Umat))
 # Create "MPC" object which will be used for SQP
 class QOFAvgLift:
-    def __init__(self, wx, wu, kdampx, kdampu):
+    def __init__(self, N, wx, wu, kdampx, kdampu):
+        self.N = N
         self.nx = len(wx)
         self.nu = len(wu)
         self.wx = wx
@@ -151,15 +152,13 @@ class QOFAvgLift:
         self.kdampu = kdampu
 
     def getPq(self, xtraj):
-        # NOTE: it has to be 1 smaller
-        N = xtraj.shape[0] - 1
-        nX = (N+1) * self.nx + N*self.nu
+        nX = (self.N+1) * self.nx + self.N*self.nu
         # vector of weights for the whole dirtran x
-        w = np.hstack((np.tile(self.wx, N+1), np.tile(self.wu, N)))
-        kdamp = np.hstack((np.tile(self.kdampx, N+1), np.tile(self.kdampu, N)))
+        w = np.hstack((np.tile(self.wx, self.N+1), np.tile(self.wu, self.N)))
+        kdamp = np.hstack((np.tile(self.kdampx, self.N+1), np.tile(self.kdampu, self.N)))
 
         self.P = sparse.diags(w + kdamp).tocsc()
-        dirtranx = dirTranForm(xtraj, N, self.nx, self.nu)
+        dirtranx = dirTranForm(xtraj, self.N, self.nx, self.nu)
         self.q = -np.multiply(w, dirtranx)
         return self.P, self.q
 
@@ -168,7 +167,7 @@ class WingQP:
         self.ltvsys = ltvsystem.LTVSolver(model)
         # Dynamics and constraints
         self.ltvsys.initConstraints(model.nx, model.nu, N, polyBlocks=None)
-        self.ltvsys.initObjective(QOFAvgLift(wx, wu, kdampx, kdampu))
+        self.ltvsys.initObjective(QOFAvgLift(N, wx, wu, kdampx, kdampu))
         self.ltvsys.initSolver(**settings)
 
     def update(self, xtraj):
@@ -179,7 +178,7 @@ class WingQP:
         # NOTE: confirmed that updateTrajectory correctly updates the traj, and that updateDynamics is updating the A, B
         xtraj = self.ltvsys.updateTrajectory(xtraj[:,:4], u0, trajMode=ltvsystem.GIVEN_POINT_OR_TRAJ)
         self.ltvsys.updateObjective()
-        dirtranx, res = self.ltvsys.solve(throwOnError=False)
+        self.dirtranx, res = self.ltvsys.solve(throwOnError=False)
         if res.info.status not in ['solved', 'solved inaccurate', 'maximum iterations reached']:
             self.ltvsys.debugResult(res)
             # dirtranx = dirTranForm(xtraj, N, nx, self.ltvsys.nu)
@@ -189,7 +188,7 @@ class WingQP:
         # debug
         # print(self.ltvsys.u - self.ltvsys.A @ dirtranx, self.ltvsys.A @ dirtranx - self.ltvsys.l)
         # reshape into (N,nx+nu)
-        return xuMatForm(dirtranx, N, nx)
+        return xuMatForm(self.dirtranx, N+1, nx)
 
 # Use the class above to step the QP
 Nknot = olTraj.shape[0]  # number of knot points in this case
@@ -200,30 +199,30 @@ wu = np.ones(nu) * 0.001
 kdampx = np.ones(4)
 kdampu = np.ones(1)
 # Must be 1 smaller to have the correct number of xi
-wqp = WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=True, eps_rel=1e-2, eps_abs=1e-2)
+wqp = WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=False, eps_rel=1e-2, eps_abs=1e-2)
 # Test warm start
 # wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
 traj2 = wqp.update(olTraj)
 # print(olTraj - wqp.ltvsys.xtraj) # <these are identical: OK; traj update worked
 
 # Debug the solution
-# olTrajDirTran = dirTranForm(olTraj, wqp.ltvsys.N, wqp.ltvsys.nx,  wqp.ltvsys.nu)
-# traj2DirTran = dirTranForm(traj2, wqp.ltvsys.N, wqp.ltvsys.nx,  wqp.ltvsys.nu)
-# fig, ax = plt.subplots(2)
-# ax[0].plot(wqp.ltvsys.A @ olTrajDirTran - wqp.ltvsys.l, label='1')
-# ax[0].plot(A2 @ olTrajDirTran - wqp.ltvsys.l, label='2')
-# ax[0].plot(wqp.ltvsys.A @ traj2DirTran - wqp.ltvsys.l, label='3')
-# ax[0].axhline(0, color='k', alpha=0.3)
-# ax[0].legend()
-# ax[1].plot(wqp.ltvsys.u - wqp.ltvsys.A @ olTrajDirTran, label='1')
-# ax[1].plot(wqp.ltvsys.u - A2 @ olTrajDirTran, label='2')
-# ax[1].plot(wqp.ltvsys.u - wqp.ltvsys.A @ traj2DirTran, label='3')
-# ax[1].axhline(0, color='k', alpha=0.3)
-# ax[1].legend()
-# plt.show()
-# sys.exit(0)
+print(olTraj.shape, wqp.dirtranx.shape)
+print(wqp.ltvsys.A.shape, olTraj.shape)
+olTrajDirTran = dirTranForm(olTraj, wqp.ltvsys.N, wqp.ltvsys.nx,  wqp.ltvsys.nu)
+traj2DirTran = dirTranForm(traj2, wqp.ltvsys.N, wqp.ltvsys.nx,  wqp.ltvsys.nu)
+fig, ax = plt.subplots(2)
+ax[0].plot(wqp.ltvsys.A @ olTrajDirTran - wqp.ltvsys.l, label='1')
+ax[0].plot(wqp.ltvsys.A @ traj2DirTran - wqp.ltvsys.l, label='3')
+ax[0].axhline(0, color='k', alpha=0.3)
+ax[0].legend()
+ax[1].plot(wqp.ltvsys.u - wqp.ltvsys.A @ olTrajDirTran, label='1')
+ax[1].plot(wqp.ltvsys.u - wqp.ltvsys.A @ traj2DirTran, label='3')
+ax[1].axhline(0, color='k', alpha=0.3)
+ax[1].legend()
+plt.show()
+sys.exit(0)
 
-plotTrajs(-1, olTraj[:-1,:], traj2)# debug the 1-step solution
+# plotTrajs(-1, olTraj, traj2)# debug the 1-step solution
 
 # wx = np.array([1,1,1,1])
 # wu = np.array([1])
