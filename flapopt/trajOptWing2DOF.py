@@ -170,6 +170,7 @@ class WingQP:
         nx = self.ltvsys.nx
         # TODO: check which traj mode
         u0 = xtraj[:,4][:,np.newaxis]
+        # NOTE: confirmed that updateTrajectory correctly updates the traj, and that updateDynamics is updating the A, B
         xtraj = self.ltvsys.updateTrajectory(xtraj[:,:4], u0, trajMode=ltvsystem.GIVEN_POINT_OR_TRAJ)
         self.ltvsys.updateObjective()
         dirtranx, res = self.ltvsys.solve(throwOnError=False)
@@ -187,20 +188,26 @@ class WingQP:
 
 # Use the class above to step the QP
 Nknot = olTraj.shape[0]  # number of knot points in this case
-wx = np.ones(4) * 0.001
-wu = np.ones(1) * 0.001
+nx = 4
+nu = 1
+wx = np.ones(nx) * 0.001
+wu = np.ones(nu) * 0.001
 kdampx = np.ones(4)
 kdampu = np.ones(1)
 wqp = WingQP(m, Nknot, wx, wu, kdampx, kdampu, verbose=True, eps_rel=1e-2, eps_abs=1e-2)
 # Test warm start
 # wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
-traj2 = wqp.update(yilin)
+traj2 = wqp.update(olTraj)
+# print(olTraj - wqp.ltvsys.xtraj) # <these are identical: OK; traj update worked
 
 # Try to fix A
 A2 = wqp.ltvsys.A.copy()
 # FIXME: check these indices
-Ad, Bd, cd = m.getLinearDynamics(olTraj[-1, :4], olTraj[-1, 4:])
-ltvsystem.csc.updateDynamics(A2, wqp.ltvsys.N, wqp.ltvsys.N+1, Ad=Ad, Bd=Bd)
+Ad, Bd, cd = m.getLinearDynamics(olTraj[-2, :nx], olTraj[-2, nx:])
+ltvsystem.csc.updateDynamics(A2, wqp.ltvsys.N, wqp.ltvsys.N-1, Ad=Ad, Bd=Bd)
+# FIXME: these should be the same
+print('HI', A2 - wqp.ltvsys.A)
+sys.exit(0)
 
 # Debug the solution
 olTrajDirTran = dirTranForm(olTraj, wqp.ltvsys.N, wqp.ltvsys.nx,  wqp.ltvsys.nu)
