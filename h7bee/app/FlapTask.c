@@ -28,8 +28,9 @@ static void voltageControl(float vdes, float vact, TIM_HandleTypeDef *htim)
 	const uint16_t arr = 10000; //depends on ARR setting
 	// hi-side, and lo-side duty cycles. only one of them can be > 0 for each period
 	static float dch, dcl;
-	// TODO: on time (duty cycle) related to the magnitude of the difference?
-	float mag = constrain(0.005 * (vact - vdes), -0.1, 0.1);
+	// Try simple P control with saturation
+	const float kMagDuty = 5, kP = 0.02;
+	float mag = constrain(kP * (vact - vdes), -kMagDuty, kMagDuty);
 	if (vact > vdes)
 	{
 		dcl = mag;
@@ -37,7 +38,7 @@ static void voltageControl(float vdes, float vact, TIM_HandleTypeDef *htim)
 	}
 	else
 	{
-		dch = -0.5 * mag; // based on looking at sine output
+		dch = -mag; // based on looking at sine output
 		dcl = 0;
 	}
 	__HAL_TIM_SetCompare(htim, TIM_CHANNEL_1, (uint16_t)(arr * dch));
@@ -61,7 +62,7 @@ static void analogGetValues(float *vact, float *iact)
 
 	// scale from https://docs.google.com/spreadsheets/d/1NQQbD_Zaig3STnTJG6g7wlEqw0pASV7lOaqTsuFVBwo/edit?usp=sharing
 	const float VADC_C0 = -4.67, VADC_C1 = 0.0191;
-	const float VSMOOTH = 0.6;
+	const float VSMOOTH = 0.7;
 	// output voltage
 	vact[0] = VSMOOTH * vact[0] + (1 - VSMOOTH) * (VADC_C0 + VADC_C1 * vsens1);
 	vact[1] = VSMOOTH * vact[1] + (1 - VSMOOTH) * (VADC_C0 + VADC_C1 * vsens2);
@@ -76,7 +77,7 @@ void flapUpdate(void const *argument)
 	HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin); // timing debugging
 
 	// PARAMETERS
-	float sfreq = 100; // wave freq
+	float sfreq = 200; // wave freq
 	float Vpp = 10; // FIXME: it seems to greatly exceed this
 	// --
 
