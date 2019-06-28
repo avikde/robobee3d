@@ -188,6 +188,22 @@ class WingQP:
         # print(self.ltvsys.u - self.ltvsys.A @ dirtranx, self.ltvsys.A @ dirtranx - self.ltvsys.l)
         # reshape into (N,nx+nu)
         return xuMatForm(self.dirtranx, N+1, nx)
+        
+    # Debug the solution
+    def _dt(self, traj):
+        return dirTranForm(traj, self.ltvsys.N, self.ltvsys.nx, self.ltvsys.nu) if len(traj.shape) > 1 else traj
+
+    def debugConstraintViol(self, *args):
+        """args are trajs in dirtran form or square"""
+        _, ax = plt.subplots(2)
+        for i in range(len(args)):
+            ax[0].plot(self.ltvsys.A @ self._dt(args[i]) - self.ltvsys.l, '.-', label=str(i))
+        ax[0].axhline(0, color='k', alpha=0.3)
+        ax[0].legend()
+        for i in range(len(args)):
+            ax[1].plot(self.ltvsys.u - self.ltvsys.A @ self._dt(args[i]), '.-', label=str(i))
+        ax[1].axhline(0, color='k', alpha=0.3)
+        ax[1].legend()
 
 # Use the class above to step the QP
 Nknot = olTraj.shape[0]  # number of knot points in this case
@@ -198,28 +214,13 @@ wu = np.ones(nu) * 0.1
 kdampx = np.ones(4)
 kdampu = np.ones(1)
 # Must be 1 smaller to have the correct number of xi
-wqp = WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=True, eps_rel=1e-4, eps_abs=1e-4)
+wqp = WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=True, eps_rel=1e-5, eps_abs=1e-5, max_iter=10000)
 # Test warm start
 # wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
 traj2 = wqp.update(olTraj)
 # print(olTraj - wqp.ltvsys.xtraj) # <these are identical: OK; traj update worked
 
-# Debug the solution
-def _dt(traj):
-    return dirTranForm(traj, wqp.ltvsys.N, wqp.ltvsys.nx, wqp.ltvsys.nu) if len(traj.shape) > 1 else traj
-def debugConstraintViol(*args):
-    """args are trajs in dirtran form or square"""
-    _, ax = plt.subplots(2)
-    for i in range(len(args)):
-        ax[0].plot(wqp.ltvsys.A @ _dt(args[i]) - wqp.ltvsys.l, '.-', label=str(i))
-    ax[0].axhline(0, color='k', alpha=0.3)
-    ax[0].legend()
-    for i in range(len(args)):
-        ax[1].plot(wqp.ltvsys.u - wqp.ltvsys.A @ _dt(args[i]), '.-', label=str(i))
-    ax[1].axhline(0, color='k', alpha=0.3)
-    ax[1].legend()
-
-debugConstraintViol(olTraj, wqp.dirtranx)
+# wqp.debugConstraintViol(olTraj, wqp.dirtranx)
 
 # print(olTraj.shape, traj2.shape, olTrajt.shape)
 plotTrajs(olTraj, traj2)# debug the 1-step solution
