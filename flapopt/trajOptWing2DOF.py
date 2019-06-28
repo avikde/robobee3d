@@ -29,7 +29,7 @@ def sigmades(t):
     return 15e-3 * np.sin(150 * 2 * np.pi * t)
 def controller(t, y):
     return 1e2 * (sigmades(t) - y[0]) - 1e-2 * y[2]
-def closedLoop(t, y):
+def strokePosControlVF(t, y):
     # u0 = 1e-3 * np.sin(100 * 2 * np.pi * tvec[ti])
     # pos servoing
     u0 = controller(t, y)
@@ -68,23 +68,17 @@ def Jcostsol(solt, soly, params):
 
 Jgrad = jacobian(lambda yu : Jcosttraj(yu, params))
 
-# --- SIMULATIONS DISCRETIZED AND CTS ---
+"""Get initial OL trajectory with a small-timestep simulation ----------------------
+"""
 # Sim params
 tf = 0.1
 tvec = np.arange(0, tf, dt)
-yi = np.zeros((m.nx, len(tvec)))
-yi[:,0] = np.array([1e-2, 0, 0, 0])
-
-for ti in range(1, len(tvec)):
-    # Nonlinear
-    yi[:,ti] = yi[:,ti-1] + dt * closedLoop(tvec[ti], yi[:,ti-1])
-
-# compare to continuous
-sol = solve_ivp(closedLoop, [0,tf], yi[:,0], dense_output=True, t_eval=tvec)
-
+y0 = np.array([1e-2, 0, 0, 0])
+# Sim of an openloop controller
+sol = solve_ivp(strokePosControlVF, [0,tf], y0, dense_output=True, t_eval=tvec)
 print('Avg cost =', Jcostsol(sol.t, sol.y, params))
 
-# -------- Open loop trajectory from the simulation above ------------------
+# Decimate the rate to get a starting traj for optimization with fewer knot points
 # At this point there is a "nominal trajectory" in sol.y
 yu0 = sol.y.copy()
 # yu0 = yi.copy()
@@ -97,6 +91,17 @@ olTraj = (yu0.T)[170:238:3,:]
 olTrajt = sol.t[170:238:3]
 olTrajdt = np.mean(np.diff(olTrajt))
 m.dt = olTrajdt  # for the discretized dynamics
+
+# Get the decimated trajectory to be feasible by iterating the linearized dynamics with the inputs
+yi2 = olTraj.copy()
+for ti in range(1, len(olTrajt)):
+    ui = olTraj[ti-1, 4:] # OL input from previous traj
+    # Linearized
+    A, B, c = m.getLinearDynamics(olTraj[ti-1, :4], ui)
+    olTraj[ti, :4] = A @ olTraj[ti-1, :4] + B @ ui + c
+    # Nonlinear
+    yi2[ti, :4] = yi2[ti-1, :4] + olTrajdt * m.dydt(yi2[ti-1, :4], ui, params)
+# plotTrajs(olTraj, yi2, yilin)
 
 def plotTrajs(*args):
     """Helper function to plot a bunch of trajectories superimposed"""
@@ -120,19 +125,6 @@ def plotTrajs(*args):
     plt.show()
     sys.exit(0)
 # --------------------------------------
-
-# Test the linearized dynamics 
-yi2 = olTraj.copy()
-yilin = olTraj.copy()
-for ti in range(1, len(olTrajt)):
-    ui = yilin[ti-1, 4:]
-    # Nonlinear
-    yi2[ti, :4] = yi2[ti-1, :4] + olTrajdt * m.dydt(yi2[ti-1, :4], ui, params)
-    # Linearized
-    # ui = np.array([controller(tvec[ti], yilin[:,ti-1])])
-    A, B, c = m.getLinearDynamics(yilin[ti-1, :4], ui)
-    yilin[ti, :4] = A @ yilin[ti-1, :4] + B @ ui + c
-# plotTrajs(olTraj, yi2, yilin)
 
 # Wing traj opt using QP -------------------------------------------------
 def dirTranForm(xtraj, N, nx, nu):
@@ -213,17 +205,21 @@ traj2 = wqp.update(olTraj)
 # print(olTraj - wqp.ltvsys.xtraj) # <these are identical: OK; traj update worked
 
 # Debug the solution
-olTrajDirTran = dirTranForm(olTraj, wqp.ltvsys.N, wqp.ltvsys.nx,  wqp.ltvsys.nu)
-traj2DirTran = wqp.dirtranx
-fig, ax = plt.subplots(2)
-ax[0].plot(wqp.ltvsys.A @ olTrajDirTran - wqp.ltvsys.l, label='1')
-ax[0].plot(wqp.ltvsys.A @ traj2DirTran - wqp.ltvsys.l, label='3')
-ax[0].axhline(0, color='k', alpha=0.3)
-ax[0].legend()
-ax[1].plot(wqp.ltvsys.u - wqp.ltvsys.A @ olTrajDirTran, label='1')
-ax[1].plot(wqp.ltvsys.u - wqp.ltvsys.A @ traj2DirTran, label='3')
-ax[1].axhline(0, color='k', alpha=0.3)
-ax[1].legend()
+def _dt(traj):
+    return dirTranForm(traj, wqp.ltvsys.N, wqp.ltvsys.nx, wqp.ltvsys.nu) if len(traj.shape) > 1 else traj
+def debugConstraintViol(*args):
+    """args are trajs in dirtran form or square"""
+    _, ax = plt.subplots(2)
+    for i in range(len(args)):
+        ax[0].plot(wqp.ltvsys.A @ _dt(args[i]) - wqp.ltvsys.l, '.-', label=str(i))
+    ax[0].axhline(0, color='k', alpha=0.3)
+    ax[0].legend()
+    for i in range(len(args)):
+        ax[1].plot(wqp.ltvsys.u - wqp.ltvsys.A @ _dt(args[i]), '.-', label=str(i))
+    ax[1].axhline(0, color='k', alpha=0.3)
+    ax[1].legend()
+
+debugConstraintViol(olTraj, wqp.dirtranx)
 
 # print(olTraj.shape, traj2.shape, olTrajt.shape)
 plotTrajs(olTraj, traj2)# debug the 1-step solution
