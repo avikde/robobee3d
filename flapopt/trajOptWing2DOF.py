@@ -195,14 +195,19 @@ class WingQP:
 
     def debugConstraintViol(self, *args):
         """args are trajs in dirtran form or square"""
+        # row index where the dynamics constraints end
+        ridyn = (self.ltvsys.N + 1) * self.ltvsys.nx
+        rixlim = ridyn + self.ltvsys.N * self.ltvsys.nx
         _, ax = plt.subplots(2)
         for i in range(len(args)):
             ax[0].plot(self.ltvsys.A @ self._dt(args[i]) - self.ltvsys.l, '.-', label=str(i))
-        ax[0].axhline(0, color='k', alpha=0.3)
         ax[0].legend()
         for i in range(len(args)):
             ax[1].plot(self.ltvsys.u - self.ltvsys.A @ self._dt(args[i]), '.-', label=str(i))
-        ax[1].axhline(0, color='k', alpha=0.3)
+        for i in range(2):
+            ax[i].axhline(0, color='k', alpha=0.3) # mark 0
+            ax[i].axvline(ridyn, color='b', alpha=0.3)
+            ax[i].axvline(rixlim, color='r', alpha=0.3)
         ax[1].legend()
 
 # Use the class above to step the QP
@@ -220,7 +225,7 @@ wqp = WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=True, eps_rel=1e-5, eps
 traj2 = wqp.update(olTraj)
 # print(olTraj - wqp.ltvsys.xtraj) # <these are identical: OK; traj update worked
 
-# wqp.debugConstraintViol(olTraj, wqp.dirtranx)
+wqp.debugConstraintViol(olTraj, wqp.dirtranx)
 
 # print(olTraj.shape, traj2.shape, olTrajt.shape)
 plotTrajs(olTraj, traj2)# debug the 1-step solution
