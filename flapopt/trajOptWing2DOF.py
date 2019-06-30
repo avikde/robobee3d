@@ -17,6 +17,7 @@ import controlutils.py.ltvsystem as ltvsystem
 # ---------------------------------------------------
 
 m = FlappingModels.Wing2DOF()
+m.rescale = 2.0
 
 # PARAMETERS -------------
 dt = 1e-4 # need for discretization
@@ -24,9 +25,9 @@ dt = 1e-4 # need for discretization
 params = np.array([5e-3])
 
 # Functions ---
-
+_, _, _, xmax = m.limits
 def sigmades(t):
-    return 15e-3 * np.sin(150 * 2 * np.pi * t)
+    return 0.75 * xmax[0] * np.sin(150 * 2 * np.pi * t)
 def controller(t, y):
     return 1e2 * (sigmades(t) - y[0]) - 1e-2 * y[2]
 def strokePosControlVF(t, y):
@@ -227,7 +228,7 @@ wu = np.ones(nu) * 0.1
 kdampx = np.ones(4)
 kdampu = np.ones(1)
 # Must be 1 smaller to have the correct number of xi
-wqp = WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=True, eps_rel=1e-5, eps_abs=1e-5, max_iter=10000)
+wqp = WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=True, eps_rel=1e-3, eps_abs=1e-3, max_iter=10000)
 # Test warm start
 # wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
 traj2 = wqp.update(olTraj)

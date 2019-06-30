@@ -293,7 +293,7 @@ class Wing2DOF(Model):
     y0 = np.zeros(nx)
     cbar = 5e-3
     
-    rescale = True
+    rescale = 1.0
 
     def aero(self, y, u, params=[]):
         cbar = self.cbar if len(params)==0 else params[0]
@@ -323,6 +323,8 @@ class Wing2DOF(Model):
         See mma file flapping wing traj
         '''
         sigma, psi, dsigma, dpsi = tuple(y)
+        sigma /= self.rescale
+        dsigma /= self.rescale
         cpsi = np.cos(psi)
         spsi = np.sin(psi)
 
@@ -345,18 +347,18 @@ class Wing2DOF(Model):
         # input
         tauinp = np.array([u[0], 0])
 
-        ddq = np.linalg.inv(M) @ (-corgrav + taudamp + tauaero + tauinp)
+        ddq = np.diag([self.rescale, 1]) @ np.linalg.inv(M) @ (-corgrav + taudamp + tauaero + tauinp)
 
         return np.hstack((y[2:], ddq))
 
-    def _getLimits(self):
+    @property
+    def limits(self):
         # This is based on observing the OL trajectory
         umin = np.array([-0.1])
         umax = -umin
-        xmin = np.array([-0.02, -1, -np.inf, -np.inf])
+        xmin = np.array([-0.02 * self.rescale, -1, -np.inf, -np.inf])
         xmax = -xmin
         return umin, umax, xmin, xmax
-    limits = property(_getLimits)
 
 
 def visualizeTraj(ax, traj, model, col='r', Faeroscale=1, tplot=None):
