@@ -17,7 +17,7 @@ import controlutils.py.ltvsystem as ltvsystem
 # ---------------------------------------------------
 
 m = FlappingModels.Wing2DOF()
-m.rescale = 2.0
+m.rescale = 4.0
 
 # PARAMETERS -------------
 dt = 1e-4 # need for discretization
