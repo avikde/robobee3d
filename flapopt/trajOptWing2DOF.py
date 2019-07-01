@@ -61,6 +61,13 @@ def Jcosttraj(yu, params):
     c += Jobjinst(yu[:m.nx,-1], yu[m.nx:,-1], params)
     return c
 
+def Jcost_dirtran(dirtranx, N, params):
+    '''this is over a traj, no penalty'''
+    c = 0
+    for k in range(N):
+        c += Jobjinst(dirtranx[(k*m.nx):((k+1)*m.nx)], dirtranx[((N+1)*m.nx + k*m.nu):((N+1)*m.nx + (k+1)*m.nu)], params)
+    return c
+
 def Jcostsol(solt, soly, params):
     Nt = len(solt)
     Jcosti = 0
@@ -153,15 +160,20 @@ class QOFAvgLift:
         self.wu = wu
         self.kdampx = kdampx
         self.kdampu = kdampu
+        # autodiff to get gradient of avg lift cost
+        self.Jgrad = jacobian(lambda x : Jcost_dirtran(x, N, params))
 
     def getPq(self, xtraj):
+        dirtranx = dirTranForm(xtraj, self.N, self.nx, self.nu)
         nX = (self.N+1) * self.nx + self.N*self.nu
         # vector of weights for the whole dirtran x
         w = np.hstack((np.tile(self.wx, self.N+1), np.tile(self.wu, self.N)))
         kdamp = np.hstack((np.tile(self.kdampx, self.N+1), np.tile(self.kdampu, self.N)))
 
+        # Evaluate the jacobian J
+        J = self.Jgrad(dirtranx)
+
         self.P = sparse.diags(w + kdamp).tocsc()
-        dirtranx = dirTranForm(xtraj, self.N, self.nx, self.nu)
         self.q = -np.multiply(kdamp, dirtranx)
         return self.P, self.q
     
@@ -237,7 +249,7 @@ wu = np.ones(nu) * 1e-6
 kdampx = np.ones(4)
 kdampu = np.zeros(1)
 # Must be 1 smaller to have the correct number of xi
-wqp = WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=True, eps_rel=1e-2, eps_abs=1e-2, max_iter=10000)
+wqp = WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=False, eps_rel=1e-2, eps_abs=1e-2, max_iter=10000)
 # Test warm start
 # wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
 traj2 = wqp.update(olTraj)
@@ -247,8 +259,8 @@ traj3 = wqp.update(traj2)
 # wqp.debugConstraintViol(olTraj, wqp.dirtranx)
 
 # print(olTraj.shape, traj2.shape, olTrajt.shape)
+print(Jcost_dirtran(wqp.dirtranx, Nknot, params))
 plotTrajs(olTraj, traj2, traj3)# debug the 1-step solution
-
 sys.exit(0)
 
 # OLD gradient descent ------------
