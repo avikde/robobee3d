@@ -1,5 +1,5 @@
 import autograd.numpy as np
-from autograd import jacobian
+from autograd import jacobian, hessian
 import matplotlib.pyplot as plt
 from matplotlib import animation
 import sys
@@ -161,7 +161,9 @@ class QOFAvgLift:
         self.kdampx = kdampx
         self.kdampu = kdampu
         # autodiff to get gradient of avg lift cost
-        self.Jgrad = jacobian(lambda x : Jcost_dirtran(x, N, params))
+        Jx = lambda x : Jcost_dirtran(x, N, params)
+        self.DJfun = jacobian(Jx)
+        self.D2Jfun = hessian(Jx)
 
     def getPq(self, xtraj):
         dirtranx = dirTranForm(xtraj, self.N, self.nx, self.nu)
@@ -171,8 +173,9 @@ class QOFAvgLift:
         kdamp = np.hstack((np.tile(self.kdampx, self.N+1), np.tile(self.kdampu, self.N)))
 
         # Evaluate the jacobian J
-        DJ = self.Jgrad(dirtranx)
-        D2J = sparse.csc_matrix(np.outer(DJ, DJ))
+        DJ = self.DJfun(dirtranx)
+        # D2J = sparse.csc_matrix(np.outer(DJ, DJ))
+        D2J = sparse.csc_matrix(self.D2Jfun(dirtranx))
         # self.P = sparse.diags(w + kdamp).tocsc()
         # self.q = -np.multiply(kdamp, dirtranx)
         self.P = D2J + sparse.diags(w + kdamp).tocsc()
