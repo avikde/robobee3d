@@ -124,6 +124,8 @@ def plotTrajs(*args):
     ax[2].axhline(y=umin[0], color='k', alpha=0.3)
     ax[2].axhline(y=umax[0], color='k', alpha=0.3)
     ax[2].set_ylabel('stroke force (N)')
+    for arg in args:
+        print('cost = ', wqp.ltvsys.qof.cost(arg))
     plt.show()
     sys.exit(0)
 # --------------------------------------
@@ -160,7 +162,7 @@ class QOFAvgLift:
 
         self.P = sparse.diags(w + kdamp).tocsc()
         dirtranx = dirTranForm(xtraj, self.N, self.nx, self.nu)
-        self.q = -np.multiply(w, dirtranx)
+        self.q = -np.multiply(kdamp, dirtranx)
         return self.P, self.q
     
     def cost(self, xtraj):
@@ -230,22 +232,22 @@ class WingQP:
 Nknot = olTraj.shape[0]  # number of knot points in this case
 nx = 4
 nu = 1
-wx = np.ones(nx) * 10
-wu = np.ones(nu) * 0.1
+wx = np.ones(nx) * 1e-6
+wu = np.ones(nu) * 1e-6
 kdampx = np.ones(4)
-kdampu = np.ones(1)
+kdampu = np.zeros(1)
 # Must be 1 smaller to have the correct number of xi
 wqp = WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=True, eps_rel=1e-2, eps_abs=1e-2, max_iter=10000)
 # Test warm start
 # wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
 traj2 = wqp.update(olTraj)
 # print(olTraj - wqp.ltvsys.xtraj) # <these are identical: OK; traj update worked
+traj3 = wqp.update(traj2)
 
-wqp.debugConstraintViol(olTraj, wqp.dirtranx)
+# wqp.debugConstraintViol(olTraj, wqp.dirtranx)
 
-print(wqp.ltvsys.qof.cost(olTraj), wqp.ltvsys.qof.cost(traj2))
 # print(olTraj.shape, traj2.shape, olTrajt.shape)
-plotTrajs(olTraj, traj2)# debug the 1-step solution
+plotTrajs(olTraj, traj2, traj3)# debug the 1-step solution
 
 sys.exit(0)
 
