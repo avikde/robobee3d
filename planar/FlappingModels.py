@@ -319,7 +319,7 @@ class Wing2DOF(Model):
 
         return Jaero, Faero
 
-    def dydt(self, y, uu, params=[]):
+    def dydt(self, y, u, params=[]):
         ''' 
         See mma file flapping wing traj
         '''

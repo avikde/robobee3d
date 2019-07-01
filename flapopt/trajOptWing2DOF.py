@@ -162,6 +162,11 @@ class QOFAvgLift:
         dirtranx = dirTranForm(xtraj, self.N, self.nx, self.nu)
         self.q = -np.multiply(w, dirtranx)
         return self.P, self.q
+    
+    def cost(self, xtraj):
+        self.getPq(xtraj)
+        dirtranx = dirTranForm(xtraj, self.N, self.nx, self.nu)
+        return 0.5 * dirtranx @ self.P @ dirtranx + self.q @ dirtranx
 
 class WingQP:
     def __init__(self, model, N, wx, wu, kdampx, kdampu, **settings):
@@ -235,8 +240,9 @@ wqp = WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=True, eps_rel=1e-3, eps
 traj2 = wqp.update(olTraj)
 # print(olTraj - wqp.ltvsys.xtraj) # <these are identical: OK; traj update worked
 
-wqp.debugConstraintViol(olTraj, wqp.dirtranx)
+# wqp.debugConstraintViol(olTraj, wqp.dirtranx)
 
+print(wqp.ltvsys.qof.cost(olTraj), wqp.ltvsys.qof.cost(traj2))
 # print(olTraj.shape, traj2.shape, olTrajt.shape)
 plotTrajs(olTraj, traj2)# debug the 1-step solution
 
