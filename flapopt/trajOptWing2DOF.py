@@ -171,10 +171,13 @@ class QOFAvgLift:
         kdamp = np.hstack((np.tile(self.kdampx, self.N+1), np.tile(self.kdampu, self.N)))
 
         # Evaluate the jacobian J
-        J = self.Jgrad(dirtranx)
+        DJ = self.Jgrad(dirtranx)
+        D2J = sparse.csc_matrix(np.outer(DJ, DJ))
+        # self.P = sparse.diags(w + kdamp).tocsc()
+        # self.q = -np.multiply(kdamp, dirtranx)
+        self.P = D2J + sparse.diags(w + kdamp).tocsc()
+        self.q = -np.multiply(kdamp, dirtranx) + DJ - D2J @ dirtranx
 
-        self.P = sparse.diags(w + kdamp).tocsc()
-        self.q = -np.multiply(kdamp, dirtranx)
         return self.P, self.q
     
     def cost(self, xtraj):
