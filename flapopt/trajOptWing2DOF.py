@@ -235,7 +235,7 @@ wu = np.ones(nu) * 0.1
 kdampx = np.ones(4)
 kdampu = np.ones(1)
 # Must be 1 smaller to have the correct number of xi
-wqp = WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=True, eps_rel=1e-3, eps_abs=1e-3, max_iter=10000)
+wqp = WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=True, eps_rel=1e-2, eps_abs=1e-2, max_iter=10000)
 # Test warm start
 # wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
 traj2 = wqp.update(olTraj)

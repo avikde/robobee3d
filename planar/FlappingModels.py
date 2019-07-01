@@ -359,7 +359,7 @@ class Wing2DOF(Model):
         # This is based on observing the OL trajectory
         umin = np.array([-0.1 * self.rescaleU])
         umax = -umin
-        xmin = np.array([-0.02 * self.rescale, -1, -np.inf, -np.inf])
+        xmin = np.array([-0.02 * self.rescale, -1.2, -np.inf, -np.inf])
         xmax = -xmin
         return umin, umax, xmin, xmax
 
