@@ -294,6 +294,7 @@ class Wing2DOF(Model):
     cbar = 5e-3
     
     rescale = 1.0
+    rescaleU = 1.0
 
     def aero(self, y, u, params=[]):
         cbar = self.cbar if len(params)==0 else params[0]
@@ -318,11 +319,13 @@ class Wing2DOF(Model):
 
         return Jaero, Faero
 
-    def dydt(self, y, u, params=[]):
+    def dydt(self, y, uu, params=[]):
         ''' 
         See mma file flapping wing traj
         '''
         Kscale = np.diag([self.rescale, 1, self.rescale, 1])
+        # FIXME: u rescale not working due to some autograd error
+        # u = 1 / self.rescaleU * np.asarray(uu)
         y = np.linalg.inv(Kscale) @ y
         sigma, psi, dsigma, dpsi = tuple(y)
         cpsi = np.cos(psi)
@@ -354,7 +357,7 @@ class Wing2DOF(Model):
     @property
     def limits(self):
         # This is based on observing the OL trajectory
-        umin = np.array([-0.1 * self.rescale])
+        umin = np.array([-0.1 * self.rescaleU])
         umax = -umin
         xmin = np.array([-0.02 * self.rescale, -1, -np.inf, -np.inf])
         xmax = -xmin
