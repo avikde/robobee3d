@@ -322,9 +322,9 @@ class Wing2DOF(Model):
         ''' 
         See mma file flapping wing traj
         '''
+        Kscale = np.diag([self.rescale, 1, self.rescale, 1])
+        y = np.linalg.inv(Kscale) @ y
         sigma, psi, dsigma, dpsi = tuple(y)
-        sigma /= self.rescale
-        dsigma /= self.rescale
         cpsi = np.cos(psi)
         spsi = np.sin(psi)
 
@@ -347,14 +347,14 @@ class Wing2DOF(Model):
         # input
         tauinp = np.array([u[0], 0])
 
-        ddq = np.diag([self.rescale, 1]) @ np.linalg.inv(M) @ (-corgrav + taudamp + tauaero + tauinp)
+        ddq = np.linalg.inv(M) @ (-corgrav + taudamp + tauaero + tauinp)
 
-        return np.hstack((y[2:], ddq))
+        return Kscale @ np.hstack((y[2:], ddq))
 
     @property
     def limits(self):
         # This is based on observing the OL trajectory
-        umin = np.array([-0.1])
+        umin = np.array([-0.1 * self.rescale])
         umax = -umin
         xmin = np.array([-0.02 * self.rescale, -1, -np.inf, -np.inf])
         xmax = -xmin
