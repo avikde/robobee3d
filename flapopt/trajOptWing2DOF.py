@@ -172,7 +172,8 @@ class WingQP:
     def __init__(self, model, N, wx, wu, kdampx, kdampu, **settings):
         self.ltvsys = ltvsystem.LTVSolver(model)
         # Dynamics and constraints
-        self.ltvsys.initConstraints(model.nx, model.nu, N, polyBlocks=None)
+        self.ltvsys.initConstraints(model.nx, model.nu, N, periodic=True, 
+        polyBlocks=None)
         self.ltvsys.initObjective(QOFAvgLift(N, wx, wu, kdampx, kdampu))
         self.ltvsys.initSolver(**settings)
 
@@ -240,7 +241,7 @@ wqp = WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=True, eps_rel=1e-3, eps
 traj2 = wqp.update(olTraj)
 # print(olTraj - wqp.ltvsys.xtraj) # <these are identical: OK; traj update worked
 
-# wqp.debugConstraintViol(olTraj, wqp.dirtranx)
+wqp.debugConstraintViol(olTraj, wqp.dirtranx)
 
 print(wqp.ltvsys.qof.cost(olTraj), wqp.ltvsys.qof.cost(traj2))
 # print(olTraj.shape, traj2.shape, olTrajt.shape)
