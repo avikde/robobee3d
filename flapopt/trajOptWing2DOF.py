@@ -172,14 +172,19 @@ class QOFAvgLift:
         w = np.hstack((np.tile(self.wx, self.N+1), np.tile(self.wu, self.N)))
         kdamp = np.hstack((np.tile(self.kdampx, self.N+1), np.tile(self.kdampu, self.N)))
 
-        # Evaluate the jacobian J
-        DJ = self.DJfun(dirtranx)
-        # D2J = sparse.csc_matrix(np.outer(DJ, DJ))
-        D2J = sparse.csc_matrix(self.D2Jfun(dirtranx))
+        # # Only regularization
         # self.P = sparse.diags(w + kdamp).tocsc()
         # self.q = -np.multiply(kdamp, dirtranx)
-        self.P = D2J + sparse.diags(w + kdamp).tocsc()
-        self.q = -np.multiply(kdamp, dirtranx) + DJ - D2J @ dirtranx
+
+        # Test: weight hinge angle close to pi/4
+        
+
+        # # Second order approx of aero force
+        # DJ = self.DJfun(dirtranx)
+        # # D2J = sparse.csc_matrix(np.outer(DJ, DJ))
+        # D2J = sparse.csc_matrix(self.D2Jfun(dirtranx))
+        # self.P = D2J + sparse.diags(w + kdamp).tocsc()
+        # self.q = -np.multiply(kdamp, dirtranx) + DJ - D2J @ dirtranx
 
         return self.P, self.q
     
@@ -251,22 +256,22 @@ Nknot = olTraj.shape[0]  # number of knot points in this case
 nx = 4
 nu = 1
 wx = np.ones(nx) * 1e-6
-wu = np.ones(nu) * 1e-6
-kdampx = np.ones(4)
+wu = np.ones(nu) * 1e1
+kdampx = 1e2 * np.ones(4)
 kdampu = np.zeros(1)
 # Must be 1 smaller to have the correct number of xi
-wqp = WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=False, eps_rel=1e-2, eps_abs=1e-2, max_iter=10000)
+wqp = WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=False, eps_rel=1e-4, eps_abs=1e-4, max_iter=10000)
 # Test warm start
 # wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
 traj2 = wqp.update(olTraj)
 # print(olTraj - wqp.ltvsys.xtraj) # <these are identical: OK; traj update worked
-traj3 = wqp.update(traj2)
+# traj3 = wqp.update(traj2)
 
 # wqp.debugConstraintViol(olTraj, wqp.dirtranx)
 
 # print(olTraj.shape, traj2.shape, olTrajt.shape)
 print(Jcost_dirtran(wqp.dirtranx, Nknot, params))
-plotTrajs(olTraj, traj2, traj3)# debug the 1-step solution
+plotTrajs(olTraj, traj2)#, traj3)# debug the 1-step solution
 sys.exit(0)
 
 # OLD gradient descent ------------
