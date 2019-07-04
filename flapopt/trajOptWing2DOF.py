@@ -176,8 +176,11 @@ class QOFAvgLift:
         # self.P = sparse.diags(w + kdamp).tocsc()
         # self.q = -np.multiply(kdamp, dirtranx)
 
-        # Test: weight hinge angle close to pi/4
-        
+        # Test: weight hinge angle
+        wk = np.array([0,1000,0,0])
+        w = np.hstack((np.tile(wk, self.N+1), np.zeros(self.nu * self.N)))
+        self.P = sparse.diags(w).tocsc()
+        self.q = np.zeros_like(dirtranx)
 
         # # Second order approx of aero force
         # DJ = self.DJfun(dirtranx)
