@@ -61,8 +61,6 @@ olTraj = (yu0.T)[170:238:3,:]
 olTrajt = sol.t[170:238:3]
 olTrajdt = np.mean(np.diff(olTrajt))
 m.dt = olTrajdt  # for the discretized dynamics
-wingopt._limits = m.limits
-wingopt._trajt = olTrajt
 
 # Get the decimated trajectory to be feasible by iterating the linearized dynamics with the inputs
 yi2 = olTraj.copy()
@@ -81,21 +79,23 @@ Nknot = olTraj.shape[0]  # number of knot points in this case
 nx = 4
 nu = 1
 wx = np.ones(nx) * 1e-6
-wu = np.ones(nu) * 1e-6
+wu = np.ones(nu) * 1e3
 kdampx = 1e-5 * np.ones(4)
 kdampu = np.zeros(1)
 # Must be 1 smaller to have the correct number of xi
 wqp = wingopt.WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=False, eps_rel=1e-4, eps_abs=1e-4, max_iter=10000)
+wqp.trajt = olTrajt
 # Test warm start
 # wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
 traj2 = wqp.update(olTraj)
 # print(olTraj - wqp.ltvsys.xtraj) # <these are identical: OK; traj update worked
-# traj3 = wqp.update(traj2)
+traj3 = wqp.update(traj2)
+traj4 = wqp.update(traj3)
 
 # wqp.debugConstraintViol(olTraj, wqp.dirtranx)
 
 # print(olTraj.shape, traj2.shape, olTrajt.shape)
-wingopt.plotTrajs(olTraj, traj2)#, traj3)# debug the 1-step solution
+wqp.plotTrajs(olTraj, traj2, traj3, traj4)
 sys.exit(0)
 
 # OLD gradient descent ------------

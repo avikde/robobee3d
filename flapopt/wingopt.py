@@ -77,7 +77,7 @@ class Wing2DOF(Model):
     @property
     def limits(self):
         # This is based on observing the OL trajectory
-        umin = np.array([-1 * self.rescaleU])
+        umin = np.array([-0.4 * self.rescaleU])
         umax = -umin
         xmin = np.array([-0.02 * self.rescale, -1.2, -np.inf, -np.inf])
         xmax = -xmin
@@ -88,33 +88,6 @@ m = Wing2DOF()
 m.rescale = 30.0
 # params: [cbar, ]
 params = np.array([5e-3])
-
-def plotTrajs(*args):
-    """Helper function to plot a bunch of trajectories superimposed"""
-    global _trajt
-    umin, umax, xmin, xmax = m.limits
-    _, ax = plt.subplots(3)
-    for arg in args:
-        ax[0].plot(_trajt, arg[:,0], '.-')
-    ax[0].axhline(y=xmin[0], color='k', alpha=0.3)
-    ax[0].axhline(y=0, color='k', alpha=0.3)
-    ax[0].axhline(y=xmax[0], color='k', alpha=0.3)
-    ax[0].set_ylabel('stroke (m)')
-    for arg in args:
-        ax[1].plot(_trajt, arg[:,1], '.-')
-    ax[1].axhline(y=xmin[1], color='k', alpha=0.3)
-    ax[1].axhline(y=0, color='k', alpha=0.3)
-    ax[1].axhline(y=xmax[1], color='k', alpha=0.3)
-    ax[1].set_ylabel('hinge angle (rad)')
-    for arg in args:
-        ax[2].plot(_trajt, arg[:,4], '.-')
-    ax[2].axhline(y=umin[0], color='k', alpha=0.3)
-    ax[2].axhline(y=umax[0], color='k', alpha=0.3)
-    ax[2].set_ylabel('stroke force (N)')
-    # for arg in args:
-    #     print('cost = ', wqp.ltvsys.qof.cost(arg))
-    plt.show()
-    sys.exit(0)
 # --------------------------------------
 
 # Wing traj opt using QP -------------------------------------------------
@@ -280,3 +253,27 @@ class WingQP:
                 ax[i].axvline(j, color='k', alpha=0.1)
             ax[i].axvline(riulim, color='g', alpha=0.3)
         ax[1].legend()
+
+    def plotTrajs(self, *args):
+        """Helper function to plot a bunch of trajectories superimposed"""
+        umin, umax, xmin, xmax = self.ltvsys.m.limits
+        _, ax = plt.subplots(3)
+        for arg in args:
+            ax[0].plot(self.trajt, arg[:,0], '.-')
+        for yy in [xmin[0], xmax[0], 0]:
+            ax[0].axhline(y=yy, color='k', alpha=0.3)
+        ax[0].set_ylabel('stroke (m)')
+        for arg in args:
+            ax[1].plot(self.trajt, arg[:,1], '.-')
+        for yy in [xmin[1], xmax[1], np.pi/4, -np.pi/4]:
+            ax[1].axhline(y=yy, color='k', alpha=0.3)
+        ax[1].set_ylabel('hinge angle (rad)')
+        for arg in args:
+            ax[2].plot(self.trajt, arg[:,4], '.-')
+        ax[2].axhline(y=umin[0], color='k', alpha=0.3)
+        ax[2].axhline(y=umax[0], color='k', alpha=0.3)
+        ax[2].set_ylabel('stroke force (N)')
+        for arg in args:
+            print('cost = ', self.ltvsys.qof.cost(arg))
+        plt.show()
+        sys.exit(0)
