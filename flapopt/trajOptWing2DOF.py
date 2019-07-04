@@ -46,7 +46,6 @@ tvec = np.arange(0, tf, dt)
 y0 = np.array([1e-2, 0, 0, 0])
 # Sim of an openloop controller
 sol = solve_ivp(strokePosControlVF, [0,tf], y0, dense_output=True, t_eval=tvec)
-print('Avg cost =', Jcostsol(sol.t, sol.y, wingopt.params))
 
 # Decimate the rate to get a starting traj for optimization with fewer knot points
 # At this point there is a "nominal trajectory" in sol.y
@@ -88,13 +87,13 @@ wqp.trajt = olTrajt
 # Test warm start
 # wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
 traj2 = wqp.update(olTraj)
-# print(olTraj - wqp.ltvsys.xtraj) # <these are identical: OK; traj update worked
 traj3 = wqp.update(traj2)
+# TEST: reduce wu 
+# wqp.ltvsys.qof.wu = np.ones(nu) * 1e2
 traj4 = wqp.update(traj3)
 
 # wqp.debugConstraintViol(olTraj, wqp.dirtranx)
 
-# print(olTraj.shape, traj2.shape, olTrajt.shape)
 wqp.plotTrajs(olTraj, traj2, traj3, traj4)
 sys.exit(0)
 
