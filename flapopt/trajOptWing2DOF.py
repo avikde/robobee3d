@@ -4,19 +4,16 @@ import matplotlib.pyplot as plt
 from matplotlib import animation
 import sys
 sys.path.append('..')
-import planar.FlappingModels as FlappingModels
 from scipy.integrate import solve_ivp
 from matplotlib import animation
 from matplotlib.collections import PatchCollection
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 import osqp
-import scipy.sparse as sparse
-import controlutils.py.mpc as mpc
-import controlutils.py.ltvsystem as ltvsystem
+import wingopt
 
 # ---------------------------------------------------
 
-m = FlappingModels.Wing2DOF()
+m = wingopt.Wing2DOF()
 m.rescale = 30.0
 # m.rescaleU = 10.0
 
@@ -100,6 +97,8 @@ olTraj = (yu0.T)[170:238:3,:]
 olTrajt = sol.t[170:238:3]
 olTrajdt = np.mean(np.diff(olTrajt))
 m.dt = olTrajdt  # for the discretized dynamics
+wingopt._limits = m.limits
+wingopt._trajt = olTrajt
 
 # Get the decimated trajectory to be feasible by iterating the linearized dynamics with the inputs
 yi2 = olTraj.copy()
@@ -112,155 +111,6 @@ for ti in range(1, len(olTrajt)):
     yi2[ti, :4] = yi2[ti-1, :4] + olTrajdt * m.dydt(yi2[ti-1, :4], ui, params)
 # plotTrajs(olTraj, yi2, yilin)
 
-def plotTrajs(*args):
-    """Helper function to plot a bunch of trajectories superimposed"""
-    umin, umax, xmin, xmax = m.limits
-    _, ax = plt.subplots(3)
-    for arg in args:
-        ax[0].plot(olTrajt, arg[:,0], '.-')
-    ax[0].axhline(y=xmin[0], color='k', alpha=0.3)
-    ax[0].axhline(y=xmax[0], color='k', alpha=0.3)
-    ax[0].set_ylabel('stroke (m)')
-    for arg in args:
-        ax[1].plot(olTrajt, arg[:,1], '.-')
-    ax[1].axhline(y=xmin[1], color='k', alpha=0.3)
-    ax[1].axhline(y=xmax[1], color='k', alpha=0.3)
-    ax[1].set_ylabel('hinge angle (rad)')
-    for arg in args:
-        ax[2].plot(olTrajt, arg[:,4], '.-')
-    ax[2].axhline(y=umin[0], color='k', alpha=0.3)
-    ax[2].axhline(y=umax[0], color='k', alpha=0.3)
-    ax[2].set_ylabel('stroke force (N)')
-    for arg in args:
-        print('cost = ', wqp.ltvsys.qof.cost(arg))
-    plt.show()
-    sys.exit(0)
-# --------------------------------------
-
-# Wing traj opt using QP -------------------------------------------------
-def dirTranForm(xtraj, N, nx, nu):
-    # convert from the (N-1,nx+nu) array to the dirtran form with x0,..,x[N-1],u0,...,u[N-2] i.e. shorter by 1
-    return np.hstack((
-            np.reshape(xtraj[:,:nx], (N+1)*nx, 'C'),
-            np.reshape(xtraj[:-1,nx:], (N)*nu, 'C')
-        ))
-def xuMatForm(dirtranx, N, nx):
-    Xmat = np.reshape(dirtranx[:(N)*nx], (N,nx), 'C')
-    Umat = dirtranx[(N)*nx:][:,np.newaxis]
-    # Need to add another u since dirtran form has one fewer u. Just copy the last one
-    Umat = np.vstack((Umat, Umat[-1,:]))
-    return np.hstack((Xmat, Umat))
-# Create "MPC" object which will be used for SQP
-class QOFAvgLift:
-    def __init__(self, N, wx, wu, kdampx, kdampu):
-        self.N = N
-        self.nx = len(wx)
-        self.nu = len(wu)
-        self.wx = wx
-        self.wu = wu
-        self.kdampx = kdampx
-        self.kdampu = kdampu
-        # autodiff to get gradient of avg lift cost
-        Jx = lambda x : Jcost_dirtran(x, N, params)
-        self.DJfun = jacobian(Jx)
-        self.D2Jfun = hessian(Jx)
-
-    def getPq(self, xtraj):
-        dirtranx = dirTranForm(xtraj, self.N, self.nx, self.nu)
-        nX = (self.N+1) * self.nx + self.N*self.nu
-        # vector of weights for the whole dirtran x
-        w = np.hstack((np.tile(self.wx, self.N+1), np.tile(self.wu, self.N)))
-        kdamp = np.hstack((np.tile(self.kdampx, self.N+1), np.tile(self.kdampu, self.N)))
-
-        # # Only regularization
-        # self.P = sparse.diags(w + kdamp).tocsc()
-        # self.q = -np.multiply(kdamp, dirtranx)
-
-        # Test: weight hinge angle
-        wk = np.array([0,1000,0,0])
-        w = np.hstack((np.tile(wk, self.N+1), np.zeros(self.nu * self.N)))
-        self.P = sparse.diags(w).tocsc()
-        self.q = np.zeros_like(dirtranx)
-        # self.q = - w * (np.pi / 4)
-
-        # # Test: weight stroke pos
-        # wk = np.array([1000000,0,0,0])
-        # w = np.hstack((np.tile(wk, self.N+1), np.zeros(self.nu * self.N)))
-        # self.P = sparse.diags(w).tocsc()
-        # self.q = np.zeros_like(dirtranx)
-        # self.q = - w * (np.pi / 4)
-
-        # # Second order approx of aero force
-        # DJ = self.DJfun(dirtranx)
-        # # D2J = sparse.csc_matrix(np.outer(DJ, DJ))
-        # D2J = sparse.csc_matrix(self.D2Jfun(dirtranx))
-        # self.P = D2J + sparse.diags(w + kdamp).tocsc()
-        # self.q = -np.multiply(kdamp, dirtranx) + DJ - D2J @ dirtranx
-
-        return self.P, self.q
-    
-    def cost(self, xtraj):
-        self.getPq(xtraj)
-        dirtranx = dirTranForm(xtraj, self.N, self.nx, self.nu)
-        return 0.5 * dirtranx @ self.P @ dirtranx + self.q @ dirtranx
-
-class WingQP:
-    def __init__(self, model, N, wx, wu, kdampx, kdampu, **settings):
-        self.ltvsys = ltvsystem.LTVSolver(model)
-        # Dynamics and constraints
-        self.ltvsys.initConstraints(model.nx, model.nu, N, periodic=True, 
-        polyBlocks=None)
-        self.ltvsys.initObjective(QOFAvgLift(N, wx, wu, kdampx, kdampu))
-        self.ltvsys.initSolver(**settings)
-
-    def update(self, xtraj):
-        N = self.ltvsys.N
-        nx = self.ltvsys.nx
-        # TODO: check which traj mode
-        u0 = xtraj[:,4][:,np.newaxis]
-        # NOTE: confirmed that updateTrajectory correctly updates the traj, and that updateDynamics is updating the A, B
-        xtraj = self.ltvsys.updateTrajectory(xtraj[:,:4], u0, trajMode=ltvsystem.GIVEN_POINT_OR_TRAJ)
-        self.ltvsys.updateObjective()
-        self.dirtranx, res = self.ltvsys.solve(throwOnError=False)
-        if res.info.status not in ['solved', 'solved inaccurate', 'maximum iterations reached']:
-            self.ltvsys.debugResult(res)
-            # dirtranx = dirTranForm(xtraj, N, nx, self.ltvsys.nu)
-            # print(self.ltvsys.u - self.ltvsys.A @ dirtranx, self.ltvsys.A @ dirtranx - self.ltvsys.l)
-
-            raise ValueError(res.info.status)
-        # debug
-        # print(self.ltvsys.u - self.ltvsys.A @ dirtranx, self.ltvsys.A @ dirtranx - self.ltvsys.l)
-        # reshape into (N,nx+nu)
-        return xuMatForm(self.dirtranx, N+1, nx)
-        
-    # Debug the solution
-    def _dt(self, traj):
-        return dirTranForm(traj, self.ltvsys.N, self.ltvsys.nx, self.ltvsys.nu) if len(traj.shape) > 1 else traj
-
-    def debugConstraintViol(self, *args):
-        """args are trajs in dirtran form or square"""
-        # row index where the dynamics constraints end
-        ridyn = (self.ltvsys.N + 1) * self.ltvsys.nx
-        rixlim = ridyn + (self.ltvsys.N + 1) * self.ltvsys.nx
-        riulim = rixlim + self.ltvsys.N * self.ltvsys.nu
-        _, ax = plt.subplots(2)
-        for i in range(len(args)):
-            ax[0].plot(self.ltvsys.A @ self._dt(args[i]) - self.ltvsys.l, '.', label=str(i))
-        ax[0].legend()
-        for i in range(len(args)):
-            ax[1].plot(self.ltvsys.u - self.ltvsys.A @ self._dt(args[i]), '.', label=str(i))
-        for i in range(2):
-            ax[i].axhline(0, color='k', alpha=0.3) # mark 0
-            for j in range(0, ridyn, self.ltvsys.nx):
-                ax[i].axvline(j, color='k', alpha=0.1)
-            ax[i].axvline(ridyn, color='b', alpha=0.3)
-            for j in range(ridyn, rixlim, self.ltvsys.nx):
-                ax[i].axvline(j, color='k', alpha=0.1)
-            ax[i].axvline(rixlim, color='r', alpha=0.3)
-            for j in range(rixlim, riulim, self.ltvsys.nu):
-                ax[i].axvline(j, color='k', alpha=0.1)
-            ax[i].axvline(riulim, color='g', alpha=0.3)
-        ax[1].legend()
 
 # Use the class above to step the QP
 Nknot = olTraj.shape[0]  # number of knot points in this case
@@ -271,7 +121,7 @@ wu = np.ones(nu) * 1e1
 kdampx = 1e2 * np.ones(4)
 kdampu = np.zeros(1)
 # Must be 1 smaller to have the correct number of xi
-wqp = WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=False, eps_rel=1e-4, eps_abs=1e-4, max_iter=10000)
+wqp = wingopt.WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=False, eps_rel=1e-4, eps_abs=1e-4, max_iter=10000)
 # Test warm start
 # wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
 traj2 = wqp.update(olTraj)
@@ -282,7 +132,7 @@ traj2 = wqp.update(olTraj)
 
 # print(olTraj.shape, traj2.shape, olTrajt.shape)
 print(Jcost_dirtran(wqp.dirtranx, Nknot, params))
-plotTrajs(olTraj, traj2)#, traj3)# debug the 1-step solution
+wingopt.plotTrajs(olTraj, traj2)#, traj3)# debug the 1-step solution
 sys.exit(0)
 
 # OLD gradient descent ------------
