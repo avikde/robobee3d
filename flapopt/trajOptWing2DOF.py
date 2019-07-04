@@ -81,8 +81,8 @@ Nknot = olTraj.shape[0]  # number of knot points in this case
 nx = 4
 nu = 1
 wx = np.ones(nx) * 1e-6
-wu = np.ones(nu) * 1e1
-kdampx = 1e2 * np.ones(4)
+wu = np.ones(nu) * 1e-6
+kdampx = 1e-5 * np.ones(4)
 kdampu = np.zeros(1)
 # Must be 1 smaller to have the correct number of xi
 wqp = wingopt.WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=False, eps_rel=1e-4, eps_abs=1e-4, max_iter=10000)

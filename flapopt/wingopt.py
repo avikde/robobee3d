@@ -185,9 +185,9 @@ class QOFAvgLift:
         w = np.hstack((np.tile(self.wx, self.N+1), np.tile(self.wu, self.N)))
         kdamp = np.hstack((np.tile(self.kdampx, self.N+1), np.tile(self.kdampu, self.N)))
 
-        # # Only regularization
-        # self.P = sparse.diags(w + kdamp).tocsc()
-        # self.q = -np.multiply(kdamp, dirtranx)
+        # Only regularization
+        self.P = sparse.diags(w + kdamp).tocsc()
+        self.q = -kdamp * dirtranx
 
         # # Test: weight hinge angle
         # wk = np.array([0,1000,0,0])
@@ -205,12 +205,16 @@ class QOFAvgLift:
 
         # Second order approx of aero force
         DJ = self.DJfun(dirtranx)
-        # D2J = sparse.csc_matrix(np.outer(DJ, DJ))
-        D2J = sparse.csc_matrix(self.D2Jfun(dirtranx))
-        self.P = D2J
-        # self.P += sparse.diags(w + kdamp).tocsc()
-        self.q = DJ - D2J @ dirtranx
-        # self.q -= kdamp * dirtranx
+        # # D2J = sparse.csc_matrix(np.outer(DJ, DJ))
+        # D2J = sparse.csc_matrix(self.D2Jfun(dirtranx))
+        # self.P = D2J
+        # # self.P += sparse.diags(w + kdamp).tocsc()
+        # self.q = DJ - D2J @ dirtranx
+        # # self.q -= kdamp * dirtranx
+
+        # First-order: make objective to *reduce" cost instead of find optimum. Like value function vs. optimal cost.
+        # min (J(x) - J(x0)) ~= DJ(x0) (x - x0) ~~ DJ(x0) x
+        self.q += DJ
 
         return self.P, self.q
     
