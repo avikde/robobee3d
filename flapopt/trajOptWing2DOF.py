@@ -12,15 +12,10 @@ import osqp
 import wingopt
 
 # ---------------------------------------------------
-
-m = wingopt.Wing2DOF()
-m.rescale = 30.0
-# m.rescaleU = 10.0
+m = wingopt.m
 
 # PARAMETERS -------------
 dt = 1e-4 # need for discretization
-# params: [cbar, ]
-params = np.array([5e-3])
 
 # Functions ---
 _, _, _, xmax = m.limits
@@ -33,46 +28,15 @@ def strokePosControlVF(t, y):
     # pos servoing
     u0 = controller(t, y)
     # print(u0)
-    return m.dydt(y, [u0], params)
+    return m.dydt(y, [u0], wingopt.params)
 
-def Jobjinst(y, u, params):
-    _, Faero = m.aero(y, u, params)
-    return -Faero[1] # minimization
-
-def Jcostinst_dynpenalty(ynext, y, u, params):
-    '''error on dynamics for penalty method'''
-    dynErr = ynext - (y + m.dydt(y, u, params) * dt)
-    return 1/2 * dynErr.T @ dynErr
-
-# FIXME: need to find y that make one cycle
-# as a first pass just average over the whole time
-
-def Jcosttraj(yu, params):
-    '''this is over a traj. yu = (nx+nu,Nt)-shaped'''
-    Nt = yu.shape[1]
-    c = 0
-    PENALTY = 1e-6
-    for i in range(Nt-1):
-        c += Jobjinst(yu[:m.nx,i], yu[m.nx:,i], params) + PENALTY * Jcostinst_dynpenalty(yu[:m.nx,i+1], yu[:m.nx,i], yu[m.nx:,i], params)
-    # TODO: any final cost?
-    c += Jobjinst(yu[:m.nx,-1], yu[m.nx:,-1], params)
-    return c
-
-def Jcost_dirtran(dirtranx, N, params):
-    '''this is over a traj, no penalty'''
-    c = 0
-    for k in range(N):
-        c += Jobjinst(dirtranx[(k*m.nx):((k+1)*m.nx)], dirtranx[((N+1)*m.nx + k*m.nu):((N+1)*m.nx + (k+1)*m.nu)], params)
-    return c
 
 def Jcostsol(solt, soly, params):
     Nt = len(solt)
     Jcosti = 0
     for i in range(Nt):
-        Jcosti += Jobjinst(soly[:,i], controller(solt[i], soly[:,i]), params)
+        Jcosti += wingopt.Jobjinst(soly[:,i], controller(solt[i], soly[:,i]), params)
     return Jcosti
-
-Jgrad = jacobian(lambda yu : Jcosttraj(yu, params))
 
 """Get initial OL trajectory with a small-timestep simulation ----------------------
 """
@@ -82,7 +46,7 @@ tvec = np.arange(0, tf, dt)
 y0 = np.array([1e-2, 0, 0, 0])
 # Sim of an openloop controller
 sol = solve_ivp(strokePosControlVF, [0,tf], y0, dense_output=True, t_eval=tvec)
-print('Avg cost =', Jcostsol(sol.t, sol.y, params))
+print('Avg cost =', Jcostsol(sol.t, sol.y, wingopt.params))
 
 # Decimate the rate to get a starting traj for optimization with fewer knot points
 # At this point there is a "nominal trajectory" in sol.y
@@ -108,7 +72,7 @@ for ti in range(1, len(olTrajt)):
     A, B, c = m.getLinearDynamics(olTraj[ti-1, :4], ui)
     olTraj[ti, :4] = A @ olTraj[ti-1, :4] + B @ ui + c
     # Nonlinear
-    yi2[ti, :4] = yi2[ti-1, :4] + olTrajdt * m.dydt(yi2[ti-1, :4], ui, params)
+    yi2[ti, :4] = yi2[ti-1, :4] + olTrajdt * m.dydt(yi2[ti-1, :4], ui, wingopt.params)
 # plotTrajs(olTraj, yi2, yilin)
 
 
@@ -131,13 +95,13 @@ traj2 = wqp.update(olTraj)
 # wqp.debugConstraintViol(olTraj, wqp.dirtranx)
 
 # print(olTraj.shape, traj2.shape, olTrajt.shape)
-print(Jcost_dirtran(wqp.dirtranx, Nknot, params))
 wingopt.plotTrajs(olTraj, traj2)#, traj3)# debug the 1-step solution
 sys.exit(0)
 
 # OLD gradient descent ------------
+Jgrad = jacobian(lambda yu : wingopt.Jcosttraj(yu, params))
 # gradient wrt params
-Jgradp = jacobian(lambda p : Jcosttraj(yu0, p))
+Jgradp = jacobian(lambda p : wingopt.Jcosttraj(yu0, p))
 
 # Gradient descent
 print(Jcosttraj(yu0, params))

@@ -83,13 +83,16 @@ class Wing2DOF(Model):
         xmax = -xmin
         return umin, umax, xmin, xmax
 
-        
+# Global
+m = Wing2DOF()
+m.rescale = 30.0
+# params: [cbar, ]
+params = np.array([5e-3])
 
 def plotTrajs(*args):
     """Helper function to plot a bunch of trajectories superimposed"""
-    global _limits
     global _trajt
-    umin, umax, xmin, xmax = _limits
+    umin, umax, xmin, xmax = m.limits
     _, ax = plt.subplots(3)
     for arg in args:
         ax[0].plot(_trajt, arg[:,0], '.-')
@@ -127,7 +130,40 @@ def xuMatForm(dirtranx, N, nx):
     # Need to add another u since dirtran form has one fewer u. Just copy the last one
     Umat = np.vstack((Umat, Umat[-1,:]))
     return np.hstack((Xmat, Umat))
-# Create "MPC" object which will be used for SQP
+
+# 
+
+def Jobjinst(y, u, params):
+    _, Faero = m.aero(y, u, params)
+    return -Faero[1] # minimization
+
+def Jcostinst_dynpenalty(ynext, y, u, params):
+    '''error on dynamics for penalty method'''
+    dynErr = ynext - (y + m.dydt(y, u, params) * dt)
+    return 1/2 * dynErr.T @ dynErr
+
+# FIXME: need to find y that make one cycle
+# as a first pass just average over the whole time
+
+def Jcosttraj(yu, params):
+    '''this is over a traj. yu = (nx+nu,Nt)-shaped'''
+    Nt = yu.shape[1]
+    c = 0
+    PENALTY = 1e-6
+    for i in range(Nt-1):
+        c += Jobjinst(yu[:m.nx,i], yu[m.nx:,i], params) + PENALTY * Jcostinst_dynpenalty(yu[:m.nx,i+1], yu[:m.nx,i], yu[m.nx:,i], params)
+    # TODO: any final cost?
+    c += Jobjinst(yu[:m.nx,-1], yu[m.nx:,-1], params)
+    return c
+
+def Jcost_dirtran(dirtranx, N, params):
+    '''this is over a traj, no penalty'''
+    c = 0
+    for k in range(N):
+        c += Jobjinst(dirtranx[(k*m.nx):((k+1)*m.nx)], dirtranx[((N+1)*m.nx + k*m.nu):((N+1)*m.nx + (k+1)*m.nu)], params)
+    return c
+
+
 class QOFAvgLift:
     def __init__(self, N, wx, wu, kdampx, kdampu):
         self.N = N
