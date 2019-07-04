@@ -181,6 +181,14 @@ class QOFAvgLift:
         w = np.hstack((np.tile(wk, self.N+1), np.zeros(self.nu * self.N)))
         self.P = sparse.diags(w).tocsc()
         self.q = np.zeros_like(dirtranx)
+        # self.q = - w * (np.pi / 4)
+
+        # # Test: weight stroke pos
+        # wk = np.array([1000000,0,0,0])
+        # w = np.hstack((np.tile(wk, self.N+1), np.zeros(self.nu * self.N)))
+        # self.P = sparse.diags(w).tocsc()
+        # self.q = np.zeros_like(dirtranx)
+        # self.q = - w * (np.pi / 4)
 
         # # Second order approx of aero force
         # DJ = self.DJfun(dirtranx)
