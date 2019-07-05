@@ -93,7 +93,7 @@ def flapkin(yui, xyoff, _params):
     # aero arrow extents
     _, Faero = m.aero(yui[:m.nx], yui[m.nx:], _params)
     pcop = (wing1 + wing2)/2
-    aeroEnd = pcop + 0.3 / m.rescale * Faero
+    aeroEnd = pcop + 0.1 / m.rescale * Faero
     return wing1, wing2, pcop, aeroEnd
 
 def flapVisUpdate(yui, xyoff, _params, plwing, plaero):

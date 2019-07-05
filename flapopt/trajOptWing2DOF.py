@@ -100,14 +100,14 @@ wqp.plotTrajs(olTraj, traj2, traj3, traj4)
 fig, _ax = plt.subplots()
 
 _trajs = [olTraj, traj2, traj3]
-_xyoffs = [[-0.2, 0], [0,0], [0.2, 0]]
+_xyoffs = [[0, 0.05], [0,0], [0, -0.05]]
 _plwings = [_ax.plot([], [], 'b.-', linewidth=4)[0] for i in range(len(_trajs))]
 _plaeros = [_ax.plot([], [], 'r', linewidth=2)[0] for i in range(len(_trajs))]
 
 _ax.grid(True)
 _ax.set_aspect(1)
-_ax.set_xlim([-0.5, 0.5])
-_ax.set_ylim([-0.1, 0.1])
+_ax.set_xlim([-1, 1])
+_ax.set_ylim([-0.2, 0.2])
 
 
 def _init():
@@ -124,7 +124,7 @@ def _animate(i):
         wingopt.flapVisUpdate(_trajs[k][i,:], _xyoffs[k], wingopt.params, _plwings[k], _plaeros[k])
     return tuple(_plwings + _plaeros)
 
-anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(olTrajt), interval=0.001, blit=True)
+anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(olTrajt), interval=100, blit=True)
 if False:
     # Set up formatting for the movie files
     Writer = animation.writers['ffmpeg']
