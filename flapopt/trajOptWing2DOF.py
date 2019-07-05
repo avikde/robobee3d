@@ -103,7 +103,11 @@ tf = tvec[-1]
 y0 = olTraj[0,:4]
 
 def knotPointControl(t, y, traj):
-    u0 = 0
+    # dumb TODO: interpolate
+    u0 = 0 # which knot point input to use
+    for i in range(len(olTrajt)):
+        if olTrajt[0] + t > olTrajt[i]:
+            u0 = traj[i,4]
     return m.dydt(y, [u0], wingopt.params)
 
 for opttraj in [olTraj, traj2, traj3, traj4]:
@@ -139,7 +143,7 @@ def _animate(i):
         wingopt.flapVisUpdate(_trajs[k][i,:], _xyoffs[k], wingopt.params, _plwings[k], _plaeros[k])
     return tuple(_plwings + _plaeros)
 
-anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(olTrajt), interval=100, blit=True)
+anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(tvec), interval=1000/30, blit=True)
 if False:
     # Set up formatting for the movie files
     Writer = animation.writers['ffmpeg']
