@@ -83,6 +83,26 @@ class Wing2DOF(Model):
         xmax = -xmin
         return umin, umax, xmin, xmax
 
+
+def flapkin(yui, xyoff, _params):
+    """Returns wing positions and stuff for visualization"""
+    # wing extents
+    wing1 = np.array([yui[0], 0]) + np.asarray(xyoff)
+    c, s = np.cos(yui[1]), np.sin(yui[1])
+    wing2 = wing1 + np.array([[c, -s], [s, c]]) @ np.array([0, -2*_params[0]])
+    # aero arrow extents
+    _, Faero = m.aero(yui[:m.nx], yui[m.nx:], _params)
+    pcop = (wing1 + wing2)/2
+    aeroEnd = pcop + 0.3 / m.rescale * Faero
+    return wing1, wing2, pcop, aeroEnd
+
+def flapVisUpdate(yui, xyoff, _params, plwing, plaero):
+    wing1, wing2, pcop, aeroEnd = flapkin(yui, xyoff, _params)
+    plwing.set_xdata([wing1[0], wing2[0]])
+    plwing.set_ydata([wing1[1], wing2[1]])
+    plaero.set_xdata([pcop[0], aeroEnd[0]])
+    plaero.set_ydata([pcop[1], aeroEnd[1]])
+
 # Global
 m = Wing2DOF()
 m.rescale = 30.0
@@ -275,5 +295,3 @@ class WingQP:
         ax[2].set_ylabel('stroke force (N)')
         for arg in args:
             print('cost = ', self.ltvsys.qof.cost(arg))
-        plt.show()
-        sys.exit(0)

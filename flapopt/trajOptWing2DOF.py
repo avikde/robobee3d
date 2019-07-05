@@ -95,9 +95,51 @@ traj4 = wqp.update(traj3)
 # wqp.debugConstraintViol(olTraj, wqp.dirtranx)
 
 wqp.plotTrajs(olTraj, traj2, traj3, traj4)
+
+# animate
+fig, _ax = plt.subplots()
+
+_trajs = [olTraj, traj2, traj3]
+_xyoffs = [[-0.2, 0], [0,0], [0.2, 0]]
+_plwings = [_ax.plot([], [], 'b.-', linewidth=4)[0] for i in range(len(_trajs))]
+_plaeros = [_ax.plot([], [], 'r', linewidth=2)[0] for i in range(len(_trajs))]
+
+_ax.grid(True)
+_ax.set_aspect(1)
+_ax.set_xlim([-0.5, 0.5])
+_ax.set_ylim([-0.1, 0.1])
+
+
+def _init():
+    global _plwings
+    global _plaeros
+    return tuple(_plwings + _plaeros)
+
+def _animate(i):
+    global _plwings
+    global _plaeros
+    global _xyoffs
+    global _trajs
+    for k in range(len(_plwings)):
+        wingopt.flapVisUpdate(_trajs[k][i,:], _xyoffs[k], wingopt.params, _plwings[k], _plaeros[k])
+    return tuple(_plwings + _plaeros)
+
+anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(olTrajt), interval=0.001, blit=True)
+if False:
+    # Set up formatting for the movie files
+    Writer = animation.writers['ffmpeg']
+    writer = Writer(fps=30, metadata=dict(artist='Me'), bitrate=1800)
+    import time
+    timestamp = time.strftime('%Y%m%d%H%M%S', time.localtime())
+    anim.save('trajOptWing2DOF'+timestamp+'.mp4', writer=writer)
+
+plt.tight_layout()
+
+plt.show()
 sys.exit(0)
 
-# OLD gradient descent ------------
+# ---------------------- OLD gradient descent ------------
+
 Jgrad = jacobian(lambda yu : wingopt.Jcosttraj(yu, params))
 # gradient wrt params
 Jgradp = jacobian(lambda p : wingopt.Jcosttraj(yu0, p))
@@ -146,17 +188,6 @@ ax[0].legend()
 
 # def makeAnim(_ax, _t, _y):
 
-def flapkin(yui, xyoff, _params):
-    # wing extents
-    wing1 = np.array([yui[0], 0]) + np.asarray(xyoff)
-    c, s = np.cos(yui[1]), np.sin(yui[1])
-    wing2 = wing1 + np.array([[c, -s], [s, c]]) @ np.array([0, -2*_params[0]])
-    # aero arrow extents
-    _, Faero = m.aero(yui[:m.nx], yui[m.nx:], _params)
-    pcop = (wing1 + wing2)/2
-    aeroEnd = pcop + 0.3 * Faero
-    return wing1, wing2, pcop, aeroEnd
-
 _ax = ax[-1]
 
 p1, = _ax.plot([], [], 'b.-', linewidth=4)
@@ -173,21 +204,9 @@ def _init():
     return p1, paero, p2, paero2, p3, paero3, 
 
 def _animate(i):
-    wing1, wing2, pcop, aeroEnd = flapkin(yu0[:,i], [-0.02,0], params)
-    p1.set_xdata([wing1[0], wing2[0]])
-    p1.set_ydata([wing1[1], wing2[1]])
-    paero.set_xdata([pcop[0], aeroEnd[0]])
-    paero.set_ydata([pcop[1], aeroEnd[1]])
-    wing1, wing2, pcop, aeroEnd = flapkin(yu1[:,i], [0.0,0], params)
-    p2.set_xdata([wing1[0], wing2[0]])
-    p2.set_ydata([wing1[1], wing2[1]])
-    paero2.set_xdata([pcop[0], aeroEnd[0]])
-    paero2.set_ydata([pcop[1], aeroEnd[1]])
-    wing1, wing2, pcop, aeroEnd = flapkin(yu0[:,i], [0.02,0], params1)
-    p3.set_xdata([wing1[0], wing2[0]])
-    p3.set_ydata([wing1[1], wing2[1]])
-    paero3.set_xdata([pcop[0], aeroEnd[0]])
-    paero3.set_ydata([pcop[1], aeroEnd[1]])
+    wingopt.flapVisUpdate(yu0[:,i], [-0.02,0], params, p1, paero)
+    wingopt.flapVisUpdate(yu1[:,i], [0,0], params, p2, paero2)
+    wingopt.flapVisUpdate(yu0[:,i], [0.02,0], params1, p3, paero3)
     return p1, paero, p2, paero2, p3, paero3, 
 
 anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=yu0.shape[1], interval=2e5*dt, blit=True)
