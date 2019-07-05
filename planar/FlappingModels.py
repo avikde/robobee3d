@@ -285,7 +285,7 @@ class PlanarStrokeSpeed:
         ax.arrow(midWing[0], midWing[1], strokeVelDirection[0], strokeVelDirection[1], width=0.0002, alpha=0.5, facecolor=col)
         
         return misc.rectangle(y[0:2], y[2], self.w, self.l, rawxy)
-    
+
 
 def visualizeTraj(ax, traj, model, col='r', Faeroscale=1, tplot=None):
     '''Plots a trajectory, with model info from model.visualizationInfo'''

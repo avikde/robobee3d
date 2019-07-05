@@ -2,6 +2,30 @@
 	// See https://go.microsoft.com/fwlink/?LinkId=733558
 	// for the documentation about the tasks.json format
 	"version": "2.0.0",
+	"inputs": [
+		{
+			"id": "pickDir",
+			"description": "Select the dir to use",
+			"type": "pickString",
+			"options": [
+				"flapopt",
+				"planar",
+			],
+			"default": "build"
+		},
+		{
+			"id": "pickScript",
+			"description": "Select the script to use",
+			"type": "pickString",
+			"options": [
+				"trajOptWing2DOF.py",
+				"mpcStrokeSpeed.py",
+				"mpc_thrust_strokedev.py",
+				"tmpc_aerial.py",
+			],
+			"default": "build"
+		},
+	],
 	"tasks": [
 		{
 			"label": "3D sim",
@@ -19,45 +43,13 @@
 			"problemMatcher": []
 		},
 		{
-			"label": "planar test",
+			"label": "run python script",
 			"type": "shell",
 			"group": "build",
 			"options": {
-				"cwd": "${workspaceFolder}/planar"
+				"cwd": "${workspaceFolder}/${input:pickDir}"
 			},
-			"command": "python mpcStrokeSpeed.py",
-			"presentation": {
-				"echo": true,
-				"reveal": "always",
-				"panel": "shared",
-				"clear": true
-			},
-			"problemMatcher": []
-		},
-		{
-			"label": "thrust/moving cop",
-			"type": "shell",
-			"group": "build",
-			"options": {
-				"cwd": "${workspaceFolder}/planar"
-			},
-			"command": "python mpc_thrust_strokedev.py",
-			"presentation": {
-				"echo": true,
-				"reveal": "always",
-				"panel": "shared",
-				"clear": true
-			},
-			"problemMatcher": []
-		},
-		{
-			"label": "build mcuqp",
-			"type": "shell",
-			"group": "build",
-			"options": {
-				"cwd": "${workspaceFolder}/planar/mcuqp/build"
-			},
-			"command": "cmake .. -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Debug -DPRINTING=OFF -DPROFILING=OFF -DDFLOAT=ON -DDLONG=OFF -DEMBEDDED=1 && make -j4",
+			"command": "python ${input:pickScript}",
 			"presentation": {
 				"echo": true,
 				"reveal": "always",
@@ -74,22 +66,6 @@
 				"cwd": "${workspaceFolder}/h7bee/build"
 			},
 			"command": "cmake .. -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Debug && make -j4",
-			"presentation": {
-				"echo": true,
-				"reveal": "always",
-				"panel": "shared",
-				"clear": true
-			},
-			"problemMatcher": []
-		},
-		{
-			"label": "tmpc_aerial",
-			"type": "shell",
-			"group": "build",
-			"options": {
-				"cwd": "${workspaceFolder}/planar"
-			},
-			"command": "python tmpc_aerial.py",
 			"presentation": {
 				"echo": true,
 				"reveal": "always",
