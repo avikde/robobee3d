@@ -96,11 +96,26 @@ traj4 = wqp.update(traj3)
 
 wqp.plotTrajs(olTraj, traj2, traj3, traj4)
 
+# Create shorter timestep sims
+ctstrajs = []
+tvec = np.arange(0, olTrajt[-1] - olTrajt[0], dt)
+tf = tvec[-1]
+y0 = olTraj[0,:4]
+
+def knotPointControl(t, y, traj):
+    u0 = 0
+    return m.dydt(y, [u0], wingopt.params)
+
+for opttraj in [olTraj, traj2, traj3, traj4]:
+    # Sim of an openloop controller
+    sol = solve_ivp(lambda t, y: knotPointControl(t, y, opttraj), [0, tf], y0, dense_output=True, t_eval=tvec)
+    ctstrajs.append(sol.y.T)
+
 # animate
 fig, _ax = plt.subplots()
 
-_trajs = [olTraj, traj2, traj3]
-_xyoffs = [[0, 0.05], [0,0], [0, -0.05]]
+_trajs = ctstrajs
+_xyoffs = [[0, 0.05], [0,0], [0, -0.05], [0, -0.1]]
 _plwings = [_ax.plot([], [], 'b.-', linewidth=4)[0] for i in range(len(_trajs))]
 _plaeros = [_ax.plot([], [], 'r', linewidth=2)[0] for i in range(len(_trajs))]
 
