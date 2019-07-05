@@ -219,7 +219,7 @@ class QOFAvgLift:
 class WingQP:
     def __init__(self, model, N, wx, wu, kdampx, kdampu, **settings):
         self.ltvsys = ltvsystem.LTVSolver(model)
-        # Dynamics and constraints
+        # Dynamics and constraints TODO:
         self.ltvsys.initConstraints(model.nx, model.nu, N, periodic=True, 
         polyBlocks=None)
         self.ltvsys.initObjective(QOFAvgLift(N, wx, wu, kdampx, kdampu))
