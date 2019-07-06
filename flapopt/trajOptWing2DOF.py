@@ -90,10 +90,7 @@ traj3 = wqp.update(traj2)
 # TEST: reduce wu 
 # wqp.ltvsys.qof.wu = np.ones(nu) * 1e2
 traj4 = wqp.update(traj3)
-
 # wqp.debugConstraintViol(olTraj, wqp.dirtranx)
-
-wqp.plotTrajs(olTraj, traj2, traj3, traj4)
 
 # Create shorter timestep sims
 ctstrajs = []
@@ -114,7 +111,18 @@ for opttraj in [olTraj, traj2, traj3, traj4]:
     sol = solve_ivp(lambda t, y: knotPointControl(t, y, opttraj), [0, tf], y0, dense_output=True, t_eval=tvec)
     ctstrajs.append(sol.y.T)
 
-wingopt.trajAnim(tvec, ctstrajs)
+# Optim wrt params ----
+
+JT = lambda T : wingopt.Jcost_dirtran(wqp.dirtranx, Nknot, [wingopt.params[0], T])
+DJT = jacobian(JT)
+
+Ttest = np.arange(0.5, 1.5, 0.1)
+plt.plot(Ttest, [JT(Ti) for Ti in Ttest])
+
+# Display -------------
+
+# wqp.plotTrajs(olTraj, traj2, traj3, traj4)
+# wingopt.trajAnim(tvec, ctstrajs)
 plt.show()
 sys.exit(0)
 
