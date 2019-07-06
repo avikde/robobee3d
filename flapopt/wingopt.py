@@ -11,13 +11,12 @@ class Wing2DOF(Model):
     nx = 4
     nu = 1
     y0 = np.zeros(nx)
-    cbar = 5e-3
     
     rescale = 1.0
     rescaleU = 1.0
 
     def aero(self, y, u, params=[]):
-        cbar = self.cbar if len(params)==0 else params[0]
+        cbar = params[0]
         CLmax = 1.8
         CDmax = 3.4
         CD0 = 0.4
@@ -52,7 +51,7 @@ class Wing2DOF(Model):
         spsi = np.sin(psi)
 
         # params
-        cbar = self.cbar if len(params)==0 else params[0]
+        cbar = params[0]
         mspar = 0
         ka = 0
         khinge = 1e-3
@@ -231,7 +230,7 @@ class WingQP:
         # TODO: check which traj mode
         u0 = xtraj[:,4][:,np.newaxis]
         # NOTE: confirmed that updateTrajectory correctly updates the traj, and that updateDynamics is updating the A, B
-        xtraj = self.ltvsys.updateTrajectory(xtraj[:,:4], u0, trajMode=ltvsystem.GIVEN_POINT_OR_TRAJ)
+        xtraj = self.ltvsys.updateTrajectory(xtraj[:,:4], u0, params, trajMode=ltvsystem.GIVEN_POINT_OR_TRAJ)
         self.ltvsys.updateObjective()
         self.dirtranx, res = self.ltvsys.solve(throwOnError=False)
         if res.info.status not in ['solved', 'solved inaccurate', 'maximum iterations reached']:

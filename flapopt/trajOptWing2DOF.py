@@ -66,7 +66,7 @@ yi2 = olTraj.copy()
 for ti in range(1, len(olTrajt)):
     ui = olTraj[ti-1, 4:] # OL input from previous traj
     # Linearized
-    A, B, c = m.getLinearDynamics(olTraj[ti-1, :4], ui)
+    A, B, c = m.getLinearDynamics(olTraj[ti-1, :4], ui, wingopt.params)
     olTraj[ti, :4] = A @ olTraj[ti-1, :4] + B @ ui + c
     # Nonlinear
     yi2[ti, :4] = yi2[ti-1, :4] + olTrajdt * m.dydt(yi2[ti-1, :4], ui, wingopt.params)
