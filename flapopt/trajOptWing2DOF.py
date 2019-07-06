@@ -1,7 +1,6 @@
 import autograd.numpy as np
 from autograd import jacobian, hessian
 import matplotlib.pyplot as plt
-from matplotlib import animation
 import sys
 sys.path.append('..')
 from scipy.integrate import solve_ivp
@@ -115,45 +114,7 @@ for opttraj in [olTraj, traj2, traj3, traj4]:
     sol = solve_ivp(lambda t, y: knotPointControl(t, y, opttraj), [0, tf], y0, dense_output=True, t_eval=tvec)
     ctstrajs.append(sol.y.T)
 
-# animate
-fig, _ax = plt.subplots()
-
-_trajs = ctstrajs
-_xyoffs = [[0, 0.05], [0,0], [0, -0.05], [0, -0.1]]
-_plwings = [_ax.plot([], [], 'b.-', linewidth=4)[0] for i in range(len(_trajs))]
-_plaeros = [_ax.plot([], [], 'r', linewidth=2)[0] for i in range(len(_trajs))]
-
-_ax.grid(True)
-_ax.set_aspect(1)
-_ax.set_xlim([-1, 1])
-_ax.set_ylim([-0.2, 0.2])
-
-
-def _init():
-    global _plwings
-    global _plaeros
-    return tuple(_plwings + _plaeros)
-
-def _animate(i):
-    global _plwings
-    global _plaeros
-    global _xyoffs
-    global _trajs
-    for k in range(len(_plwings)):
-        wingopt.flapVisUpdate(_trajs[k][i,:], _xyoffs[k], wingopt.params, _plwings[k], _plaeros[k])
-    return tuple(_plwings + _plaeros)
-
-anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(tvec), interval=1000/30, blit=True)
-if False:
-    # Set up formatting for the movie files
-    Writer = animation.writers['ffmpeg']
-    writer = Writer(fps=30, metadata=dict(artist='Me'), bitrate=1800)
-    import time
-    timestamp = time.strftime('%Y%m%d%H%M%S', time.localtime())
-    anim.save('trajOptWing2DOF'+timestamp+'.mp4', writer=writer)
-
-plt.tight_layout()
-
+wingopt.trajAnim(tvec, ctstrajs)
 plt.show()
 sys.exit(0)
 

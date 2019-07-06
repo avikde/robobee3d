@@ -2,6 +2,7 @@ import autograd.numpy as np
 from autograd import jacobian, hessian
 import scipy.sparse as sparse
 import matplotlib.pyplot as plt
+from matplotlib import animation
 import sys
 sys.path.append('..')
 from controlutils.py.model import Model
@@ -105,8 +106,8 @@ def flapVisUpdate(yui, xyoff, _params, plwing, plaero):
 # Global
 m = Wing2DOF()
 m.rescale = 30.0
-# params: [cbar, ]
-params = np.array([5e-3])
+# params: [cbar, T(ransmission ratio), ]
+params = np.array([5e-3, 1])
 # --------------------------------------
 
 # Wing traj opt using QP -------------------------------------------------
@@ -294,3 +295,50 @@ class WingQP:
         ax[2].set_ylabel('stroke force (N)')
         for arg in args:
             print('cost = ', self.ltvsys.qof.cost(arg))
+
+# Animation -------------------------
+
+def _init():
+    global _plwings
+    global _plaeros
+    return tuple(_plwings + _plaeros)
+
+def _animate(i):
+    global _plwings
+    global _plaeros
+    global _xyoffs
+    global _trajs
+    for k in range(len(_plwings)):
+        flapVisUpdate(_trajs[k][i,:], _xyoffs[k], params, _plwings[k], _plaeros[k])
+    return tuple(_plwings + _plaeros)
+
+def trajAnim(tvec, ctstrajs, save=False, fps=30):
+    global _plwings
+    global _plaeros
+    global _xyoffs
+    global _trajs
+    global anim #The object created by FuncAnimation must be assigned to a global variable
+
+    fig, _ax = plt.subplots()
+
+    _trajs = ctstrajs
+    _xyoffs = [[0, 0.05 * i] for i in range(len(_trajs))]
+    _plwings = [_ax.plot([], [], 'b.-', linewidth=4)[0] for i in range(len(_trajs))]
+    _plaeros = [_ax.plot([], [], 'r', linewidth=2)[0] for i in range(len(_trajs))]
+
+    _ax.grid(True)
+    _ax.set_aspect(1)
+    _ax.set_xlim([-1, 1])
+    _ax.set_ylim([-0.05, 0.05 * len(_trajs)])
+
+    anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(tvec), interval=1000/fps, blit=True)
+    if save:
+        # Set up formatting for the movie files
+        Writer = animation.writers['ffmpeg']
+        writer = Writer(fps=fps, metadata=dict(artist='Me'), bitrate=1800)
+        import time
+        timestamp = time.strftime('%Y%m%d%H%M%S', time.localtime())
+        anim.save('trajOptWing2DOF'+timestamp+'.mp4', writer=writer)
+
+    plt.tight_layout()
+
