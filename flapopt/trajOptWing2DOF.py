@@ -123,17 +123,17 @@ plt.plot(Ttest, [JT(Ti) for Ti in Ttest])
 
 # wqp.plotTrajs(olTraj, traj2, traj3, traj4)
 # wingopt.trajAnim(tvec, ctstrajs)
-plt.show()
-sys.exit(0)
+# plt.show()
+# sys.exit(0)
 
 # ---------------------- OLD gradient descent ------------
 
-Jgrad = jacobian(lambda yu : wingopt.Jcosttraj(yu, params))
-# gradient wrt params
-Jgradp = jacobian(lambda p : wingopt.Jcosttraj(yu0, p))
+wpo = wingopt.WingPenaltyOptimizer()
 
 # Gradient descent
-print(Jcosttraj(yu0, params))
+print(wpo.J(olTraj))
+plt.show()
+sys.exit(0)
 yu1 = yu0.copy()
 for i in range(5):
     g1 = Jgrad(yu1)
@@ -145,6 +145,8 @@ for i in range(5):
     yu1 -= 1e1 * g1
     print(i, Jcosttraj(yu1, params))
 
+# gradient wrt params
+Jgradp = jacobian(lambda p : wingopt.Jcosttraj(yu0, p))
 params1 = params.copy()
 for i in range(5):
     g1 = Jgradp(params1)

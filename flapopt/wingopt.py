@@ -132,19 +132,18 @@ def Jobjinst(y, u, params):
 
 def Jcostinst_dynpenalty(ynext, y, u, params):
     '''error on dynamics for penalty method'''
-    dynErr = ynext - (y + m.dydt(y, u, params) * dt)
+    dynErr = ynext - (y + m.dydt(y, u, params) * m.dt)
     return 1/2 * dynErr.T @ dynErr
 
 # FIXME: need to find y that make one cycle
 # as a first pass just average over the whole time
 
-def Jcosttraj(yu, params):
+def Jcosttraj_dynpenalty(yu, params, penalty=1e-6):
     '''this is over a traj. yu = (nx+nu,Nt)-shaped'''
     Nt = yu.shape[1]
     c = 0
-    PENALTY = 1e-6
     for i in range(Nt-1):
-        c += Jobjinst(yu[:m.nx,i], yu[m.nx:,i], params) + PENALTY * Jcostinst_dynpenalty(yu[:m.nx,i+1], yu[:m.nx,i], yu[m.nx:,i], params)
+        c += Jobjinst(yu[:m.nx,i], yu[m.nx:,i], params) + penalty * Jcostinst_dynpenalty(yu[:m.nx,i+1], yu[:m.nx,i], yu[m.nx:,i], params)
     # TODO: any final cost?
     c += Jobjinst(yu[:m.nx,-1], yu[m.nx:,-1], params)
     return c
@@ -295,6 +294,18 @@ class WingQP:
         ax[2].set_ylabel('stroke force (N)')
         for arg in args:
             print('cost = ', self.ltvsys.qof.cost(arg))
+
+
+class WingPenaltyOptimizer:
+    def __init__(self):
+        self.DJ = jacobian(lambda traj : Jcosttraj_dynpenalty(traj, params))
+        self.D2J = hessian(lambda traj : Jcosttraj_dynpenalty(traj, params))
+        self.J = lambda traj : Jcosttraj_dynpenalty(traj, params)
+    
+    def update(self):
+        # Newton's method followed by backtracking line search
+        pass
+
 
 # Animation -------------------------
 
