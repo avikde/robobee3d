@@ -145,9 +145,10 @@ sys.exit(0)
 
 # TODO: 
 # - anim
-# - periodicity constraint (not needed?)
+# - fix newton method - Hessian singular??
 # - inequality constraints
 # - analytical gradients? confirm that evaluating the autograd is the slowest
+# - periodicity constraint (not needed?)
 
 # plots
 
