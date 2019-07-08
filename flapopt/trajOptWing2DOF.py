@@ -111,13 +111,13 @@ for opttraj in [olTraj, traj2, traj3, traj4]:
     sol = solve_ivp(lambda t, y: knotPointControl(t, y, opttraj), [0, tf], y0, dense_output=True, t_eval=tvec)
     ctstrajs.append(sol.y.T)
 
-# Optim wrt params ----
+# # Optim wrt params ----
 
-JT = lambda T : wingopt.Jcost_dirtran(wqp.dirtranx, Nknot, [wingopt.params[0], T])
-DJT = jacobian(JT)
+# JT = lambda T : wingopt.Jcost_dirtran(wqp.dirtranx, Nknot, [wingopt.params[0], T])
+# DJT = jacobian(JT)
 
-Ttest = np.arange(0.5, 1.5, 0.1)
-plt.plot(Ttest, [JT(Ti) for Ti in Ttest])
+# Ttest = np.arange(0.5, 1.5, 0.1)
+# plt.plot(Ttest, [JT(Ti) for Ti in Ttest])
 
 # Display -------------
 
@@ -128,10 +128,12 @@ plt.plot(Ttest, [JT(Ti) for Ti in Ttest])
 
 # ---------------------- OLD gradient descent ------------
 
-wpo = wingopt.WingPenaltyOptimizer()
+wpo = wingopt.WingPenaltyOptimizer(Nknot-1)
 
 # Gradient descent
-print(wpo.J(olTraj))
+print(wpo.J(wqp.dirtranx))
+print(wpo.DJ(wqp.dirtranx))
+
 plt.show()
 sys.exit(0)
 yu1 = yu0.copy()

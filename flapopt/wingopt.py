@@ -130,24 +130,6 @@ def Jobjinst(y, u, params):
     _, Faero = m.aero(y, u, params)
     return -Faero[1] # minimization
 
-def Jcostinst_dynpenalty(ynext, y, u, params):
-    '''error on dynamics for penalty method'''
-    dynErr = ynext - (y + m.dydt(y, u, params) * m.dt)
-    return 1/2 * dynErr.T @ dynErr
-
-# FIXME: need to find y that make one cycle
-# as a first pass just average over the whole time
-
-def Jcosttraj_dynpenalty(yu, params, penalty=1e-6):
-    '''this is over a traj. yu = (nx+nu,Nt)-shaped'''
-    Nt = yu.shape[1]
-    c = 0
-    for i in range(Nt-1):
-        c += Jobjinst(yu[:m.nx,i], yu[m.nx:,i], params) + penalty * Jcostinst_dynpenalty(yu[:m.nx,i+1], yu[:m.nx,i], yu[m.nx:,i], params)
-    # TODO: any final cost?
-    c += Jobjinst(yu[:m.nx,-1], yu[m.nx:,-1], params)
-    return c
-
 def Jcost_dirtran(dirtranx, N, params):
     '''this is over a traj, no penalty'''
     c = 0
@@ -295,16 +277,55 @@ class WingQP:
         for arg in args:
             print('cost = ', self.ltvsys.qof.cost(arg))
 
+""" Penalty method 
+Inspired by Coros et al
+-----------------------------------------------------------------------
+"""
+
+def Jcostinst_dynpenalty(ynext, y, u, params):
+    '''error on dynamics for penalty method'''
+    dynErr = ynext - (y + m.dydt(y, u, params) * m.dt)
+    return 1/2 * dynErr.T @ dynErr
+
+def Jcosttraj_dynpenalty(dirtranx, N, params, penalty=1e-6):
+    '''this is over a traj. yu = (nx+nu,Nt)-shaped'''
+    c = 0
+    ykfun = lambda k : dirtranx[(k*m.nx):((k+1)*m.nx)]
+    ukfun = lambda k : dirtranx[((N+1)*m.nx + k*m.nu):((N+1)*m.nx + (k+1)*m.nu)]
+    for i in range(N-1):
+        c += Jobjinst(ykfun(i), ukfun(i), params) + penalty * Jcostinst_dynpenalty(ykfun(i+1), ykfun(i), ukfun(i), params)
+    # TODO: any final cost?
+    c += Jobjinst(ykfun(N-1), ukfun(N-1), params)
+    return c
 
 class WingPenaltyOptimizer:
-    def __init__(self):
-        self.DJ = jacobian(lambda traj : Jcosttraj_dynpenalty(traj, params))
-        self.D2J = hessian(lambda traj : Jcosttraj_dynpenalty(traj, params))
-        self.J = lambda traj : Jcosttraj_dynpenalty(traj, params)
+    """Works with dirtran form of x only"""
+
+    def __init__(self, N):
+        self.DJ = jacobian(lambda traj : Jcosttraj_dynpenalty(traj, N, params))
+        self.D2J = hessian(lambda traj : Jcosttraj_dynpenalty(traj, N, params))
+        self.J = lambda traj : Jcosttraj_dynpenalty(traj, N, params)
+        self.N = N
     
-    def update(self):
-        # Newton's method followed by backtracking line search
-        pass
+    def update(self, traj):
+        J0 = self.J(traj)
+        DJ0 = self.DJ(traj)
+        D2J0 = self.D2J(traj)
+
+        # # Gradient descent
+        # traj -= stepSize * DJ0
+
+        # Newton's method followed by backtracking line search http://www.stat.cmu.edu/~ryantibs/convexopt-S15/lectures/14-newton.pdf
+        v = -np.linalg.inv(D2J0) * DJ0 # descent direction
+        # search for s
+        alpha = 0.4
+        beta = 0.9
+        s = 1
+        while self.J(traj + s * v) > J0 + alpha * s * DJ0.T @ v:
+            s = beta * s
+        # perform Newton update
+        return traj + s * v
+        
 
 
 # Animation -------------------------
