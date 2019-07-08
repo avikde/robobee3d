@@ -128,11 +128,12 @@ for opttraj in [olTraj, traj2, traj3, traj4]:
 
 # ---------------------- OLD gradient descent ------------
 
-wpo = wingopt.WingPenaltyOptimizer(Nknot-1)
+wpo = wingopt.WingPenaltyOptimizer(Nknot-1, penalty=1e-3)
+# Initial trajectory
+traj0 = wingopt.dirTranForm(olTraj, Nknot-1, m.nx, m.nu)
 
-# Gradient descent
-print(wpo.J(wqp.dirtranx))
-print(wpo.DJ(wqp.dirtranx))
+traj1 = wpo.update(traj0)
+wpo.plotTrajs(traj0, traj1)
 
 plt.show()
 sys.exit(0)

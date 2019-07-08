@@ -301,22 +301,24 @@ def Jcosttraj_dynpenalty(dirtranx, N, params, penalty=1e-6):
 class WingPenaltyOptimizer:
     """Works with dirtran form of x only"""
 
-    def __init__(self, N):
-        self.DJ = jacobian(lambda traj : Jcosttraj_dynpenalty(traj, N, params))
-        self.D2J = hessian(lambda traj : Jcosttraj_dynpenalty(traj, N, params))
-        self.J = lambda traj : Jcosttraj_dynpenalty(traj, N, params)
+    def __init__(self, N, **kwargs):
+        self.DJ = jacobian(lambda traj : Jcosttraj_dynpenalty(traj, N, params, **kwargs))
+        self.D2J = hessian(lambda traj : Jcosttraj_dynpenalty(traj, N, params, **kwargs))
+        self.J = lambda traj : Jcosttraj_dynpenalty(traj, N, params, **kwargs)
         self.N = N
     
     def update(self, traj):
+        # Some error checking
+        assert len(traj) == (self.N+1) * m.nx + self.N*m.nu
+
         J0 = self.J(traj)
         DJ0 = self.DJ(traj)
         D2J0 = self.D2J(traj)
 
-        # # Gradient descent
-        # traj -= stepSize * DJ0
-
+        # descent direction
+        v = -DJ0 # gradient descent
         # Newton's method followed by backtracking line search http://www.stat.cmu.edu/~ryantibs/convexopt-S15/lectures/14-newton.pdf
-        v = -np.linalg.inv(D2J0) * DJ0 # descent direction
+        # v = -np.linalg.inv(D2J0) * DJ0
         # search for s
         alpha = 0.4
         beta = 0.9
@@ -326,6 +328,30 @@ class WingPenaltyOptimizer:
         # perform Newton update
         return traj + s * v
         
+    def plotTrajs(self, *args):
+        """Helper function to plot a bunch of trajectories superimposed"""
+        trajt = range(self.N)
+        yend = (self.N) * m.nx # N to ignore the last one
+        ustart = (self.N+1) * m.nx
+        uend = ustart + self.N*m.nu
+        _, ax = plt.subplots(3)
+        for arg in args:
+            ax[0].plot(trajt, arg[0:yend:m.nx], '.-')
+        # for yy in [xmin[0], xmax[0], 0]:
+        #     ax[0].axhline(y=yy, color='k', alpha=0.3)
+        ax[0].set_ylabel('stroke (m)')
+        for arg in args:
+            ax[1].plot(trajt, arg[1:yend:m.nx], '.-')
+        # for yy in [xmin[1], xmax[1], np.pi/4, -np.pi/4]:
+        #     ax[1].axhline(y=yy, color='k', alpha=0.3)
+        ax[1].set_ylabel('hinge angle (rad)')
+        for arg in args:
+            ax[2].plot(trajt, arg[ustart:uend:m.nu], '.-')
+        # ax[2].axhline(y=umin[0], color='k', alpha=0.3)
+        # ax[2].axhline(y=umax[0], color='k', alpha=0.3)
+        ax[2].set_ylabel('stroke force (N)')
+        for arg in args:
+            print('cost = ', self.J(arg))
 
 
 # Animation -------------------------
