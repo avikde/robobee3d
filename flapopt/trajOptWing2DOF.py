@@ -126,41 +126,28 @@ for opttraj in [olTraj, traj2, traj3, traj4]:
 # plt.show()
 # sys.exit(0)
 
-# ---------------------- OLD gradient descent ------------
+"""
+Penalty-based NL optim ----------------------------------------
+"""
 
 wpo = wingopt.WingPenaltyOptimizer(Nknot-1, penalty=1e-3)
 # Initial trajectory
 traj0 = wingopt.dirTranForm(olTraj, Nknot-1, m.nx, m.nu)
 
-traj1 = wpo.update(traj0)
-wpo.plotTrajs(traj0, traj1)
+traj = traj0.copy()
+for i in range(5):
+    print("HI", i)
+    traj = wpo.update(traj)
+wpo.plotTrajs(traj0, traj)
 
 plt.show()
 sys.exit(0)
-yu1 = yu0.copy()
-for i in range(5):
-    g1 = Jgrad(yu1)
-    # print(g1[:20])
-    # # Stupid "line search" for step size
-    # for i in range(-10,10):
-    #     print(i, Jcosttraj(yu0 - np.power(10.0,i) * g1, params))
-    # sys.exit(0)
-    yu1 -= 1e1 * g1
-    print(i, Jcosttraj(yu1, params))
 
-# gradient wrt params
-Jgradp = jacobian(lambda p : wingopt.Jcosttraj(yu0, p))
-params1 = params.copy()
-for i in range(5):
-    g1 = Jgradp(params1)
-    # # Stupid "line search" for step size
-    # for i in range(-10,10):
-    #     print(i, Jcosttraj(yu0, params - np.power(10.0,i) * g1))
-    # sys.exit(0)
-    params1 -= 1e-6 * g1
-    print(i, Jcosttraj(yu0, params1))
-
-# --------------------------------------------------------
+# TODO: 
+# - anim
+# - periodicity constraint (not needed?)
+# - inequality constraints
+# - analytical gradients? confirm that evaluating the autograd is the slowest
 
 # plots
 
