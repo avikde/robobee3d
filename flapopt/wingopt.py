@@ -203,6 +203,8 @@ class WingQP:
         # Dynamics and constraints TODO:
         self.ltvsys.initConstraints(model.nx, model.nu, N, periodic=True, 
         polyBlocks=None)
+        # Add N+1th row to xtraj?
+        self.ltvsys.xtraj = np.vstack((self.ltvsys.xtraj, self.ltvsys.xtraj[-1,:]))
         self.ltvsys.initObjective(QOFAvgLift(N, wx, wu, kdampx, kdampu))
         self.ltvsys.initSolver(**settings)
 
