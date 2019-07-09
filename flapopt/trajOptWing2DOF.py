@@ -92,25 +92,7 @@ traj3 = wqp.update(traj2)
 traj4 = wqp.update(traj3)
 # wqp.debugConstraintViol(olTraj, wqp.dirtranx)
 
-# Create shorter timestep sims
-ctstrajs = []
-tvec = np.arange(0, olTrajt[-1] - olTrajt[0], dt)
-tf = tvec[-1]
-y0 = olTraj[0,:4]
-
-def knotPointControl(t, y, traj):
-    # dumb TODO: interpolate
-    u0 = 0 # which knot point input to use
-    for i in range(len(olTrajt)):
-        if olTrajt[0] + t > olTrajt[i]:
-            u0 = traj[i,4]
-    return m.dydt(y, [u0], wingopt.params)
-
-for opttraj in [olTraj, traj2, traj3, traj4]:
-    # Sim of an openloop controller
-    sol = solve_ivp(lambda t, y: knotPointControl(t, y, opttraj), [0, tf], y0, dense_output=True, t_eval=tvec)
-    ctstrajs.append(sol.y.T)
-
+ctstrajs = wingopt.createCtsTraj(dt, olTrajt, [olTraj, traj2, traj3, traj4])
 # # Optim wrt params ----
 
 # JT = lambda T : wingopt.Jcost_dirtran(wqp.dirtranx, Nknot, [wingopt.params[0], T])
@@ -121,10 +103,10 @@ for opttraj in [olTraj, traj2, traj3, traj4]:
 
 # Display -------------
 
-# wqp.plotTrajs(olTraj, traj2, traj3, traj4)
-# wingopt.trajAnim(tvec, ctstrajs)
-# plt.show()
-# sys.exit(0)
+wqp.plotTrajs(olTraj, traj2, traj3, traj4)
+wingopt.trajAnim(tvec, ctstrajs)
+plt.show()
+sys.exit(0)
 
 """
 Penalty-based NL optim ----------------------------------------
@@ -142,13 +124,6 @@ wpo.plotTrajs(traj0, traj)
 
 plt.show()
 sys.exit(0)
-
-# TODO: 
-# - anim
-# - fix newton method - Hessian singular??
-# - inequality constraints
-# - analytical gradients? confirm that evaluating the autograd is the slowest
-# - periodicity constraint (not needed?)
 
 # plots
 

@@ -200,11 +200,12 @@ class QOFAvgLift:
 class WingQP:
     def __init__(self, model, N, wx, wu, kdampx, kdampu, **settings):
         self.ltvsys = ltvsystem.LTVSolver(model)
-        # Dynamics and constraints TODO:
+        # Dynamics and constraints
         self.ltvsys.initConstraints(model.nx, model.nu, N, periodic=True, 
         polyBlocks=None)
         # Add N+1th row to xtraj?
         self.ltvsys.xtraj = np.vstack((self.ltvsys.xtraj, self.ltvsys.xtraj[-1,:]))
+        # Back to standard
         self.ltvsys.initObjective(QOFAvgLift(N, wx, wu, kdampx, kdampu))
         self.ltvsys.initSolver(**settings)
 
@@ -354,6 +355,29 @@ class WingPenaltyOptimizer:
         ax[2].set_ylabel('stroke force (N)')
         for arg in args:
             print('cost = ', self.J(arg))
+
+# Create "cts" trajectories from traj (control) knot points ----
+
+def knotPointControl(t, y, traj, ttraj):
+    # dumb TODO: interpolate
+    u0 = 0 # which knot point input to use
+    for i in range(len(ttraj)):
+        if ttraj[0] + t > ttraj[i]:
+            u0 = traj[i,4]
+    return m.dydt(y, [u0], params)
+
+def createCtsTraj(dt, ttrajs, trajs):
+    from scipy.integrate import solve_ivp
+    # Create shorter timestep sims
+    ctstrajs = []
+    tvec = np.arange(0, ttrajs[-1] - ttrajs[0], dt)
+    tf = tvec[-1]
+    y0 = trajs[0][0,:4]
+    for opttraj in trajs:
+        # Sim of an openloop controller
+        sol = solve_ivp(lambda t, y: knotPointControl(t, y, opttraj, ttrajs), [0, tf], y0, dense_output=True, t_eval=tvec)
+        ctstrajs.append(sol.y.T)
+    return ctstrajs
 
 
 # Animation -------------------------
