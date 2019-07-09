@@ -319,9 +319,16 @@ class WingPenaltyOptimizer:
         D2J0 = self.D2J(traj)
 
         # descent direction
-        v = -DJ0 # gradient descent
+        # v = -DJ0 # gradient descent
         # Newton's method followed by backtracking line search http://www.stat.cmu.edu/~ryantibs/convexopt-S15/lectures/14-newton.pdf
-        # v = -np.linalg.inv(D2J0) * DJ0
+        try:
+            # regularization
+            D2J0 += 1e-3 * np.eye(D2J0.shape[0])
+            v = -np.linalg.inv(D2J0) @ DJ0
+        except np.linalg.LinAlgError:
+            # last u (last diag elem) is 0 - makes sense
+            print(np.linalg.eigs(D2J0))
+            raise
         # search for s
         alpha = 0.4
         beta = 0.9
