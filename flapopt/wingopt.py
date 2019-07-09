@@ -360,11 +360,15 @@ class WingPenaltyOptimizer:
 
 def knotPointControl(t, y, traj, ttraj):
     # dumb TODO: interpolate
-    u0 = 0 # which knot point input to use
+    u0 = [0] # which knot point input to use
     for i in range(len(ttraj)):
         if ttraj[0] + t > ttraj[i]:
-            u0 = traj[i,4]
-    return m.dydt(y, [u0], params)
+            if len(traj.shape) > 1:
+                u0 = traj[i,m.nx:] # xu mat form
+            else:
+                # y0 = traj[:m.nx] # dirtran form
+                pass # FIXME: need N
+    return m.dydt(y, u0, params)
 
 def createCtsTraj(dt, ttrajs, trajs):
     from scipy.integrate import solve_ivp
@@ -372,12 +376,15 @@ def createCtsTraj(dt, ttrajs, trajs):
     ctstrajs = []
     tvec = np.arange(0, ttrajs[-1] - ttrajs[0], dt)
     tf = tvec[-1]
-    y0 = trajs[0][0,:4]
+    if len(trajs[0].shape) > 1:
+        y0 = trajs[0][0,:m.nx] # xu mat form
+    else:
+        y0 = trajs[0][:m.nx] # dirtran form
     for opttraj in trajs:
         # Sim of an openloop controller
         sol = solve_ivp(lambda t, y: knotPointControl(t, y, opttraj, ttrajs), [0, tf], y0, dense_output=True, t_eval=tvec)
         ctstrajs.append(sol.y.T)
-    return ctstrajs
+    return tvec, ctstrajs
 
 
 # Animation -------------------------

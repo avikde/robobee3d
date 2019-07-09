@@ -92,7 +92,6 @@ traj3 = wqp.update(traj2)
 traj4 = wqp.update(traj3)
 # wqp.debugConstraintViol(olTraj, wqp.dirtranx)
 
-ctstrajs = wingopt.createCtsTraj(dt, olTrajt, [olTraj, traj2, traj3, traj4])
 # # Optim wrt params ----
 
 # JT = lambda T : wingopt.Jcost_dirtran(wqp.dirtranx, Nknot, [wingopt.params[0], T])
@@ -103,10 +102,11 @@ ctstrajs = wingopt.createCtsTraj(dt, olTrajt, [olTraj, traj2, traj3, traj4])
 
 # Display -------------
 
-wqp.plotTrajs(olTraj, traj2, traj3, traj4)
-wingopt.trajAnim(tvec, ctstrajs)
-plt.show()
-sys.exit(0)
+# tvec, ctstrajs = wingopt.createCtsTraj(dt, olTrajt, [olTraj, traj2, traj3, traj4])
+# wqp.plotTrajs(olTraj, traj2, traj3, traj4)
+# wingopt.trajAnim(tvec, ctstrajs)
+# plt.show()
+# sys.exit(0)
 
 """
 Penalty-based NL optim ----------------------------------------
@@ -117,11 +117,13 @@ wpo = wingopt.WingPenaltyOptimizer(Nknot-1, penalty=1e-3)
 traj0 = wingopt.dirTranForm(olTraj, Nknot-1, m.nx, m.nu)
 
 traj = traj0.copy()
-for i in range(5):
+for i in range(1):
     print("HI", i)
     traj = wpo.update(traj)
 wpo.plotTrajs(traj0, traj)
 
+tvec, ctstrajs = wingopt.createCtsTraj(dt, olTrajt, [traj0, traj])
+wingopt.trajAnim(tvec, ctstrajs)
 plt.show()
 sys.exit(0)
 
