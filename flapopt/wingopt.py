@@ -361,13 +361,16 @@ class WingPenaltyOptimizer:
 def knotPointControl(t, y, traj, ttraj):
     # dumb TODO: interpolate
     u0 = [0] # which knot point input to use
+    if len(traj.shape) == 1:
+        # deduce N
+        N = (len(traj) - m.nx) // (m.nx + m.nu)
+        ustart = (N+1)*m.nx
     for i in range(len(ttraj)):
         if ttraj[0] + t > ttraj[i]:
             if len(traj.shape) > 1:
                 u0 = traj[i,m.nx:] # xu mat form
             else:
-                # y0 = traj[:m.nx] # dirtran form
-                pass # FIXME: need N
+                u0 = traj[(ustart+i*m.nu):(ustart+(i+1)*m.nu)] # dirtran form
     return m.dydt(y, u0, params)
 
 def createCtsTraj(dt, ttrajs, trajs):
