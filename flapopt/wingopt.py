@@ -215,7 +215,7 @@ class WingQP:
         # TODO: check which traj mode
         u0 = xtraj[:,4][:,np.newaxis]
         # NOTE: confirmed that updateTrajectory correctly updates the traj, and that updateDynamics is updating the A, B
-        xtraj = self.ltvsys.updateTrajectory(xtraj[:,:4], u0, params, trajMode=ltvsystem.GIVEN_POINT_OR_TRAJ)
+        xtraj = self.ltvsys.updateTrajectory(xtraj[:,:4], u0, ltvsystem.GIVEN_POINT_OR_TRAJ, params)
         self.ltvsys.updateObjective()
         self.dirtranx, res = self.ltvsys.solve(throwOnError=False)
         if res.info.status not in ['solved', 'solved inaccurate', 'maximum iterations reached']:
