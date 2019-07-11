@@ -302,7 +302,8 @@ def Jcosttraj_penalty(dirtranx, N, params, penalty={}):
     # Get all the relevant options from the dict
     PENALTY_DYNAMICS = penalty.get('dynamics', 1e-6)
     PENALTY_PERIODIC = penalty.get('periodic', 0) 
-    PENALTY_ULIM = penalty.get('input', 0) 
+    PENALTY_ULIM = penalty.get('input', 0)
+    PENALTY_EPS = penalty.get('eps', 0.1)
 
     c = 0
     ykfun = lambda k : dirtranx[(k*m.nx):((k+1)*m.nx)]
@@ -322,11 +323,11 @@ def Jcosttraj_penalty(dirtranx, N, params, penalty={}):
 
     # Inequality constraint for input limit
     umin, umax, xmin, xmax = m.limits
-    eps = penalty.get('eps', 0.1)
+    Indv = np.vectorize(lambda x : Ind(x, PENALTY_EPS))
     for i in range(N-1):
+        yi = ykfun(i)
         ui = ukfun(i)
-        for j in range(m.nu):
-            c += PENALTY_ULIM * (Ind(ui[j] - umax[j], eps) + Ind(-ui[j] + umin[j], eps))
+        c += PENALTY_ULIM * np.sum(Indv(ui - umax) + Indv(-ui + umin))
 
     return c
 
