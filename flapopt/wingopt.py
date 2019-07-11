@@ -16,8 +16,8 @@ class Wing2DOF(Model):
     rescale = 1.0
     rescaleU = 1.0
 
-    def aero(self, y, u, params=[]):
-        cbar = params[0]
+    def aero(self, y, u, _params=[]):
+        cbar = _params[0]
         CLmax = 1.8
         CDmax = 3.4
         CD0 = 0.4
@@ -30,6 +30,8 @@ class Wing2DOF(Model):
         alpha = psi
 
         # aero force
+        wing1 = np.array([sigma, 0])
+        paero = wing1 + np.array([[cpsi, -spsi], [spsi, cpsi]]) @ np.array([0, -cbar])
         Jaero = np.array([[1, cbar * cpsi], [0, cbar * spsi]])
         CL = CLmax * np.sin(2 * alpha)
         CD = (CDmax + CD0)/2 - (CDmax - CD0)/2 * np.cos(2 * alpha)
@@ -37,7 +39,7 @@ class Wing2DOF(Model):
         # TODO: confirm and expose design params as argument
         Faero = 1/2 * rho * cbar * R * (vaero.T @ vaero) * np.array([CD, CL]) * np.sign(-dsigma)
 
-        return Jaero, Faero
+        return paero, Jaero, Faero
 
     def dydt(self, y, u, params=[]):
         ''' 
@@ -65,7 +67,7 @@ class Wing2DOF(Model):
         corgrav = np.array([ka * sigma - cbar * mwing * spsi * dpsi**2, khinge * psi])
         # non-lagrangian terms
         taudamp = np.array([0, -bpsi * dpsi])
-        Jaero, Faero = self.aero(y, u, params)
+        _, Jaero, Faero = self.aero(y, u, params)
         tauaero = Jaero.T @ Faero
         # input
         tauinp = np.array([u[0], 0])
@@ -91,7 +93,7 @@ def flapkin(yui, xyoff, _params):
     c, s = np.cos(yui[1]), np.sin(yui[1])
     wing2 = wing1 + np.array([[c, -s], [s, c]]) @ np.array([0, -2*_params[0]])
     # aero arrow extents
-    _, Faero = m.aero(yui[:m.nx], yui[m.nx:], _params)
+    _, _, Faero = m.aero(yui[:m.nx], yui[m.nx:], _params)
     pcop = (wing1 + wing2)/2
     aeroEnd = pcop + 0.1 / m.rescale * Faero
     return wing1, wing2, pcop, aeroEnd
@@ -127,7 +129,7 @@ def xuMatForm(dirtranx, N, nx):
 # 
 
 def Jobjinst(y, u, params):
-    _, Faero = m.aero(y, u, params)
+    _, _, Faero = m.aero(y, u, params)
     return -Faero[1] # minimization
 
 def Jcost_dirtran(dirtranx, N, params):
