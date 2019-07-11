@@ -71,61 +71,61 @@ for ti in range(1, len(olTrajt)):
     yi2[ti, :4] = yi2[ti-1, :4] + olTrajdt * m.dydt(yi2[ti-1, :4], ui, wingopt.params)
 # plotTrajs(olTraj, yi2, yilin)
 
-
-# Use the class above to step the QP
+"""QP based ----------------------------------------
+"""
+# # Use the class above to step the QP
 Nknot = olTraj.shape[0]  # number of knot points in this case
-nx = 4
-nu = 1
-wx = np.ones(nx) * 1e-6
-wu = np.ones(nu) * 1e3
-kdampx = 1e-5 * np.ones(4)
-kdampu = np.zeros(1)
-# Must be 1 smaller to have the correct number of xi
-wqp = wingopt.WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=False, eps_rel=1e-4, eps_abs=1e-4, max_iter=10000)
-wqp.trajt = olTrajt
-# Test warm start
-# wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
-traj2 = wqp.update(olTraj)
-traj3 = wqp.update(traj2)
-# TEST: reduce wu 
-# wqp.ltvsys.qof.wu = np.ones(nu) * 1e2
-traj4 = wqp.update(traj3)
-# wqp.debugConstraintViol(olTraj, wqp.dirtranx)
+# nx = 4
+# nu = 1
+# wx = np.ones(nx) * 1e-6
+# wu = np.ones(nu) * 1e3
+# kdampx = 1e-5 * np.ones(4)
+# kdampu = np.zeros(1)
+# # Must be 1 smaller to have the correct number of xi
+# wqp = wingopt.WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=False, eps_rel=1e-4, eps_abs=1e-4, max_iter=10000)
+# wqp.trajt = olTrajt
+# # Test warm start
+# # wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
+# traj2 = wqp.update(olTraj)
+# traj3 = wqp.update(traj2)
+# # TEST: reduce wu 
+# # wqp.ltvsys.qof.wu = np.ones(nu) * 1e2
+# traj4 = wqp.update(traj3)
+# # wqp.debugConstraintViol(olTraj, wqp.dirtranx)
 
-# # Optim wrt params ----
+# # # Optim wrt params ----
 
-# JT = lambda T : wingopt.Jcost_dirtran(wqp.dirtranx, Nknot, [wingopt.params[0], T])
-# DJT = jacobian(JT)
+# # JT = lambda T : wingopt.Jcost_dirtran(wqp.dirtranx, Nknot, [wingopt.params[0], T])
+# # DJT = jacobian(JT)
 
-# Ttest = np.arange(0.5, 1.5, 0.1)
-# plt.plot(Ttest, [JT(Ti) for Ti in Ttest])
+# # Ttest = np.arange(0.5, 1.5, 0.1)
+# # plt.plot(Ttest, [JT(Ti) for Ti in Ttest])
 
-# Display -------------
+# # Display -------------
 
-# tvec, ctstrajs = wingopt.createCtsTraj(dt, olTrajt, [olTraj, traj2, traj3, traj4])
-# wqp.plotTrajs(olTraj, traj2, traj3, traj4)
-# wingopt.trajAnim(tvec, ctstrajs)
-# plt.show()
-# sys.exit(0)
+# # tvec, ctstrajs = wingopt.createCtsTraj(dt, olTrajt, [olTraj, traj2, traj3, traj4])
+# # wqp.plotTrajs(olTraj, traj2, traj3, traj4)
+# # wingopt.trajAnim(tvec, ctstrajs)
+# # plt.show()
+# # sys.exit(0)
 
 """
 Penalty-based NL optim ----------------------------------------
 """
 
-wpo = wingopt.WingPenaltyOptimizer(Nknot-1, penalty={'dynamics':1e-3, 'periodic':1e0, 'input':1e3, 'state': 1e0})
+wpo = wingopt.WingPenaltyOptimizer(Nknot-1)
 # Initial trajectory
 traj0 = wingopt.dirTranForm(olTraj, Nknot-1, m.nx, m.nu)
 # with params as well
 # traj0 = np.hstack((traj0, wingopt.params))
 
-traj = traj0.copy()
-for i in range(1):
-    print("HI", i)
-    traj = wpo.update(traj)
-wpo.plotTrajs(traj0, traj)
+print("hi 0")
+traj1 = wpo.update(traj0, opt={'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0})
+traj2 = wpo.update(traj0, opt={'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0, 'odrag': 1})
+wpo.plotTrajs(traj0, traj1, traj2)
 
-tvec, ctstrajs = wingopt.createCtsTraj(dt, olTrajt, [traj0, traj])
-wingopt.trajAnim(tvec, ctstrajs)
+# tvec, ctstrajs = wingopt.createCtsTraj(dt, olTrajt, [traj0, traj])
+# wingopt.trajAnim(tvec, ctstrajs)
 plt.show()
 sys.exit(0)
 

@@ -3,7 +3,7 @@ from autograd import jacobian, hessian
 import scipy.sparse as sparse
 import matplotlib.pyplot as plt
 from matplotlib import animation
-import sys
+import sys, time
 sys.path.append('..')
 from controlutils.py.model import Model
 import controlutils.py.ltvsystem as ltvsystem
@@ -79,7 +79,7 @@ class Wing2DOF(Model):
     @property
     def limits(self):
         # This is based on observing the OL trajectory
-        umin = np.array([-0.09 * self.rescaleU])
+        umin = np.array([-0.15 * self.rescaleU])
         umax = -umin
         xmin = np.array([-0.02 * self.rescale, -1.2, -np.inf, -np.inf])
         xmax = -xmin
@@ -299,21 +299,27 @@ def Ind(x, eps):
     else:
         return x**2 + eps**2/3
 
-def Jcosttraj_penalty(dirtranx, N, params, penalty={}):
+def Jcosttraj_penalty(dirtranx, N, params, opt={}):
     '''this is over a traj. yu = (nx+nu,Nt)-shaped'''
     # Get all the relevant options from the dict
-    PENALTY_DYNAMICS = penalty.get('dynamics', 1e-6)
-    PENALTY_PERIODIC = penalty.get('periodic', 0)
-    PENALTY_ULIM = penalty.get('input', 0)
-    PENALTY_XLIM = penalty.get('state', 0)
-    PENALTY_EPS = penalty.get('eps', 0.1)
+    PENALTY_DYNAMICS = opt.get('dynamics', 1e-6)
+    PENALTY_PERIODIC = opt.get('periodic', 0)
+    PENALTY_ULIM = opt.get('input', 0)
+    PENALTY_XLIM = opt.get('state', 0)
+    PENALTY_EPS = opt.get('eps', 0.1)
+    OBJ_LIFT = opt.get('olift', 1)
+    OBJ_DRAG = opt.get('odrag', 0)
+    OBJ_MOM = opt.get('omom', 0)
 
     c = 0
     ykfun = lambda k : dirtranx[(k*m.nx):((k+1)*m.nx)]
     ukfun = lambda k : dirtranx[((N+1)*m.nx + k*m.nu):((N+1)*m.nx + (k+1)*m.nu)]
     # Objective
     for i in range(N):
-        c += Jobjinst(ykfun(i), ukfun(i), params)
+        paero, _, Faero = m.aero(ykfun(i), ukfun(i), params)
+        c += -OBJ_LIFT * Faero[1]
+        c += OBJ_DRAG * Faero[0]
+        c += OBJ_MOM * (-paero[0] * Faero[1] + paero[1] * Faero[0]) # moment
 
     # Dynamics constraint
     for i in range(N-1):
@@ -338,28 +344,24 @@ def Jcosttraj_penalty(dirtranx, N, params, penalty={}):
 class WingPenaltyOptimizer:
     """Works with dirtran form of x only"""
 
-    def __init__(self, N, **kwargs):
+    def __init__(self, N):
         self.N = N
         self._Nx = (self.N+1) * m.nx + self.N*m.nu #dirtran size
-        self.DJ = jacobian(lambda traj : Jcosttraj_penalty(traj, N, params, **kwargs))
-        self.D2J = hessian(lambda traj : Jcosttraj_penalty(traj, N, params, **kwargs))
-        self.J = lambda traj : Jcosttraj_penalty(traj, N, params, **kwargs)
-        self.DJxp = jacobian(lambda trajp : Jcosttraj_penalty(trajp[:self._Nx], N, trajp[self._Nx:], **kwargs))
-        self.D2Jxp = hessian(lambda trajp : Jcosttraj_penalty(trajp[:self._Nx], N, trajp[self._Nx:], **kwargs))
-        self.Jxp = lambda trajp : Jcosttraj_penalty(trajp[:self._Nx], N, trajp[self._Nx:], **kwargs)
     
-    def update(self, traj):
+    def update(self, traj, **kwargs):
+        start = time.time()
         # Some error checking
         if len(traj) == self._Nx:
-            J = self.J
-            DJ0 = self.DJ(traj)
-            D2J0 = self.D2J(traj)
+            J = lambda traj : Jcosttraj_penalty(traj, self.N, params, **kwargs)
         elif len(traj) == self._Nx + len(params):
-            J = self.Jxp
-            DJ0 = self.DJxp(traj)
-            D2J0 = self.D2Jxp(traj)
+            J = lambda trajp : Jcosttraj_penalty(trajp[:self._Nx], self.N, trajp[self._Nx:], **kwargs)
         else:
             raise ValueError('Size of traj must be either the dirtran size or that + params size')
+        DJ = jacobian(J)
+        D2J = hessian(J)
+        J0 = J(traj)
+        DJ0 = DJ(traj)
+        D2J0 = D2J(traj)
 
         # descent direction
         # v = -DJ0 # gradient descent
@@ -376,9 +378,10 @@ class WingPenaltyOptimizer:
         alpha = 0.4
         beta = 0.9
         s = 1
-        J0 = J(traj)
         while J(traj + s * v) > J0 + alpha * s * DJ0.T @ v:
             s = beta * s
+        # debugging
+        print("{:.3f}s; cost {:.1f} -> {:.1f}".format(time.time() - start, J0, J(traj + s * v)))
         # perform Newton update
         return traj + s * v
         
@@ -405,8 +408,6 @@ class WingPenaltyOptimizer:
         ax[2].axhline(y=umin[0], color='k', alpha=0.3)
         ax[2].axhline(y=umax[0], color='k', alpha=0.3)
         ax[2].set_ylabel('stroke force (N)')
-        for arg in args:
-            print('cost = ', self.J(arg))
 
 # Create "cts" trajectories from traj (control) knot points ----
 
