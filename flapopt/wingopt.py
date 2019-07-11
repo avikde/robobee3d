@@ -301,8 +301,9 @@ def Jcosttraj_penalty(dirtranx, N, params, penalty={}):
     '''this is over a traj. yu = (nx+nu,Nt)-shaped'''
     # Get all the relevant options from the dict
     PENALTY_DYNAMICS = penalty.get('dynamics', 1e-6)
-    PENALTY_PERIODIC = penalty.get('periodic', 0) 
+    PENALTY_PERIODIC = penalty.get('periodic', 0)
     PENALTY_ULIM = penalty.get('input', 0)
+    PENALTY_XLIM = penalty.get('state', 0)
     PENALTY_EPS = penalty.get('eps', 0.1)
 
     c = 0
@@ -322,12 +323,13 @@ def Jcosttraj_penalty(dirtranx, N, params, penalty={}):
     c += PENALTY_PERIODIC * periodicErr.T @ periodicErr
 
     # Inequality constraint for input limit
-    umin, umax, xmin, xmax = m.limits
+    umin, umax, ymin, ymax = m.limits
     Indv = np.vectorize(lambda x : Ind(x, PENALTY_EPS))
     for i in range(N-1):
         yi = ykfun(i)
         ui = ukfun(i)
         c += PENALTY_ULIM * np.sum(Indv(ui - umax) + Indv(-ui + umin))
+        c += PENALTY_XLIM * np.sum(Indv(yi - ymax) + Indv(-yi + ymin))
 
     return c
 
