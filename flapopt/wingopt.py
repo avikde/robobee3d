@@ -285,32 +285,47 @@ Inspired by Coros et al
 -----------------------------------------------------------------------
 """
 
-def Jcostinst_dynpenalty(ynext, y, u, params):
-    '''error on dynamics for penalty method'''
-    dynErr = ynext - (y + m.dydt(y, u, params) * m.dt)
-    return 1/2 * dynErr.T @ dynErr
+def indicator(x, eps):
+    """Indicator function to use inequality constraints in a penalty method.
+    Following Geilinger et al (2018) skaterbots. Ref Bern et al (2017)."""
+    if x <= -eps:
+        return 0
+    elif x > -eps and x < eps:
+        return x**3/(6*eps) + x**2/2 + eps*x/2 + eps**2/6
+    else:
+        return x**2 + eps**2/3
 
-def Jcosttraj_dynpenalty(dirtranx, N, params, penaltyDynamics=1e-6, penaltyPeriodic=0):
+def Jcosttraj_penalty(dirtranx, N, params, penalty={}):
     '''this is over a traj. yu = (nx+nu,Nt)-shaped'''
     c = 0
     ykfun = lambda k : dirtranx[(k*m.nx):((k+1)*m.nx)]
     ukfun = lambda k : dirtranx[((N+1)*m.nx + k*m.nu):((N+1)*m.nx + (k+1)*m.nu)]
+    # Objective
     for i in range(N):
-        c += Jobjinst(ykfun(i), ukfun(i), params) + penaltyDynamics * Jcostinst_dynpenalty(ykfun(i+1), ykfun(i), ukfun(i), params)
-    # TODO: any final cost?
-    c += Jobjinst(ykfun(N), ukfun(N), params)
+        c += Jobjinst(ykfun(i), ukfun(i), params)
+
+    # Dynamics constraint
+    for i in range(N-1):
+        dynErr = ykfun(i+1) - (ykfun(i) + m.dydt(ykfun(i), ukfun(i), params) * m.dt)
+        c += penalty.get('dynamics', 1e-6) * dynErr.T @ dynErr
+
     # Periodicity
     periodicErr = ykfun(N) - ykfun(0)
-    c += penaltyPeriodic * periodicErr.T @ periodicErr
+    c += penalty.get('periodic', 0) * periodicErr.T @ periodicErr
+
+    # # Inequality constraint for input limit
+    # for i in range(N):
+    #     c += Jobjinst(ykfun(i), ukfun(i), params)
+
     return c
 
 class WingPenaltyOptimizer:
     """Works with dirtran form of x only"""
 
     def __init__(self, N, **kwargs):
-        self.DJ = jacobian(lambda traj : Jcosttraj_dynpenalty(traj, N, params, **kwargs))
-        self.D2J = hessian(lambda traj : Jcosttraj_dynpenalty(traj, N, params, **kwargs))
-        self.J = lambda traj : Jcosttraj_dynpenalty(traj, N, params, **kwargs)
+        self.DJ = jacobian(lambda traj : Jcosttraj_penalty(traj, N, params, **kwargs))
+        self.D2J = hessian(lambda traj : Jcosttraj_penalty(traj, N, params, **kwargs))
+        self.J = lambda traj : Jcosttraj_penalty(traj, N, params, **kwargs)
         self.N = N
     
     def update(self, traj):
