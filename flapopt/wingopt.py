@@ -290,15 +290,18 @@ def Jcostinst_dynpenalty(ynext, y, u, params):
     dynErr = ynext - (y + m.dydt(y, u, params) * m.dt)
     return 1/2 * dynErr.T @ dynErr
 
-def Jcosttraj_dynpenalty(dirtranx, N, params, penalty=1e-6):
+def Jcosttraj_dynpenalty(dirtranx, N, params, penaltyDynamics=1e-6, penaltyPeriodic=0):
     '''this is over a traj. yu = (nx+nu,Nt)-shaped'''
     c = 0
     ykfun = lambda k : dirtranx[(k*m.nx):((k+1)*m.nx)]
     ukfun = lambda k : dirtranx[((N+1)*m.nx + k*m.nu):((N+1)*m.nx + (k+1)*m.nu)]
-    for i in range(N-1):
-        c += Jobjinst(ykfun(i), ukfun(i), params) + penalty * Jcostinst_dynpenalty(ykfun(i+1), ykfun(i), ukfun(i), params)
+    for i in range(N):
+        c += Jobjinst(ykfun(i), ukfun(i), params) + penaltyDynamics * Jcostinst_dynpenalty(ykfun(i+1), ykfun(i), ukfun(i), params)
     # TODO: any final cost?
-    c += Jobjinst(ykfun(N-1), ukfun(N-1), params)
+    c += Jobjinst(ykfun(N), ukfun(N), params)
+    # Periodicity
+    periodicErr = ykfun(N) - ykfun(0)
+    c += penaltyPeriodic * periodicErr.T @ periodicErr
     return c
 
 class WingPenaltyOptimizer:
