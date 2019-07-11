@@ -349,7 +349,7 @@ class WingPenaltyOptimizer:
         self._Nx = (self.N+1) * m.nx + self.N*m.nu #dirtran size
     
     def update(self, traj, **kwargs):
-        start = time.time()
+        start = time.perf_counter()
         # Some error checking
         if len(traj) == self._Nx:
             J = lambda traj : Jcosttraj_penalty(traj, self.N, params, **kwargs)
@@ -381,7 +381,7 @@ class WingPenaltyOptimizer:
         while J(traj + s * v) > J0 + alpha * s * DJ0.T @ v:
             s = beta * s
         # debugging
-        print("{:.3f}s; cost {:.1f} -> {:.1f}".format(time.time() - start, J0, J(traj + s * v)))
+        print("{:.3f}s; cost {:.1f} -> {:.1f}".format(time.perf_counter() - start, J0, J(traj + s * v)))
         # perform Newton update
         return traj + s * v
         
