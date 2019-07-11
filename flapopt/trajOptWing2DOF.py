@@ -112,7 +112,7 @@ traj4 = wqp.update(traj3)
 Penalty-based NL optim ----------------------------------------
 """
 
-wpo = wingopt.WingPenaltyOptimizer(Nknot-1, penalty={'dynamics':1e-3, 'periodic':1e0})
+wpo = wingopt.WingPenaltyOptimizer(Nknot-1, penalty={'dynamics':1e-3, 'periodic':1e0, 'input':1e3})
 # Initial trajectory
 traj0 = wingopt.dirTranForm(olTraj, Nknot-1, m.nx, m.nu)
 

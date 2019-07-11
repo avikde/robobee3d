@@ -77,7 +77,7 @@ class Wing2DOF(Model):
     @property
     def limits(self):
         # This is based on observing the OL trajectory
-        umin = np.array([-0.4 * self.rescaleU])
+        umin = np.array([-0.09 * self.rescaleU])
         umax = -umin
         xmin = np.array([-0.02 * self.rescale, -1.2, -np.inf, -np.inf])
         xmax = -xmin
@@ -285,9 +285,11 @@ Inspired by Coros et al
 -----------------------------------------------------------------------
 """
 
-def indicator(x, eps):
+def Ind(x, eps):
     """Indicator function to use inequality constraints in a penalty method.
-    Following Geilinger et al (2018) skaterbots. Ref Bern et al (2017)."""
+    Following Geilinger et al (2018) skaterbots. Ref Bern et al (2017).
+    
+    A scalar inequality f(x) <= b should be modeled as Ind(f(x) - b) and added to the cost."""
     if x <= -eps:
         return 0
     elif x > -eps and x < eps:
@@ -297,6 +299,11 @@ def indicator(x, eps):
 
 def Jcosttraj_penalty(dirtranx, N, params, penalty={}):
     '''this is over a traj. yu = (nx+nu,Nt)-shaped'''
+    # Get all the relevant options from the dict
+    PENALTY_DYNAMICS = penalty.get('dynamics', 1e-6)
+    PENALTY_PERIODIC = penalty.get('periodic', 0) 
+    PENALTY_ULIM = penalty.get('input', 0) 
+
     c = 0
     ykfun = lambda k : dirtranx[(k*m.nx):((k+1)*m.nx)]
     ukfun = lambda k : dirtranx[((N+1)*m.nx + k*m.nu):((N+1)*m.nx + (k+1)*m.nu)]
@@ -307,15 +314,19 @@ def Jcosttraj_penalty(dirtranx, N, params, penalty={}):
     # Dynamics constraint
     for i in range(N-1):
         dynErr = ykfun(i+1) - (ykfun(i) + m.dydt(ykfun(i), ukfun(i), params) * m.dt)
-        c += penalty.get('dynamics', 1e-6) * dynErr.T @ dynErr
+        c += PENALTY_DYNAMICS * dynErr.T @ dynErr
 
     # Periodicity
     periodicErr = ykfun(N) - ykfun(0)
-    c += penalty.get('periodic', 0) * periodicErr.T @ periodicErr
+    c += PENALTY_PERIODIC * periodicErr.T @ periodicErr
 
-    # # Inequality constraint for input limit
-    # for i in range(N):
-    #     c += Jobjinst(ykfun(i), ukfun(i), params)
+    # Inequality constraint for input limit
+    umin, umax, xmin, xmax = m.limits
+    eps = penalty.get('eps', 0.1)
+    for i in range(N-1):
+        ui = ukfun(i)
+        for j in range(m.nu):
+            c += PENALTY_ULIM * (Ind(ui[j] - umax[j], eps) + Ind(-ui[j] + umin[j], eps))
 
     return c
 
@@ -358,6 +369,7 @@ class WingPenaltyOptimizer:
         
     def plotTrajs(self, *args):
         """Helper function to plot a bunch of trajectories superimposed"""
+        umin, umax, xmin, xmax = m.limits
         trajt = range(self.N)
         yend = (self.N) * m.nx # N to ignore the last one
         ustart = (self.N+1) * m.nx
@@ -365,18 +377,18 @@ class WingPenaltyOptimizer:
         _, ax = plt.subplots(3)
         for arg in args:
             ax[0].plot(trajt, arg[0:yend:m.nx], '.-')
-        # for yy in [xmin[0], xmax[0], 0]:
-        #     ax[0].axhline(y=yy, color='k', alpha=0.3)
+        for yy in [xmin[0], xmax[0], 0]:
+            ax[0].axhline(y=yy, color='k', alpha=0.3)
         ax[0].set_ylabel('stroke (m)')
         for arg in args:
             ax[1].plot(trajt, arg[1:yend:m.nx], '.-')
-        # for yy in [xmin[1], xmax[1], np.pi/4, -np.pi/4]:
-        #     ax[1].axhline(y=yy, color='k', alpha=0.3)
+        for yy in [xmin[1], xmax[1], np.pi/4, -np.pi/4]:
+            ax[1].axhline(y=yy, color='k', alpha=0.3)
         ax[1].set_ylabel('hinge angle (rad)')
         for arg in args:
             ax[2].plot(trajt, arg[ustart:uend:m.nu], '.-')
-        # ax[2].axhline(y=umin[0], color='k', alpha=0.3)
-        # ax[2].axhline(y=umax[0], color='k', alpha=0.3)
+        ax[2].axhline(y=umin[0], color='k', alpha=0.3)
+        ax[2].axhline(y=umax[0], color='k', alpha=0.3)
         ax[2].set_ylabel('stroke force (N)')
         for arg in args:
             print('cost = ', self.J(arg))
