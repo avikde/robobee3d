@@ -337,18 +337,27 @@ class WingPenaltyOptimizer:
     """Works with dirtran form of x only"""
 
     def __init__(self, N, **kwargs):
+        self.N = N
+        self._Nx = (self.N+1) * m.nx + self.N*m.nu #dirtran size
         self.DJ = jacobian(lambda traj : Jcosttraj_penalty(traj, N, params, **kwargs))
         self.D2J = hessian(lambda traj : Jcosttraj_penalty(traj, N, params, **kwargs))
         self.J = lambda traj : Jcosttraj_penalty(traj, N, params, **kwargs)
-        self.N = N
+        self.DJxp = jacobian(lambda trajp : Jcosttraj_penalty(trajp[:self._Nx], N, trajp[self._Nx:], **kwargs))
+        self.D2Jxp = hessian(lambda trajp : Jcosttraj_penalty(trajp[:self._Nx], N, trajp[self._Nx:], **kwargs))
+        self.Jxp = lambda trajp : Jcosttraj_penalty(trajp[:self._Nx], N, trajp[self._Nx:], **kwargs)
     
     def update(self, traj):
         # Some error checking
-        assert len(traj) == (self.N+1) * m.nx + self.N*m.nu
-
-        J0 = self.J(traj)
-        DJ0 = self.DJ(traj)
-        D2J0 = self.D2J(traj)
+        if len(traj) == self._Nx:
+            J = self.J
+            DJ0 = self.DJ(traj)
+            D2J0 = self.D2J(traj)
+        elif len(traj) == self._Nx + len(params):
+            J = self.Jxp
+            DJ0 = self.DJxp(traj)
+            D2J0 = self.D2Jxp(traj)
+        else:
+            raise ValueError('Size of traj must be either the dirtran size or that + params size')
 
         # descent direction
         # v = -DJ0 # gradient descent
@@ -365,7 +374,8 @@ class WingPenaltyOptimizer:
         alpha = 0.4
         beta = 0.9
         s = 1
-        while self.J(traj + s * v) > J0 + alpha * s * DJ0.T @ v:
+        J0 = J(traj)
+        while J(traj + s * v) > J0 + alpha * s * DJ0.T @ v:
             s = beta * s
         # perform Newton update
         return traj + s * v
