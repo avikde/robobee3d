@@ -343,28 +343,33 @@ def Jcosttraj_penalty(dirtranx, N, params, opt={}):
 
 class WingPenaltyOptimizer:
     """Works with dirtran form of x only"""
+    WRT_TRAJ = 0
+    WRT_PARAMS = 1
+    WRT_TRAJ_PARAMS = 2
 
     def __init__(self, N):
         self.N = N
         self._Nx = (self.N+1) * m.nx + self.N*m.nu #dirtran size
     
-    def update(self, traj, params0=None, **kwargs):
+    def update(self, traj0, params0, mode=WRT_TRAJ, **kwargs):
         start = time.perf_counter()
         # Some error checking
-        if len(traj) == self._Nx and params0 is not None:
-            J = lambda p : Jcosttraj_penalty(traj, self.N, p, **kwargs) # wrt params
-        elif len(traj) == self._Nx:
-            J = lambda traj : Jcosttraj_penalty(traj, self.N, params, **kwargs)
-        elif len(traj) == self._Nx + len(params):
+        assert len(traj0) == self._Nx
+        assert len(params0) == len(params)
+
+        if mode == self.WRT_PARAMS:
+            J = lambda p : Jcosttraj_penalty(traj0, self.N, p, **kwargs) # wrt params
+            x0 = params0
+        elif mode == self.WRT_TRAJ:
+            J = lambda traj : Jcosttraj_penalty(traj, self.N, params0, **kwargs)
+            x0 = traj0
+        elif mode == self.WRT_TRAJ_PARAMS:
             J = lambda trajp : Jcosttraj_penalty(trajp[:self._Nx], self.N, trajp[self._Nx:], **kwargs)
+            x0 = np.hstack((traj0, params0))
         else:
-            raise ValueError('Size of traj must be either the dirtran size or that + params size')
+            raise ValueError('Invalid mode')
         DJ = jacobian(J)
         D2J = hessian(J)
-        if params0 is not None:
-            x0 = params0
-        else:
-            x0 = traj
         J0 = J(x0)
         DJ0 = DJ(x0)
         D2J0 = D2J(x0)
