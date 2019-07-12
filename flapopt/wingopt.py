@@ -14,7 +14,6 @@ class Wing2DOF(Model):
     y0 = np.zeros(nx)
     
     rescale = 1.0
-    rescaleU = 1.0
 
     def aero(self, y, u, _params=[]):
         cbar = _params[0]
@@ -47,8 +46,6 @@ class Wing2DOF(Model):
         '''
         T = _params[1]
         Kscale = np.diag([self.rescale, 1, self.rescale, 1])
-        # FIXME: u rescale not working due to some autograd error
-        # u = 1 / self.rescaleU * np.asarray(uu)
         y = np.linalg.inv(Kscale) @ yin
         # NOTE: for optimizing transmission ratio
         # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
@@ -87,7 +84,7 @@ class Wing2DOF(Model):
     @property
     def limits(self):
         # This is based on observing the OL trajectory
-        umin = np.array([-0.15 * self.rescaleU])
+        umin = np.array([-0.15])
         umax = -umin
         xmin = np.array([-0.02 * self.rescale, -1.2, -np.inf, -np.inf])
         xmax = -xmin
