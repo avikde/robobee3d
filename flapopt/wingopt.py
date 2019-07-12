@@ -17,13 +17,17 @@ class Wing2DOF(Model):
 
     def aero(self, y, u, _params=[]):
         cbar = _params[0]
+        T = _params[1]
         CLmax = 1.8
         CDmax = 3.4
         CD0 = 0.4
         rho = 1.225
         R = 15e-3
         
-        sigma, psi, dsigma, dpsi = tuple(y)
+        sigma = y[0] * T
+        psi = y[1]
+        dsigma = y[2] * T
+        dpsi = y[3]
         cpsi = np.cos(psi)
         spsi = np.sin(psi)
         alpha = psi
@@ -44,6 +48,7 @@ class Wing2DOF(Model):
         ''' 
         See mma file flapping wing traj
         '''
+        cbar = _params[0]
         T = _params[1]
         Kscale = np.diag([self.rescale, 1, self.rescale, 1])
         y = np.linalg.inv(Kscale) @ yin
@@ -59,7 +64,6 @@ class Wing2DOF(Model):
         spsi = np.sin(psi)
 
         # params
-        cbar = _params[0]
         mspar = 0
         ka = 0
         khinge = 1e-3
@@ -413,7 +417,7 @@ class WingPenaltyOptimizer:
             ax[0].plot(trajt, arg[0:yend:m.nx], '.-')
         for yy in [xmin[0], xmax[0], 0]:
             ax[0].axhline(y=yy, color='k', alpha=0.3)
-        ax[0].set_ylabel('stroke (m)')
+        ax[0].set_ylabel('act. disp (m)')
         for arg in args:
             ax[1].plot(trajt, arg[1:yend:m.nx], '.-')
         for yy in [xmin[1], xmax[1], np.pi/4, -np.pi/4]:
@@ -423,7 +427,7 @@ class WingPenaltyOptimizer:
             ax[2].plot(trajt, arg[ustart:uend:m.nu], '.-')
         ax[2].axhline(y=umin[0], color='k', alpha=0.3)
         ax[2].axhline(y=umax[0], color='k', alpha=0.3)
-        ax[2].set_ylabel('stroke force (N)')
+        ax[2].set_ylabel('act. force (N)')
 
 # Create "cts" trajectories from traj (control) knot points ----
 
