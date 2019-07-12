@@ -348,10 +348,12 @@ class WingPenaltyOptimizer:
         self.N = N
         self._Nx = (self.N+1) * m.nx + self.N*m.nu #dirtran size
     
-    def update(self, traj, **kwargs):
+    def update(self, traj, params0=None, **kwargs):
         start = time.perf_counter()
         # Some error checking
-        if len(traj) == self._Nx:
+        if len(traj) == self._Nx and params0 is not None:
+            J = lambda p : Jcosttraj_penalty(traj, self.N, p, **kwargs) # wrt params
+        elif len(traj) == self._Nx:
             J = lambda traj : Jcosttraj_penalty(traj, self.N, params, **kwargs)
         elif len(traj) == self._Nx + len(params):
             J = lambda trajp : Jcosttraj_penalty(trajp[:self._Nx], self.N, trajp[self._Nx:], **kwargs)
@@ -359,9 +361,13 @@ class WingPenaltyOptimizer:
             raise ValueError('Size of traj must be either the dirtran size or that + params size')
         DJ = jacobian(J)
         D2J = hessian(J)
-        J0 = J(traj)
-        DJ0 = DJ(traj)
-        D2J0 = D2J(traj)
+        if params0 is not None:
+            x0 = params0
+        else:
+            x0 = traj
+        J0 = J(x0)
+        DJ0 = DJ(x0)
+        D2J0 = D2J(x0)
 
         # descent direction
         # v = -DJ0 # gradient descent
@@ -378,12 +384,12 @@ class WingPenaltyOptimizer:
         alpha = 0.4
         beta = 0.9
         s = 1
-        while J(traj + s * v) > J0 + alpha * s * DJ0.T @ v:
+        while J(x0 + s * v) > J0 + alpha * s * DJ0.T @ v:
             s = beta * s
         # debugging
-        print("{:.3f}s; cost {:.1f} -> {:.1f}".format(time.perf_counter() - start, J0, J(traj + s * v)))
+        print("{:.3f}s; cost {:.1f} -> {:.1f}".format(time.perf_counter() - start, J0, J(x0 + s * v)))
         # perform Newton update
-        return traj + s * v
+        return x0 + s * v
         
     def plotTrajs(self, *args):
         """Helper function to plot a bunch of trajectories superimposed"""

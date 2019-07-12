@@ -121,8 +121,12 @@ traj0 = wingopt.dirTranForm(olTraj, Nknot-1, m.nx, m.nu)
 
 print("hi 0")
 traj1 = wpo.update(traj0, opt={'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0})
-traj2 = wpo.update(traj0, opt={'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0, 'odrag': 1})
-wpo.plotTrajs(traj0, traj1, traj2)
+# traj2 = wpo.update(traj0, opt={'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0, 'odrag': 1})
+
+p1 = wpo.update(traj1, params0=wingopt.params, opt={'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0})
+print(wingopt.params, p1)
+
+wpo.plotTrajs(traj0, traj1)
 
 # tvec, ctstrajs = wingopt.createCtsTraj(dt, olTrajt, [traj0, traj])
 # wingopt.trajAnim(tvec, ctstrajs)
