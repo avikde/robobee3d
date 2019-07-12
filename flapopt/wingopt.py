@@ -356,24 +356,31 @@ class WingPenaltyOptimizer:
     WRT_PARAMS = 1
     WRT_TRAJ_PARAMS = 2
 
+    # Options for the solver
+    GRADIENT_DESCENT = 0
+    NEWTON_METHOD = 1
+
     def __init__(self, N):
         self.N = N
         self._Nx = (self.N+1) * m.nx + self.N*m.nu #dirtran size
     
-    def update(self, traj0, params0, mode=WRT_TRAJ, **kwargs):
+    def update(self, traj0, params0, mode=WRT_TRAJ, opt={}):
         start = time.perf_counter()
         # Some error checking
         assert len(traj0) == self._Nx
         assert len(params0) == len(params)
 
+        HESS_REG = opt.get('hessreg', 1e-3)
+        method = opt.get('method', self.NEWTON_METHOD)
+
         if mode == self.WRT_PARAMS:
-            J = lambda p : Jcosttraj_penalty(traj0, self.N, p, **kwargs) # wrt params
+            J = lambda p : Jcosttraj_penalty(traj0, self.N, p, opt) # wrt params
             x0 = params0
         elif mode == self.WRT_TRAJ:
-            J = lambda traj : Jcosttraj_penalty(traj, self.N, params0, **kwargs)
+            J = lambda traj : Jcosttraj_penalty(traj, self.N, params0, opt)
             x0 = traj0
         elif mode == self.WRT_TRAJ_PARAMS:
-            J = lambda trajp : Jcosttraj_penalty(trajp[:self._Nx], self.N, trajp[self._Nx:], **kwargs)
+            J = lambda trajp : Jcosttraj_penalty(trajp[:self._Nx], self.N, trajp[self._Nx:], opt)
             x0 = np.hstack((traj0, params0))
         else:
             raise ValueError('Invalid mode')
@@ -384,16 +391,20 @@ class WingPenaltyOptimizer:
         D2J0 = D2J(x0)
 
         # descent direction
-        # v = -DJ0 # gradient descent
-        # Newton's method followed by backtracking line search http://www.stat.cmu.edu/~ryantibs/convexopt-S15/lectures/14-newton.pdf
-        try:
-            # regularization
-            D2J0 += 1e-3 * np.eye(D2J0.shape[0])
-            v = -np.linalg.inv(D2J0) @ DJ0
-        except np.linalg.LinAlgError:
-            # last u (last diag elem) is 0 - makes sense
-            print(np.linalg.eigs(D2J0))
-            raise
+        if method == self.GRADIENT_DESCENT:
+            v = -DJ0 # gradient descent
+        elif method == self.NEWTON_METHOD:
+            # Newton's method http://www.stat.cmu.edu/~ryantibs/convexopt-S15/lectures/14-newton.pdf
+            try:
+                # regularization
+                D2J0 += HESS_REG * np.eye(D2J0.shape[0])
+                v = -np.linalg.inv(D2J0) @ DJ0
+            except np.linalg.LinAlgError:
+                # last u (last diag elem) is 0 - makes sense
+                print(np.linalg.eigs(D2J0))
+                raise
+                
+        # backtracking line search 
         # search for s
         alpha = 0.4
         beta = 0.9
