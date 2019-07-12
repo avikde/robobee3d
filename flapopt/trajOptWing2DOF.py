@@ -124,16 +124,15 @@ optavglift = {'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0}
 solver_opt2 = {'method': wpo.GRADIENT_DESCENT}
 
 print("hi 0")
-traj1 = wpo.update(traj0, params0, mode=wpo.WRT_TRAJ, opt=optavglift)
-# traj2 = wpo.update(traj0, opt={'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0, 'odrag': 1})
-params1 = wpo.update(traj1, params0, mode=wpo.WRT_PARAMS, opt=dict(optavglift, **solver_opt2))
-# 
-# traj2 = wpo.update(traj1, params1, mode=wpo.WRT_TRAJ, opt=optavglift)
-# # traj2 = wpo.update(traj0, opt={'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0, 'odrag': 1})
-# params2 = wpo.update(traj2, params1, mode=wpo.WRT_PARAMS, opt=optavglift)
+trajs = [traj0]
+params = [params0]
+for ii in range(2):
+    trajs.append(wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ, opt=optavglift))
+    # traj2 = wpo.update(traj0, opt={'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0, 'odrag': 1})
+    params.append(wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=dict(optavglift, **solver_opt2)))
 
-print(params0, params1)#, params2)
-wpo.plotTrajs(traj0, traj1)#, traj2)
+print(params)#, params2)
+wpo.plotTrajs(*trajs)#, traj2)
 
 # tvec, ctstrajs = wingopt.createCtsTraj(dt, olTrajt, [traj0, traj])
 # wingopt.trajAnim(tvec, ctstrajs)
