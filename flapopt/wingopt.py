@@ -41,20 +41,28 @@ class Wing2DOF(Model):
 
         return paero, Jaero, Faero
 
-    def dydt(self, y, u, params=[]):
+    def dydt(self, yin, u, _params=[]):
         ''' 
         See mma file flapping wing traj
         '''
+        T = _params[1]
         Kscale = np.diag([self.rescale, 1, self.rescale, 1])
         # FIXME: u rescale not working due to some autograd error
         # u = 1 / self.rescaleU * np.asarray(uu)
-        y = np.linalg.inv(Kscale) @ y
-        sigma, psi, dsigma, dpsi = tuple(y)
+        y = np.linalg.inv(Kscale) @ yin
+        # NOTE: for optimizing transmission ratio
+        # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
+        # u = (tau_actuator)
+        # sigma = sigma_actuator * T; tau = tau_actuator / T
+        sigma = y[0] * T
+        psi = y[1]
+        dsigma = y[2] * T
+        dpsi = y[3]
         cpsi = np.cos(psi)
         spsi = np.sin(psi)
 
         # params
-        cbar = params[0]
+        cbar = _params[0]
         mspar = 0
         ka = 0
         khinge = 1e-3
@@ -70,7 +78,7 @@ class Wing2DOF(Model):
         _, Jaero, Faero = self.aero(y, u, params)
         tauaero = Jaero.T @ Faero
         # input
-        tauinp = np.array([u[0], 0])
+        tauinp = np.array([u[0] / T, 0])
 
         ddq = np.linalg.inv(M) @ (-corgrav + taudamp + tauaero + tauinp)
 
