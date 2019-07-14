@@ -348,8 +348,6 @@ def Jcosttraj_penalty(dirtranx, N, params, opt={}):
     # stack into a vector
     r = np.hstack(rs)
 
-    c += r.T @ r
-
     return c, r
 
 class WingPenaltyOptimizer:
@@ -361,6 +359,7 @@ class WingPenaltyOptimizer:
     # Options for the solver
     GRADIENT_DESCENT = 0
     NEWTON_METHOD = 1
+    GAUSS_NEWTON = 2
 
     def __init__(self, N):
         self.N = N
@@ -372,7 +371,7 @@ class WingPenaltyOptimizer:
         assert len(params0) == len(params)
 
         HESS_REG = opt.get('hessreg', 1e-3)
-        method = opt.get('method', self.NEWTON_METHOD)
+        method = opt.get('method', self.GAUSS_NEWTON)
         optnp = dict(opt, **{'pen':False})
 
         if mode == self.WRT_PARAMS:
@@ -388,8 +387,20 @@ class WingPenaltyOptimizer:
             raise ValueError('Invalid mode')
         
         # separately get the non-quadratic and quadratic terms
-        J = lambda x : Jtup(x)[0]
+        Jnq = lambda x : Jtup(x)[0]
         r = lambda x : Jtup(x)[1]
+
+        if method != self.GAUSS_NEWTON:
+            def J(x):
+                # handle all costs the same
+                rr = r(x)
+                return Jnq(x) + rr.T @ rr
+        else:
+            J = Jnq
+            # Approximate the gradient, Hessian for these terms with Jr
+            Jr = jacobian(r)
+            Jr0 = Jr(x0)
+            r0 = r(x0)
 
         DJ = jacobian(J)
         D2J = hessian(J)
@@ -411,7 +422,11 @@ class WingPenaltyOptimizer:
         # descent direction
         if method == self.GRADIENT_DESCENT:
             v = -DJ0 # gradient descent
-        elif method == self.NEWTON_METHOD:
+        elif method in [self.NEWTON_METHOD, self.GAUSS_NEWTON]:
+            if method == self.GAUSS_NEWTON:
+                DJ0 += 2 * Jr0.T @ r0
+                D2J0 += 2 * Jr0.T @ Jr0
+
             # Newton's method http://www.stat.cmu.edu/~ryantibs/convexopt-S15/lectures/14-newton.pdf
             try:
                 # regularization
