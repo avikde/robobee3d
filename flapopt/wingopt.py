@@ -365,7 +365,6 @@ class WingPenaltyOptimizer:
         self._Nx = (self.N+1) * m.nx + self.N*m.nu #dirtran size
     
     def update(self, traj0, params0, mode=WRT_TRAJ, opt={}):
-        t0 = time.perf_counter()
         # Some error checking
         assert len(traj0) == self._Nx
         assert len(params0) == len(params)
@@ -388,13 +387,19 @@ class WingPenaltyOptimizer:
         DJ = jacobian(J)
         D2J = hessian(J)
         
-        t1 = time.perf_counter() # ~0
+        t0 = time.perf_counter()
 
         J0 = J(x0)
+        
+        t1 = time.perf_counter() # ~10ms
+
         DJ0 = DJ(x0)
+
+        t2 = time.perf_counter() # ~150ms
+
         D2J0 = D2J(x0)
 
-        t2 = time.perf_counter() # ~14s
+        t3 = time.perf_counter() # ~14s
 
         # descent direction
         if method == self.GRADIENT_DESCENT:
@@ -410,7 +415,7 @@ class WingPenaltyOptimizer:
                 print(np.linalg.eigs(D2J0))
                 raise
 
-        t3 = time.perf_counter() #~0.5-1 ms
+        t4 = time.perf_counter() #~0.5-1 ms
                 
         # backtracking line search 
         # search for s
@@ -420,9 +425,9 @@ class WingPenaltyOptimizer:
         while J(x0 + s * v) > J0 + alpha * s * DJ0.T @ v:
             s = beta * s
             
-        t4 = time.perf_counter() #~10ms - 1s
+        t5 = time.perf_counter() #~10ms - 1s
         # debugging
-        ts = np.array([t1-t0, t2-t1, t3-t2, t4-t3])
+        ts = np.array([t1-t0, t2-t1, t3-t2, t4-t3, t5-t4])
         print(ts, "cost {:.1f} -> {:.1f}".format(J0, J(x0 + s * v)))
         # perform Newton update
         return x0 + s * v
