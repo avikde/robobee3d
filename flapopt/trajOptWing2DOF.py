@@ -126,7 +126,7 @@ solver_opt2 = {'method': wpo.GRADIENT_DESCENT}
 print("hi 0")
 trajs = [traj0]
 params = [params0]
-for ii in range(2):
+for ii in range(1):
     trajs.append(wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ, opt=optavglift))
     # traj2 = wpo.update(traj0, opt={'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0, 'odrag': 1})
     params.append(wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=dict(optavglift, **solver_opt2)))

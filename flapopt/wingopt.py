@@ -319,6 +319,7 @@ def Jcosttraj_penalty(dirtranx, N, params, opt={}):
     OBJ_LIFT = opt.get('olift', 1)
     OBJ_DRAG = opt.get('odrag', 0)
     OBJ_MOM = opt.get('omom', 0)
+    PENALTY_ALLOW = opt.get('pen', True)
 
     c = 0
     ykfun = lambda k : dirtranx[(k*m.nx):((k+1)*m.nx)]
@@ -330,23 +331,24 @@ def Jcosttraj_penalty(dirtranx, N, params, opt={}):
         c += OBJ_DRAG * Faero[0]
         c += OBJ_MOM * (-paero[0] * Faero[1] + paero[1] * Faero[0]) # moment
 
-    # Dynamics constraint
-    for i in range(N-1):
-        dynErr = ykfun(i+1) - (ykfun(i) + m.dydt(ykfun(i), ukfun(i), params) * m.dt)
-        c += PENALTY_DYNAMICS * dynErr.T @ dynErr
+    if PENALTY_ALLOW:
+        # Dynamics constraint
+        for i in range(N-1):
+            dynErr = ykfun(i+1) - (ykfun(i) + m.dydt(ykfun(i), ukfun(i), params) * m.dt)
+            c += PENALTY_DYNAMICS * dynErr.T @ dynErr
 
-    # Periodicity
-    periodicErr = ykfun(N) - ykfun(0)
-    c += PENALTY_PERIODIC * periodicErr.T @ periodicErr
+        # Periodicity
+        periodicErr = ykfun(N) - ykfun(0)
+        c += PENALTY_PERIODIC * periodicErr.T @ periodicErr
 
-    # Inequality constraint for input limit
-    umin, umax, ymin, ymax = m.limits
-    Indv = np.vectorize(lambda x : Ind(x, PENALTY_EPS))
-    for i in range(N-1):
-        yi = ykfun(i)
-        ui = ukfun(i)
-        c += PENALTY_ULIM * np.sum(Indv(ui - umax) + Indv(-ui + umin))
-        c += PENALTY_XLIM * np.sum(Indv(yi - ymax) + Indv(-yi + ymin))
+        # Inequality constraint for input limit
+        umin, umax, ymin, ymax = m.limits
+        Indv = np.vectorize(lambda x : Ind(x, PENALTY_EPS))
+        for i in range(N-1):
+            yi = ykfun(i)
+            ui = ukfun(i)
+            c += PENALTY_ULIM * np.sum(Indv(ui - umax) + Indv(-ui + umin))
+            c += PENALTY_XLIM * np.sum(Indv(yi - ymax) + Indv(-yi + ymin))
 
     return c
 
@@ -371,15 +373,19 @@ class WingPenaltyOptimizer:
 
         HESS_REG = opt.get('hessreg', 1e-3)
         method = opt.get('method', self.NEWTON_METHOD)
+        optnp = dict(opt, **{'pen':False})
 
         if mode == self.WRT_PARAMS:
-            J = lambda p : Jcosttraj_penalty(traj0, self.N, p, opt) # wrt params
+            J = lambda p : Jcosttraj_penalty(traj0, self.N, p, opt)
+            # Jnp = lambda p : Jcosttraj_penalty(traj0, self.N, p, optnp)
             x0 = params0
         elif mode == self.WRT_TRAJ:
             J = lambda traj : Jcosttraj_penalty(traj, self.N, params0, opt)
+            # Jnp = lambda traj : Jcosttraj_penalty(traj, self.N, params0, optnp)
             x0 = traj0
         elif mode == self.WRT_TRAJ_PARAMS:
             J = lambda trajp : Jcosttraj_penalty(trajp[:self._Nx], self.N, trajp[self._Nx:], opt)
+            # Jnp = lambda trajp : Jcosttraj_penalty(trajp[:self._Nx], self.N, trajp[self._Nx:], optnp)
             x0 = np.hstack((traj0, params0))
         else:
             raise ValueError('Invalid mode')
