@@ -347,6 +347,8 @@ def Jcosttraj_penalty(dirtranx, N, params, opt={}):
     rs.append(np.sqrt(PENALTY_PERIODIC) * (ykfun(N) - ykfun(0)))
     # stack into a vector
     r = np.hstack(rs)
+    # FIXME: use component ri
+    # ri = np.sqrt(PENALTY_DYNAMICS) * (ykfun(1) - (ykfun(0) + m.dydt(ykfun(0), ukfun(0), params)))
 
     return c, r
 
@@ -389,6 +391,7 @@ class WingPenaltyOptimizer:
         # separately get the non-quadratic and quadratic terms
         Jnq = lambda x : Jtup(x)[0]
         r = lambda x : Jtup(x)[1]
+        # ri = lambda y0y1u0 : Jtup(np.hstack((y0y1u0[:2*m.nx], np.zeros((N-1)*m.nx), y0y1u0[-m.nu:], np.zeros((N-1)*m.nu))))[1]
         
         t0 = time.perf_counter()
 
@@ -403,6 +406,21 @@ class WingPenaltyOptimizer:
             Jr = jacobian(r)
             Jr0 = Jr(x0)
             r0 = r(x0)
+            # # FIXME: composing gradients of ri
+            # Jri = jacobian(ri)
+            # N, nx, nu = self.N, m.nx, m.nu
+            # szr = (N)*nx
+            # Jr0 = np.zeros((szr, self._Nx))
+            # r0 = np.zeros(szr)
+            # for i in range(N-1):
+            #     # xi = (yi,y{i+1},ui)
+            #     xi = np.hstack((x0[nx*i:nx*(i+2)], x0[(N+1)*nx + nu*i : (N+1)*nx + nu*(i+1)]))
+            #     r0[nx*i : nx*(i+1)] = ri(xi)
+            #     Jr0i = Jri(xi)
+            #     # Now put in the correct location
+            #     Jr0[nx*i : nx*(i+1), nx*i:nx*(i+2)] = Jr0i[:,:2*nx]
+            #     Jr0[nx*i : nx*(i+1), (N+1)*nx + nu*i : (N+1)*nx + nu*(i+1)] = Jr0i[:,-nu:]
+                
 
         DJ = jacobian(J)
         D2J = hessian(J)
