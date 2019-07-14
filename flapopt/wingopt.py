@@ -331,24 +331,24 @@ def Jcosttraj_penalty(dirtranx, N, params, opt={}):
         c += OBJ_DRAG * Faero[0]
         c += OBJ_MOM * (-paero[0] * Faero[1] + paero[1] * Faero[0]) # moment
 
-    if PENALTY_ALLOW:
-        # Dynamics constraint
-        for i in range(N-1):
-            dynErr = ykfun(i+1) - (ykfun(i) + m.dydt(ykfun(i), ukfun(i), params) * m.dt)
-            c += PENALTY_DYNAMICS * dynErr.T @ dynErr
+    # Inequality constraint for input limit
+    umin, umax, ymin, ymax = m.limits
+    Indv = np.vectorize(lambda x : Ind(x, PENALTY_EPS))
+    for i in range(N-1):
+        yi = ykfun(i)
+        ui = ukfun(i)
+        c += PENALTY_ULIM * np.sum(Indv(ui - umax) + Indv(-ui + umin))
+        c += PENALTY_XLIM * np.sum(Indv(yi - ymax) + Indv(-yi + ymin))
+        
+    # Quadratic terms handled separately since we can use a Gauss-Newton approx
+    # Dynamics constraint
+    rs = [np.sqrt(PENALTY_DYNAMICS) * (ykfun(i+1) - (ykfun(i) + m.dydt(ykfun(i), ukfun(i), params) * m.dt)) for i in range(N-1)]
+    # Periodicity
+    rs.append(np.sqrt(PENALTY_PERIODIC) * (ykfun(N) - ykfun(0)))
+    # stack into a vector
+    r = np.hstack(rs)
 
-        # Periodicity
-        periodicErr = ykfun(N) - ykfun(0)
-        c += PENALTY_PERIODIC * periodicErr.T @ periodicErr
-
-        # Inequality constraint for input limit
-        umin, umax, ymin, ymax = m.limits
-        Indv = np.vectorize(lambda x : Ind(x, PENALTY_EPS))
-        for i in range(N-1):
-            yi = ykfun(i)
-            ui = ukfun(i)
-            c += PENALTY_ULIM * np.sum(Indv(ui - umax) + Indv(-ui + umin))
-            c += PENALTY_XLIM * np.sum(Indv(yi - ymax) + Indv(-yi + ymin))
+    c += r.T @ r
 
     return c
 
