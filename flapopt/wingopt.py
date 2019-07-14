@@ -350,7 +350,7 @@ def Jcosttraj_penalty(dirtranx, N, params, opt={}):
 
     c += r.T @ r
 
-    return c
+    return c, r
 
 class WingPenaltyOptimizer:
     """Works with dirtran form of x only"""
@@ -376,20 +376,21 @@ class WingPenaltyOptimizer:
         optnp = dict(opt, **{'pen':False})
 
         if mode == self.WRT_PARAMS:
-            J = lambda p : Jcosttraj_penalty(traj0, self.N, p, opt)
-            # Jnp = lambda p : Jcosttraj_penalty(traj0, self.N, p, optnp)
+            Jtup = lambda p : Jcosttraj_penalty(traj0, self.N, p, opt)
             x0 = params0
         elif mode == self.WRT_TRAJ:
-            J = lambda traj : Jcosttraj_penalty(traj, self.N, params0, opt)
-            # Jnp = lambda traj : Jcosttraj_penalty(traj, self.N, params0, optnp)
+            Jtup = lambda traj : Jcosttraj_penalty(traj, self.N, params0, opt)
             x0 = traj0
         elif mode == self.WRT_TRAJ_PARAMS:
-            J = lambda trajp : Jcosttraj_penalty(trajp[:self._Nx], self.N, trajp[self._Nx:], opt)
-            # Jnp = lambda trajp : Jcosttraj_penalty(trajp[:self._Nx], self.N, trajp[self._Nx:], optnp)
+            Jtup = lambda trajp : Jcosttraj_penalty(trajp[:self._Nx], self.N, trajp[self._Nx:], opt)
             x0 = np.hstack((traj0, params0))
         else:
             raise ValueError('Invalid mode')
         
+        # separately get the non-quadratic and quadratic terms
+        J = lambda x : Jtup(x)[0]
+        r = lambda x : Jtup(x)[1]
+
         DJ = jacobian(J)
         D2J = hessian(J)
         
