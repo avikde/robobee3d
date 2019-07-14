@@ -385,15 +385,16 @@ class WingPenaltyOptimizer:
         else:
             raise ValueError('Invalid mode')
         
-        t1 = time.perf_counter()
-
         DJ = jacobian(J)
         D2J = hessian(J)
+        
+        t1 = time.perf_counter() # ~0
+
         J0 = J(x0)
         DJ0 = DJ(x0)
         D2J0 = D2J(x0)
 
-        t2 = time.perf_counter()
+        t2 = time.perf_counter() # ~14s
 
         # descent direction
         if method == self.GRADIENT_DESCENT:
@@ -409,7 +410,7 @@ class WingPenaltyOptimizer:
                 print(np.linalg.eigs(D2J0))
                 raise
 
-        t3 = time.perf_counter()
+        t3 = time.perf_counter() #~0.5-1 ms
                 
         # backtracking line search 
         # search for s
@@ -419,7 +420,7 @@ class WingPenaltyOptimizer:
         while J(x0 + s * v) > J0 + alpha * s * DJ0.T @ v:
             s = beta * s
             
-        t4 = time.perf_counter()
+        t4 = time.perf_counter() #~10ms - 1s
         # debugging
         ts = np.array([t1-t0, t2-t1, t3-t2, t4-t3])
         print(ts, "cost {:.1f} -> {:.1f}".format(J0, J(x0 + s * v)))
