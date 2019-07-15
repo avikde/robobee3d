@@ -30,7 +30,7 @@ class Wing2DOF(Model):
         dpsi = y[3]
         cpsi = np.cos(psi)
         spsi = np.sin(psi)
-        alpha = psi
+        alpha = np.pi / 2 - psi
 
         # aero force
         wing1 = np.array([sigma, 0])

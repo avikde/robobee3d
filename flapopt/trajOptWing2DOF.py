@@ -125,36 +125,42 @@ optavgliftparams = {'dynamics':1e3, 'periodic':0, 'input':1e4, 'state': 1e0}
 
 print("hi 0")
 trajs = [traj0]
-# # params = [params0]
-# for ii in range(2):
-#     trajs.append(wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ, opt=optavglift)[0])
-#     # traj2 = wpo.update(traj0, opt={'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0, 'odrag': 1})
-#     # pnew, J = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavgliftparams)
-#     pnew, J = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ_PARAMS, opt=optavgliftparams)
-#     params.append(pnew[-len(params0):])
+params = [params0]
+# test
+# params = [[0.2, 2.0]]
+for ii in range(2):
+    trajs.append(wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ, opt=optavglift)[0])
+    # traj2 = wpo.update(traj0, opt={'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0, 'odrag': 1})
+    pnew, J, _ = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavglift)
+    # pnew, J, _ = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ_PARAMS, opt=optavgliftparams)
+    params.append(pnew[-len(params0):])
 
-# print(params)
-# wpo.plotTrajs(*trajs)
+print(params)
+wpo.plotTrajs(*trajs)
 
-# Try optimizing traj wrt given params separately
-cbars = np.linspace(0.002, 0.02, 5)
-Ts = np.linspace(0.7, 2, 5)
-cbarsM, TsM = np.meshgrid(cbars, Ts)
-JbestsM = np.zeros_like(cbarsM)
-for ii in range(JbestsM.shape[0]):
-    for jj in range(JbestsM.shape[1]):
-        print("Progress", JbestsM.shape, ii, jj)
-        _, _, JbestsM[ii,jj] = wpo.update(trajs[-1], [cbarsM[ii,jj], TsM[ii,jj]], mode=wpo.WRT_TRAJ, opt=optavgliftparams)
+# # Try optimizing traj wrt given params separately
+# cbars = np.linspace(0.002, 0.02, 5)
+# Ts = np.linspace(0.7, 2, 5)
+# cbarsM, TsM = np.meshgrid(cbars, Ts)
+# JbestsM = np.zeros_like(cbarsM)
+# for ii in range(JbestsM.shape[0]):
+#     for jj in range(JbestsM.shape[1]):
+#         print("Progress", JbestsM.shape, ii, jj)
+#         # no opt, just change params
+#         c, r = wingopt.Jcosttraj_penalty(trajs[-1], wpo.N, [cbarsM[ii,jj], TsM[ii,jj]], opt=optavgliftparams)
+#         JbestsM[ii,jj] = c + r.T @ r
+#         # # opt traj with these params
+#         # _, _, JbestsM[ii,jj] = wpo.update(trajs[-1], [cbarsM[ii,jj], TsM[ii,jj]], mode=wpo.WRT_TRAJ, opt=optavgliftparams)
 
-print(JbestsM)
-np.savez('res', cbars, Ts, JbestsM)
-# display this
-from mpl_toolkits.mplot3d import axes3d
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.plot_surface(cbarsM, TsM, JbestsM, cmap=plt.get_cmap('gist_earth'))
-ax.set_xlabel('cbar')
-ax.set_ylabel('T')
+# print(JbestsM)
+# # np.savez('res', cbars, Ts, JbestsM)
+# # display this
+# from mpl_toolkits.mplot3d import axes3d
+# fig = plt.figure()
+# ax = fig.add_subplot(111, projection='3d')
+# ax.plot_surface(cbarsM, TsM, JbestsM, cmap=plt.get_cmap('gist_earth'))
+# ax.set_xlabel('cbar')
+# ax.set_ylabel('T')
 
 # tvec, ctstrajs = wingopt.createCtsTraj(dt, olTrajt, [traj0, traj])
 # wingopt.trajAnim(tvec, ctstrajs)
