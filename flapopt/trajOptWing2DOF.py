@@ -120,26 +120,23 @@ params0 = wingopt.params
 # with params as well
 # traj0 = np.hstack((traj0, wingopt.params))
 
-optavglift = lambda dpen : {'dynamics':dpen, 'periodic':0, 'input':1e4, 'state': 1e0}
+optavglift = {'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0}
+optavgliftparams = {'dynamics':1e3, 'periodic':0, 'input':1e4, 'state': 1e0, 'method': wpo.NEWTON_METHOD}
 
 print("hi 0")
 trajs = [traj0]
 params = [params0]
 # test
 # params = [[0.2, 2.0]]
-for ii in range(2):
-    trajs.append(wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ, opt=optavglift(1e-3))[0])
-    # traj2 = wpo.update(traj0, opt={'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0, 'odrag': 1})
-    # pnew, J, _ = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavglift(1e3))
-    # # pnew, J, _ = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ_PARAMS, opt=optavgliftparams)
-    # params.append(pnew[-len(params0):])
+for ii in range(4):
+    trajs.append(wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ, opt=optavglift)[0])
+    pnew, _, _ = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavgliftparams)
+    params.append(pnew[-len(params0):])
 
 # Test nonconvexity ---
 cs = np.linspace(0.002, 0.01, 10)
 Ts = np.linspace(0.5, 2, 10)
-wingopt.plotTrajWrtParams(cs, Ts, trajs[-1], wpo.N)
-plt.show()
-sys.exit(0)
+wingopt.plotTrajWrtParams(cs, Ts, trajs[-1], wpo.N, paramsPath=params)
 # ----------
 
 print(params)

@@ -134,7 +134,7 @@ def flapVisUpdate(yui, xyoff, _params, plwing, plaero):
 m = Wing2DOF()
 m.rescale = 30.0
 # params: [cbar, T(ransmission ratio), ]
-params = np.array([5e-3, 1])
+params = np.array([5e-3, 1.5])
 # --------------------------------------
 
 # Wing traj opt using QP -------------------------------------------------
@@ -599,7 +599,7 @@ def trajAnim(tvec, ctstrajs, save=False, fps=30):
 
 # Plot stuff wrt params ---
 
-def plotTrajWrtParams(p0s, p1s, traj0, N, dpen=1e3):
+def plotTrajWrtParams(p0s, p1s, traj0, N, dpen=1e3, paramsPath=None):
     """Debug convexity wrt params"""
     P0S, P1S = np.meshgrid(p0s, p1s)
     JS = np.zeros_like(P0S)
@@ -623,10 +623,13 @@ def plotTrajWrtParams(p0s, p1s, traj0, N, dpen=1e3):
     ax[1].set_ylabel("Ji")
     ax[1].set_xlabel("T")
 
-    from mpl_toolkits.mplot3d import axes3d
+    # from mpl_toolkits.mplot3d import axes3d
     fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.plot_surface(P0S, P1S, JS, cmap=plt.get_cmap('gist_earth'))
+    ax = fig.add_subplot(111)#, projection='3d')
+    # ax.plot_surface(P0S, P1S, JS, cmap=plt.get_cmap('gist_earth'))
+    ax.contourf(P0S, P1S, JS, 50, cmap=plt.get_cmap('gist_earth'))
+    if paramsPath is not None:
+        ax.plot([pi[0] for pi in paramsPath], [pi[1] for pi in paramsPath], 'r*-')
     ax.set_xlabel('cbar')
     ax.set_ylabel('T')
 
