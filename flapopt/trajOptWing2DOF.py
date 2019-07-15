@@ -121,7 +121,7 @@ params0 = wingopt.params
 # traj0 = np.hstack((traj0, wingopt.params))
 
 optavglift = {'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0}
-solver_opt2 = {'method': wpo.GRADIENT_DESCENT}
+optavgliftparams = {'dynamics':1e3, 'periodic':0, 'input':1e4, 'state': 1e0, 'method': wpo.GRADIENT_DESCENT}
 
 print("hi 0")
 trajs = [traj0]
@@ -129,31 +129,32 @@ params = [params0]
 for ii in range(2):
     trajs.append(wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ, opt=optavglift)[0])
     # traj2 = wpo.update(traj0, opt={'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0, 'odrag': 1})
-    pnew, J = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=dict(optavglift, **solver_opt2))
+    pnew, J = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavgliftparams)
     params.append(pnew)
 
-# FIXME: debugging nonconvexity wrt params
-print(params[-1], J(params[-1]))
+# # FIXME: debugging nonconvexity wrt params
+# fp = lambda p : m.dydt(trajs[-1][:4], trajs[-1][4:5], p)
+# print(params[-1], J(params[-1]), fp(params0), fp(params[-1]))
 
-from mpl_toolkits.mplot3d import axes3d
-fig = plt.figure()
+# from mpl_toolkits.mplot3d import axes3d
+# fig = plt.figure()
 
-x = np.arange(0.001,0.1,0.005)
-y = np.arange(0.1, 10, 0.5)
-X,Y = np.meshgrid(x,y)
-# Z = X*np.exp(-X**2 - Y**2)
-Z = np.zeros_like(X)
-for i in range(X.shape[0]):
-    for j in range(X.shape[1]):
-        Z[i,j] = J([X[i,j], Y[i,j]])
-ax = fig.add_subplot(111, projection='3d')
-ax.plot_surface(X, Y, Z, cmap=plt.get_cmap('gist_earth'))
-ax.set_xlabel('cbar')
-ax.set_ylabel('T')
-plt.show()
+# x = np.arange(0.001,0.1,0.005)
+# y = np.arange(0.1, 10, 0.5)
+# X,Y = np.meshgrid(x,y)
+# # Z = X*np.exp(-X**2 - Y**2)
+# Z = np.zeros_like(X)
+# for i in range(X.shape[0]):
+#     for j in range(X.shape[1]):
+#         Z[i,j] = J([X[i,j], Y[i,j]])
+# ax = fig.add_subplot(111, projection='3d')
+# ax.plot_surface(X, Y, Z, cmap=plt.get_cmap('gist_earth'))
+# ax.set_xlabel('cbar')
+# ax.set_ylabel('T')
+# plt.show()
 
-sys.exit(0)
-# --------------
+# sys.exit(0)
+# # --------------
 
 print(params)#, params2)
 wpo.plotTrajs(*trajs)#, traj2)
