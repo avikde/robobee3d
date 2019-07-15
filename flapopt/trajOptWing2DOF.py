@@ -125,40 +125,36 @@ optavgliftparams = {'dynamics':1e3, 'periodic':0, 'input':1e4, 'state': 1e0}
 
 print("hi 0")
 trajs = [traj0]
-params = [params0]
-for ii in range(2):
-    trajs.append(wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ, opt=optavglift)[0])
-    # traj2 = wpo.update(traj0, opt={'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0, 'odrag': 1})
-    # pnew, J = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavgliftparams)
-    pnew, J = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ_PARAMS, opt=optavgliftparams)
-    params.append(pnew[-len(params0):])
+# # params = [params0]
+# for ii in range(2):
+#     trajs.append(wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ, opt=optavglift)[0])
+#     # traj2 = wpo.update(traj0, opt={'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0, 'odrag': 1})
+#     # pnew, J = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavgliftparams)
+#     pnew, J = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ_PARAMS, opt=optavgliftparams)
+#     params.append(pnew[-len(params0):])
 
-# # FIXME: debugging nonconvexity wrt params
-# fp = lambda p : m.dydt(trajs[-1][:4], trajs[-1][4:5], p)
-# print(params[-1], J(params[-1]), fp(params0), fp(params[-1]))
+# print(params)
+# wpo.plotTrajs(*trajs)
 
-# from mpl_toolkits.mplot3d import axes3d
-# fig = plt.figure()
+# Try optimizing traj wrt given params separately
+cbars = np.linspace(0.002, 0.02, 5)
+Ts = np.linspace(0.7, 2, 5)
+cbarsM, TsM = np.meshgrid(cbars, Ts)
+JbestsM = np.zeros_like(cbarsM)
+for ii in range(JbestsM.shape[0]):
+    for jj in range(JbestsM.shape[1]):
+        print("Progress", JbestsM.shape, ii, jj)
+        _, _, JbestsM[ii,jj] = wpo.update(trajs[-1], [cbarsM[ii,jj], TsM[ii,jj]], mode=wpo.WRT_TRAJ, opt=optavglift)
 
-# x = np.arange(0.001,0.1,0.005)
-# y = np.arange(0.1, 10, 0.5)
-# X,Y = np.meshgrid(x,y)
-# # Z = X*np.exp(-X**2 - Y**2)
-# Z = np.zeros_like(X)
-# for i in range(X.shape[0]):
-#     for j in range(X.shape[1]):
-#         Z[i,j] = J([X[i,j], Y[i,j]])
-# ax = fig.add_subplot(111, projection='3d')
-# ax.plot_surface(X, Y, Z, cmap=plt.get_cmap('gist_earth'))
-# ax.set_xlabel('cbar')
-# ax.set_ylabel('T')
-# plt.show()
-
-# sys.exit(0)
-# # --------------
-
-print(params)#, params2)
-wpo.plotTrajs(*trajs)#, traj2)
+print(JbestsM)
+np.savez('res', cbars, Ts, JbestsM)
+# display this
+from mpl_toolkits.mplot3d import axes3d
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.plot_surface(cbarsM, TsM, JbestsM, cmap=plt.get_cmap('gist_earth'))
+ax.set_xlabel('cbar')
+ax.set_ylabel('T')
 
 # tvec, ctstrajs = wingopt.createCtsTraj(dt, olTrajt, [traj0, traj])
 # wingopt.trajAnim(tvec, ctstrajs)

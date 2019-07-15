@@ -465,15 +465,17 @@ class WingPenaltyOptimizer:
         alpha = 0.4
         beta = 0.9
         s = 1
-        while J(x0 + s * v) > J0 + alpha * s * DJ0.T @ v:
+        J1 = J(x0 + s * v)
+        while J1 > J0 + alpha * s * DJ0.T @ v:
             s = beta * s
+            J1 = J(x0 + s * v)
             
         t6 = time.perf_counter() #~10ms - 1s
         # debugging
         ts = np.array([t1-t0, t2-t1, t3-t2, t4-t3, t5-t4, t6-t5])
-        print(ts, "cost {:.1f} -> {:.1f}".format(J0, J(x0 + s * v)))
+        print(ts, "cost {:.1f} -> {:.1f}".format(J0, J1))
         # perform Newton update
-        return x0 + s * v, J
+        return x0 + s * v, J, J1
         
     def plotTrajs(self, *args):
         """Helper function to plot a bunch of trajectories superimposed"""
