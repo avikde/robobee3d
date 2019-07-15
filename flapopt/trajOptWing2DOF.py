@@ -144,7 +144,7 @@ JbestsM = np.zeros_like(cbarsM)
 for ii in range(JbestsM.shape[0]):
     for jj in range(JbestsM.shape[1]):
         print("Progress", JbestsM.shape, ii, jj)
-        _, _, JbestsM[ii,jj] = wpo.update(trajs[-1], [cbarsM[ii,jj], TsM[ii,jj]], mode=wpo.WRT_TRAJ, opt=optavglift)
+        _, _, JbestsM[ii,jj] = wpo.update(trajs[-1], [cbarsM[ii,jj], TsM[ii,jj]], mode=wpo.WRT_TRAJ, opt=optavgliftparams)
 
 print(JbestsM)
 np.savez('res', cbars, Ts, JbestsM)
