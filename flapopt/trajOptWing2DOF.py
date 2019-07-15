@@ -121,7 +121,7 @@ params0 = wingopt.params
 # traj0 = np.hstack((traj0, wingopt.params))
 
 optavglift = {'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0}
-optavgliftparams = {'dynamics':1e3, 'periodic':0, 'input':1e4, 'state': 1e0, 'method': wpo.GRADIENT_DESCENT}
+optavgliftparams = {'dynamics':1e3, 'periodic':0, 'input':1e4, 'state': 1e0}
 
 print("hi 0")
 trajs = [traj0]
@@ -129,8 +129,9 @@ params = [params0]
 for ii in range(2):
     trajs.append(wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ, opt=optavglift)[0])
     # traj2 = wpo.update(traj0, opt={'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0, 'odrag': 1})
-    pnew, J = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavgliftparams)
-    params.append(pnew)
+    # pnew, J = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavgliftparams)
+    pnew, J = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ_PARAMS, opt=optavgliftparams)
+    params.append(pnew[-len(params0):])
 
 # # FIXME: debugging nonconvexity wrt params
 # fp = lambda p : m.dydt(trajs[-1][:4], trajs[-1][4:5], p)
