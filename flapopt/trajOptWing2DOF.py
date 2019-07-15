@@ -123,14 +123,20 @@ params0 = wingopt.params
 optavglift = {'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0}
 optavgliftparams = {'dynamics':1e3, 'periodic':0, 'input':1e4, 'state': 1e0}
 
-# Test nonconvexity
+# Test nonconvexity ---
 cs = np.linspace(0.002, 0.01, 10)
 Ts = np.linspace(0.5, 2, 10)
+cbarsM, TsM = np.meshgrid(cs, Ts)
+JbestsM = np.zeros_like(cbarsM)
 fig, ax = plt.subplots(2)
 
 def JT(p, dpen):
     c, r = wingopt.Jcosttraj_penalty(traj0, wpo.N, p, opt={'dynamics':dpen, 'periodic':0, 'input':1e4, 'state': 1e0})
     return c + r.T @ r
+    
+for ii in range(JbestsM.shape[0]):
+    for jj in range(JbestsM.shape[1]):
+        JbestsM[ii,jj] = JT([cbarsM[ii,jj], TsM[ii,jj]], dpen=1e3)
 
 # fT = lambda Tt : m.dydt(traj0[:4], traj0[4:5], [params0[0], Tt])
 # ax[0].plot(Ts, [fT(ti) for ti in Ts], '.-')
@@ -144,9 +150,16 @@ ax[1].legend()
 ax[1].set_ylabel("Ji")
 ax[1].set_xlabel("T")
 
+from mpl_toolkits.mplot3d import axes3d
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.plot_surface(cbarsM, TsM, JbestsM, cmap=plt.get_cmap('gist_earth'))
+ax.set_xlabel('cbar')
+ax.set_ylabel('T')
+
 plt.show()
 sys.exit(0)
-
+# ----------
 print("hi 0")
 trajs = [traj0]
 params = [params0]
@@ -161,30 +174,6 @@ for ii in range(2):
 
 print(params)
 wpo.plotTrajs(*trajs)
-
-# # Try optimizing traj wrt given params separately
-# cbars = np.linspace(0.002, 0.02, 5)
-# Ts = np.linspace(0.7, 2, 5)
-# cbarsM, TsM = np.meshgrid(cbars, Ts)
-# JbestsM = np.zeros_like(cbarsM)
-# for ii in range(JbestsM.shape[0]):
-#     for jj in range(JbestsM.shape[1]):
-#         print("Progress", JbestsM.shape, ii, jj)
-#         # # no opt, just change params
-#         # c, r = wingopt.Jcosttraj_penalty(trajs[-1], wpo.N, [cbarsM[ii,jj], TsM[ii,jj]], opt=optavgliftparams)
-#         # JbestsM[ii,jj] = c + r.T @ r
-#         # opt traj with these params
-#         _, _, JbestsM[ii,jj] = wpo.update(trajs[-1], [cbarsM[ii,jj], TsM[ii,jj]], mode=wpo.WRT_TRAJ, opt=optavgliftparams)
-
-# print(JbestsM)
-# np.savez('res', cbars, Ts, JbestsM)
-# # display this
-# from mpl_toolkits.mplot3d import axes3d
-# fig = plt.figure()
-# ax = fig.add_subplot(111, projection='3d')
-# ax.plot_surface(cbarsM, TsM, JbestsM, cmap=plt.get_cmap('gist_earth'))
-# ax.set_xlabel('cbar')
-# ax.set_ylabel('T')
 
 # tvec, ctstrajs = wingopt.createCtsTraj(dt, olTrajt, [traj0, traj])
 # wingopt.trajAnim(tvec, ctstrajs)
