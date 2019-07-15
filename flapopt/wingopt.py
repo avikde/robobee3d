@@ -613,13 +613,13 @@ def plotTrajWrtParams(p0s, p1s, traj0, N, dpen=1e3):
         for jj in range(JS.shape[1]):
             JS[ii,jj] = Jp([P0S[ii,jj], P1S[ii,jj]], _dpen=dpen)
 
-    ax[0].plot(p0s, [Jp([cc, np.mean(p1s)], 1e3) for cc in p0s], '.-', label='1e3')
-    ax[0].plot(p0s, [Jp([cc, np.mean(p1s)], 1e4) for cc in p0s], '.-', label='1e4')
+    ax[0].plot(p0s, [Jp([cc, np.mean(p1s)], dpen) for cc in p0s], '.-')
+    # ax[0].plot(p0s, [Jp([cc, np.mean(p1s)], 1e4) for cc in p0s], '.-', label='1e4')
     ax[0].set_ylabel("ci")
 
-    ax[1].plot(p1s, [Jp([np.mean(p0s), ti], 1e3) for ti in p1s], '.-', label='1e3')
-    ax[1].plot(p1s, [Jp([np.mean(p0s), ti], 1e4) for ti in p1s], '.-', label='1e4')
-    ax[1].legend()
+    ax[1].plot(p1s, [Jp([np.mean(p0s), ti], dpen) for ti in p1s], '.-')
+    # ax[1].plot(p1s, [Jp([np.mean(p0s), ti], 1e4) for ti in p1s], '.-', label='1e4')
+    # ax[1].legend()
     ax[1].set_ylabel("Ji")
     ax[1].set_xlabel("T")
 
