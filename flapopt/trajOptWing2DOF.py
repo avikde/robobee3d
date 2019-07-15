@@ -123,6 +123,24 @@ params0 = wingopt.params
 optavglift = {'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0}
 optavgliftparams = {'dynamics':1e3, 'periodic':0, 'input':1e4, 'state': 1e0}
 
+# Test nonconvexity
+Ts = np.linspace(0.5, 2, 10)
+fig, ax = plt.subplots(2)
+
+fT = lambda Tt : m.dydt(traj0[:4], traj0[4:5], [params0[0], Tt])
+ax[0].plot(Ts, [fT(ti) for ti in Ts], '.-')
+ax[0].set_ylabel("fi")
+
+def JT(Tt, dpen):
+    c, r = wingopt.Jcosttraj_penalty(traj0, wpo.N, [params0[0], Tt], opt={'dynamics':dpen, 'periodic':0, 'input':1e4, 'state': 1e0})
+    return c + r.T @ r
+ax[1].plot(Ts, [JT(ti, 1e3) for ti in Ts], '.-')
+ax[1].set_ylabel("Ti")
+ax[1].set_xlabel("T")
+
+plt.show()
+sys.exit(0)
+
 print("hi 0")
 trajs = [traj0]
 params = [params0]
@@ -146,14 +164,14 @@ wpo.plotTrajs(*trajs)
 # for ii in range(JbestsM.shape[0]):
 #     for jj in range(JbestsM.shape[1]):
 #         print("Progress", JbestsM.shape, ii, jj)
-#         # no opt, just change params
-#         c, r = wingopt.Jcosttraj_penalty(trajs[-1], wpo.N, [cbarsM[ii,jj], TsM[ii,jj]], opt=optavgliftparams)
-#         JbestsM[ii,jj] = c + r.T @ r
-#         # # opt traj with these params
-#         # _, _, JbestsM[ii,jj] = wpo.update(trajs[-1], [cbarsM[ii,jj], TsM[ii,jj]], mode=wpo.WRT_TRAJ, opt=optavgliftparams)
+#         # # no opt, just change params
+#         # c, r = wingopt.Jcosttraj_penalty(trajs[-1], wpo.N, [cbarsM[ii,jj], TsM[ii,jj]], opt=optavgliftparams)
+#         # JbestsM[ii,jj] = c + r.T @ r
+#         # opt traj with these params
+#         _, _, JbestsM[ii,jj] = wpo.update(trajs[-1], [cbarsM[ii,jj], TsM[ii,jj]], mode=wpo.WRT_TRAJ, opt=optavgliftparams)
 
 # print(JbestsM)
-# # np.savez('res', cbars, Ts, JbestsM)
+# np.savez('res', cbars, Ts, JbestsM)
 # # display this
 # from mpl_toolkits.mplot3d import axes3d
 # fig = plt.figure()
