@@ -124,18 +124,24 @@ optavglift = {'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0}
 optavgliftparams = {'dynamics':1e3, 'periodic':0, 'input':1e4, 'state': 1e0}
 
 # Test nonconvexity
+cs = np.linspace(0.002, 0.01, 10)
 Ts = np.linspace(0.5, 2, 10)
 fig, ax = plt.subplots(2)
 
-fT = lambda Tt : m.dydt(traj0[:4], traj0[4:5], [params0[0], Tt])
-ax[0].plot(Ts, [fT(ti) for ti in Ts], '.-')
-ax[0].set_ylabel("fi")
-
-def JT(Tt, dpen):
-    c, r = wingopt.Jcosttraj_penalty(traj0, wpo.N, [params0[0], Tt], opt={'dynamics':dpen, 'periodic':0, 'input':1e4, 'state': 1e0})
+def JT(p, dpen):
+    c, r = wingopt.Jcosttraj_penalty(traj0, wpo.N, p, opt={'dynamics':dpen, 'periodic':0, 'input':1e4, 'state': 1e0})
     return c + r.T @ r
-ax[1].plot(Ts, [JT(ti, 1e3) for ti in Ts], '.-')
-ax[1].set_ylabel("Ti")
+
+# fT = lambda Tt : m.dydt(traj0[:4], traj0[4:5], [params0[0], Tt])
+# ax[0].plot(Ts, [fT(ti) for ti in Ts], '.-')
+ax[0].plot(cs, [JT([cc, params0[1]], 1e3) for cc in cs], '.-', label='1e3')
+ax[0].plot(cs, [JT([cc, params0[1]], 1e4) for cc in cs], '.-', label='1e4')
+ax[0].set_ylabel("ci")
+
+ax[1].plot(Ts, [JT([params0[0], ti], 1e3) for ti in Ts], '.-', label='1e3')
+ax[1].plot(Ts, [JT([params0[0], ti], 1e4) for ti in Ts], '.-', label='1e4')
+ax[1].legend()
+ax[1].set_ylabel("Ji")
 ax[1].set_xlabel("T")
 
 plt.show()
