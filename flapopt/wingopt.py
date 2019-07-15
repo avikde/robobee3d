@@ -83,7 +83,7 @@ class Wing2DOF(Model):
 
         ddq = np.linalg.inv(M) @ (-corgrav + taudamp + tauaero + tauinp)
 
-        return Kscale @ np.hstack((y[2:], ddq))
+        return Kscale @ np.array([dsigma, dpsi, ddq[0], ddq[1]])
 
     @property
     def limits(self):
