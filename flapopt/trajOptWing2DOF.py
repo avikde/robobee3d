@@ -1,7 +1,6 @@
 import autograd.numpy as np
 from autograd import jacobian, hessian
 import matplotlib.pyplot as plt
-from matplotlib import animation
 import sys
 sys.path.append('..')
 from scipy.integrate import solve_ivp
@@ -66,108 +65,87 @@ yi2 = olTraj.copy()
 for ti in range(1, len(olTrajt)):
     ui = olTraj[ti-1, 4:] # OL input from previous traj
     # Linearized
-    A, B, c = m.getLinearDynamics(olTraj[ti-1, :4], ui)
+    A, B, c = m.getLinearDynamics(olTraj[ti-1, :4], ui, wingopt.params)
     olTraj[ti, :4] = A @ olTraj[ti-1, :4] + B @ ui + c
     # Nonlinear
     yi2[ti, :4] = yi2[ti-1, :4] + olTrajdt * m.dydt(yi2[ti-1, :4], ui, wingopt.params)
 # plotTrajs(olTraj, yi2, yilin)
 
-
-# Use the class above to step the QP
+"""QP based ----------------------------------------
+"""
+# # Use the class above to step the QP
 Nknot = olTraj.shape[0]  # number of knot points in this case
-nx = 4
-nu = 1
-wx = np.ones(nx) * 1e-6
-wu = np.ones(nu) * 1e3
-kdampx = 1e-5 * np.ones(4)
-kdampu = np.zeros(1)
-# Must be 1 smaller to have the correct number of xi
-wqp = wingopt.WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=False, eps_rel=1e-4, eps_abs=1e-4, max_iter=10000)
-wqp.trajt = olTrajt
-# Test warm start
-# wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
-traj2 = wqp.update(olTraj)
-traj3 = wqp.update(traj2)
-# TEST: reduce wu 
-# wqp.ltvsys.qof.wu = np.ones(nu) * 1e2
-traj4 = wqp.update(traj3)
+# nx = 4
+# nu = 1
+# wx = np.ones(nx) * 1e-6
+# wu = np.ones(nu) * 1e3
+# kdampx = 1e-5 * np.ones(4)
+# kdampu = np.zeros(1)
+# # Must be 1 smaller to have the correct number of xi
+# wqp = wingopt.WingQP(m, Nknot-1, wx, wu, kdampx, kdampu, verbose=False, eps_rel=1e-4, eps_abs=1e-4, max_iter=10000)
+# wqp.trajt = olTrajt
+# # Test warm start
+# # wqp.ltvsys.prob.warm_start(x=dirTranForm(olTraj, Nknot, 4, 1))
+# traj2 = wqp.update(olTraj)
+# traj3 = wqp.update(traj2)
+# # TEST: reduce wu 
+# # wqp.ltvsys.qof.wu = np.ones(nu) * 1e2
+# traj4 = wqp.update(traj3)
+# # wqp.debugConstraintViol(olTraj, wqp.dirtranx)
 
-# wqp.debugConstraintViol(olTraj, wqp.dirtranx)
+# # # Optim wrt params ----
 
-wqp.plotTrajs(olTraj, traj2, traj3, traj4)
+# # JT = lambda T : wingopt.Jcost_dirtran(wqp.dirtranx, Nknot, [wingopt.params[0], T])
+# # DJT = jacobian(JT)
 
-# animate
-fig, _ax = plt.subplots()
+# # Ttest = np.arange(0.5, 1.5, 0.1)
+# # plt.plot(Ttest, [JT(Ti) for Ti in Ttest])
 
-_trajs = [olTraj, traj2, traj3]
-_xyoffs = [[0, 0.05], [0,0], [0, -0.05]]
-_plwings = [_ax.plot([], [], 'b.-', linewidth=4)[0] for i in range(len(_trajs))]
-_plaeros = [_ax.plot([], [], 'r', linewidth=2)[0] for i in range(len(_trajs))]
+# # Display -------------
 
-_ax.grid(True)
-_ax.set_aspect(1)
-_ax.set_xlim([-1, 1])
-_ax.set_ylim([-0.2, 0.2])
+# # tvec, ctstrajs = wingopt.createCtsTraj(dt, olTrajt, [olTraj, traj2, traj3, traj4])
+# # wqp.plotTrajs(olTraj, traj2, traj3, traj4)
+# # wingopt.trajAnim(tvec, ctstrajs)
+# # plt.show()
+# # sys.exit(0)
 
+"""
+Penalty-based NL optim ----------------------------------------
+"""
 
-def _init():
-    global _plwings
-    global _plaeros
-    return tuple(_plwings + _plaeros)
+wpo = wingopt.WingPenaltyOptimizer(Nknot-1)
+# Initial trajectory
+traj0 = wingopt.dirTranForm(olTraj, Nknot-1, m.nx, m.nu)
+params0 = wingopt.params
+# with params as well
+# traj0 = np.hstack((traj0, wingopt.params))
 
-def _animate(i):
-    global _plwings
-    global _plaeros
-    global _xyoffs
-    global _trajs
-    for k in range(len(_plwings)):
-        wingopt.flapVisUpdate(_trajs[k][i,:], _xyoffs[k], wingopt.params, _plwings[k], _plaeros[k])
-    return tuple(_plwings + _plaeros)
+optavglift = {'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0}
+optavgliftparams = {'dynamics':1e3, 'periodic':0, 'input':1e4, 'state': 1e0, 'method': wpo.NEWTON_METHOD}
 
-anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(olTrajt), interval=100, blit=True)
-if False:
-    # Set up formatting for the movie files
-    Writer = animation.writers['ffmpeg']
-    writer = Writer(fps=30, metadata=dict(artist='Me'), bitrate=1800)
-    import time
-    timestamp = time.strftime('%Y%m%d%H%M%S', time.localtime())
-    anim.save('trajOptWing2DOF'+timestamp+'.mp4', writer=writer)
+print("hi 0")
+trajs = [traj0]
+params = [params0]
+# test
+# params = [[0.2, 2.0]]
+for ii in range(4):
+    trajs.append(wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ, opt=optavglift)[0])
+    pnew, _, _ = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavgliftparams)
+    params.append(pnew[-len(params0):])
 
-plt.tight_layout()
+# Test nonconvexity ---
+cs = np.linspace(0.002, 0.01, 10)
+Ts = np.linspace(0.5, 2, 10)
+wingopt.plotTrajWrtParams(cs, Ts, trajs[-1], wpo.N, paramsPath=params)
+# ----------
 
+print(params)
+wpo.plotTrajs(*trajs)
+
+# tvec, ctstrajs = wingopt.createCtsTraj(dt, olTrajt, [traj0, traj])
+# wingopt.trajAnim(tvec, ctstrajs)
 plt.show()
 sys.exit(0)
-
-# ---------------------- OLD gradient descent ------------
-
-Jgrad = jacobian(lambda yu : wingopt.Jcosttraj(yu, params))
-# gradient wrt params
-Jgradp = jacobian(lambda p : wingopt.Jcosttraj(yu0, p))
-
-# Gradient descent
-print(Jcosttraj(yu0, params))
-yu1 = yu0.copy()
-for i in range(5):
-    g1 = Jgrad(yu1)
-    # print(g1[:20])
-    # # Stupid "line search" for step size
-    # for i in range(-10,10):
-    #     print(i, Jcosttraj(yu0 - np.power(10.0,i) * g1, params))
-    # sys.exit(0)
-    yu1 -= 1e1 * g1
-    print(i, Jcosttraj(yu1, params))
-
-params1 = params.copy()
-for i in range(5):
-    g1 = Jgradp(params1)
-    # # Stupid "line search" for step size
-    # for i in range(-10,10):
-    #     print(i, Jcosttraj(yu0, params - np.power(10.0,i) * g1))
-    # sys.exit(0)
-    params1 -= 1e-6 * g1
-    print(i, Jcosttraj(yu0, params1))
-
-# --------------------------------------------------------
 
 # plots
 

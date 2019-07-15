@@ -2,34 +2,55 @@ import autograd.numpy as np
 from autograd import jacobian, hessian
 import scipy.sparse as sparse
 import matplotlib.pyplot as plt
-import sys
+from matplotlib import animation
+import sys, time
 sys.path.append('..')
 from controlutils.py.model import Model
 import controlutils.py.ltvsystem as ltvsystem
+
+class DoubleIntegrator(Model):
+    """Test simple model for making sure opt wrt params works"""
+    def dydt(self, yin, u, _params=[]):
+        T = _params[0]
+        ddq = tauinp = np.array([u[0] / T])
+        return np.hstack((y[1:] * T, ddq))
+
+    @property
+    def limits(self):
+        # This is based on observing the OL trajectory
+        umin = np.array([-0.15])
+        umax = -umin
+        xmin = np.array([-0.02, -np.inf])
+        xmax = -xmin
+        return umin, umax, xmin, xmax
 
 class Wing2DOF(Model):
     nx = 4
     nu = 1
     y0 = np.zeros(nx)
-    cbar = 5e-3
     
     rescale = 1.0
-    rescaleU = 1.0
 
-    def aero(self, y, u, params=[]):
-        cbar = self.cbar if len(params)==0 else params[0]
+    def aero(self, y, u, _params=[]):
+        cbar = _params[0]
+        T = _params[1]
         CLmax = 1.8
         CDmax = 3.4
         CD0 = 0.4
         rho = 1.225
         R = 15e-3
         
-        sigma, psi, dsigma, dpsi = tuple(y)
+        sigma = y[0] * T
+        psi = y[1]
+        dsigma = y[2] * T
+        dpsi = y[3]
         cpsi = np.cos(psi)
         spsi = np.sin(psi)
-        alpha = psi
+        alpha = np.pi / 2 - psi
 
         # aero force
+        wing1 = np.array([sigma, 0])
+        paero = wing1 + np.array([[cpsi, -spsi], [spsi, cpsi]]) @ np.array([0, -cbar])
         Jaero = np.array([[1, cbar * cpsi], [0, cbar * spsi]])
         CL = CLmax * np.sin(2 * alpha)
         CD = (CDmax + CD0)/2 - (CDmax - CD0)/2 * np.cos(2 * alpha)
@@ -37,22 +58,28 @@ class Wing2DOF(Model):
         # TODO: confirm and expose design params as argument
         Faero = 1/2 * rho * cbar * R * (vaero.T @ vaero) * np.array([CD, CL]) * np.sign(-dsigma)
 
-        return Jaero, Faero
+        return paero, Jaero, Faero
 
-    def dydt(self, y, u, params=[]):
+    def dydt(self, yin, u, _params=[]):
         ''' 
         See mma file flapping wing traj
         '''
+        cbar = _params[0]
+        T = _params[1]
         Kscale = np.diag([self.rescale, 1, self.rescale, 1])
-        # FIXME: u rescale not working due to some autograd error
-        # u = 1 / self.rescaleU * np.asarray(uu)
-        y = np.linalg.inv(Kscale) @ y
-        sigma, psi, dsigma, dpsi = tuple(y)
+        y = np.linalg.inv(Kscale) @ yin
+        # NOTE: for optimizing transmission ratio
+        # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
+        # u = (tau_actuator)
+        # sigma = sigma_actuator * T; tau = tau_actuator / T
+        sigma = y[0] * T
+        psi = y[1]
+        dsigma = y[2] * T
+        dpsi = y[3]
         cpsi = np.cos(psi)
         spsi = np.sin(psi)
 
         # params
-        cbar = self.cbar if len(params)==0 else params[0]
         mspar = 0
         ka = 0
         khinge = 1e-3
@@ -65,19 +92,19 @@ class Wing2DOF(Model):
         corgrav = np.array([ka * sigma - cbar * mwing * spsi * dpsi**2, khinge * psi])
         # non-lagrangian terms
         taudamp = np.array([0, -bpsi * dpsi])
-        Jaero, Faero = self.aero(y, u, params)
+        _, Jaero, Faero = self.aero(y, u, params)
         tauaero = Jaero.T @ Faero
         # input
-        tauinp = np.array([u[0], 0])
+        tauinp = np.array([u[0] / T, 0])
 
         ddq = np.linalg.inv(M) @ (-corgrav + taudamp + tauaero + tauinp)
 
-        return Kscale @ np.hstack((y[2:], ddq))
+        return Kscale @ np.array([dsigma, dpsi, ddq[0], ddq[1]])
 
     @property
     def limits(self):
         # This is based on observing the OL trajectory
-        umin = np.array([-0.4 * self.rescaleU])
+        umin = np.array([-0.15])
         umax = -umin
         xmin = np.array([-0.02 * self.rescale, -1.2, -np.inf, -np.inf])
         xmax = -xmin
@@ -91,7 +118,7 @@ def flapkin(yui, xyoff, _params):
     c, s = np.cos(yui[1]), np.sin(yui[1])
     wing2 = wing1 + np.array([[c, -s], [s, c]]) @ np.array([0, -2*_params[0]])
     # aero arrow extents
-    _, Faero = m.aero(yui[:m.nx], yui[m.nx:], _params)
+    _, _, Faero = m.aero(yui[:m.nx], yui[m.nx:], _params)
     pcop = (wing1 + wing2)/2
     aeroEnd = pcop + 0.1 / m.rescale * Faero
     return wing1, wing2, pcop, aeroEnd
@@ -106,8 +133,8 @@ def flapVisUpdate(yui, xyoff, _params, plwing, plaero):
 # Global
 m = Wing2DOF()
 m.rescale = 30.0
-# params: [cbar, ]
-params = np.array([5e-3])
+# params: [cbar, T(ransmission ratio), ]
+params = np.array([5e-3, 1.5])
 # --------------------------------------
 
 # Wing traj opt using QP -------------------------------------------------
@@ -127,27 +154,8 @@ def xuMatForm(dirtranx, N, nx):
 # 
 
 def Jobjinst(y, u, params):
-    _, Faero = m.aero(y, u, params)
+    _, _, Faero = m.aero(y, u, params)
     return -Faero[1] # minimization
-
-def Jcostinst_dynpenalty(ynext, y, u, params):
-    '''error on dynamics for penalty method'''
-    dynErr = ynext - (y + m.dydt(y, u, params) * dt)
-    return 1/2 * dynErr.T @ dynErr
-
-# FIXME: need to find y that make one cycle
-# as a first pass just average over the whole time
-
-def Jcosttraj(yu, params):
-    '''this is over a traj. yu = (nx+nu,Nt)-shaped'''
-    Nt = yu.shape[1]
-    c = 0
-    PENALTY = 1e-6
-    for i in range(Nt-1):
-        c += Jobjinst(yu[:m.nx,i], yu[m.nx:,i], params) + PENALTY * Jcostinst_dynpenalty(yu[:m.nx,i+1], yu[:m.nx,i], yu[m.nx:,i], params)
-    # TODO: any final cost?
-    c += Jobjinst(yu[:m.nx,-1], yu[m.nx:,-1], params)
-    return c
 
 def Jcost_dirtran(dirtranx, N, params):
     '''this is over a traj, no penalty'''
@@ -222,6 +230,9 @@ class WingQP:
         # Dynamics and constraints
         self.ltvsys.initConstraints(model.nx, model.nu, N, periodic=True, 
         polyBlocks=None)
+        # Add N+1th row to xtraj?
+        self.ltvsys.xtraj = np.vstack((self.ltvsys.xtraj, self.ltvsys.xtraj[-1,:]))
+        # Back to standard
         self.ltvsys.initObjective(QOFAvgLift(N, wx, wu, kdampx, kdampu))
         self.ltvsys.initSolver(**settings)
 
@@ -231,7 +242,7 @@ class WingQP:
         # TODO: check which traj mode
         u0 = xtraj[:,4][:,np.newaxis]
         # NOTE: confirmed that updateTrajectory correctly updates the traj, and that updateDynamics is updating the A, B
-        xtraj = self.ltvsys.updateTrajectory(xtraj[:,:4], u0, trajMode=ltvsystem.GIVEN_POINT_OR_TRAJ)
+        xtraj = self.ltvsys.updateTrajectory(xtraj[:,:4], u0, ltvsystem.GIVEN_POINT_OR_TRAJ, params)
         self.ltvsys.updateObjective()
         self.dirtranx, res = self.ltvsys.solve(throwOnError=False)
         if res.info.status not in ['solved', 'solved inaccurate', 'maximum iterations reached']:
@@ -295,3 +306,330 @@ class WingQP:
         ax[2].set_ylabel('stroke force (N)')
         for arg in args:
             print('cost = ', self.ltvsys.qof.cost(arg))
+
+""" Penalty method 
+Inspired by Coros et al
+-----------------------------------------------------------------------
+"""
+
+def Ind(x, eps):
+    """Indicator function to use inequality constraints in a penalty method.
+    Following Geilinger et al (2018) skaterbots. Ref Bern et al (2017).
+    
+    A scalar inequality f(x) <= b should be modeled as Ind(f(x) - b) and added to the cost."""
+    if x <= -eps:
+        return 0
+    elif x > -eps and x < eps:
+        return x**3/(6*eps) + x**2/2 + eps*x/2 + eps**2/6
+    else:
+        return x**2 + eps**2/3
+
+def Jcosttraj_penalty(dirtranx, N, params, opt={}):
+    '''this is over a traj. yu = (nx+nu,Nt)-shaped'''
+    # Get all the relevant options from the dict
+    PENALTY_DYNAMICS = opt.get('dynamics', 1e-6)
+    PENALTY_PERIODIC = opt.get('periodic', 0)
+    PENALTY_ULIM = opt.get('input', 0)
+    PENALTY_XLIM = opt.get('state', 0)
+    PENALTY_EPS = opt.get('eps', 0.1)
+    OBJ_LIFT = opt.get('olift', 1)
+    OBJ_DRAG = opt.get('odrag', 0)
+    OBJ_MOM = opt.get('omom', 0)
+    PENALTY_ALLOW = opt.get('pen', True)
+
+    c = 0
+    ykfun = lambda k : dirtranx[(k*m.nx):((k+1)*m.nx)]
+    ukfun = lambda k : dirtranx[((N+1)*m.nx + k*m.nu):((N+1)*m.nx + (k+1)*m.nu)]
+    # Objective
+    for i in range(N):
+        paero, _, Faero = m.aero(ykfun(i), ukfun(i), params)
+        c += -OBJ_LIFT * Faero[1]
+        c += OBJ_DRAG * Faero[0]
+        c += OBJ_MOM * (-paero[0] * Faero[1] + paero[1] * Faero[0]) # moment
+
+    # Inequality constraint for input limit
+    umin, umax, ymin, ymax = m.limits
+    Indv = np.vectorize(lambda x : Ind(x, PENALTY_EPS))
+    for i in range(N-1):
+        yi = ykfun(i)
+        ui = ukfun(i)
+        c += PENALTY_ULIM * np.sum(Indv(ui - umax) + Indv(-ui + umin))
+        c += PENALTY_XLIM * np.sum(Indv(yi - ymax) + Indv(-yi + ymin))
+        
+    # Quadratic terms handled separately since we can use a Gauss-Newton approx
+    # Dynamics constraint
+    rs = [np.sqrt(PENALTY_DYNAMICS) * (ykfun(i+1) - (ykfun(i) + m.dydt(ykfun(i), ukfun(i), params) * m.dt)) for i in range(N-1)]
+    # Periodicity
+    rs.append(np.sqrt(PENALTY_PERIODIC) * (ykfun(N) - ykfun(0)))
+    # stack into a vector
+    r = np.hstack(rs)
+
+    return c, r
+
+class WingPenaltyOptimizer:
+    """Works with dirtran form of x only"""
+    WRT_TRAJ = 0
+    WRT_PARAMS = 1
+    WRT_TRAJ_PARAMS = 2
+
+    # Options for the solver
+    GRADIENT_DESCENT = 0
+    NEWTON_METHOD = 1
+    GAUSS_NEWTON = 2
+
+    def __init__(self, N):
+        self.N = N
+        self._Nx = (self.N+1) * m.nx + self.N*m.nu #dirtran size
+    
+    def update(self, traj0, params0, mode=WRT_TRAJ, opt={}):
+        # Some error checking
+        assert len(traj0) == self._Nx
+        assert len(params0) == len(params)
+
+        HESS_REG = opt.get('hessreg', 1e-3)
+        method = opt.get('method', self.GAUSS_NEWTON)
+        optnp = dict(opt, **{'pen':False})
+
+        if mode == self.WRT_PARAMS:
+            Jtup = lambda p : Jcosttraj_penalty(traj0, self.N, p, opt)
+            x0 = params0
+        elif mode == self.WRT_TRAJ:
+            Jtup = lambda traj : Jcosttraj_penalty(traj, self.N, params0, opt)
+            x0 = traj0
+        elif mode == self.WRT_TRAJ_PARAMS:
+            Jtup = lambda trajp : Jcosttraj_penalty(trajp[:self._Nx], self.N, trajp[self._Nx:], opt)
+            x0 = np.hstack((traj0, params0))
+        else:
+            raise ValueError('Invalid mode')
+        
+        # separately get the non-quadratic and quadratic terms
+        Jnq = lambda x : Jtup(x)[0]
+        r = lambda x : Jtup(x)[1]
+        
+        t0 = time.perf_counter()
+
+        if method != self.GAUSS_NEWTON:
+            def J(x):
+                # handle all costs the same
+                rr = r(x)
+                return Jnq(x) + rr.T @ rr
+        else:
+            J = Jnq
+            # Approximate the gradient, Hessian for these terms with Jr
+            r0 = r(x0)
+            if True:
+                Jr = jacobian(r)
+                Jr0 = Jr(x0)
+            else:
+                # Composing gradients of ri(xi), where xi = (yi,y{i+1},ui)
+                # NOTE: leaving this here, but it seems this is actually slower
+                N, nx, nu = self.N, m.nx, m.nu
+                def ri(xi):
+                    # r0(y0,y1,u0)
+                    x = np.hstack((xi[:2*nx], np.zeros((N-1)*nx), xi[-nu:], np.zeros((N-1)*nu)))
+                    return r(x)[:nx]
+                Jri = jacobian(ri)
+                # Now assemble Jr from these components
+                szr = (N)*nx
+                Jr0 = np.zeros((szr, self._Nx))
+                for i in range(N-1):
+                    xi = np.hstack((x0[nx*i:nx*(i+2)], x0[(N+1)*nx+nu*i : (N+1)*nx+nu*(i+1)]))
+                    Jr0i = Jri(xi)
+                    # Now put in the correct location
+                    Jr0[nx*i : nx*(i+1), nx*i:nx*(i+2)] = Jr0i[:,:2*nx]
+                    Jr0[nx*i : nx*(i+1), (N+1)*nx + nu*i : (N+1)*nx + nu*(i+1)] = Jr0i[:,-nu:]
+                
+        DJ = jacobian(J)
+        D2J = hessian(J)
+        
+        t1 = time.perf_counter()
+
+        J0 = J(x0)
+        
+        t2 = time.perf_counter() # ~10ms
+
+        DJ0 = DJ(x0)
+
+        t3 = time.perf_counter() # ~150ms
+
+        D2J0 = D2J(x0)
+
+        t4 = time.perf_counter() # ~14s
+
+        # descent direction
+        if method == self.GRADIENT_DESCENT:
+            v = -DJ0 # gradient descent
+        elif method in [self.NEWTON_METHOD, self.GAUSS_NEWTON]:
+            if method == self.GAUSS_NEWTON:
+                DJ0 += 2 * Jr0.T @ r0
+                D2J0 += 2 * Jr0.T @ Jr0
+
+            # Newton's method http://www.stat.cmu.edu/~ryantibs/convexopt-S15/lectures/14-newton.pdf
+            try:
+                # regularization
+                D2J0 += HESS_REG * np.eye(D2J0.shape[0])
+                v = -np.linalg.inv(D2J0) @ DJ0
+            except np.linalg.LinAlgError:
+                # last u (last diag elem) is 0 - makes sense
+                print(np.linalg.eigs(D2J0))
+                raise
+
+        t5 = time.perf_counter() #~0.5-1 ms
+                
+        # backtracking line search 
+        # search for s
+        alpha = 0.4
+        beta = 0.9
+        s = 1
+        J1 = J(x0 + s * v)
+        while J1 > J0 + alpha * s * DJ0.T @ v:
+            s = beta * s
+            J1 = J(x0 + s * v)
+            
+        t6 = time.perf_counter() #~10ms - 1s
+        # debugging
+        ts = np.array([t1-t0, t2-t1, t3-t2, t4-t3, t5-t4, t6-t5])
+        print(ts, "cost {:.1f} -> {:.1f}".format(J0, J1))
+        # perform Newton update
+        return x0 + s * v, J, J1
+        
+    def plotTrajs(self, *args):
+        """Helper function to plot a bunch of trajectories superimposed"""
+        umin, umax, xmin, xmax = m.limits
+        trajt = range(self.N)
+        yend = (self.N) * m.nx # N to ignore the last one
+        ustart = (self.N+1) * m.nx
+        uend = ustart + self.N*m.nu
+        _, ax = plt.subplots(3)
+        for arg in args:
+            ax[0].plot(trajt, arg[0:yend:m.nx], '.-')
+        for yy in [xmin[0], xmax[0], 0]:
+            ax[0].axhline(y=yy, color='k', alpha=0.3)
+        ax[0].set_ylabel('act. disp (m)')
+        for arg in args:
+            ax[1].plot(trajt, arg[1:yend:m.nx], '.-')
+        for yy in [xmin[1], xmax[1], np.pi/4, -np.pi/4]:
+            ax[1].axhline(y=yy, color='k', alpha=0.3)
+        ax[1].set_ylabel('hinge angle (rad)')
+        for arg in args:
+            ax[2].plot(trajt, arg[ustart:uend:m.nu], '.-')
+        ax[2].axhline(y=umin[0], color='k', alpha=0.3)
+        ax[2].axhline(y=umax[0], color='k', alpha=0.3)
+        ax[2].set_ylabel('act. force (N)')
+
+# Create "cts" trajectories from traj (control) knot points ----
+
+def knotPointControl(t, y, traj, ttraj):
+    # dumb TODO: interpolate
+    u0 = [0] # which knot point input to use
+    if len(traj.shape) == 1:
+        # deduce N
+        N = (len(traj) - m.nx) // (m.nx + m.nu)
+        ustart = (N+1)*m.nx
+    for i in range(len(ttraj)):
+        if ttraj[0] + t > ttraj[i]:
+            if len(traj.shape) > 1:
+                u0 = traj[i,m.nx:] # xu mat form
+            else:
+                u0 = traj[(ustart+i*m.nu):(ustart+(i+1)*m.nu)] # dirtran form
+    return m.dydt(y, u0, params)
+
+def createCtsTraj(dt, ttrajs, trajs):
+    from scipy.integrate import solve_ivp
+    # Create shorter timestep sims
+    ctstrajs = []
+    tvec = np.arange(0, ttrajs[-1] - ttrajs[0], dt)
+    tf = tvec[-1]
+    if len(trajs[0].shape) > 1:
+        y0 = trajs[0][0,:m.nx] # xu mat form
+    else:
+        y0 = trajs[0][:m.nx] # dirtran form
+    for opttraj in trajs:
+        # Sim of an openloop controller
+        sol = solve_ivp(lambda t, y: knotPointControl(t, y, opttraj, ttrajs), [0, tf], y0, dense_output=True, t_eval=tvec)
+        ctstrajs.append(sol.y.T)
+    return tvec, ctstrajs
+
+
+# Animation -------------------------
+
+def _init():
+    global _plwings
+    global _plaeros
+    return tuple(_plwings + _plaeros)
+
+def _animate(i):
+    global _plwings
+    global _plaeros
+    global _xyoffs
+    global _trajs
+    for k in range(len(_plwings)):
+        flapVisUpdate(_trajs[k][i,:], _xyoffs[k], params, _plwings[k], _plaeros[k])
+    return tuple(_plwings + _plaeros)
+
+def trajAnim(tvec, ctstrajs, save=False, fps=30):
+    global _plwings
+    global _plaeros
+    global _xyoffs
+    global _trajs
+    global anim #The object created by FuncAnimation must be assigned to a global variable
+
+    fig, _ax = plt.subplots()
+
+    _trajs = ctstrajs
+    _xyoffs = [[0, 0.05 * i] for i in range(len(_trajs))]
+    _plwings = [_ax.plot([], [], 'b.-', linewidth=4)[0] for i in range(len(_trajs))]
+    _plaeros = [_ax.plot([], [], 'r', linewidth=2)[0] for i in range(len(_trajs))]
+
+    _ax.grid(True)
+    _ax.set_aspect(1)
+    _ax.set_xlim([-1, 1])
+    _ax.set_ylim([-0.05, 0.05 * len(_trajs)])
+
+    anim = animation.FuncAnimation(fig, _animate, init_func=_init, frames=len(tvec), interval=1000/fps, blit=True)
+    if save:
+        # Set up formatting for the movie files
+        Writer = animation.writers['ffmpeg']
+        writer = Writer(fps=fps, metadata=dict(artist='Me'), bitrate=1800)
+        import time
+        timestamp = time.strftime('%Y%m%d%H%M%S', time.localtime())
+        anim.save('trajOptWing2DOF'+timestamp+'.mp4', writer=writer)
+
+    plt.tight_layout()
+
+# Plot stuff wrt params ---
+
+def plotTrajWrtParams(p0s, p1s, traj0, N, dpen=1e3, paramsPath=None):
+    """Debug convexity wrt params"""
+    P0S, P1S = np.meshgrid(p0s, p1s)
+    JS = np.zeros_like(P0S)
+    fig, ax = plt.subplots(2)
+
+    def Jp(p, _dpen):
+        c, r = Jcosttraj_penalty(traj0, N, p, opt={'dynamics':_dpen, 'periodic':0, 'input':1e4, 'state': 1e0})
+        return c + r.T @ r
+        
+    for ii in range(JS.shape[0]):
+        for jj in range(JS.shape[1]):
+            JS[ii,jj] = Jp([P0S[ii,jj], P1S[ii,jj]], _dpen=dpen)
+
+    ax[0].plot(p0s, [Jp([cc, np.mean(p1s)], dpen) for cc in p0s], '.-')
+    # ax[0].plot(p0s, [Jp([cc, np.mean(p1s)], 1e4) for cc in p0s], '.-', label='1e4')
+    ax[0].set_ylabel("ci")
+
+    ax[1].plot(p1s, [Jp([np.mean(p0s), ti], dpen) for ti in p1s], '.-')
+    # ax[1].plot(p1s, [Jp([np.mean(p0s), ti], 1e4) for ti in p1s], '.-', label='1e4')
+    # ax[1].legend()
+    ax[1].set_ylabel("Ji")
+    ax[1].set_xlabel("T")
+
+    # from mpl_toolkits.mplot3d import axes3d
+    fig = plt.figure()
+    ax = fig.add_subplot(111)#, projection='3d')
+    # ax.plot_surface(P0S, P1S, JS, cmap=plt.get_cmap('gist_earth'))
+    ax.contourf(P0S, P1S, JS, 50, cmap=plt.get_cmap('gist_earth'))
+    if paramsPath is not None:
+        ax.plot([pi[0] for pi in paramsPath], [pi[1] for pi in paramsPath], 'r*-')
+    ax.set_xlabel('cbar')
+    ax.set_ylabel('T')
+
