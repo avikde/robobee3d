@@ -597,3 +597,36 @@ def trajAnim(tvec, ctstrajs, save=False, fps=30):
 
     plt.tight_layout()
 
+# Plot stuff wrt params ---
+
+def plotTrajWrtParams(p0s, p1s, traj0, N, dpen=1e3):
+    """Debug convexity wrt params"""
+    P0S, P1S = np.meshgrid(p0s, p1s)
+    JS = np.zeros_like(P0S)
+    fig, ax = plt.subplots(2)
+
+    def Jp(p, _dpen):
+        c, r = Jcosttraj_penalty(traj0, N, p, opt={'dynamics':_dpen, 'periodic':0, 'input':1e4, 'state': 1e0})
+        return c + r.T @ r
+        
+    for ii in range(JS.shape[0]):
+        for jj in range(JS.shape[1]):
+            JS[ii,jj] = Jp([P0S[ii,jj], P1S[ii,jj]], _dpen=dpen)
+
+    ax[0].plot(p0s, [Jp([cc, np.mean(p1s)], 1e3) for cc in p0s], '.-', label='1e3')
+    ax[0].plot(p0s, [Jp([cc, np.mean(p1s)], 1e4) for cc in p0s], '.-', label='1e4')
+    ax[0].set_ylabel("ci")
+
+    ax[1].plot(p1s, [Jp([np.mean(p0s), ti], 1e3) for ti in p1s], '.-', label='1e3')
+    ax[1].plot(p1s, [Jp([np.mean(p0s), ti], 1e4) for ti in p1s], '.-', label='1e4')
+    ax[1].legend()
+    ax[1].set_ylabel("Ji")
+    ax[1].set_xlabel("T")
+
+    from mpl_toolkits.mplot3d import axes3d
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot_surface(P0S, P1S, JS, cmap=plt.get_cmap('gist_earth'))
+    ax.set_xlabel('cbar')
+    ax.set_ylabel('T')
+

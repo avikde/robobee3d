@@ -126,37 +126,7 @@ optavgliftparams = {'dynamics':1e3, 'periodic':0, 'input':1e4, 'state': 1e0}
 # Test nonconvexity ---
 cs = np.linspace(0.002, 0.01, 10)
 Ts = np.linspace(0.5, 2, 10)
-cbarsM, TsM = np.meshgrid(cs, Ts)
-JbestsM = np.zeros_like(cbarsM)
-fig, ax = plt.subplots(2)
-
-def JT(p, dpen):
-    c, r = wingopt.Jcosttraj_penalty(traj0, wpo.N, p, opt={'dynamics':dpen, 'periodic':0, 'input':1e4, 'state': 1e0})
-    return c + r.T @ r
-    
-for ii in range(JbestsM.shape[0]):
-    for jj in range(JbestsM.shape[1]):
-        JbestsM[ii,jj] = JT([cbarsM[ii,jj], TsM[ii,jj]], dpen=1e3)
-
-# fT = lambda Tt : m.dydt(traj0[:4], traj0[4:5], [params0[0], Tt])
-# ax[0].plot(Ts, [fT(ti) for ti in Ts], '.-')
-ax[0].plot(cs, [JT([cc, params0[1]], 1e3) for cc in cs], '.-', label='1e3')
-ax[0].plot(cs, [JT([cc, params0[1]], 1e4) for cc in cs], '.-', label='1e4')
-ax[0].set_ylabel("ci")
-
-ax[1].plot(Ts, [JT([params0[0], ti], 1e3) for ti in Ts], '.-', label='1e3')
-ax[1].plot(Ts, [JT([params0[0], ti], 1e4) for ti in Ts], '.-', label='1e4')
-ax[1].legend()
-ax[1].set_ylabel("Ji")
-ax[1].set_xlabel("T")
-
-from mpl_toolkits.mplot3d import axes3d
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.plot_surface(cbarsM, TsM, JbestsM, cmap=plt.get_cmap('gist_earth'))
-ax.set_xlabel('cbar')
-ax.set_ylabel('T')
-
+wingopt.plotTrajWrtParams(cs, Ts, traj0, wpo.N)
 plt.show()
 sys.exit(0)
 # ----------
