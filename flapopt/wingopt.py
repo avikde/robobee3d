@@ -8,6 +8,22 @@ sys.path.append('..')
 from controlutils.py.model import Model
 import controlutils.py.ltvsystem as ltvsystem
 
+class DoubleIntegrator(Model):
+    """Test simple model for making sure opt wrt params works"""
+    def dydt(self, yin, u, _params=[]):
+        T = _params[0]
+        ddq = tauinp = np.array([u[0] / T])
+        return np.hstack((y[1:] * T, ddq))
+
+    @property
+    def limits(self):
+        # This is based on observing the OL trajectory
+        umin = np.array([-0.15])
+        umax = -umin
+        xmin = np.array([-0.02, -np.inf])
+        xmax = -xmin
+        return umin, umax, xmin, xmax
+
 class Wing2DOF(Model):
     nx = 4
     nu = 1
