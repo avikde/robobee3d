@@ -423,7 +423,6 @@ class WingPenaltyOptimizer:
                     Jr0[nx*i : nx*(i+1), nx*i:nx*(i+2)] = Jr0i[:,:2*nx]
                     Jr0[nx*i : nx*(i+1), (N+1)*nx + nu*i : (N+1)*nx + nu*(i+1)] = Jr0i[:,-nu:]
                 
-
         DJ = jacobian(J)
         D2J = hessian(J)
         
@@ -474,7 +473,7 @@ class WingPenaltyOptimizer:
         ts = np.array([t1-t0, t2-t1, t3-t2, t4-t3, t5-t4, t6-t5])
         print(ts, "cost {:.1f} -> {:.1f}".format(J0, J(x0 + s * v)))
         # perform Newton update
-        return x0 + s * v
+        return x0 + s * v, J
         
     def plotTrajs(self, *args):
         """Helper function to plot a bunch of trajectories superimposed"""
