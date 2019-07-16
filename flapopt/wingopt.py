@@ -324,7 +324,7 @@ def Ind(x, eps):
     else:
         return x**2 + eps**2/3
 
-def Jcosttraj_penalty(dirtranx, N, params, opt={}):
+def Jcosttraj_penalty(traj, N, params, opt={}):
     '''this is over a traj. yu = (nx+nu,Nt)-shaped'''
     # Get all the relevant options from the dict
     PENALTY_DYNAMICS = opt.get('dynamics', 1e-6)
@@ -338,14 +338,17 @@ def Jcosttraj_penalty(dirtranx, N, params, opt={}):
     PENALTY_ALLOW = opt.get('pen', True)
 
     c = 0
-    ykfun = lambda k : dirtranx[(k*m.nx):((k+1)*m.nx)]
-    ukfun = lambda k : dirtranx[((N+1)*m.nx + k*m.nu):((N+1)*m.nx + (k+1)*m.nu)]
+    ykfun = lambda k : traj[(k*m.nx):((k+1)*m.nx)]
+    ukfun = lambda k : traj[((N+1)*m.nx + k*m.nu):((N+1)*m.nx + (k+1)*m.nu)]
+    h = traj[-1]  #timestep
     # Objective
     for i in range(N):
         paero, _, Faero = m.aero(ykfun(i), ukfun(i), params)
         c += -OBJ_LIFT * Faero[1]
         c += OBJ_DRAG * Faero[0]
         c += OBJ_MOM * (-paero[0] * Faero[1] + paero[1] * Faero[0]) # moment
+    # For the objectives, want "average", i.e. divide by the total time of the traj = h * N
+    c /= (h * N)
 
     # Inequality constraint for input limit
     umin, umax, ymin, ymax = m.limits
@@ -358,7 +361,7 @@ def Jcosttraj_penalty(dirtranx, N, params, opt={}):
         
     # Quadratic terms handled separately since we can use a Gauss-Newton approx
     # Dynamics constraint
-    rs = [np.sqrt(PENALTY_DYNAMICS) * (ykfun(i+1) - (ykfun(i) + m.dydt(ykfun(i), ukfun(i), params) * m.dt)) for i in range(N-1)]
+    rs = [np.sqrt(PENALTY_DYNAMICS) * (ykfun(i+1) - (ykfun(i) + m.dydt(ykfun(i), ukfun(i), params) * h)) for i in range(N-1)]
     # Periodicity
     rs.append(np.sqrt(PENALTY_PERIODIC) * (ykfun(N) - ykfun(0)))
     # stack into a vector
@@ -489,7 +492,7 @@ class WingPenaltyOptimizer:
         t6 = time.perf_counter() #~10ms - 1s
         # debugging
         ts = np.array([t1-t0, t2-t1, t3-t2, t4-t3, t5-t4, t6-t5])
-        print(ts, "cost {:.1f} -> {:.1f}".format(J0, J1))
+        print(ts, "cost {:.1f} -> {:.1f}, h {:.2f}ms -> {:.2f}ms".format(J0, J1, 1e3*x0[-1], 1e3*(x0 + s * v)[-1]))
         # perform Newton update
         return x0 + s * v, J, J1
         

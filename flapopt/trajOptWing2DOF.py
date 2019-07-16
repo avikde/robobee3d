@@ -6,7 +6,7 @@ sys.path.append('..')
 from scipy.integrate import solve_ivp
 from matplotlib import animation
 from matplotlib.collections import PatchCollection
-np.set_printoptions(precision=4, suppress=True, linewidth=200)
+np.set_printoptions(precision=3, suppress=True, linewidth=200)
 import osqp
 import wingopt
 
