@@ -336,6 +336,7 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
     OBJ_DRAG = opt.get('odrag', 0)
     OBJ_MOM = opt.get('omom', 0)
     PENALTY_ALLOW = opt.get('pen', True)
+    PENALTY_H = opt.get('timestep', (0, 0.0001, 0.005)) # tuple of (weight, min, max)
 
     c = 0
     ykfun = lambda k : traj[(k*m.nx):((k+1)*m.nx)]
@@ -348,7 +349,7 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
         c += OBJ_DRAG * Faero[0]
         c += OBJ_MOM * (-paero[0] * Faero[1] + paero[1] * Faero[0]) # moment
     # For the objectives, want "average", i.e. divide by the total time of the traj = h * N. Leaving out the N (it is constant): the only difference it makes is to the penalty coefficients.
-    # c /= h
+    # c *= m.dt / h # *initial dt in order to not return the penalties
 
     # Inequality constraint for input limit
     umin, umax, ymin, ymax = m.limits
@@ -356,6 +357,9 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
     for i in range(N-1):
         c += PENALTY_ULIM * np.sum(Indv(ukfun(i) - umax) + Indv(-ukfun(i) + umin))
         c += PENALTY_XLIM * np.sum(Indv(ykfun(i) - ymax) + Indv(-ykfun(i) + ymin))
+    # Limits on the timestep
+    hmin, hmax = PENALTY_H[1], PENALTY_H[2]
+    c += PENALTY_H[0] * (Ind(1e6 * (h - hmax), PENALTY_EPS) + Ind(1e6 * (-h + hmin), PENALTY_EPS)) # Use us units here
         
     # Quadratic terms handled separately since we can use a Gauss-Newton approx
     # Dynamics constraint
@@ -482,41 +486,44 @@ class WingPenaltyOptimizer:
         alpha = 0.4
         beta = 0.9
         s = 1
-        J1 = J(x0 + s * v)
+        x1 = x0 + s * v
+        J1 = J(x1)
         while J1 > J0 + alpha * s * DJ0.T @ v:
             s = beta * s
-            J1 = J(x0 + s * v)
+            x1 = x0 + s * v
+            J1 = J(x1)
             
         t6 = time.perf_counter() #~10ms - 1s
         # debugging
         ts = np.array([t1-t0, t2-t1, t3-t2, t4-t3, t5-t4, t6-t5])
         print(ts, "cost {:.1f} -> {:.1f}".format(J0, J1), end = " ")
         if mode == self.WRT_TRAJ:
-            print("h {:.2f}ms -> {:.2f}ms".format(1e3*x0[-1], 1e3*(x0 + s * v)[-1]), end = " ")
+            print("h {:.2f}ms -> {:.2f}ms".format(1e3*x0[-1], 1e3*x1[-1]), end = " ")
+            assert x1[-1] > 0, "Negative timestep"
         print()
         # perform Newton update
-        return x0 + s * v, J, J1
+        return x1, J, J1
         
     def plotTrajs(self, *args):
         """Helper function to plot a bunch of trajectories superimposed"""
         umin, umax, xmin, xmax = m.limits
-        trajt = range(self.N)
+        trajt = range(self.N) # timestep is the last elem
         yend = (self.N) * m.nx # N to ignore the last one
         ustart = (self.N+1) * m.nx
         uend = ustart + self.N*m.nu
         _, ax = plt.subplots(3)
         for arg in args:
-            ax[0].plot(trajt, arg[0:yend:m.nx], '.-')
+            ax[0].plot(trajt * arg[-1], arg[0:yend:m.nx], '.-')
         for yy in [xmin[0], xmax[0], 0]:
             ax[0].axhline(y=yy, color='k', alpha=0.3)
         ax[0].set_ylabel('act. disp (m)')
         for arg in args:
-            ax[1].plot(trajt, arg[1:yend:m.nx], '.-')
+            ax[1].plot(trajt * arg[-1], arg[1:yend:m.nx], '.-')
         for yy in [xmin[1], xmax[1], np.pi/4, -np.pi/4]:
             ax[1].axhline(y=yy, color='k', alpha=0.3)
         ax[1].set_ylabel('hinge angle (rad)')
         for arg in args:
-            ax[2].plot(trajt, arg[ustart:uend:m.nu], '.-')
+            ax[2].plot(trajt * arg[-1], arg[ustart:uend:m.nu], '.-')
         ax[2].axhline(y=umin[0], color='k', alpha=0.3)
         ax[2].axhline(y=umax[0], color='k', alpha=0.3)
         ax[2].set_ylabel('act. force (N)')
