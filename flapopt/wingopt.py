@@ -345,7 +345,7 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
     # Objective
     for i in range(N):
         paero, _, Faero = m.aero(ykfun(i), ukfun(i), params)
-        c += -OBJ_LIFT * Faero[1]
+        c += -OBJ_LIFT * np.sqrt(Faero[1]**2 + 1e-10) #* (1/30e-3) / h
         c += OBJ_DRAG * Faero[0]
         c += OBJ_MOM * (-paero[0] * Faero[1] + paero[1] * Faero[0]) # moment
     # For the objectives, want "average", i.e. divide by the total time of the traj = h * N. Leaving out the N (it is constant): the only difference it makes is to the penalty coefficients.
@@ -358,9 +358,9 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
     for i in range(N-1):
         c += PENALTY_ULIM * np.sum(Indv(ukfun(i) - umax) + Indv(-ukfun(i) + umin))
         c += PENALTY_XLIM * np.sum(Indv(ykfun(i) - ymax) + Indv(-ykfun(i) + ymin))
-    # Limits on the timestep
-    hmin, hmax = PENALTY_H[1], PENALTY_H[2]
-    c += PENALTY_H[0] * (Ind(1e6 * (h - hmax), PENALTY_EPS) + Ind(1e6 * (-h + hmin), PENALTY_EPS)) # Use us units here
+    # # Limits on the timestep
+    # hmin, hmax = PENALTY_H[1], PENALTY_H[2]
+    # c += PENALTY_H[0] * (Ind(1e6 * (h - hmax), PENALTY_EPS) + Ind(1e6 * (-h + hmin), PENALTY_EPS)) # Use us units here
         
     # Quadratic terms handled separately since we can use a Gauss-Newton approx
     # Dynamics constraint
