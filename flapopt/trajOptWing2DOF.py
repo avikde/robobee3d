@@ -116,6 +116,8 @@ Penalty-based NL optim ----------------------------------------
 wpo = wingopt.WingPenaltyOptimizer(Nknot-1)
 # Initial trajectory
 traj0 = wingopt.dirTranForm(olTraj, Nknot-1, m.nx, m.nu)
+# add the timestep as the last element
+traj0 = np.hstack((traj0, m.dt))
 params0 = wingopt.params
 # with params as well
 # traj0 = np.hstack((traj0, wingopt.params))

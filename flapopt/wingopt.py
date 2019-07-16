@@ -379,7 +379,7 @@ class WingPenaltyOptimizer:
 
     def __init__(self, N):
         self.N = N
-        self._Nx = (self.N+1) * m.nx + self.N*m.nu #dirtran size
+        self._Nx = (self.N+1) * m.nx + self.N*m.nu + 1 #dirtran size + timestep h
     
     def update(self, traj0, params0, mode=WRT_TRAJ, opt={}):
         # Some error checking
