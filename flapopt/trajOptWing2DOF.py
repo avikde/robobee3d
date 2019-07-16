@@ -122,7 +122,7 @@ params0 = wingopt.params
 # with params as well
 # traj0 = np.hstack((traj0, wingopt.params))
 
-optavglift = {'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0, 'timestep': (1e1, 1e-4, 1e-2)}
+optavglift = {'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0, 'odrag': 1e-1, 'timestep': (1e1, 1e-4, 1e-2)}
 optavgliftparams = {'dynamics':1e3, 'periodic':0, 'input':1e4, 'state': 1e0, 'method':wpo.NEWTON_METHOD}
 INC_PENALTY = True
 
