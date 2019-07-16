@@ -347,21 +347,19 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
         c += -OBJ_LIFT * Faero[1]
         c += OBJ_DRAG * Faero[0]
         c += OBJ_MOM * (-paero[0] * Faero[1] + paero[1] * Faero[0]) # moment
-    # For the objectives, want "average", i.e. divide by the total time of the traj = h * N
-    c /= (h * N)
+    # For the objectives, want "average", i.e. divide by the total time of the traj = h * N. Leaving out the N (it is constant): the only difference it makes is to the penalty coefficients.
+    # c /= h
 
     # Inequality constraint for input limit
     umin, umax, ymin, ymax = m.limits
-    Indv = np.vectorize(lambda x : Ind(x, PENALTY_EPS))
+    Indv = lambda v : [Ind(vj, PENALTY_EPS) for vj in v] # do this instead of vectorize which gives weird errors
     for i in range(N-1):
-        yi = ykfun(i)
-        ui = ukfun(i)
-        c += PENALTY_ULIM * np.sum(Indv(ui - umax) + Indv(-ui + umin))
-        c += PENALTY_XLIM * np.sum(Indv(yi - ymax) + Indv(-yi + ymin))
+        c += PENALTY_ULIM * np.sum(Indv(ukfun(i) - umax) + Indv(-ukfun(i) + umin))
+        c += PENALTY_XLIM * np.sum(Indv(ykfun(i) - ymax) + Indv(-ykfun(i) + ymin))
         
     # Quadratic terms handled separately since we can use a Gauss-Newton approx
     # Dynamics constraint
-    rs = [np.sqrt(PENALTY_DYNAMICS) * (ykfun(i+1) - (ykfun(i) + m.dydt(ykfun(i), ukfun(i), params) * h)) for i in range(N-1)]
+    rs = [np.sqrt(PENALTY_DYNAMICS) * (ykfun(i+1) - (ykfun(i) + h * m.dydt(ykfun(i), ukfun(i), params))) for i in range(N-1)]
     # Periodicity
     rs.append(np.sqrt(PENALTY_PERIODIC) * (ykfun(N) - ykfun(0)))
     # stack into a vector
@@ -492,7 +490,10 @@ class WingPenaltyOptimizer:
         t6 = time.perf_counter() #~10ms - 1s
         # debugging
         ts = np.array([t1-t0, t2-t1, t3-t2, t4-t3, t5-t4, t6-t5])
-        print(ts, "cost {:.1f} -> {:.1f}, h {:.2f}ms -> {:.2f}ms".format(J0, J1, 1e3*x0[-1], 1e3*(x0 + s * v)[-1]))
+        print(ts, "cost {:.1f} -> {:.1f}".format(J0, J1), end = " ")
+        if mode == self.WRT_TRAJ:
+            print("h {:.2f}ms -> {:.2f}ms".format(1e3*x0[-1], 1e3*(x0 + s * v)[-1]), end = " ")
+        print()
         # perform Newton update
         return x0 + s * v, J, J1
         
