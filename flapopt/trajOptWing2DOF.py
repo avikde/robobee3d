@@ -6,7 +6,7 @@ sys.path.append('..')
 from scipy.integrate import solve_ivp
 from matplotlib import animation
 from matplotlib.collections import PatchCollection
-np.set_printoptions(precision=4, suppress=True, linewidth=200)
+np.set_printoptions(precision=3, suppress=True, linewidth=200)
 import osqp
 import wingopt
 
@@ -116,22 +116,31 @@ Penalty-based NL optim ----------------------------------------
 wpo = wingopt.WingPenaltyOptimizer(Nknot-1)
 # Initial trajectory
 traj0 = wingopt.dirTranForm(olTraj, Nknot-1, m.nx, m.nu)
+# add the timestep as the last element
+traj0 = np.hstack((traj0, m.dt))
 params0 = wingopt.params
 # with params as well
 # traj0 = np.hstack((traj0, wingopt.params))
 
-optavglift = {'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0}
-optavgliftparams = {'dynamics':1e3, 'periodic':0, 'input':1e4, 'state': 1e0, 'method': wpo.NEWTON_METHOD}
+optavglift = {'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0, 'odrag': 1e-1, 'timestep': (1e2, 1e-4, 1e-2)}
+optavgliftparams = {'dynamics':1e3, 'periodic':0, 'input':1e4, 'state': 1e0, 'method':wpo.NEWTON_METHOD}
+INC_PENALTY = True
 
 print("hi 0")
 trajs = [traj0]
 params = [params0]
 # test
 # params = [[0.2, 2.0]]
-for ii in range(4):
+for ii in range(2):
     trajs.append(wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ, opt=optavglift)[0])
     pnew, _, _ = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavgliftparams)
     params.append(pnew[-len(params0):])
+    if INC_PENALTY:
+        # TEST increasing penalties TODO: AL or something smarter
+        optavglift['dynamics'] *= 10
+        # optavglift['periodic'] *= 10
+        optavglift['input'] *= 10
+        optavglift['state'] *= 10
 
 # Test nonconvexity ---
 cs = np.linspace(0.002, 0.01, 10)
