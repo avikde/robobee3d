@@ -341,7 +341,7 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
     c = 0
     ykfun = lambda k : traj[(k*m.nx):((k+1)*m.nx)]
     ukfun = lambda k : traj[((N+1)*m.nx + k*m.nu):((N+1)*m.nx + (k+1)*m.nu)]
-    h = traj[-1]  #timestep
+    h = m.dt # traj[-1]  #timestep
     # Objective
     for i in range(N):
         paero, _, Faero = m.aero(ykfun(i), ukfun(i), params)
@@ -350,6 +350,7 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
         c += OBJ_MOM * (-paero[0] * Faero[1] + paero[1] * Faero[0]) # moment
     # For the objectives, want "average", i.e. divide by the total time of the traj = h * N. Leaving out the N (it is constant): the only difference it makes is to the penalty coefficients.
     # c *= m.dt / h # *initial dt in order to not return the penalties
+    # c += 1e6 * h
 
     # Inequality constraint for input limit
     umin, umax, ymin, ymax = m.limits
