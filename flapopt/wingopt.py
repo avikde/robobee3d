@@ -341,7 +341,7 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
     c = 0
     ykfun = lambda k : traj[(k*m.nx):((k+1)*m.nx)]
     ukfun = lambda k : traj[((N+1)*m.nx + k*m.nu):((N+1)*m.nx + (k+1)*m.nu)]
-    h = m.dt # traj[-1]  #timestep
+    h = traj[-1]  #timestep
     # Objective
     for i in range(N):
         paero, _, Faero = m.aero(ykfun(i), ukfun(i), params)
@@ -477,23 +477,28 @@ class WingPenaltyOptimizer:
                 v = -np.linalg.inv(D2J0) @ DJ0
             except np.linalg.LinAlgError:
                 # last u (last diag elem) is 0 - makes sense
-                print(np.linalg.eigs(D2J0))
+                print(np.linalg.eigvals(D2J0))
                 raise
 
         t5 = time.perf_counter() #~0.5-1 ms
                 
-        # backtracking line search 
-        # search for s
+        # backtracking line search
         alpha = 0.4
         beta = 0.9
         s = 1
         x1 = x0 + s * v
         J1 = J(x1)
-        while J1 > J0 + alpha * s * DJ0.T @ v:
+        if J1 > J0 and mode == self.WRT_PARAMS:
+            # FIXME: why is the direction backwards sometimes in the WRT_PARAMS mode??
+            v = -v
+            x1 = x0 + s * v
+            J1 = J(x1)
+        # search for s
+        while J1 > J0 + alpha * s * DJ0.T @ v and s > 1e-6:
             s = beta * s
             x1 = x0 + s * v
             J1 = J(x1)
-            
+
         t6 = time.perf_counter() #~10ms - 1s
         # debugging
         ts = np.array([t1-t0, t2-t1, t3-t2, t4-t3, t5-t4, t6-t5])
