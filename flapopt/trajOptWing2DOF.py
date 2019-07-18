@@ -121,7 +121,8 @@ traj0 = np.hstack((traj0, m.dt))
 params0 = wingopt.params
 # with params as well
 # traj0 = np.hstack((traj0, wingopt.params))
-lambda0 = np.zeros(89) # TODO: get this from J
+_, r = wingopt.Jcosttraj_penalty(traj0, wpo.N, params0)
+lambda0 = np.zeros_like(r)
 
 optavglift = {'mu': 1, 'timestep': (1e3, 1e-4, 1e-2)}
 optavgliftparams = {'mu':1, 'dynamics': 1e3, 'method':wpo.NEWTON_METHOD}
