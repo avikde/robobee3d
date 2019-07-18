@@ -123,7 +123,7 @@ params0 = wingopt.params
 # traj0 = np.hstack((traj0, wingopt.params))
 lambda0 = np.zeros(89) # TODO: get this from J
 
-optavglift = {'mu': 1}
+optavglift = {'mu': 1, 'timestep': (1e3, 1e-4, 1e-2)}
 optavgliftparams = {'mu':1, 'dynamics': 1e3, 'method':wpo.NEWTON_METHOD}
 INC_PENALTY = True
 
@@ -132,8 +132,8 @@ trajs = [traj0]
 params = [params0]
 # test
 # params = [[0.2, 2.0]]
-for ii in range(2):
-    trajnew, _, _, lambda0 = wpo.update(trajs[-1], params[-1], lambda0, mode=wpo.WRT_TRAJ, opt=optavglift, Niter=3)
+for ii in range(3):
+    trajnew, _, _, lambda0 = wpo.update(trajs[-1], params[-1], lambda0, mode=wpo.WRT_TRAJ, opt=optavglift, Niter=2)
     trajs.append(trajnew)
     pnew, _, _, _ = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavgliftparams, Niter=2)
     params.append(pnew[-len(params0):])
