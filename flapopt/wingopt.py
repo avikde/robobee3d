@@ -436,7 +436,7 @@ class WingPenaltyOptimizer:
                 rr = r(x)
                 return Jnq(x) + PENALTY_MU * np.dot(rr, rr) + (0 if lambda0 is None else np.dot(lambda0, rr))
         else:
-            J = lambda x : Jnq(x) + (0 if lambda0 is None else np.dot(lambda0, r(x)))
+            J = Jnq#lambda x : Jnq(x) + (0 if lambda0 is None else np.dot(lambda0, r(x)))
             # Approximate the gradient, Hessian for these terms with Jr
             Jr = jacobian(r)
             # # Composing gradients of ri(xi), where xi = (yi,y{i+1},ui)
@@ -473,6 +473,8 @@ class WingPenaltyOptimizer:
             if method == self.GAUSS_NEWTON:
                 Jr0 = Jr(x0)
                 DJ0 += 2 * PENALTY_MU * Jr0.T @ r0
+                if lambda0 is not None:
+                    DJ0 += Jr0.T @ lambda0
             prof['eJ'] = time.perf_counter() - t0
             t0 = time.perf_counter()
             D2J0 = D2J(x0)
