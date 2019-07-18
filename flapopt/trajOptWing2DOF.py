@@ -133,8 +133,8 @@ trajs = [traj0]
 params = [params0]
 # test
 # params = [[0.2, 2.0]]
-for ii in range(3):
-    trajnew, _, _, lambda0 = wpo.update(trajs[-1], params[-1], lambda0, mode=wpo.WRT_TRAJ, opt=optavglift, Niter=2)
+for ii in range(2):
+    trajnew, _, _, lambda0 = wpo.update(trajs[-1], params[-1], lambda0, mode=wpo.WRT_TRAJ, opt=optavglift, Niter=4)
     trajs.append(trajnew)
     pnew, _, _, _ = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavgliftparams, Niter=2)
     params.append(pnew[-len(params0):])
@@ -142,7 +142,8 @@ for ii in range(3):
         # print(lambda0)
         optavglift['mu'] *= 10
 
-# Test nonconvexity ---
+print(lambda0)
+# Param plot ---
 cs = np.linspace(0.002, 0.01, 10)
 Ts = np.linspace(0.5, 2, 10)
 wingopt.plotTrajWrtParams(cs, Ts, trajs[-1], wpo.N, paramsPath=params)

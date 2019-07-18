@@ -376,7 +376,7 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
     rs.append(np.sqrt(WEIGHT_PERIODIC) * (ykfun(N) - ykfun(0)))
     # FIXME: avg lift not working
     # c *= (1/30e-3) / h
-    rs.append(np.sqrt(WEIGHT_H[0]) * h)
+    rs.append(np.sqrt(1e6) * h)
     # stack into a vector
     r = np.hstack(rs)
 
