@@ -378,7 +378,7 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
     # c *= (1/30e-3) / h
     rs.append(np.sqrt(WEIGHT_H[0]) * h)
     # stack into a vector
-    r = np.sqrt(PENALTY_MU) * np.hstack(rs)
+    r = np.hstack(rs)
 
     return c, r
 
@@ -409,6 +409,7 @@ class WingPenaltyOptimizer:
 
         HESS_REG = opt.get('hessreg', 1e-2)
         method = opt.get('method', self.GAUSS_NEWTON)
+        PENALTY_MU = opt.get('mu', 1) # penalty coefficient (changed by solver at major iterations)
         AL_LAMBDA = opt.get('lambda', 0) # AL estimated lagrange multiplier
 
         if mode == self.WRT_PARAMS:
@@ -431,7 +432,7 @@ class WingPenaltyOptimizer:
             def J(x):
                 # handle all costs the same
                 rr = r(x)
-                return Jnq(x) + rr.T @ rr
+                return Jnq(x) + PENALTY_MU * np.dot(rr, rr)
         else:
             J = Jnq
             # Approximate the gradient, Hessian for these terms with Jr
@@ -469,12 +470,12 @@ class WingPenaltyOptimizer:
             DJ0 = DJ(x0)
             if method == self.GAUSS_NEWTON:
                 Jr0 = Jr(x0)
-                DJ0 += 2 * Jr0.T @ r0
+                DJ0 += 2 * PENALTY_MU * Jr0.T @ r0
             prof['eJ'] = time.perf_counter() - t0
             t0 = time.perf_counter()
             D2J0 = D2J(x0)
             if method == self.GAUSS_NEWTON:
-                D2J0 += 2 * Jr0.T @ Jr0
+                D2J0 += 2 * PENALTY_MU * Jr0.T @ Jr0
             prof['eH'] = time.perf_counter() - t0
 
             # descent direction
@@ -513,7 +514,7 @@ class WingPenaltyOptimizer:
             prof['ls'] = time.perf_counter() - t0
 
             # debugging
-            print(mode, minorIter, prof, "eqcon {:.1f} cost {:.1f} -> {:.1f}".format(np.linalg.norm(r(x1)), J0, J1), end = " ")
+            print(mode, minorIter, prof, "|r|={:.1f} J0={:.1f} J1={:.1f}".format(np.linalg.norm(r(x1)), J0, J1), end = " ")
             if mode == self.WRT_TRAJ:
                 print("h {:.2f}ms -> {:.2f}ms".format(1e3*x0[-1], 1e3*x1[-1]), end = " ")
                 assert x1[-1] > 0, "Negative timestep"
