@@ -132,8 +132,8 @@ params = [params0]
 # test
 # params = [[0.2, 2.0]]
 for ii in range(2):
-    trajs.append(wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ, opt=optavglift)[0])
-    pnew, _, _ = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavgliftparams)
+    trajs.append(wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ, opt=optavglift, Niter=5)[0])
+    pnew, _, _ = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavgliftparams, Niter=2)
     params.append(pnew[-len(params0):])
     if INC_PENALTY:
         # TEST increasing penalties TODO: AL or something smarter

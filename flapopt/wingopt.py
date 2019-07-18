@@ -463,18 +463,18 @@ class WingPenaltyOptimizer:
             J0 = J(x0)
             if method == self.GAUSS_NEWTON:
                 r0 = r(x0)
-            prof['e'] += time.perf_counter() - t0
+            prof['e'] = time.perf_counter() - t0
             t0 = time.perf_counter()
             DJ0 = DJ(x0)
             if method == self.GAUSS_NEWTON:
                 Jr0 = Jr(x0)
                 DJ0 += 2 * Jr0.T @ r0
-            prof['eJ'] += time.perf_counter() - t0
+            prof['eJ'] = time.perf_counter() - t0
             t0 = time.perf_counter()
             D2J0 = D2J(x0)
             if method == self.GAUSS_NEWTON:
                 D2J0 += 2 * Jr0.T @ Jr0
-            prof['eH'] += time.perf_counter() - t0
+            prof['eH'] = time.perf_counter() - t0
 
             # descent direction
             if method == self.GRADIENT_DESCENT:
@@ -509,14 +509,18 @@ class WingPenaltyOptimizer:
                 x1 = x0 + s * v
                 J1 = J(x1)
 
-            prof['ls'] += time.perf_counter() - t0
+            prof['ls'] = time.perf_counter() - t0
 
-        # debugging
-        print(prof, "cost {:.1f} -> {:.1f}".format(J0, J1), end = " ")
-        if mode == self.WRT_TRAJ:
-            print("h {:.2f}ms -> {:.2f}ms".format(1e3*x0[-1], 1e3*x1[-1]), end = " ")
-            assert x1[-1] > 0, "Negative timestep"
-        print()
+            # debugging
+            print(mode, minorIter, prof, "cost {:.1f} -> {:.1f}".format(J0, J1), end = " ")
+            if mode == self.WRT_TRAJ:
+                print("h {:.2f}ms -> {:.2f}ms".format(1e3*x0[-1], 1e3*x1[-1]), end = " ")
+                assert x1[-1] > 0, "Negative timestep"
+            print()
+
+            # for next iteration
+            x0 = x1
+
         # perform Newton update
         return x1, J, J1
         
