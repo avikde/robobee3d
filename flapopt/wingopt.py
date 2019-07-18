@@ -381,6 +381,11 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
 
     return c, r
 
+# For printing https://stackoverflow.com/questions/17489353/printing-a-mixed-type-dictionary-with-format-in-python
+class my_dict(dict):                                              
+    def __str__(self):
+        return str({k:round(v,2) if isinstance(v,float) else v  for k,v in self.items()})
+
 class WingPenaltyOptimizer:
     """Works with dirtran form of x only"""
     WRT_TRAJ = 0
@@ -396,7 +401,7 @@ class WingPenaltyOptimizer:
         self.N = N
         self._Nx = (self.N+1) * m.nx + self.N*m.nu + 1 #dirtran size + timestep h
     
-    def update(self, traj0, params0, mode=WRT_TRAJ, opt={}):
+    def update(self, traj0, params0, mode=WRT_TRAJ, opt={}, Niter=1):
         # Some error checking
         assert len(traj0) == self._Nx
         assert len(params0) == len(params)
@@ -420,8 +425,6 @@ class WingPenaltyOptimizer:
         # separately get the non-quadratic and quadratic terms
         Jnq = lambda x : Jtup(x)[0]
         r = lambda x : Jtup(x)[1]
-        
-        t0 = time.perf_counter()
 
         if method != self.GAUSS_NEWTON:
             def J(x):
@@ -431,87 +434,85 @@ class WingPenaltyOptimizer:
         else:
             J = Jnq
             # Approximate the gradient, Hessian for these terms with Jr
-            r0 = r(x0)
-            if True:
-                Jr = jacobian(r)
-                Jr0 = Jr(x0)
-            else:
-                # Composing gradients of ri(xi), where xi = (yi,y{i+1},ui)
-                # NOTE: leaving this here, but it seems this is actually slower
-                N, nx, nu = self.N, m.nx, m.nu
-                def ri(xi):
-                    # r0(y0,y1,u0)
-                    x = np.hstack((xi[:2*nx], np.zeros((N-1)*nx), xi[-nu:], np.zeros((N-1)*nu)))
-                    return r(x)[:nx]
-                Jri = jacobian(ri)
-                # Now assemble Jr from these components
-                szr = (N)*nx
-                Jr0 = np.zeros((szr, self._Nx))
-                for i in range(N-1):
-                    xi = np.hstack((x0[nx*i:nx*(i+2)], x0[(N+1)*nx+nu*i : (N+1)*nx+nu*(i+1)]))
-                    Jr0i = Jri(xi)
-                    # Now put in the correct location
-                    Jr0[nx*i : nx*(i+1), nx*i:nx*(i+2)] = Jr0i[:,:2*nx]
-                    Jr0[nx*i : nx*(i+1), (N+1)*nx + nu*i : (N+1)*nx + nu*(i+1)] = Jr0i[:,-nu:]
+            Jr = jacobian(r)
+            # # Composing gradients of ri(xi), where xi = (yi,y{i+1},ui)
+            # # NOTE: leaving this here, but it seems this is actually slower
+            # N, nx, nu = self.N, m.nx, m.nu
+            # def ri(xi):
+            #     # r0(y0,y1,u0)
+            #     x = np.hstack((xi[:2*nx], np.zeros((N-1)*nx), xi[-nu:], np.zeros((N-1)*nu)))
+            #     return r(x)[:nx]
+            # Jri = jacobian(ri)
+            # # Now assemble Jr from these components
+            # szr = (N)*nx
+            # Jr0 = np.zeros((szr, self._Nx))
+            # for i in range(N-1):
+            #     xi = np.hstack((x0[nx*i:nx*(i+2)], x0[(N+1)*nx+nu*i : (N+1)*nx+nu*(i+1)]))
+            #     Jr0i = Jri(xi)
+            #     # Now put in the correct location
+            #     Jr0[nx*i : nx*(i+1), nx*i:nx*(i+2)] = Jr0i[:,:2*nx]
+            #     Jr0[nx*i : nx*(i+1), (N+1)*nx + nu*i : (N+1)*nx + nu*(i+1)] = Jr0i[:,-nu:]
                 
         DJ = jacobian(J)
         D2J = hessian(J)
+
+        prof = my_dict({'e': 0, 'eJ': 0, 'eH': 0, 'ls': 0})
         
-        t1 = time.perf_counter()
-
-        J0 = J(x0)
-        
-        t2 = time.perf_counter() # ~10ms
-
-        DJ0 = DJ(x0)
-
-        t3 = time.perf_counter() # ~150ms
-
-        D2J0 = D2J(x0)
-
-        t4 = time.perf_counter() # ~14s
-
-        # descent direction
-        if method == self.GRADIENT_DESCENT:
-            v = -DJ0 # gradient descent
-        elif method in [self.NEWTON_METHOD, self.GAUSS_NEWTON]:
+        for minorIter in range(Niter):
+            t0 = time.perf_counter()
+            J0 = J(x0)
             if method == self.GAUSS_NEWTON:
+                r0 = r(x0)
+            prof['e'] += time.perf_counter() - t0
+            t0 = time.perf_counter()
+            DJ0 = DJ(x0)
+            if method == self.GAUSS_NEWTON:
+                Jr0 = Jr(x0)
                 DJ0 += 2 * Jr0.T @ r0
+            prof['eJ'] += time.perf_counter() - t0
+            t0 = time.perf_counter()
+            D2J0 = D2J(x0)
+            if method == self.GAUSS_NEWTON:
                 D2J0 += 2 * Jr0.T @ Jr0
+            prof['eH'] += time.perf_counter() - t0
 
-            # Newton's method http://www.stat.cmu.edu/~ryantibs/convexopt-S15/lectures/14-newton.pdf
-            try:
-                # regularization
-                D2J0 += HESS_REG * np.eye(D2J0.shape[0])
-                v = -np.linalg.inv(D2J0) @ DJ0
-            except np.linalg.LinAlgError:
-                # last u (last diag elem) is 0 - makes sense
-                print(np.linalg.eigvals(D2J0))
-                raise
+            # descent direction
+            if method == self.GRADIENT_DESCENT:
+                v = -DJ0 # gradient descent
+            elif method in [self.NEWTON_METHOD, self.GAUSS_NEWTON]:
+                # Newton's method http://www.stat.cmu.edu/~ryantibs/convexopt-S15/lectures/14-newton.pdf
+                try:
+                    # regularization
+                    D2J0 += HESS_REG * np.eye(D2J0.shape[0])
+                    v = -np.linalg.inv(D2J0) @ DJ0
+                except np.linalg.LinAlgError:
+                    # last u (last diag elem) is 0 - makes sense
+                    print(np.linalg.eigvals(D2J0))
+                    raise
 
-        t5 = time.perf_counter() #~0.5-1 ms
-                
-        # backtracking line search
-        alpha = 0.4
-        beta = 0.9
-        s = 1
-        x1 = x0 + s * v
-        J1 = J(x1)
-        if J1 > J0 and mode == self.WRT_PARAMS:
-            # FIXME: why is the direction backwards sometimes in the WRT_PARAMS mode??
-            v = -v
+            t0 = time.perf_counter()
+                    
+            # backtracking line search
+            alpha = 0.4
+            beta = 0.9
+            s = 1
             x1 = x0 + s * v
             J1 = J(x1)
-        # search for s
-        while J1 > J0 + alpha * s * DJ0.T @ v and s > 1e-6:
-            s = beta * s
-            x1 = x0 + s * v
-            J1 = J(x1)
+            if J1 > J0 and mode == self.WRT_PARAMS:
+                # FIXME: why is the direction backwards sometimes in the WRT_PARAMS mode??
+                v = -v
+                x1 = x0 + s * v
+                J1 = J(x1)
+            # search for s
+            while J1 > J0 + alpha * s * DJ0.T @ v and s > 1e-6:
+                s = beta * s
+                x1 = x0 + s * v
+                J1 = J(x1)
 
-        t6 = time.perf_counter() #~10ms - 1s
+            prof['ls'] += time.perf_counter() - t0
+
         # debugging
-        ts = np.array([t1-t0, t2-t1, t3-t2, t4-t3, t5-t4, t6-t5])
-        print(ts, "cost {:.1f} -> {:.1f}".format(J0, J1), end = " ")
+        print(prof, "cost {:.1f} -> {:.1f}".format(J0, J1), end = " ")
         if mode == self.WRT_TRAJ:
             print("h {:.2f}ms -> {:.2f}ms".format(1e3*x0[-1], 1e3*x1[-1]), end = " ")
             assert x1[-1] > 0, "Negative timestep"
