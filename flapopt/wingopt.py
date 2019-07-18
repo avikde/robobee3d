@@ -479,7 +479,12 @@ class WingPenaltyOptimizer:
             t0 = time.perf_counter()
             D2J0 = D2J(x0)
             if method == self.GAUSS_NEWTON:
-                D2J0 += 2 * PENALTY_MU * Jr0.T @ Jr0
+                D2rapprox = Jr0.T @ Jr0
+                D2J0 += 2 * PENALTY_MU * D2rapprox
+                # if lambda0 is not None:
+                #     # This approximates D2(lambda0.T @ r) = D(lambda0.T @ Dr) = \sum_i lambda0i D2ri
+                #     # \sum_i lambda0i Jr0[i,:].T @ Jr0[i,:] (each of those is an outer product)
+                #     D2J0 += np.sum([lambda0[i] * Jr0[i,:].T @ Jr0[i,:] for i in range(len(lambda0))])
             prof['eH'] = time.perf_counter() - t0
 
             # descent direction

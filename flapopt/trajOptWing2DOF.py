@@ -138,7 +138,7 @@ for ii in range(2):
     pnew, _, _, _ = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavgliftparams, Niter=2)
     params.append(pnew[-len(params0):])
     if INC_PENALTY:
-        print(lambda0)
+        # print(lambda0)
         optavglift['mu'] *= 10
 
 # Test nonconvexity ---
