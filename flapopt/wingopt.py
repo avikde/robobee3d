@@ -516,6 +516,7 @@ class WingPenaltyOptimizer:
             prof['ls'] = time.perf_counter() - t0
 
             # debugging
+            r1 = r(x1)
             print(mode, minorIter, prof, "|r|={:.1f} J0={:.1f} J1={:.1f}".format(np.linalg.norm(r(x1)), J0, J1), end = " ")
             if mode == self.WRT_TRAJ:
                 print("h {:.2f}ms -> {:.2f}ms".format(1e3*x0[-1], 1e3*x1[-1]), end = " ")
@@ -526,7 +527,7 @@ class WingPenaltyOptimizer:
             x0 = x1
 
         # perform Newton update
-        return x1, J, J1
+        return x1, J, J1, None if lambda0 is None else lambda0 - opt['mu'] * r1
         
     def plotTrajs(self, *args):
         """Helper function to plot a bunch of trajectories superimposed"""

@@ -133,12 +133,12 @@ params = [params0]
 # test
 # params = [[0.2, 2.0]]
 for ii in range(2):
-    trajs.append(wpo.update(trajs[-1], params[-1], lambda0, mode=wpo.WRT_TRAJ, opt=optavglift, Niter=3)[0])
-    pnew, _, _ = wpo.update(trajs[-1], params[-1], lambda0, mode=wpo.WRT_PARAMS, opt=optavgliftparams, Niter=2)
+    trajnew, _, _, lambda0 = wpo.update(trajs[-1], params[-1], lambda0, mode=wpo.WRT_TRAJ, opt=optavglift, Niter=3)
+    trajs.append(trajnew)
+    pnew, _, _, _ = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavgliftparams, Niter=2)
     params.append(pnew[-len(params0):])
     if INC_PENALTY:
-        # TEST increasing penalties TODO: AL or something smarter
-        # optavglift['lambda'] -= optavglift['mu']
+        print(lambda0)
         optavglift['mu'] *= 10
 
 # Test nonconvexity ---
