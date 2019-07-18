@@ -402,7 +402,10 @@ class WingPenaltyOptimizer:
         self.N = N
         self._Nx = (self.N+1) * m.nx + self.N*m.nu + 1 #dirtran size + timestep h
     
-    def update(self, traj0, params0, mode=WRT_TRAJ, opt={}, Niter=1):
+    def update(self, traj0, params0, lambda0=None, mode=WRT_TRAJ, opt={}, Niter=1):
+        """
+        lambda0 = AL estimated lagrange multiplier
+        """
         # Some error checking
         assert len(traj0) == self._Nx
         assert len(params0) == len(params)
@@ -410,7 +413,6 @@ class WingPenaltyOptimizer:
         HESS_REG = opt.get('hessreg', 1e-2)
         method = opt.get('method', self.GAUSS_NEWTON)
         PENALTY_MU = opt.get('mu', 1) # penalty coefficient (changed by solver at major iterations)
-        AL_LAMBDA = opt.get('lambda', 0) # AL estimated lagrange multiplier
 
         if mode == self.WRT_PARAMS:
             Jtup = lambda p : Jcosttraj_penalty(traj0, self.N, p, opt)
@@ -432,9 +434,9 @@ class WingPenaltyOptimizer:
             def J(x):
                 # handle all costs the same
                 rr = r(x)
-                return Jnq(x) + PENALTY_MU * np.dot(rr, rr)
+                return Jnq(x) + PENALTY_MU * np.dot(rr, rr) + (0 if lambda0 is None else np.dot(lambda0, rr))
         else:
-            J = Jnq
+            J = lambda x : Jnq(x) + (0 if lambda0 is None else np.dot(lambda0, r(x)))
             # Approximate the gradient, Hessian for these terms with Jr
             Jr = jacobian(r)
             # # Composing gradients of ri(xi), where xi = (yi,y{i+1},ui)
