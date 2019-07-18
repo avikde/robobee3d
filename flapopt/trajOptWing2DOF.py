@@ -123,7 +123,7 @@ params0 = wingopt.params
 # traj0 = np.hstack((traj0, wingopt.params))
 
 optavglift = {'mu': 1}
-optavgliftparams = {'mu':1, dynamics': 1e3, 'method':wpo.NEWTON_METHOD}
+optavgliftparams = {'mu':1, 'dynamics': 1e3, 'method':wpo.NEWTON_METHOD}
 INC_PENALTY = True
 
 print("hi 0")
@@ -137,6 +137,7 @@ for ii in range(2):
     params.append(pnew[-len(params0):])
     if INC_PENALTY:
         # TEST increasing penalties TODO: AL or something smarter
+        # optavglift['lambda'] -= optavglift['mu']
         optavglift['mu'] *= 10
 
 # Test nonconvexity ---

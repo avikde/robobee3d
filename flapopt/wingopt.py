@@ -513,7 +513,7 @@ class WingPenaltyOptimizer:
             prof['ls'] = time.perf_counter() - t0
 
             # debugging
-            print(mode, minorIter, prof, "cost {:.1f} -> {:.1f}".format(J0, J1), end = " ")
+            print(mode, minorIter, prof, "eqcon {:.1f} cost {:.1f} -> {:.1f}".format(np.linalg.norm(r(x1)), J0, J1), end = " ")
             if mode == self.WRT_TRAJ:
                 print("h {:.2f}ms -> {:.2f}ms".format(1e3*x0[-1], 1e3*x1[-1]), end = " ")
                 assert x1[-1] > 0, "Negative timestep"
