@@ -327,16 +327,18 @@ def Ind(x, eps):
 def Jcosttraj_penalty(traj, N, params, opt={}):
     '''this is over a traj. yu = (nx+nu,Nt)-shaped'''
     # Get all the relevant options from the dict
-    PENALTY_DYNAMICS = opt.get('dynamics', 1e-6)
-    PENALTY_PERIODIC = opt.get('periodic', 0)
-    PENALTY_ULIM = opt.get('input', 0)
-    PENALTY_XLIM = opt.get('state', 0)
     PENALTY_EPS = opt.get('eps', 0.1)
     OBJ_LIFT = opt.get('olift', 1)
     OBJ_DRAG = opt.get('odrag', 0)
     OBJ_MOM = opt.get('omom', 0)
-    PENALTY_ALLOW = opt.get('pen', True)
-    PENALTY_H = opt.get('timestep', (0, 0.0001, 0.005)) # tuple of (weight, min, max)
+    PENALTY_MU = opt.get('mu', 1) # penalty coefficient (changed by solver at major iterations)
+    AL_LAMBDA = opt.get('lambda', 1) # AL estimated lagrange multiplier
+    # These weights are sort of problem (unit) specific, and the solver shouldn't touch
+    WEIGHT_DYNAMICS = opt.get('dynamics', 1e-3)
+    WEIGHT_PERIODIC = opt.get('periodic', 0)
+    WEIGHT_ULIM = opt.get('input', 1e4)
+    WEIGHT_XLIM = opt.get('state', 1)
+    WEIGHT_H = opt.get('timestep', (1e2, 1e-4, 1e-2)) # tuple of (weight, min, max)
 
     c = 0
     ykfun = lambda k : traj[(k*m.nx):((k+1)*m.nx)]
@@ -353,7 +355,7 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
     c += OBJ_DRAG * np.sqrt(Favg[0]**2 + 1e-10)
     # FIXME: avg lift not working
     # c *= (1/30e-3) / h
-    c += 1e3 * h**2
+    c += PENALTY_MU * WEIGHT_H[0] * h**2
 
     # c += OBJ_DRAG * Favg[0]
     # c += OBJ_MOM * (-paero[0] * Faero[1] + paero[1] * Faero[0]) # moment
@@ -365,19 +367,19 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
     umin, umax, ymin, ymax = m.limits
     Indv = lambda v : [Ind(vj, PENALTY_EPS) for vj in v] # do this instead of vectorize which gives weird errors
     for i in range(N-1):
-        c += PENALTY_ULIM * np.sum(Indv(ukfun(i) - umax) + Indv(-ukfun(i) + umin))
-        c += PENALTY_XLIM * np.sum(Indv(ykfun(i) - ymax) + Indv(-ykfun(i) + ymin))
+        c += PENALTY_MU * WEIGHT_ULIM * np.sum(Indv(ukfun(i) - umax) + Indv(-ukfun(i) + umin))
+        c += PENALTY_MU * WEIGHT_XLIM * np.sum(Indv(ykfun(i) - ymax) + Indv(-ykfun(i) + ymin))
     # Limits on the timestep
-    hmin, hmax = PENALTY_H[1], PENALTY_H[2]
-    c += PENALTY_H[0] * (Ind(1e6 * (h - hmax), PENALTY_EPS) + Ind(1e6 * (-h + hmin), PENALTY_EPS)) # Use us units here
+    hmin, hmax = WEIGHT_H[1], WEIGHT_H[2]
+    c += PENALTY_MU * WEIGHT_H[0] * (Ind(1e6 * (h - hmax), PENALTY_EPS) + Ind(1e6 * (-h + hmin), PENALTY_EPS)) # Use us units here
         
     # Quadratic terms handled separately since we can use a Gauss-Newton approx
     # Dynamics constraint
-    rs = [np.sqrt(PENALTY_DYNAMICS) * (ykfun(i+1) - (ykfun(i) + h * m.dydt(ykfun(i), ukfun(i), params))) for i in range(N-1)]
+    rs = [np.sqrt(WEIGHT_DYNAMICS) * (ykfun(i+1) - (ykfun(i) + h * m.dydt(ykfun(i), ukfun(i), params))) for i in range(N-1)]
     # Periodicity
-    rs.append(np.sqrt(PENALTY_PERIODIC) * (ykfun(N) - ykfun(0)))
+    rs.append(np.sqrt(WEIGHT_PERIODIC) * (ykfun(N) - ykfun(0)))
     # stack into a vector
-    r = np.hstack(rs)
+    r = np.sqrt(PENALTY_MU) * np.hstack(rs)
 
     return c, r
 
