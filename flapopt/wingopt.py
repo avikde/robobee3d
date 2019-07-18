@@ -406,7 +406,7 @@ class WingPenaltyOptimizer:
         assert len(traj0) == self._Nx
         assert len(params0) == len(params)
 
-        HESS_REG = opt.get('hessreg', 1e-3)
+        HESS_REG = opt.get('hessreg', 1e-2)
         method = opt.get('method', self.GAUSS_NEWTON)
         optnp = dict(opt, **{'pen':False})
 
@@ -498,11 +498,11 @@ class WingPenaltyOptimizer:
             s = 1
             x1 = x0 + s * v
             J1 = J(x1)
-            if J1 > J0 and mode == self.WRT_PARAMS:
-                # FIXME: why is the direction backwards sometimes in the WRT_PARAMS mode??
-                v = -v
-                x1 = x0 + s * v
-                J1 = J(x1)
+            # if J1 > J0 and mode == self.WRT_PARAMS:
+            #     # FIXME: why is the direction backwards sometimes in the WRT_PARAMS mode??
+            #     v = -v
+            #     x1 = x0 + s * v
+            #     J1 = J(x1)
             # search for s
             while J1 > J0 + alpha * s * DJ0.T @ v and s > 1e-6:
                 s = beta * s
