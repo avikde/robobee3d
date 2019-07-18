@@ -332,7 +332,6 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
     OBJ_DRAG = opt.get('odrag', 0)
     OBJ_MOM = opt.get('omom', 0)
     PENALTY_MU = opt.get('mu', 1) # penalty coefficient (changed by solver at major iterations)
-    AL_LAMBDA = opt.get('lambda', 1) # AL estimated lagrange multiplier
     # These weights are sort of problem (unit) specific, and the solver shouldn't touch
     WEIGHT_DYNAMICS = opt.get('dynamics', 1e-3)
     WEIGHT_PERIODIC = opt.get('periodic', 0)
@@ -353,9 +352,6 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
     c += -OBJ_LIFT * np.sqrt(Favg[1]**2 + 1e-10) #* (1/30e-3) / h
     # Minimize avg drag over a flap TODO: desired force
     c += OBJ_DRAG * np.sqrt(Favg[0]**2 + 1e-10)
-    # FIXME: avg lift not working
-    # c *= (1/30e-3) / h
-    c += PENALTY_MU * WEIGHT_H[0] * h**2
 
     # c += OBJ_DRAG * Favg[0]
     # c += OBJ_MOM * (-paero[0] * Faero[1] + paero[1] * Faero[0]) # moment
@@ -378,13 +374,16 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
     rs = [np.sqrt(WEIGHT_DYNAMICS) * (ykfun(i+1) - (ykfun(i) + h * m.dydt(ykfun(i), ukfun(i), params))) for i in range(N-1)]
     # Periodicity
     rs.append(np.sqrt(WEIGHT_PERIODIC) * (ykfun(N) - ykfun(0)))
+    # FIXME: avg lift not working
+    # c *= (1/30e-3) / h
+    rs.append(np.sqrt(WEIGHT_H[0]) * h)
     # stack into a vector
     r = np.sqrt(PENALTY_MU) * np.hstack(rs)
 
     return c, r
 
-# For printing https://stackoverflow.com/questions/17489353/printing-a-mixed-type-dictionary-with-format-in-python
-class my_dict(dict):                                              
+class my_dict(dict):
+    """For printing https://stackoverflow.com/questions/17489353/printing-a-mixed-type-dictionary-with-format-in-python"""
     def __str__(self):
         return str({k:round(v,2) if isinstance(v,float) else v  for k,v in self.items()})
 
@@ -410,7 +409,7 @@ class WingPenaltyOptimizer:
 
         HESS_REG = opt.get('hessreg', 1e-2)
         method = opt.get('method', self.GAUSS_NEWTON)
-        optnp = dict(opt, **{'pen':False})
+        AL_LAMBDA = opt.get('lambda', 0) # AL estimated lagrange multiplier
 
         if mode == self.WRT_PARAMS:
             Jtup = lambda p : Jcosttraj_penalty(traj0, self.N, p, opt)
