@@ -121,9 +121,11 @@ traj0 = np.hstack((traj0, m.dt))
 params0 = wingopt.params
 # with params as well
 # traj0 = np.hstack((traj0, wingopt.params))
+_, r = wingopt.Jcosttraj_penalty(traj0, wpo.N, params0)
+lambda0 = np.zeros_like(r)
 
-optavglift = {'dynamics':1e-3, 'periodic':0, 'input':1e4, 'state': 1e0, 'odrag': 1e-1, 'timestep': (1e2, 1e-4, 1e-2)}
-optavgliftparams = {'dynamics':1e3, 'periodic':0, 'input':1e4, 'state': 1e0, 'method':wpo.NEWTON_METHOD}
+optavglift = {'mu': 1, 'timestep': (1e3, 1e-4, 1e-2)}
+optavgliftparams = {'mu':1, 'dynamics': 1e3, 'method':wpo.NEWTON_METHOD}
 INC_PENALTY = True
 
 print("hi 0")
@@ -132,17 +134,16 @@ params = [params0]
 # test
 # params = [[0.2, 2.0]]
 for ii in range(2):
-    trajs.append(wpo.update(trajs[-1], params[-1], mode=wpo.WRT_TRAJ, opt=optavglift)[0])
-    pnew, _, _ = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavgliftparams)
+    trajnew, _, _, lambda0 = wpo.update(trajs[-1], params[-1], lambda0, mode=wpo.WRT_TRAJ, opt=optavglift, Niter=4)
+    trajs.append(trajnew)
+    pnew, _, _, _ = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavgliftparams, Niter=2)
     params.append(pnew[-len(params0):])
     if INC_PENALTY:
-        # TEST increasing penalties TODO: AL or something smarter
-        optavglift['dynamics'] *= 10
-        # optavglift['periodic'] *= 10
-        optavglift['input'] *= 10
-        optavglift['state'] *= 10
+        # print(lambda0)
+        optavglift['mu'] *= 10
 
-# Test nonconvexity ---
+print(lambda0)
+# Param plot ---
 cs = np.linspace(0.002, 0.01, 10)
 Ts = np.linspace(0.5, 2, 10)
 wingopt.plotTrajWrtParams(cs, Ts, trajs[-1], wpo.N, paramsPath=params)

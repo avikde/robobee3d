@@ -327,16 +327,17 @@ def Ind(x, eps):
 def Jcosttraj_penalty(traj, N, params, opt={}):
     '''this is over a traj. yu = (nx+nu,Nt)-shaped'''
     # Get all the relevant options from the dict
-    PENALTY_DYNAMICS = opt.get('dynamics', 1e-6)
-    PENALTY_PERIODIC = opt.get('periodic', 0)
-    PENALTY_ULIM = opt.get('input', 0)
-    PENALTY_XLIM = opt.get('state', 0)
     PENALTY_EPS = opt.get('eps', 0.1)
     OBJ_LIFT = opt.get('olift', 1)
     OBJ_DRAG = opt.get('odrag', 0)
     OBJ_MOM = opt.get('omom', 0)
-    PENALTY_ALLOW = opt.get('pen', True)
-    PENALTY_H = opt.get('timestep', (0, 0.0001, 0.005)) # tuple of (weight, min, max)
+    PENALTY_MU = opt.get('mu', 1) # penalty coefficient (changed by solver at major iterations)
+    # These weights are sort of problem (unit) specific, and the solver shouldn't touch
+    WEIGHT_DYNAMICS = opt.get('dynamics', 1e-3)
+    WEIGHT_PERIODIC = opt.get('periodic', 0)
+    WEIGHT_ULIM = opt.get('input', 1e4)
+    WEIGHT_XLIM = opt.get('state', 1)
+    WEIGHT_H = opt.get('timestep', (1e2, 1e-4, 1e-2)) # tuple of (weight, min, max)
 
     c = 0
     ykfun = lambda k : traj[(k*m.nx):((k+1)*m.nx)]
@@ -351,9 +352,6 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
     c += -OBJ_LIFT * np.sqrt(Favg[1]**2 + 1e-10) #* (1/30e-3) / h
     # Minimize avg drag over a flap TODO: desired force
     c += OBJ_DRAG * np.sqrt(Favg[0]**2 + 1e-10)
-    # FIXME: avg lift not working
-    # c *= (1/30e-3) / h
-    c += 1e3 * h**2
 
     # c += OBJ_DRAG * Favg[0]
     # c += OBJ_MOM * (-paero[0] * Faero[1] + paero[1] * Faero[0]) # moment
@@ -365,21 +363,29 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
     umin, umax, ymin, ymax = m.limits
     Indv = lambda v : [Ind(vj, PENALTY_EPS) for vj in v] # do this instead of vectorize which gives weird errors
     for i in range(N-1):
-        c += PENALTY_ULIM * np.sum(Indv(ukfun(i) - umax) + Indv(-ukfun(i) + umin))
-        c += PENALTY_XLIM * np.sum(Indv(ykfun(i) - ymax) + Indv(-ykfun(i) + ymin))
+        c += PENALTY_MU * WEIGHT_ULIM * np.sum(Indv(ukfun(i) - umax) + Indv(-ukfun(i) + umin))
+        c += PENALTY_MU * WEIGHT_XLIM * np.sum(Indv(ykfun(i) - ymax) + Indv(-ykfun(i) + ymin))
     # Limits on the timestep
-    hmin, hmax = PENALTY_H[1], PENALTY_H[2]
-    c += PENALTY_H[0] * (Ind(1e6 * (h - hmax), PENALTY_EPS) + Ind(1e6 * (-h + hmin), PENALTY_EPS)) # Use us units here
+    hmin, hmax = WEIGHT_H[1], WEIGHT_H[2]
+    c += PENALTY_MU * WEIGHT_H[0] * (Ind(1e6 * (h - hmax), PENALTY_EPS) + Ind(1e6 * (-h + hmin), PENALTY_EPS)) # Use us units here
         
     # Quadratic terms handled separately since we can use a Gauss-Newton approx
     # Dynamics constraint
-    rs = [np.sqrt(PENALTY_DYNAMICS) * (ykfun(i+1) - (ykfun(i) + h * m.dydt(ykfun(i), ukfun(i), params))) for i in range(N-1)]
+    rs = [np.sqrt(WEIGHT_DYNAMICS) * (ykfun(i+1) - (ykfun(i) + h * m.dydt(ykfun(i), ukfun(i), params))) for i in range(N-1)]
     # Periodicity
-    rs.append(np.sqrt(PENALTY_PERIODIC) * (ykfun(N) - ykfun(0)))
+    rs.append(np.sqrt(WEIGHT_PERIODIC) * (ykfun(N) - ykfun(0)))
+    # FIXME: avg lift not working
+    # c *= (1/30e-3) / h
+    rs.append(np.sqrt(1e6) * h)
     # stack into a vector
     r = np.hstack(rs)
 
     return c, r
+
+class my_dict(dict):
+    """For printing https://stackoverflow.com/questions/17489353/printing-a-mixed-type-dictionary-with-format-in-python"""
+    def __str__(self):
+        return str({k:round(v,2) if isinstance(v,float) else v  for k,v in self.items()})
 
 class WingPenaltyOptimizer:
     """Works with dirtran form of x only"""
@@ -396,14 +402,17 @@ class WingPenaltyOptimizer:
         self.N = N
         self._Nx = (self.N+1) * m.nx + self.N*m.nu + 1 #dirtran size + timestep h
     
-    def update(self, traj0, params0, mode=WRT_TRAJ, opt={}):
+    def update(self, traj0, params0, lambda0=None, mode=WRT_TRAJ, opt={}, Niter=1):
+        """
+        lambda0 = AL estimated lagrange multiplier
+        """
         # Some error checking
         assert len(traj0) == self._Nx
         assert len(params0) == len(params)
 
-        HESS_REG = opt.get('hessreg', 1e-3)
+        HESS_REG = opt.get('hessreg', 1e-2)
         method = opt.get('method', self.GAUSS_NEWTON)
-        optnp = dict(opt, **{'pen':False})
+        PENALTY_MU = opt.get('mu', 1) # penalty coefficient (changed by solver at major iterations)
 
         if mode == self.WRT_PARAMS:
             Jtup = lambda p : Jcosttraj_penalty(traj0, self.N, p, opt)
@@ -420,104 +429,112 @@ class WingPenaltyOptimizer:
         # separately get the non-quadratic and quadratic terms
         Jnq = lambda x : Jtup(x)[0]
         r = lambda x : Jtup(x)[1]
-        
-        t0 = time.perf_counter()
 
         if method != self.GAUSS_NEWTON:
             def J(x):
                 # handle all costs the same
                 rr = r(x)
-                return Jnq(x) + rr.T @ rr
+                return Jnq(x) + PENALTY_MU * np.dot(rr, rr) + (0 if lambda0 is None else np.dot(lambda0, rr))
         else:
-            J = Jnq
+            J = Jnq#lambda x : Jnq(x) + (0 if lambda0 is None else np.dot(lambda0, r(x)))
             # Approximate the gradient, Hessian for these terms with Jr
-            r0 = r(x0)
-            if True:
-                Jr = jacobian(r)
-                Jr0 = Jr(x0)
-            else:
-                # Composing gradients of ri(xi), where xi = (yi,y{i+1},ui)
-                # NOTE: leaving this here, but it seems this is actually slower
-                N, nx, nu = self.N, m.nx, m.nu
-                def ri(xi):
-                    # r0(y0,y1,u0)
-                    x = np.hstack((xi[:2*nx], np.zeros((N-1)*nx), xi[-nu:], np.zeros((N-1)*nu)))
-                    return r(x)[:nx]
-                Jri = jacobian(ri)
-                # Now assemble Jr from these components
-                szr = (N)*nx
-                Jr0 = np.zeros((szr, self._Nx))
-                for i in range(N-1):
-                    xi = np.hstack((x0[nx*i:nx*(i+2)], x0[(N+1)*nx+nu*i : (N+1)*nx+nu*(i+1)]))
-                    Jr0i = Jri(xi)
-                    # Now put in the correct location
-                    Jr0[nx*i : nx*(i+1), nx*i:nx*(i+2)] = Jr0i[:,:2*nx]
-                    Jr0[nx*i : nx*(i+1), (N+1)*nx + nu*i : (N+1)*nx + nu*(i+1)] = Jr0i[:,-nu:]
+            Jr = jacobian(r)
+            # # Composing gradients of ri(xi), where xi = (yi,y{i+1},ui)
+            # # NOTE: leaving this here, but it seems this is actually slower
+            # N, nx, nu = self.N, m.nx, m.nu
+            # def ri(xi):
+            #     # r0(y0,y1,u0)
+            #     x = np.hstack((xi[:2*nx], np.zeros((N-1)*nx), xi[-nu:], np.zeros((N-1)*nu)))
+            #     return r(x)[:nx]
+            # Jri = jacobian(ri)
+            # # Now assemble Jr from these components
+            # szr = (N)*nx
+            # Jr0 = np.zeros((szr, self._Nx))
+            # for i in range(N-1):
+            #     xi = np.hstack((x0[nx*i:nx*(i+2)], x0[(N+1)*nx+nu*i : (N+1)*nx+nu*(i+1)]))
+            #     Jr0i = Jri(xi)
+            #     # Now put in the correct location
+            #     Jr0[nx*i : nx*(i+1), nx*i:nx*(i+2)] = Jr0i[:,:2*nx]
+            #     Jr0[nx*i : nx*(i+1), (N+1)*nx + nu*i : (N+1)*nx + nu*(i+1)] = Jr0i[:,-nu:]
                 
         DJ = jacobian(J)
         D2J = hessian(J)
+
+        prof = my_dict({'e': 0, 'eJ': 0, 'eH': 0, 'ls': 0})
         
-        t1 = time.perf_counter()
-
-        J0 = J(x0)
-        
-        t2 = time.perf_counter() # ~10ms
-
-        DJ0 = DJ(x0)
-
-        t3 = time.perf_counter() # ~150ms
-
-        D2J0 = D2J(x0)
-
-        t4 = time.perf_counter() # ~14s
-
-        # descent direction
-        if method == self.GRADIENT_DESCENT:
-            v = -DJ0 # gradient descent
-        elif method in [self.NEWTON_METHOD, self.GAUSS_NEWTON]:
+        for minorIter in range(Niter):
+            t0 = time.perf_counter()
+            J0 = J(x0)
             if method == self.GAUSS_NEWTON:
-                DJ0 += 2 * Jr0.T @ r0
-                D2J0 += 2 * Jr0.T @ Jr0
+                r0 = r(x0)
+            prof['e'] = time.perf_counter() - t0
+            t0 = time.perf_counter()
+            DJ0 = DJ(x0)
+            if method == self.GAUSS_NEWTON:
+                Jr0 = Jr(x0)
+                DJ0 += 2 * PENALTY_MU * Jr0.T @ r0
+                if lambda0 is not None:
+                    DJ0 += Jr0.T @ lambda0
+            prof['eJ'] = time.perf_counter() - t0
+            t0 = time.perf_counter()
+            D2J0 = D2J(x0)
+            if method == self.GAUSS_NEWTON:
+                D2rapprox = Jr0.T @ Jr0
+                D2J0 += 2 * PENALTY_MU * D2rapprox
+                # if lambda0 is not None:
+                #     # This approximates D2(lambda0.T @ r) = D(lambda0.T @ Dr) = \sum_i lambda0i D2ri
+                #     # \sum_i lambda0i Jr0[i,:].T @ Jr0[i,:] (each of those is an outer product)
+                #     D2J0 += np.sum([lambda0[i] * Jr0[i,:].T @ Jr0[i,:] for i in range(len(lambda0))])
+            prof['eH'] = time.perf_counter() - t0
 
-            # Newton's method http://www.stat.cmu.edu/~ryantibs/convexopt-S15/lectures/14-newton.pdf
-            try:
-                # regularization
-                D2J0 += HESS_REG * np.eye(D2J0.shape[0])
-                v = -np.linalg.inv(D2J0) @ DJ0
-            except np.linalg.LinAlgError:
-                # last u (last diag elem) is 0 - makes sense
-                print(np.linalg.eigvals(D2J0))
-                raise
+            # descent direction
+            if method == self.GRADIENT_DESCENT:
+                v = -DJ0 # gradient descent
+            elif method in [self.NEWTON_METHOD, self.GAUSS_NEWTON]:
+                # Newton's method http://www.stat.cmu.edu/~ryantibs/convexopt-S15/lectures/14-newton.pdf
+                try:
+                    # regularization
+                    D2J0 += HESS_REG * np.eye(D2J0.shape[0])
+                    v = -np.linalg.inv(D2J0) @ DJ0
+                except np.linalg.LinAlgError:
+                    # last u (last diag elem) is 0 - makes sense
+                    print(np.linalg.eigvals(D2J0))
+                    raise
 
-        t5 = time.perf_counter() #~0.5-1 ms
-                
-        # backtracking line search
-        alpha = 0.4
-        beta = 0.9
-        s = 1
-        x1 = x0 + s * v
-        J1 = J(x1)
-        if J1 > J0 and mode == self.WRT_PARAMS:
-            # FIXME: why is the direction backwards sometimes in the WRT_PARAMS mode??
-            v = -v
+            t0 = time.perf_counter()
+                    
+            # backtracking line search
+            alpha = 0.4
+            beta = 0.9
+            s = 1
             x1 = x0 + s * v
             J1 = J(x1)
-        # search for s
-        while J1 > J0 + alpha * s * DJ0.T @ v and s > 1e-6:
-            s = beta * s
-            x1 = x0 + s * v
-            J1 = J(x1)
+            # if J1 > J0 and mode == self.WRT_PARAMS:
+            #     # FIXME: why is the direction backwards sometimes in the WRT_PARAMS mode??
+            #     v = -v
+            #     x1 = x0 + s * v
+            #     J1 = J(x1)
+            # search for s
+            while J1 > J0 + alpha * s * DJ0.T @ v and s > 1e-6:
+                s = beta * s
+                x1 = x0 + s * v
+                J1 = J(x1)
 
-        t6 = time.perf_counter() #~10ms - 1s
-        # debugging
-        ts = np.array([t1-t0, t2-t1, t3-t2, t4-t3, t5-t4, t6-t5])
-        print(ts, "cost {:.1f} -> {:.1f}".format(J0, J1), end = " ")
-        if mode == self.WRT_TRAJ:
-            print("h {:.2f}ms -> {:.2f}ms".format(1e3*x0[-1], 1e3*x1[-1]), end = " ")
-            assert x1[-1] > 0, "Negative timestep"
-        print()
+            prof['ls'] = time.perf_counter() - t0
+
+            # debugging
+            r1 = r(x1)
+            print(mode, minorIter, prof, "|r|={:.1f} J0={:.1f} J1={:.1f}".format(np.linalg.norm(r(x1)), J0, J1), end = " ")
+            if mode == self.WRT_TRAJ:
+                print("h {:.2f}ms -> {:.2f}ms".format(1e3*x0[-1], 1e3*x1[-1]), end = " ")
+                assert x1[-1] > 0, "Negative timestep"
+            print()
+
+            # for next iteration
+            x0 = x1
+
         # perform Newton update
-        return x1, J, J1
+        return x1, J, J1, None if lambda0 is None else lambda0 - opt['mu'] * r1
         
     def plotTrajs(self, *args):
         """Helper function to plot a bunch of trajectories superimposed"""
