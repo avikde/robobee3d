@@ -356,7 +356,7 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
     # c += OBJ_DRAG * Favg[0]
     # c += OBJ_MOM * (-paero[0] * Faero[1] + paero[1] * Faero[0]) # moment
     # For the objectives, want "average", i.e. divide by the total time of the traj = h * N. Leaving out the N (it is constant): the only difference it makes is to the penalty coefficients.
-    # c *= m.dt / h # *initial dt in order to not return the penalties
+    c *= m.dt / h # *initial dt in order to not retune the penalties
     # c += 1e6 * h
 
     # Inequality constraint for input limit
@@ -495,6 +495,16 @@ class WingPenaltyOptimizer:
                 try:
                     # regularization
                     D2J0 += HESS_REG * np.eye(D2J0.shape[0])
+                    evals = np.real(np.linalg.eigvals(D2J0))
+                    if not (evals > 0).all(): # for debugging
+                        w, v = np.linalg.eig(D2J0)
+                        ineg = np.where(np.real(w) < 0)[0]
+                        V = np.hstack(v[i] for i in ineg) # matrix to project out of the hessian
+                        D2J0 = D2J0 @ (np.eye(D2J0.shape[0]) - V @ V.T)
+                        evals = np.real(np.linalg.eigvals(D2J0))
+                        print(evals[np.where(evals < 0)[0]])
+                        assert (evals >= 0).all()
+                        sys.exit()
                     v = -np.linalg.inv(D2J0) @ DJ0
                 except np.linalg.LinAlgError:
                     # last u (last diag elem) is 0 - makes sense
@@ -519,6 +529,8 @@ class WingPenaltyOptimizer:
                 s = beta * s
                 x1 = x0 + s * v
                 J1 = J(x1)
+                # debug line search
+                print("J0", J0, "J1", J1, "s", s)
 
             prof['ls'] = time.perf_counter() - t0
 
