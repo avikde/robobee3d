@@ -523,7 +523,7 @@ class WingPenaltyOptimizer:
             t0 = time.perf_counter()
                     
             # backtracking line search
-            alpha = 0.4
+            alpha = 1e-1
             beta = 0.9
             s = 1
             x1 = x0 + s * v
@@ -533,16 +533,16 @@ class WingPenaltyOptimizer:
                 s = beta * s
                 x1 = x0 + s * v
                 J1 = J(x1)
-                # debug line search
-                print("J0", J0, "J1", J1, "s", s)
-                if J1 > J0  and s < 1e-3:
-                    # FIXME: why is the direction backwards sometimes in the WRT_PARAMS mode??
-                    print("BACKWARDS DEBUG")
-                    # TODO: plot J(x0+sv) as a function of s
-                    v = -v
-                    x1 = x0 + s * v
-                    J1 = J(x1)
-                    sys.exit(1)
+                # # debug line search
+                # print("J0", J0, "J1", J1, "s", s)
+                # if J1 > J0  and s < 1e-3:
+                #     # FIXME: why is the direction backwards sometimes in the WRT_PARAMS mode??
+                #     print("BACKWARDS DEBUG")
+                #     # TODO: plot J(x0+sv) as a function of s
+                #     v = -v
+                #     x1 = x0 + s * v
+                #     J1 = J(x1)
+                #     sys.exit(1)
 
             prof['ls'] = time.perf_counter() - t0
 
