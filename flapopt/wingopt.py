@@ -1,6 +1,7 @@
 import autograd.numpy as np
 from autograd import jacobian, hessian
 import scipy.sparse as sparse
+import scipy.linalg as spla
 import matplotlib.pyplot as plt
 from matplotlib import animation
 import sys, time
@@ -494,18 +495,25 @@ class WingPenaltyOptimizer:
                 # Newton's method http://www.stat.cmu.edu/~ryantibs/convexopt-S15/lectures/14-newton.pdf
                 try:
                     # regularization
-                    D2J0 += HESS_REG * np.eye(D2J0.shape[0])
-                    evals = np.real(np.linalg.eigvals(D2J0))
-                    if not (evals > 0).all(): # for debugging
-                        # w, v = np.linalg.eig(D2J0)
-                        # ineg = np.where(np.real(w) < 0)[0]
-                        # V = np.hstack(v[i] for i in ineg) # matrix to project out of the hessian
-                        # D2J0 = D2J0 @ (np.eye(D2J0.shape[0]) - V @ V.T)
-                        D2J0 += 1e3 * np.eye(D2J0.shape[0])
-                        evals = np.real(np.linalg.eigvals(D2J0))
-                        # print(evals[np.where(evals < 0)[0]])
-                        assert (evals >= 0).all()
-                        # sys.exit()
+                    # This returns int > 0 if the matrix is not positive definite.
+                    _, notpd = spla.lapack.dpotrf(D2J0)
+                    regamt = 1e-2
+                    while notpd > 0:
+                        D2J0 += np.eye(D2J0.shape[0]) * regamt
+                        regamt *= 10 # accelerate regularization?
+                        _, notpd = spla.lapack.dpotrf(D2J0)
+                    # D2J0 += HESS_REG * np.eye(D2J0.shape[0])
+                    # evals = np.real(np.linalg.eigvals(D2J0))
+                    # if not (evals > 0).all(): # for debugging
+                    #     # w, v = np.linalg.eig(D2J0)
+                    #     # ineg = np.where(np.real(w) < 0)[0]
+                    #     # V = np.hstack(v[i] for i in ineg) # matrix to project out of the hessian
+                    #     # D2J0 = D2J0 @ (np.eye(D2J0.shape[0]) - V @ V.T)
+                    #     D2J0 += 1e3 * np.eye(D2J0.shape[0])
+                    #     evals = np.real(np.linalg.eigvals(D2J0))
+                    #     # print(evals[np.where(evals < 0)[0]])
+                    #     assert (evals >= 0).all()
+                    #     # sys.exit()
                     v = -np.linalg.inv(D2J0) @ DJ0
                 except np.linalg.LinAlgError:
                     # last u (last diag elem) is 0 - makes sense
