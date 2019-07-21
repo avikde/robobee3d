@@ -144,8 +144,10 @@ for ii in range(2):
 
 print(lambda0)
 # Param plot ---
-cs = np.linspace(0.002, 0.01, 10)
-Ts = np.linspace(0.5, 2, 10)
+pvals = [p[0] for p in params]
+cs = np.linspace(min(pvals) * 0.5, max(pvals) + min(pvals) * 0.5, 10)
+pvals = [p[1] for p in params]
+Ts = np.linspace(min(pvals) * 0.5, max(pvals) + min(pvals) * 0.5, 10)
 wingopt.plotTrajWrtParams(cs, Ts, trajs[-1], wpo.N, paramsPath=params)
 # ----------
 
