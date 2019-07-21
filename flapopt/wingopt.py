@@ -1,6 +1,7 @@
 import autograd.numpy as np
 from autograd import jacobian, hessian
 import scipy.sparse as sparse
+import scipy.linalg as spla
 import matplotlib.pyplot as plt
 from matplotlib import animation
 import sys, time
@@ -356,8 +357,10 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
     # c += OBJ_DRAG * Favg[0]
     # c += OBJ_MOM * (-paero[0] * Faero[1] + paero[1] * Faero[0]) # moment
     # For the objectives, want "average", i.e. divide by the total time of the traj = h * N. Leaving out the N (it is constant): the only difference it makes is to the penalty coefficients.
-    # c *= m.dt / h # *initial dt in order to not return the penalties
+    c *= m.dt / h # *initial dt in order to not retune the penalties
     # c += 1e6 * h
+    # Add damping for h?
+    # c += 1e6 * (h - 30e-3)**2
 
     # Inequality constraint for input limit
     umin, umax, ymin, ymax = m.limits
@@ -494,7 +497,25 @@ class WingPenaltyOptimizer:
                 # Newton's method http://www.stat.cmu.edu/~ryantibs/convexopt-S15/lectures/14-newton.pdf
                 try:
                     # regularization
-                    D2J0 += HESS_REG * np.eye(D2J0.shape[0])
+                    # This returns int > 0 if the matrix is not positive definite.
+                    _, notpd = spla.lapack.dpotrf(D2J0)
+                    regamt = 1e-2
+                    while notpd > 0:
+                        D2J0 += np.eye(D2J0.shape[0]) * regamt
+                        regamt *= 10 # accelerate regularization?
+                        _, notpd = spla.lapack.dpotrf(D2J0)
+                    # D2J0 += HESS_REG * np.eye(D2J0.shape[0])
+                    # evals = np.real(np.linalg.eigvals(D2J0))
+                    # if not (evals > 0).all(): # for debugging
+                    #     # w, v = np.linalg.eig(D2J0)
+                    #     # ineg = np.where(np.real(w) < 0)[0]
+                    #     # V = np.hstack(v[i] for i in ineg) # matrix to project out of the hessian
+                    #     # D2J0 = D2J0 @ (np.eye(D2J0.shape[0]) - V @ V.T)
+                    #     D2J0 += 1e3 * np.eye(D2J0.shape[0])
+                    #     evals = np.real(np.linalg.eigvals(D2J0))
+                    #     # print(evals[np.where(evals < 0)[0]])
+                    #     assert (evals >= 0).all()
+                    #     # sys.exit()
                     v = -np.linalg.inv(D2J0) @ DJ0
                 except np.linalg.LinAlgError:
                     # last u (last diag elem) is 0 - makes sense
@@ -504,21 +525,26 @@ class WingPenaltyOptimizer:
             t0 = time.perf_counter()
                     
             # backtracking line search
-            alpha = 0.4
+            alpha = 1e-1
             beta = 0.9
             s = 1
             x1 = x0 + s * v
             J1 = J(x1)
-            # if J1 > J0 and mode == self.WRT_PARAMS:
-            #     # FIXME: why is the direction backwards sometimes in the WRT_PARAMS mode??
-            #     v = -v
-            #     x1 = x0 + s * v
-            #     J1 = J(x1)
             # search for s
             while J1 > J0 + alpha * s * DJ0.T @ v and s > 1e-6:
                 s = beta * s
                 x1 = x0 + s * v
                 J1 = J(x1)
+                # # debug line search
+                # print("J0", J0, "J1", J1, "s", s)
+                # if J1 > J0  and s < 1e-3:
+                #     # FIXME: why is the direction backwards sometimes in the WRT_PARAMS mode??
+                #     print("BACKWARDS DEBUG")
+                #     # TODO: plot J(x0+sv) as a function of s
+                #     v = -v
+                #     x1 = x0 + s * v
+                #     J1 = J(x1)
+                #     sys.exit(1)
 
             prof['ls'] = time.perf_counter() - t0
 
@@ -646,7 +672,7 @@ def plotTrajWrtParams(p0s, p1s, traj0, N, dpen=1e3, paramsPath=None):
     """Debug convexity wrt params"""
     P0S, P1S = np.meshgrid(p0s, p1s)
     JS = np.zeros_like(P0S)
-    fig, ax = plt.subplots(2)
+    fig, ax = plt.subplots(1,3)
 
     def Jp(p, _dpen):
         c, r = Jcosttraj_penalty(traj0, N, p, opt={'dynamics':_dpen, 'periodic':0, 'input':1e4, 'state': 1e0})
@@ -666,13 +692,14 @@ def plotTrajWrtParams(p0s, p1s, traj0, N, dpen=1e3, paramsPath=None):
     ax[1].set_ylabel("Ji")
     ax[1].set_xlabel("T")
 
-    # from mpl_toolkits.mplot3d import axes3d
-    fig = plt.figure()
-    ax = fig.add_subplot(111)#, projection='3d')
+    # # from mpl_toolkits.mplot3d import axes3d
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111)#, projection='3d')
+    _ax = ax[-1]
     # ax.plot_surface(P0S, P1S, JS, cmap=plt.get_cmap('gist_earth'))
-    ax.contourf(P0S, P1S, JS, 50, cmap=plt.get_cmap('gist_earth'))
+    _ax.contourf(P0S, P1S, JS, 50, cmap=plt.get_cmap('gist_earth'))
     if paramsPath is not None:
-        ax.plot([pi[0] for pi in paramsPath], [pi[1] for pi in paramsPath], 'r*-')
-    ax.set_xlabel('cbar')
-    ax.set_ylabel('T')
+        _ax.plot([pi[0] for pi in paramsPath], [pi[1] for pi in paramsPath], 'r*-')
+    _ax.set_xlabel('cbar')
+    _ax.set_ylabel('T')
 
