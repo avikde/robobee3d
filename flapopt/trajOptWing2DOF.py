@@ -124,8 +124,8 @@ params0 = wingopt.params
 _, r = wingopt.Jcosttraj_penalty(traj0, wpo.N, params0)
 lambda0 = np.zeros_like(r)
 
-optavglift = {'mu': 1, 'timestep': (1e3, 1e-4, 1e-2)}
-optavgliftparams = {'mu':1, 'dynamics': 1e3, 'method':wpo.NEWTON_METHOD}
+optavglift = {'mu': 1e-1, 'timestep': (1e3, 1e-4, 1e-2)}
+optavgliftparams = {'mu':1e-1, 'dynamics': 1e3, 'method':wpo.NEWTON_METHOD}
 INC_PENALTY = True
 
 print("hi 0")
@@ -133,7 +133,7 @@ trajs = [traj0]
 params = [params0]
 # test
 # params = [[0.2, 2.0]]
-for ii in range(2):
+for ii in range(3):
     trajnew, _, _, lambda0 = wpo.update(trajs[-1], params[-1], lambda0, mode=wpo.WRT_TRAJ, opt=optavglift, Niter=3)
     trajs.append(trajnew)
     pnew, _, _, _ = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavgliftparams, Niter=2)
@@ -141,7 +141,7 @@ for ii in range(2):
     print("New objective = ", wingopt.Jcosttraj_penalty(trajs[-1], wpo.N, params[-1], {'mu': 0})[0])
     if INC_PENALTY:
         # print(lambda0)
-        optavglift['mu'] *= 10
+        optavglift['mu'] *= 5
 
 print(lambda0)
 # Param plot ---
