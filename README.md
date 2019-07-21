@@ -20,3 +20,9 @@ Pybullet 3D sim
 - Create a branch and push to it
 - Create a pull request to merge
 - master should always have working code for everyone to use
+
+# Julia
+
+- Download from official or use choco
+- install Ipopt.jl -- have to do `Pkg.build("Ipopt")` after following the instructions.
+- try the hs071.jl test in flapopt
