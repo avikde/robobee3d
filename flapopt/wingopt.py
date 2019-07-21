@@ -359,6 +359,8 @@ def Jcosttraj_penalty(traj, N, params, opt={}):
     # For the objectives, want "average", i.e. divide by the total time of the traj = h * N. Leaving out the N (it is constant): the only difference it makes is to the penalty coefficients.
     c *= m.dt / h # *initial dt in order to not retune the penalties
     # c += 1e6 * h
+    # Add damping for h?
+    # c += 1e6 * (h - 30e-3)**2
 
     # Inequality constraint for input limit
     umin, umax, ymin, ymax = m.limits
