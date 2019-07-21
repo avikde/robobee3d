@@ -126,7 +126,7 @@ lambda0 = np.zeros_like(r)
 
 optavglift = {'mu': 1e-1, 'timestep': (1e3, 1e-4, 1e-2)}
 optavgliftparams = {'mu':1e-1, 'dynamics': 1e3, 'method':wpo.NEWTON_METHOD}
-INC_PENALTY = True
+INC_PENALTY = False
 
 print("hi 0")
 trajs = [traj0]
@@ -134,7 +134,7 @@ params = [params0]
 # test
 # params = [[0.2, 2.0]]
 for ii in range(3):
-    trajnew, _, _, lambda0 = wpo.update(trajs[-1], params[-1], lambda0, mode=wpo.WRT_TRAJ, opt=optavglift, Niter=3)
+    trajnew, _, _, lambda0 = wpo.update(trajs[-1], params[-1], lambda0, mode=wpo.WRT_TRAJ, opt=optavglift, Niter=5)
     trajs.append(trajnew)
     pnew, _, _, _ = wpo.update(trajs[-1], params[-1], mode=wpo.WRT_PARAMS, opt=optavgliftparams, Niter=2)
     params.append(pnew[-len(params0):])
