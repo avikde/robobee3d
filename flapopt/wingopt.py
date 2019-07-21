@@ -670,7 +670,7 @@ def plotTrajWrtParams(p0s, p1s, traj0, N, dpen=1e3, paramsPath=None):
     """Debug convexity wrt params"""
     P0S, P1S = np.meshgrid(p0s, p1s)
     JS = np.zeros_like(P0S)
-    fig, ax = plt.subplots(2)
+    fig, ax = plt.subplots(1,3)
 
     def Jp(p, _dpen):
         c, r = Jcosttraj_penalty(traj0, N, p, opt={'dynamics':_dpen, 'periodic':0, 'input':1e4, 'state': 1e0})
@@ -690,13 +690,14 @@ def plotTrajWrtParams(p0s, p1s, traj0, N, dpen=1e3, paramsPath=None):
     ax[1].set_ylabel("Ji")
     ax[1].set_xlabel("T")
 
-    # from mpl_toolkits.mplot3d import axes3d
-    fig = plt.figure()
-    ax = fig.add_subplot(111)#, projection='3d')
+    # # from mpl_toolkits.mplot3d import axes3d
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111)#, projection='3d')
+    _ax = ax[-1]
     # ax.plot_surface(P0S, P1S, JS, cmap=plt.get_cmap('gist_earth'))
-    ax.contourf(P0S, P1S, JS, 50, cmap=plt.get_cmap('gist_earth'))
+    _ax.contourf(P0S, P1S, JS, 50, cmap=plt.get_cmap('gist_earth'))
     if paramsPath is not None:
-        ax.plot([pi[0] for pi in paramsPath], [pi[1] for pi in paramsPath], 'r*-')
-    ax.set_xlabel('cbar')
-    ax.set_ylabel('T')
+        _ax.plot([pi[0] for pi in paramsPath], [pi[1] for pi in paramsPath], 'r*-')
+    _ax.set_xlabel('cbar')
+    _ax.set_ylabel('T')
 
