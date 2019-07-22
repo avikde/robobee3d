@@ -14,7 +14,7 @@ TODO:
 
 # rescale = 1.0
 
-function aero(self, y, u, _params=[])
+function aero(y, u, _params)
     cbar = _params[1]
     T = _params[2]
     CLmax = 1.8
@@ -45,9 +45,10 @@ function aero(self, y, u, _params=[])
 end
 
 print("hi")
-y = [0.1, 0.1, 0, 0]
+y = [0.1 0.1 0 0]
 u = [0.]
-aero(y, u)
+params = [0.05 1]
+aero(y, u, params)
 
 # function dydt(self, yin, u, _params=[], dydt)
 #     ''' 
