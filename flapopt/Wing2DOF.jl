@@ -1,12 +1,5 @@
+using LinearAlgebra
 
-"""
-TODO:
-- dydt in wing2dof
-- use dynamics for constraint
-- ipopt hessian autoeval: see pyipopt
-- obj: max lift, constraint dynamics
-
-"""
 
 # nx = 4
 # nu = 1
@@ -14,6 +7,15 @@ TODO:
 
 # rescale = 1.0
 
+
+# TODO:
+# - dydt in wing2dof
+# - use dynamics for constraint
+# - ipopt hessian autoeval: see pyipopt
+# - obj: max lift, constraint dynamics
+"""
+Returns aero force
+"""
 function aero(y, u, _params)
     cbar = _params[1]
     T = _params[2]
@@ -39,13 +41,13 @@ function aero(y, u, _params)
     CD = (CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2 * alpha)
     vaero = [dsigma, 0]
     # TODO: confirm and expose design params as argument
-    Faero = 1/2 * rho * cbar * R * (vaero.T * vaero) * Float64[CD, CL] * sign(-dsigma)
+    Faero = 1/2 * rho * cbar * R * dot(vaero, vaero) * Float64[CD, CL] * sign(-dsigma)
 
     return paero, Jaero, Faero
 end
 
 print("hi")
-y = [0.1 0.1 0 0]
+y = [0.1 0.1 1 0]
 u = [0.]
 params = [0.05 1]
 aero(y, u, params)
