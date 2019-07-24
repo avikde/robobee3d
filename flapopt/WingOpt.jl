@@ -41,3 +41,7 @@ olTraju = [strokePosController(olTrajaa[i], trajt[i]) for i in 1:N] # get u1,...
 traj0 = [vcat(olTrajaa...); olTraju] # dirtran form {x1,..,x(N+1),u1,...,u(N)}
 
 WingOptimizer.plotTrajs(trajt, traj0)
+
+yk, uk = WingOptimizer.yuk(traj0, 2)
+println(traj0)
+println(yk, uk)

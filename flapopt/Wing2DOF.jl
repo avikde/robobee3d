@@ -2,6 +2,7 @@
 module Wing2DOF
 
 using LinearAlgebra
+include("WingOptimizer.jl")
 
 # nx = 4
 # nu = 1
@@ -85,12 +86,12 @@ function limits()
     return umin, umax, xmin, xmax
 end
 
-
-
 # "Cost function components"
-function Jobj(x)
+# function eval_f(traj)
+#     N = WingOptimizer.getN(traj)
+#     [(paero, _, Faero = aero(y); ) for i = 1:N
 	
-end
+# end
 
 function conEq(x)
 
