@@ -35,13 +35,14 @@ sol = solve(prob, saveat=teval)
 
 olRange = 171:3:238
 trajt = sol.t[olRange]
+δt = trajt[2] - trajt[1]
 N = length(trajt) - 1
 olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)
 olTraju = [strokePosController(olTrajaa[i], trajt[i]) for i in 1:N] # get u1,...,uN
-traj0 = [vcat(olTrajaa...); olTraju] # dirtran form {x1,..,x(N+1),u1,...,u(N)}
+traj0 = [vcat(olTrajaa...); olTraju; δt] # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
 
 WingOptimizer.plotTrajs(trajt, traj0)
 
-yk, uk = WingOptimizer.yuk(traj0, 2)
-println(traj0)
-println(yk, uk)
+ly, lu = WingOptimizer.linind(traj0)
+println(traj0[ly[:,2]], traj0[lu[:,2]])
+println(Wing2DOF.eval_f(traj0, params0))
