@@ -25,8 +25,8 @@ prob = ODEProblem(strokePosControlVF, y0, tspan)
 sol = solve(prob)
 
 gr()
-σt = plot(sol, vars=1, ylabel="act disp [m]")
-Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
+σt = plot(sol, vars=1, linewidth=1, ylabel="act disp [m]")
+Ψt = plot(sol, vars=2, linewidth=1, ylabel="hinge ang [r]")
 
 plot(σt, Ψt, layout=(2,1))
 

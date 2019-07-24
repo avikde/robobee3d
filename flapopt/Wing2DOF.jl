@@ -33,9 +33,9 @@ function aero(y::Vector, u::Vector, _params::Vector)
     Jaero = [1 cbar * cΨ; 0 cbar * sΨ]
     CL = CLmax * sin(2 * α)
     CD = (CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2 * α)
-    vaero = [dΨ, 0]
+    vaero = [dσ, 0]
     # TODO: confirm and expose design params as argument
-    Faero = 1/2 * rho * cbar * R * dot(vaero, vaero) * [CD, CL] * sign(-dΨ)
+    Faero = 1/2 * rho * cbar * R * (vaero ⋅ vaero) * [CD, CL] * sign(-dσ)
 
     return paero, Jaero, Faero
 end
