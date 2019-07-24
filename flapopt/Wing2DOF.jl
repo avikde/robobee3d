@@ -7,7 +7,8 @@ using LinearAlgebra
 # nu = 1
 # y0 = np.zeros(nx)
 
-RESCALE = 30
+const RESCALE = 30.0
+const KSCALE = [RESCALE, 1, RESCALE, 1]
 
 """
 Returns aero force
@@ -39,11 +40,11 @@ function aero(y::Vector, u::Vector, _params::Vector)
     return paero, Jaero, Faero
 end
 
-# "Continuous dynamics"
+"Continuous dynamics second order model"
 function dydt(yin::Vector, u::Vector, _params::Vector)
-    y = [1/RESCALE, 1, 1/RESCALE, 1] .* yin
     # unpack
     cbar, T = _params
+    y = (1 ./ KSCALE) .* yin
     σ, Ψ, dσ, dΨ = [T, 1, T, 1] .* y
     # NOTE: for optimizing transmission ratio
     # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
@@ -64,17 +65,16 @@ function dydt(yin::Vector, u::Vector, _params::Vector)
     M = [mspar+mwing   cbar*mwing*cΨ; cbar*mwing*cΨ   Iwing+cbar^2*mwing]
     corgrav = [ka*σ - cbar*mwing*sΨ*dΨ^2, khinge*Ψ]
     # non-lagrangian terms
-    taudamp = [0, -bΨ * dΨ]
+    τdamp = [0, -bΨ * dΨ]
     _, Jaero, Faero = aero(y, u, _params)
-    tauaero = Jaero' * Faero
+    τaero = Jaero' * Faero
     # input
-    tauinp = [u[1]/T, 0]
+    τinp = [u[1]/T, 0]
 
-    ddq = inv(M) * (-corgrav + taudamp + tauaero + tauinp)
-
-    return RESCALE .* ddq
+    ddq = inv(M) * (-corgrav + τdamp + τaero + τinp)
+    # return ddq
+    return KSCALE .* [[dσ, dΨ]; ddq]
 end
-
 
 # @property
 # def limits(self):
