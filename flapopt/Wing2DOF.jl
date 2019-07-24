@@ -1,4 +1,5 @@
 using LinearAlgebra
+using ForwardDiff
 
 
 # nx = 4
@@ -7,16 +8,10 @@ using LinearAlgebra
 
 # rescale = 1.0
 
-
-# TODO:
-# - dydt in wing2dof
-# - use dynamics for constraint
-# - ipopt hessian autoeval: see pyipopt
-# - obj: max lift, constraint dynamics
 """
 Returns aero force
 """
-function aero(y, u, _params)
+function aero(y::Vector, u::Vector, _params::Vector)
     cbar = _params[1]
     T = _params[2]
     CLmax = 1.8
@@ -34,23 +29,30 @@ function aero(y, u, _params)
     alpha = pi / 2 - psi
 
     # aero force
-    wing1 = Float64[sigma, 0]
-    paero = wing1 + Float64[cpsi -spsi; spsi cpsi] * Float64[0, -cbar]
-    Jaero = Float64[1 cbar * cpsi; 0 cbar * spsi]
+    wing1 = [sigma, 0]
+    paero = wing1 + [cpsi -spsi; spsi cpsi] * [0, -cbar]
+    Jaero = [1 cbar * cpsi; 0 cbar * spsi]
     CL = CLmax * sin(2 * alpha)
     CD = (CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2 * alpha)
     vaero = [dsigma, 0]
     # TODO: confirm and expose design params as argument
-    Faero = 1/2 * rho * cbar * R * dot(vaero, vaero) * Float64[CD, CL] * sign(-dsigma)
+    Faero = 1/2 * rho * cbar * R * dot(vaero, vaero) * [CD, CL] * sign(-dsigma)
 
     return paero, Jaero, Faero
 end
 
-print("hi")
-y = [0.1 0.1 1 0]
-u = [0.]
-params = [0.05 1]
-aero(y, u, params)
+println("hi")
+y0 = [0.1,0.1,1,0]
+u0 = [0.]
+params0 = [0.05,1]
+# paero, Jaero, Faero = aero(y, u, params)
+paeroFun(q::Vector) = aero([q;[0,0]], u0, params0)[1]
+println("paero ", paeroFun(y0))
+
+# Try to use ForwardDiff
+JaeroFun = y -> ForwardDiff.jacobian(paeroFun, y)
+println(JaeroFun(y0[1:2]))
+println(aero(y0, u0, params0)[2])
 
 # function dydt(self, yin, u, _params=[], dydt)
 #     ''' 
