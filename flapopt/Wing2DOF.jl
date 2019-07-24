@@ -1,7 +1,7 @@
 
 module Wing2DOF
 
-using LinearAlgebra
+using LinearAlgebra, StaticArrays
 include("WingOptimizer.jl")
 
 const RESCALE = 30.0
@@ -19,19 +19,19 @@ function aero(y::Vector, u::Vector, _params::Vector)
     
     # unpack
     cbar, T = _params
-    σ, Ψ, dσ, dΨ = [T, 1, T, 1] .* y
+    σ, Ψ, dσ, dΨ = (@SVector [T, 1, T, 1]) .* y
     cΨ = cos(Ψ)
     sΨ = sin(Ψ)
     α = π / 2 - Ψ # AoA
 
     # aero force
-    wing1 = [σ, 0]
-    paero = wing1 + [cΨ -sΨ; sΨ cΨ] * [0, -cbar]
-    Jaero = [1 cbar * cΨ; 0 cbar * sΨ]
-    CL = CLmax * sin(2 * α)
-    CD = (CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2 * α)
-    vaero = [dσ, 0]
-    Faero = 1/2 * ρ * cbar * R * (vaero ⋅ vaero) * [CD, CL] * sign(-dσ)
+    wing1 = @SVector [σ, 0]
+    RΨ = @SMatrix [cΨ -sΨ; sΨ cΨ]
+    paero = wing1 + RΨ * @SVector [0, -cbar]
+    Jaero = @SMatrix [1 cbar * cΨ; 0 cbar * sΨ]
+    Caero = @SVector [(CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2 * α), CLmax * sin(2 * α)]
+    vaero = @SVector [dσ, 0]
+    Faero = 1/2 * ρ * cbar * R * (vaero ⋅ vaero) * Caero * sign(-dσ)
 
     return paero, Jaero, Faero
 end
