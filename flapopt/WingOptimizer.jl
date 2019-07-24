@@ -22,9 +22,12 @@ end
 function plotTrajs(t, args...)
 	traj = args[1]
 	N = getN(traj)
+	println("N=$(N)")
+	Ny = (N+1)*ny
 	σt = plot(t, traj[1:ny:(N+1)*ny], marker=:auto, ylabel="act disp [m]")
 	Ψt = plot(t, traj[2:ny:(N+1)*ny], marker=:auto, ylabel="hinge ang [r]")
-	plot(σt, Ψt, layout=(2,1))
+	ut = plot(t, [traj[Ny+1:nu:Ny+N*nu];NaN], marker=:auto, ylabel="stroke force [N]")
+	plot(σt, Ψt, ut, layout=(3,1))
 	gui()
 end
 
