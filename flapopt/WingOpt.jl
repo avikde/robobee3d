@@ -1,7 +1,8 @@
 
-using ForwardDiff, DifferentialEquations, Plots
+using DifferentialEquations, Plots
 gr() # backend
 include("Wing2DOF.jl")
+include("WingOptimizer.jl")
 
 y0 = [1e-2, 0, 0, 0]
 u0 = [0.]
