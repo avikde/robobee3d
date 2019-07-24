@@ -6,7 +6,7 @@ using ForwardDiff
 # nu = 1
 # y0 = np.zeros(nx)
 
-rescale = 30
+RESCALE = 30
 
 """
 Returns aero force
@@ -21,14 +21,14 @@ function aero(y::Vector, u::Vector, _params::Vector)
     # unpack
     cbar, T = _params
     σ, Ψ, dσ, dΨ = [T, 1, T, 1] .* y
-    cpsi = cos(Ψ)
-    spsi = sin(Ψ)
+    cΨ = cos(Ψ)
+    sΨ = sin(Ψ)
     α = π / 2 - Ψ # AoA
 
     # aero force
     wing1 = [σ, 0]
-    paero = wing1 + [cpsi -spsi; spsi cpsi] * [0, -cbar]
-    Jaero = [1 cbar * cpsi; 0 cbar * spsi]
+    paero = wing1 + [cΨ -sΨ; sΨ cΨ] * [0, -cbar]
+    Jaero = [1 cbar * cΨ; 0 cbar * sΨ]
     CL = CLmax * sin(2 * α)
     CD = (CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2 * α)
     vaero = [dΨ, 0]
@@ -39,48 +39,43 @@ function aero(y::Vector, u::Vector, _params::Vector)
 end
 
 # "Continuous dynamics"
-# function dydt(yin::Vector, u::Vector, _params::Vector)
-#     cbar = _params[1]
-#     T = _params[2]
-#     Kscale = Diagonal([rescale, 1, rescale, 1])
-#     y = inv(Kscale) * yin
-#     # NOTE: for optimizing transmission ratio
-#     # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
-#     # u = (tau_actuator)
-#     # sigma = sigma_actuator * T; tau = tau_actuator / T
-#     sigma = y[0] * T
-#     psi = y[1]
-#     dsigma = y[2] * T
-#     dpsi = y[3]
-#     cpsi = np.cos(psi)
-#     spsi = np.sin(psi)
+function dydt(yin::Vector, u::Vector, _params::Vector)
+    y = [1/RESCALE, 1, 1/RESCALE, 1] .* yin
+    # unpack
+    cbar, T = _params
+    σ, Ψ, dσ, dΨ = [T, 1, T, 1] .* y
+    # NOTE: for optimizing transmission ratio
+    # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
+    # u = (tau_actuator)
+    # sigma = sigma_actuator * T; tau = tau_actuator / T
+    cΨ = cos(Ψ)
+    sΨ = sin(Ψ)
 
-#     # params
-#     mspar = 0
-#     ka = 0
-#     khinge = 1e-3
-#     mwing = 5e-6
-#     Iwing = 1e-9#mwing * cbar**2
-#     bpsi = 5e-7
+    # params
+    mspar = 0
+    ka = 0
+    khinge = 1e-3
+    mwing = 5e-6
+    Iwing = 1e-9#mwing * cbar**2
+    bΨ = 5e-7
 
-#     # inertial terms
-#     M = np.array([[mspar + mwing, cbar * mwing * cpsi], [cbar * mwing * cpsi, Iwing + cbar**2 * mwing]])
-#     corgrav = np.array([ka * sigma - cbar * mwing * spsi * dpsi**2, khinge * psi])
-#     # non-lagrangian terms
-#     taudamp = np.array([0, -bpsi * dpsi])
-#     _, Jaero, Faero = self.aero(y, u, params)
-#     tauaero = Jaero.T @ Faero
-#     # input
-#     tauinp = np.array([u[0] / T, 0])
+    # inertial terms
+    M = [mspar+mwing   cbar*mwing*cΨ; cbar*mwing*cΨ   Iwing+cbar^2*mwing]
+    corgrav = [ka*σ - cbar*mwing*sΨ*dΨ^2, khinge*Ψ]
+    # non-lagrangian terms
+    taudamp = [0, -bΨ * dΨ]
+    _, Jaero, Faero = aero(y, u, _params)
+    tauaero = Jaero' * Faero
+    # input
+    tauinp = [u[1]/T, 0]
 
-#     ddq = np.linalg.inv(M) @ (-corgrav + taudamp + tauaero + tauinp)
+    ddq = inv(M) * (-corgrav + taudamp + tauaero + tauinp)
 
-#     dydt = Kscale @ np.array([dsigma, dpsi, ddq[0], ddq[1]])
-# end
+    return RESCALE .* ddq
+end
 
 println("hi")
 y0 = [0.1,0.1,1,0]
-println(Diagonal([2,1,2,1]) * y0)
 u0 = [0.]
 params0 = [0.05,1.0]
 paeroFun(q::Vector) = aero([q;[0,0]], u0, params0)[1]
@@ -90,6 +85,9 @@ println("paero ", paeroFun(y0[1:2]))
 JaeroFun = y -> ForwardDiff.jacobian(paeroFun, y)
 # println(JaeroFun(y0[1:2]))
 println(aero(y0, u0, params0)[2])
+
+
+println(dydt(y0, u0, params0))
 
 # @property
 # def limits(self):
