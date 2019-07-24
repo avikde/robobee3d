@@ -6,7 +6,7 @@ sys.path.append('..')
 from scipy.integrate import solve_ivp
 from matplotlib import animation
 from matplotlib.collections import PatchCollection
-np.set_printoptions(precision=3, suppress=True, linewidth=200)
+np.set_printoptions(precision=4, suppress=False, linewidth=200)
 import osqp
 import wingopt
 
@@ -43,9 +43,23 @@ def Jcostsol(solt, soly, params):
 tf = 0.1
 tvec = np.arange(0, tf, dt)
 y0 = np.array([1e-2, 0, 0, 0])
+
+# YY = np.array([[0.963506,  0.00615112,  0.00404816,  0.309899,  0.466694],
+#  [0.417588,  0.452104,    0.0708825,   0.269745,  0.796851],
+#  [0.808803,  0.0559587,   0.0637219,   0.174673,  0.607593],
+#  [0.548119,  0.397353,    0.61362,     0.538941,  0.166001]])
+# print(xmax[0], wingopt.params)
+# for i in range(5):
+#     print(strokePosControlVF(0, YY[:,i]))
+# sys.exit()
 # Sim of an openloop controller
 sol = solve_ivp(strokePosControlVF, [0,tf], y0, dense_output=True, t_eval=tvec)
 
+_, ax = plt.subplots(2)
+ax[0].plot(sol.t, sol.y[0,:])
+ax[1].plot(sol.t, sol.y[1,:])
+plt.show()
+sys.exit()
 # Decimate the rate to get a starting traj for optimization with fewer knot points
 # At this point there is a "nominal trajectory" in sol.y
 yu0 = sol.y.copy()
