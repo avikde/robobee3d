@@ -6,7 +6,7 @@ include("WingOptimizer.jl")
 
 y0 = [1e-2, 0, 0, 0]
 u0 = [0.]
-params0 = [0.005,1.5]
+params0 = [0.005, 1.5]
 
 # paeroFun(q::Vector) = Wing2DOF.aero([q;[0,0]], u0, params0)[1]
 # println("paero ", paeroFun(y0[1:2]))
@@ -17,8 +17,9 @@ params0 = [0.005,1.5]
 # println(Wing2DOF.aero(y0, u0, params0)[2])
 
 # Create a traj
+σmax = Wing2DOF.limits()[end][1]
 function strokePosController(y, t)
-	σdes = 0.75 * 0.6 * sin(150 * 2 * π * t)
+	σdes = 0.75 * σmax * sin(150 * 2 * π * t)
 	return 1e2 * (σdes - y[1]) - 1e-2 * y[3]
 end
 strokePosControlVF(y, p, t) = Wing2DOF.dydt(y, [strokePosController(y, t)], params0)
