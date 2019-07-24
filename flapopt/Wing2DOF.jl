@@ -5,7 +5,7 @@ using LinearAlgebra, StaticArrays
 include("WingOptimizer.jl")
 
 const RESCALE = 30.0
-const KSCALE = [RESCALE, 1, RESCALE, 1]
+const KSCALE = @SVector [RESCALE, 1, RESCALE, 1]
 
 """
 Returns aero force
@@ -41,7 +41,7 @@ function dydt(yin::Vector, u::Vector, _params::Vector)
     # unpack
     cbar, T = _params
     y = (1 ./ KSCALE) .* yin
-    σ, Ψ, dσ, dΨ = [T, 1, T, 1] .* y
+    σ, Ψ, dσ, dΨ = (@SVector [T, 1, T, 1]) .* y
     # NOTE: for optimizing transmission ratio
     # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
     # u = (tau_actuator)
@@ -58,18 +58,18 @@ function dydt(yin::Vector, u::Vector, _params::Vector)
     bΨ = 5e-7
 
     # inertial terms
-    M = [mspar+mwing   cbar*mwing*cΨ; cbar*mwing*cΨ   Iwing+cbar^2*mwing]
-    corgrav = [ka*σ - cbar*mwing*sΨ*dΨ^2, khinge*Ψ]
+    M = @SMatrix [mspar+mwing   cbar*mwing*cΨ; cbar*mwing*cΨ   Iwing+cbar^2*mwing]
+    corgrav = @SVector [ka*σ - cbar*mwing*sΨ*dΨ^2, khinge*Ψ]
     # non-lagrangian terms
-    τdamp = [0, -bΨ * dΨ]
+    τdamp = @SVector [0, -bΨ * dΨ]
     _, Jaero, Faero = aero(y, u, _params)
     τaero = Jaero' * Faero
     # input
-    τinp = [u[1]/T, 0]
+    τinp = @SVector [u[1]/T, 0]
 
-    ddq = M \ (-corgrav + τdamp + τaero + τinp)
+    ddq = inv(M) * (-corgrav + τdamp + τaero + τinp)
     # return ddq
-    return KSCALE .* [[dσ, dΨ]; ddq]
+    return KSCALE .* [dσ, dΨ, ddq[1], ddq[2]]
 end
 
 function limits()
