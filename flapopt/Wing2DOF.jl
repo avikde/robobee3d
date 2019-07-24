@@ -17,7 +17,7 @@ function aero(y::Vector, u::Vector, _params::Vector)
     CLmax = 1.8
     CDmax = 3.4
     CD0 = 0.4
-    rho = 1.225
+    ρ = 1.225
     R = 15e-3
     
     # unpack
@@ -35,7 +35,7 @@ function aero(y::Vector, u::Vector, _params::Vector)
     CD = (CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2 * α)
     vaero = [dσ, 0]
     # TODO: confirm and expose design params as argument
-    Faero = 1/2 * rho * cbar * R * (vaero ⋅ vaero) * [CD, CL] * sign(-dσ)
+    Faero = 1/2 * ρ * cbar * R * (vaero ⋅ vaero) * [CD, CL] * sign(-dσ)
 
     return paero, Jaero, Faero
 end
@@ -71,7 +71,7 @@ function dydt(yin::Vector, u::Vector, _params::Vector)
     # input
     τinp = [u[1]/T, 0]
 
-    ddq = inv(M) * (-corgrav + τdamp + τaero + τinp)
+    ddq = M \ (-corgrav + τdamp + τaero + τinp)
     # return ddq
     return KSCALE .* [[dσ, dΨ]; ddq]
 end
