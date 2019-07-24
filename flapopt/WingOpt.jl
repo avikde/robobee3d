@@ -1,5 +1,5 @@
 
-using DifferentialEquations, Plots
+using DifferentialEquations, Plots, BenchmarkTools
 gr() # backend
 include("Wing2DOF.jl")
 include("WingOptimizer.jl")
@@ -44,5 +44,10 @@ traj0 = [vcat(olTrajaa...); olTraju; δt] # dirtran form {x1,..,x(N+1),u1,...,u(
 WingOptimizer.plotTrajs(trajt, traj0)
 
 ly, lu = WingOptimizer.linind(traj0)
-println(traj0[ly[:,2]], traj0[lu[:,2]])
-println(Wing2DOF.eval_f(traj0, params0))
+# println(traj0[ly[:,2]], traj0[lu[:,2]])
+@btime J0 = Wing2DOF.eval_f(traj0, params0)
+# println()
+
+g0 = zeros(ly[WingOptimizer.ny,N])
+@btime Wing2DOF.eval_g!(traj0, g0, params0)
+println(g0)

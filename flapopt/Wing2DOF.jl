@@ -31,7 +31,6 @@ function aero(y::Vector, u::Vector, _params::Vector)
     CL = CLmax * sin(2 * α)
     CD = (CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2 * α)
     vaero = [dσ, 0]
-    # TODO: confirm and expose design params as argument
     Faero = 1/2 * ρ * cbar * R * (vaero ⋅ vaero) * [CD, CL] * sign(-dσ)
 
     return paero, Jaero, Faero
@@ -88,14 +87,25 @@ end
 function eval_f(traj, params)
     N = WingOptimizer.getN(traj)
     Favg = zeros(2)
+    ly, lu = WingOptimizer.linind(traj)
     for k = 1:N
-        yk, uk = WingOptimizer.yuk(traj, k)
-        paero, _, Faero = aero(yk, uk, params)
+        paero, _, Faero = aero(traj[ly[:,k]], traj[lu[:,k]], params)
         Favg += Faero
     end
     # max avg lift
 	return -Favg[2]
 end
+
+"Inequality and equality constraints"
+function eval_g!(traj, g, params)
+    N = WingOptimizer.getN(traj)
+    ly, lu = WingOptimizer.linind(traj)
+    δt = traj[end]
+    for k = 1:N
+        g[ly[:,k]] = traj[ly[:,k+1]] - (traj[ly[:,k]] + δt * dydt(traj[ly[:,k]], traj[lu[:,k]], params))
+    end
+end
+
 
 function conIneq(x)
 
