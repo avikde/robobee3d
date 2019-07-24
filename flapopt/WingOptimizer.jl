@@ -22,7 +22,6 @@ end
 function plotTrajs(t, args...)
 	traj = args[1]
 	N = getN(traj)
-	println("N=$(N)")
 	Ny = (N+1)*ny
 	σt = plot(t, traj[1:ny:(N+1)*ny], marker=:auto, ylabel="act disp [m]")
 	Ψt = plot(t, traj[2:ny:(N+1)*ny], marker=:auto, ylabel="hinge ang [r]")

@@ -4,10 +4,6 @@ module Wing2DOF
 using LinearAlgebra
 include("WingOptimizer.jl")
 
-# nx = 4
-# nu = 1
-# y0 = np.zeros(nx)
-
 const RESCALE = 30.0
 const KSCALE = [RESCALE, 1, RESCALE, 1]
 
@@ -86,15 +82,19 @@ function limits()
     return umin, umax, xmin, xmax
 end
 
-# "Cost function components"
-# function eval_f(traj)
-#     N = WingOptimizer.getN(traj)
-#     [(paero, _, Faero = aero(y); ) for i = 1:N
-	
-# end
+# "Cost function components" ===
 
-function conEq(x)
-
+"Objective, min"
+function eval_f(traj, params)
+    N = WingOptimizer.getN(traj)
+    Favg = zeros(2)
+    for k = 1:N
+        yk, uk = WingOptimizer.yuk(traj, k)
+        paero, _, Faero = aero(yk, uk, params)
+        Favg += Faero
+    end
+    # max avg lift
+	return -Favg[2]
 end
 
 function conIneq(x)
