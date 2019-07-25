@@ -1,4 +1,6 @@
 
+# This is a "script" to test/run the functions from
+
 using Plots, BenchmarkTools, StaticArrays
 gr() # backend
 include("Wing2DOF.jl")
