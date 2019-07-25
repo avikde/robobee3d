@@ -20,8 +20,8 @@ const R = 20e-3
 - u = [τ], where τ = actuator force
 
 Reasonable limits:
-- MRL Bee: umax = 75mN, y[1]max = 300 μm, mass = 25 mg
-- MRL HAMR: umax = 270mN, y[1]max = 247 μm, mass = 100 mg [Doshi et. al. (2015)]
+- MRL Bee: umax = 75mN, q[1]max = 300 μm, mass = 25 mg
+- MRL HAMR: umax = 270mN, q[1]max = 247 μm, mass = 100 mg [Doshi et. al. (2015)]
 
 Params:
 - cbar = wing chord
@@ -85,11 +85,11 @@ function dydt(yin::Vector, u::Vector, _params::Vector)
 
     # params
     mspar = 0
-    mwing = 1e-6
+    mwing = 0.51e-6
     Iwing = mwing * cbar^2
-    kσ = 1e-10
-    kΨ = 0
-    bΨ = 1e-7
+    kσ = 0
+    kΨ = 2e-6
+    bΨ = 1e-9
 
     # inertial terms
     M = @SMatrix [mspar+mwing   cbar*mwing*cΨ; cbar*mwing*cΨ   Iwing+cbar^2*mwing]
@@ -130,12 +130,12 @@ function createInitialTraj(freq::Real, posGains::Vector, params0::Vector)
     prob = ODEProblem(strokePosControlVF, zeros(4), (teval[1], teval[end]))
     sol = solve(prob, saveat=teval)
 
-    σt = plot(sol, vars=1, linewidth=1, ylabel="act disp [m]")
-    Ψt = plot(sol, vars=2, linewidth=1, ylabel="hinge ang [r]")
-    plot(σt, Ψt, layout=(2,1))
-    gui()
+    # σt = plot(sol, vars=1, linewidth=1, ylabel="act disp [m]")
+    # Ψt = plot(sol, vars=2, linewidth=1, ylabel="hinge ang [r]")
+    # plot(σt, Ψt, layout=(2,1))
+    # gui()
 
-    olRange = 171:3:238
+    olRange = 170:3:237
     trajt = sol.t[olRange]
     δt = trajt[2] - trajt[1]
     N::Int = length(trajt) - 1

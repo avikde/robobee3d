@@ -18,10 +18,10 @@ params0 = [2e-3, 20] # cbar, T
 # # println(JaeroFun(y0[1:2]))
 # println(Wing2DOF.aero(y0, u0, params0)[2])
 
-trajt, traj0 = Wing2DOF.createInitialTraj(150, [1e4, 1e0], params0)
+trajt, traj0 = Wing2DOF.createInitialTraj(150, [1e6, 1e2], params0)
 N = length(trajt) - 1
 
-# WingOptimizer.plotTrajs(trajt, ny, nu, params0, traj0)
+WingOptimizer.plotTrajs(trajt, ny, nu, params0, traj0)
 
 ly, lu = DirTranForm.linind(traj0, ny, nu)
 # println(traj0[ly[:,2]], traj0[lu[:,2]])
