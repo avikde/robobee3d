@@ -2,23 +2,43 @@
 module Wing2DOF
 
 using LinearAlgebra, StaticArrays, DifferentialEquations
+using Plots; gr()
 include("DirTranForm.jl")
 
-const RESCALE = 30.0
+const RESCALE = 1.0 # For realistic params
 const KSCALE = @SVector [RESCALE, 1, RESCALE, 1]
 
 const ny = 4
 const nu = 1
+const R = 20e-3
 
-"""
-Returns aero force
-"""
+#=
+2DOF wing model config:
+- q[1] = actuator displacement (m)
+- q[2] = hinge angle
+- y = (q, dq)
+- u = [τ], where τ = actuator force
+
+Reasonable limits:
+- MRL Bee: umax = 75mN, y[1]max = 150 μm, mass = 25 mg
+- MRL HAMR: umax = 270mN, y[1]max = 123 μm, mass = 100 mg [Doshi et. al. (2015)]
+
+Params:
+- cbar = wing chord
+- T = transmission ratio. i.e. wing spar displacement σ = T q[1].
+- R = wing length. This is irrelevant for the 2DOF model, but choosing one for now as 20mm. This is used to (a) calculate the aero force, and (b) in the plotting to show the "stroke angle" as a more intuitive version of σ.
+
+NOTE:
+- The "T" above is unitless. You can intuitively think of a wing "stroke angle" ~= T q[1] / (R / 2) (using σ as the arc length and "R/2" as the radius). This is distinct from the Toutput (in rad/m), and they are related as T ~= Toutput ⋅ (R / 2).
+- Reasonable values: Toutput = 2666 rad/m in the current two-wing vehicle; 2150 rad/m in X-Wing; 3333 rad/m in Kevin Ma's older vehicles. With the R above, this suggests T ~= 20-30.
+=#
+
+"Returns aero force"
 function aero(y::Vector, u::Vector, _params::Vector)
     CLmax = 1.8
     CDmax = 3.4
     CD0 = 0.4
     ρ = 1.225
-    R = 15e-3
     
     # unpack
     cbar, T = _params
@@ -55,10 +75,10 @@ function dydt(yin::Vector, u::Vector, _params::Vector)
     # params
     mspar = 0
     ka = 0
-    khinge = 1e-3
-    mwing = 5e-6
-    Iwing = 1e-9#mwing * cbar**2
-    bΨ = 5e-7
+    khinge = 1e-12
+    mwing = 1e-4
+    Iwing = 1e-9#mwing * cbar^2
+    bΨ = 1e-8
 
     # inertial terms
     M = @SMatrix [mspar+mwing   cbar*mwing*cΨ; cbar*mwing*cΨ   Iwing+cbar^2*mwing]
@@ -72,14 +92,14 @@ function dydt(yin::Vector, u::Vector, _params::Vector)
 
     ddq = inv(M) * (-corgrav + τdamp + τaero + τinp)
     # return ddq
-    return KSCALE .* [dσ, dΨ, ddq[1], ddq[2]]
+    return KSCALE .* [y[3], y[4], ddq[1], ddq[2]]
 end
 
 function limits()
     # This is based on observing the OL trajectory
-    umin = @SVector [-0.15]
-    umax = -umin
-    xmax = @SVector [0.02 * RESCALE, 1.5, Inf, Inf]
+    umax = @SVector [75e-3]
+    umin = -umax
+    xmax = @SVector [150e-6 * RESCALE, 1.5, Inf, Inf]
     xmin = -xmax
     return umin, umax, xmin, xmax
 end
@@ -90,7 +110,7 @@ function createInitialTraj(freq::Real, posGains::Vector, params0::Vector)
     # Create a traj
     σmax = Wing2DOF.limits()[end][1]
     function strokePosController(y, t)
-        σdes = 0.75 * σmax * sin(freq * 2 * π * t)
+        σdes = 0.9 * σmax * sin(freq * 2 * π * t)
         return posGains[1] * (σdes - y[1]) - posGains[2] * y[3]
     end
     strokePosControlVF(y, p, t) = Wing2DOF.dydt(y, [strokePosController(y, t)], params0)
@@ -99,10 +119,10 @@ function createInitialTraj(freq::Real, posGains::Vector, params0::Vector)
     prob = ODEProblem(strokePosControlVF, zeros(4), (teval[1], teval[end]))
     sol = solve(prob, saveat=teval)
 
-    # σt = plot(sol, vars=1, linewidth=1, ylabel="act disp [m]")
-    # Ψt = plot(sol, vars=2, linewidth=1, ylabel="hinge ang [r]")
-    # plot(σt, Ψt, layout=(2,1))
-    # gui()
+    σt = plot(sol, vars=1, linewidth=1, ylabel="act disp [m]")
+    Ψt = plot(sol, vars=2, linewidth=1, ylabel="hinge ang [r]")
+    plot(σt, Ψt, layout=(2,1))
+    gui()
 
     olRange = 171:3:238
     trajt = sol.t[olRange]
