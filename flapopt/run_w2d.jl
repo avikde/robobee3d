@@ -6,11 +6,13 @@ gr() # backend
 include("Wing2DOF.jl")
 include("ModelOptimizer.jl")
 
+cu = controlutils
+
 # create an instance
-m = Wing2DOFModel()
-ny, nu = dims(m)
+m = cu.Wing2DOFModel()
+ny, nu = cu.dims(m)
 N = 23
-liy, liu = linind(m, N)
+liy, liu = cu.linind(m, N)
 
 params0 = [2.0, 20.0] # cbar, T
 
@@ -24,13 +26,14 @@ params0 = [2.0, 20.0] # cbar, T
 # # println()
 # println(Wing2DOF.aero(y0, u0, params0)[2])
 
-trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
-plotTrajs(m, trajt, params0, traj0)
+trajt, traj0 = cu.createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
+cu.plotTrajs(m, trajt, params0, traj0)
 
 # setup opt ---
 
-@btime Df(m, [0.1,0,0,0], [10.], params0)
-@btime gdyn(m, [0.11,0.1,0,0], [0.1,0,0,0], [10.], params0, traj0[end])
+@btime cu.Df(m, [0.1,0,0,0], [10.], params0)
+@btime cu.gdyn(m, [0.11,0.1,0,0], [0.1,0,0,0], [10.], params0, traj0[end])
 # optsetup(m, traj0)
 # @btime Wing2DOF.eval_g!(traj0, params0, N, ly, lu, gout)
 # println(g0)
+

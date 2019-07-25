@@ -1,4 +1,6 @@
 
+module controlutils
+
 using LinearAlgebra, StaticArrays, DifferentialEquations
 # using Plots; gr()
 include("Model.jl")
@@ -191,4 +193,6 @@ function eval_f(m::Wing2DOFModel, traj, params)
     end
     # max avg lift
 	return -Favg[2]
+end
+
 end

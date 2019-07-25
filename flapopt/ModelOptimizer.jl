@@ -1,6 +1,7 @@
 
-using ForwardDiff, Ipopt
-using Plots; gr()
+module controlutils
+
+using Ipopt
 
 include("Model.jl")
 
@@ -50,4 +51,6 @@ function optsetup(m::Model, traj::Vector; vart::Bool=true)
 	# addOption(prob, "hessian_approximation", "limited-memory")
 
 	# return prob
+end
+
 end
