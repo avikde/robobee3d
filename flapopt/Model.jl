@@ -1,4 +1,6 @@
 
+using ForwardDiff
+
 """
 Implement these things
 """
@@ -24,6 +26,28 @@ end
 function eval_f(m::Model, traj::Vector, params::Vector, N::Int)::Float64
 	return 0
 end
+
+"Plot a list of traj"
+function plotTrajs(m::Model, t::Vector, params::Vector, args...)
+	
+end
+
+#===========================================================================
+Functions that can be specialized optionally
+===========================================================================#
+
+"Use autograd to find Jacobian; specialization can do something else"
+function Df(m::Model, y::Vector, u::Vector, params::Vector)::Tuple{Matrix, Matrix}
+	fy(yy::Vector) = dydt(m, yy, u, params)
+	fu(uu::Vector) = dydt(m, y, uu, params)
+	Jac_fy = yy -> ForwardDiff.jacobian(fy, yy)
+	Jac_fu = uu -> ForwardDiff.jacobian(fu, uu)
+	return Jac_fy(y), Jac_fu(u)
+end
+
+#===========================================================================
+Functions valid for all instances without specialization
+===========================================================================#
 
 # Direct transcription helpers
 # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
@@ -62,7 +86,16 @@ function x_LU(m::Model, N::Int; vart::Bool=true)::Tuple{Vector, Vector}
 	return x_L, x_U
 end
 
-"Plot a list of traj"
-function plotTrajs(m::Model, t::Vector, params::Vector, args...)
-	
+"Dynamics constraint for time k"
+function gdyn(m::Model, ynext::Vector, y::Vector, u::Vector, params::Vector, δt::Float64; order::Int=1)::Vector
+	ny, nu = dims(m)
+	fy = dydt(m, y, u, params)
+	g = ynext - (y + δt * fy) # must be constrained to 0
+
+
+	dg_dynext = eye(ny)
+	dg_dy = -eye(ny) #+ δt #TODO:
+	# dg_du = δt * 
+	# return 
 end
+

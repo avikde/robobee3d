@@ -1,7 +1,7 @@
 
 # This is a "script" to test/run the functions from
 
-using Plots, BenchmarkTools, StaticArrays
+using Plots, BenchmarkTools
 gr() # backend
 include("Wing2DOF.jl")
 include("ModelOptimizer.jl")
@@ -27,16 +27,9 @@ params0 = [2, 20] # cbar, T
 trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
 plotTrajs(m, trajt, params0, traj0)
 
-# println(traj0[ly[:,2]], traj0[lu[:,2]])
-paero = @SVector zeros(2)
-Faero = @SVector zeros(2)
-Jaero = @SMatrix zeros(2,2)
-# @btime Wing2DOF.aero!(paero, Jaero, Faero, y0, u0, params0)
-# @btime Wing2DOF.eval_f(traj0, params0)
-# println()
-
 # setup opt ---
 
-optsetup(m, traj0)
+@btime Df(m, [0.1,0,0,0], [10], params0)
+# optsetup(m, traj0)
 # @btime Wing2DOF.eval_g!(traj0, params0, N, ly, lu, gout)
 # println(g0)
