@@ -45,16 +45,27 @@ function aero(y::Vector, u::Vector, _params::Vector)
     σ, Ψ, dσ, dΨ = (@SVector [T, 1, T, 1]) .* y
     cΨ = cos(Ψ)
     sΨ = sin(Ψ)
-    α = π / 2 - Ψ # AoA
 
-    # aero force
+    # CoP kinematics
     wing1 = @SVector [σ, 0]
-    RΨ = @SMatrix [cΨ -sΨ; sΨ cΨ]
+    RΨ = @SMatrix [cΨ -sΨ; sΨ cΨ] # Ψ > 0 => hinge looks like /; Ψ < 0 => hinge looks like \
     paero = wing1 + RΨ * @SVector [0, -cbar]
+    # FIXME: add moving CoP
     Jaero = @SMatrix [1 cbar * cΨ; 0 cbar * sΨ]
-    Caero = @SVector [(CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2 * α), CLmax * sin(2 * α)]
-    vaero = @SVector [dσ, 0]
-    Faero = 1/2 * ρ * cbar * R * (vaero ⋅ vaero) * Caero * sign(-dσ)
+    
+    # Aero force
+    #=
+    Use this in Mathematica to debug the signs.
+    Manipulate[
+    \[Alpha] = -\[Pi]/2 + \[Psi];
+    Graphics@
+    Arrow[{{0, 0},
+        {((CDmax + CD0)/2 - (CDmax - CD0)/2*Cos[2 \[Alpha]]), CLmax Sin[2 \[Alpha]]} Sign[-d\[Sigma]]}],
+    {d\[Sigma], -1, 1}, {\[Psi], -\[Pi]/2, \[Pi]/2}]
+    =#
+    α = Ψ - π/2 # AoA
+    Caero = @SVector [((CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2α)) * sign(-dσ), CLmax * sin(2α)]
+    Faero = 1/2 * ρ * cbar * R * dσ^2 * Caero * sign(-dσ)
 
     return paero, Jaero, Faero
 end
@@ -74,15 +85,15 @@ function dydt(yin::Vector, u::Vector, _params::Vector)
 
     # params
     mspar = 0
-    ka = 0
-    khinge = 1e-12
-    mwing = 1e-4
-    Iwing = 1e-9#mwing * cbar^2
-    bΨ = 1e-8
+    mwing = 1e-6
+    Iwing = mwing * cbar^2
+    kσ = 1e-10
+    kΨ = 0
+    bΨ = 1e-7
 
     # inertial terms
     M = @SMatrix [mspar+mwing   cbar*mwing*cΨ; cbar*mwing*cΨ   Iwing+cbar^2*mwing]
-    corgrav = @SVector [ka*σ - cbar*mwing*sΨ*dΨ^2, khinge*Ψ]
+    corgrav = @SVector [kσ*σ - cbar*mwing*sΨ*dΨ^2, kΨ*Ψ]
     # non-lagrangian terms
     τdamp = @SVector [0, -bΨ * dΨ]
     _, Jaero, Faero = aero(y, u, _params)
