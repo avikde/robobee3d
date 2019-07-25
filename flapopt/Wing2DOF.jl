@@ -48,7 +48,7 @@ function aero(y::Vector, u::Vector, _params::Vector)
 
     # CoP kinematics
     wing1 = @SVector [σ, 0]
-    RΨ = @SMatrix [cΨ -sΨ; sΨ cΨ] # Ψ > 0 => hinge looks like /; Ψ < 0 => hinge looks like \
+    RΨ = @SMatrix [cΨ -sΨ; sΨ cΨ] # Ψ > 0 => hinge looks like \; Ψ < 0 => hinge looks like /
     paero = wing1 + RΨ * @SVector [0, -cbar]
     # FIXME: add moving CoP
     Jaero = @SMatrix [1 cbar * cΨ; 0 cbar * sΨ]
@@ -63,7 +63,7 @@ function aero(y::Vector, u::Vector, _params::Vector)
         {((CDmax + CD0)/2 - (CDmax - CD0)/2*Cos[2 \[Alpha]]), CLmax Sin[2 \[Alpha]]} Sign[-d\[Sigma]]}],
     {d\[Sigma], -1, 1}, {\[Psi], -\[Pi]/2, \[Pi]/2}]
     =#
-    α = Ψ - π/2 # AoA
+    α = π/2 - Ψ # AoA
     Caero = @SVector [((CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2α)), CLmax * sin(2α)]
     Faero = 1/2 * ρ * cbar * R * dσ^2 * Caero * sign(-dσ)
 
