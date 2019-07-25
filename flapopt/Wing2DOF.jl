@@ -20,8 +20,8 @@ const R = 20e-3
 - u = [τ], where τ = actuator force
 
 Reasonable limits:
-- MRL Bee: umax = 75mN, y[1]max = 150 μm, mass = 25 mg
-- MRL HAMR: umax = 270mN, y[1]max = 123 μm, mass = 100 mg [Doshi et. al. (2015)]
+- MRL Bee: umax = 75mN, y[1]max = 300 μm, mass = 25 mg
+- MRL HAMR: umax = 270mN, y[1]max = 247 μm, mass = 100 mg [Doshi et. al. (2015)]
 
 Params:
 - cbar = wing chord
@@ -110,7 +110,7 @@ function limits()
     # This is based on observing the OL trajectory
     umax = @SVector [75e-3]
     umin = -umax
-    xmax = @SVector [150e-6 * RESCALE, 1.5, Inf, Inf]
+    xmax = @SVector [300e-6 * RESCALE, 1.5, Inf, Inf]
     xmin = -xmax
     return umin, umax, xmin, xmax
 end
