@@ -74,9 +74,9 @@ end
 
 function limits()
     # This is based on observing the OL trajectory
-    umin = [-0.15]
+    umin = @SVector [-0.15]
     umax = -umin
-    xmax = [0.02 * RESCALE, 1.5, Inf, Inf]
+    xmax = @SVector [0.02 * RESCALE, 1.5, Inf, Inf]
     xmin = -xmax
     return umin, umax, xmin, xmax
 end
@@ -86,10 +86,12 @@ end
 "Objective, min"
 function eval_f(traj, params)
     N = WingOptimizer.getN(traj)
-    Favg = zeros(2)
+    Favg = @SVector zeros(2)
     ly, lu = WingOptimizer.linind(traj)
     for k = 1:N
-        paero, _, Faero = aero(traj[ly[:,k]], traj[lu[:,k]], params)
+        vy = @view ly[:,k]
+        vu = @view lu[:,k]
+        paero, _, Faero = aero(traj[vy], traj[vu], params)
         Favg += Faero
     end
     # max avg lift
@@ -102,7 +104,10 @@ function eval_g!(traj, g, params)
     ly, lu = WingOptimizer.linind(traj)
     δt = traj[end]
     for k = 1:N
-        g[ly[:,k]] = traj[ly[:,k+1]] - (traj[ly[:,k]] + δt * dydt(traj[ly[:,k]], traj[lu[:,k]], params))
+        vy = @view ly[:,k]
+        vy2 = @view ly[:,k+1]
+        vu = @view lu[:,k]
+        g[vy] = traj[vy2] - (traj[vy] + δt * dydt(traj[vy], traj[vu], params))
     end
 end
 
