@@ -6,8 +6,6 @@ include("DirTranForm.jl")
 include("WingOptimizer.jl")
 
 ny, nu = Wing2DOF.ny, Wing2DOF.nu
-y0 = [1e-2, 0, 0, 0]
-u0 = [0.]
 params0 = [0.005, 1.5]
 
 # paeroFun(q::Vector) = Wing2DOF.aero([q;[0,0]], u0, params0)[1]
