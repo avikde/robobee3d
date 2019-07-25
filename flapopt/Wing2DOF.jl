@@ -5,9 +5,6 @@ using LinearAlgebra, StaticArrays, DifferentialEquations
 using Plots; gr()
 include("DirTranForm.jl")
 
-const RESCALE = 1.0 # For realistic params
-const KSCALE = @SVector [RESCALE, 1, RESCALE, 1]
-
 const ny = 4
 const nu = 1
 const R = 20
@@ -79,10 +76,9 @@ function aero(y::Vector, u::Vector, _params::Vector)
 end
 
 "Continuous dynamics second order model"
-function dydt(yin::Vector, u::Vector, _params::Vector)
+function dydt(y::Vector, u::Vector, _params::Vector)
     # unpack
     cbar, T = _params
-    y = (1 ./ KSCALE) .* yin
     σ, Ψ, dσ, dΨ = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]
     # NOTE: for optimizing transmission ratio
     # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
@@ -111,14 +107,14 @@ function dydt(yin::Vector, u::Vector, _params::Vector)
 
     ddq = inv(M) * (-corgrav + τdamp + τaero + τinp)
     # return ddq
-    return KSCALE .* [y[3], y[4], ddq[1], ddq[2]]
+    return [y[3], y[4], ddq[1], ddq[2]]
 end
 
 function limits()
     # This is based on observing the OL trajectory. See note on units above.
-    umax = @SVector [75]
+    umax = @SVector [75] # [mN]
     umin = -umax
-    xmax = @SVector [300e-3 * RESCALE, 1.5, Inf, Inf]
+    xmax = @SVector [300e-3, 1.5, Inf, Inf] # [mm, rad, mm/ms, rad/ms]
     xmin = -xmax
     return umin, umax, xmin, xmax
 end
