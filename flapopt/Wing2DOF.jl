@@ -1,7 +1,7 @@
 
 module Wing2DOF
 
-using LinearAlgebra, StaticArrays
+using LinearAlgebra, StaticArrays, DifferentialEquations
 include("WingOptimizer.jl")
 
 const RESCALE = 30.0
@@ -81,7 +81,38 @@ function limits()
     return umin, umax, xmin, xmax
 end
 
-# "Cost function components" ===
+# Create an initial traj --------------
+
+function createInitialTraj(freq::Real, posGains::Vector, params0::Vector)
+    # Create a traj
+    σmax = Wing2DOF.limits()[end][1]
+    function strokePosController(y, t)
+        σdes = 0.75 * σmax * sin(freq * 2 * π * t)
+        return posGains[1] * (σdes - y[1]) - posGains[2] * y[3]
+    end
+    strokePosControlVF(y, p, t) = Wing2DOF.dydt(y, [strokePosController(y, t)], params0)
+    # OL traj1
+    teval = collect(0:1e-4:0.1)
+    prob = ODEProblem(strokePosControlVF, zeros(4), (teval[1], teval[end]))
+    sol = solve(prob, saveat=teval)
+
+    # σt = plot(sol, vars=1, linewidth=1, ylabel="act disp [m]")
+    # Ψt = plot(sol, vars=2, linewidth=1, ylabel="hinge ang [r]")
+    # plot(σt, Ψt, layout=(2,1))
+    # gui()
+
+    olRange = 171:3:238
+    trajt = sol.t[olRange]
+    δt = trajt[2] - trajt[1]
+    N = length(trajt) - 1
+    olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)
+    olTraju = [strokePosController(olTrajaa[i], trajt[i]) for i in 1:N] # get u1,...,uN
+    traj0 = [vcat(olTrajaa...); olTraju; δt] # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
+
+    return trajt, traj0
+end
+
+# "Cost function components" ------------------
 
 "Objective, min"
 function eval_f(traj, params)
