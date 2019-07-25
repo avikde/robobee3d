@@ -20,10 +20,10 @@ params0 = [2, 20] # cbar, T
 
 trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 N = length(trajt) - 1
+ly, lu = DirTranForm.linind(traj0, ny, nu)
 
 WingOptimizer.plotTrajs(trajt, ny, nu, params0, traj0)
 
-ly, lu = DirTranForm.linind(traj0, ny, nu)
 # println(traj0[ly[:,2]], traj0[lu[:,2]])
 paero = @SVector zeros(2)
 Faero = @SVector zeros(2)
@@ -32,6 +32,11 @@ Jaero = @SMatrix zeros(2,2)
 # @btime Wing2DOF.eval_f(traj0, params0)
 # println()
 
-g0 = zeros(ly[ny,N])
-@btime Wing2DOF.eval_g!(traj0, g0, params0)
+# setup opt ---
+
+g_L, g_U = Wing2DOF.g_LU(N)
+gout = zeros(N*ny)
+
+DirTranForm.getXLU(N, Wing2DOF.limits()..., 0.01, 10.0)
+# @btime Wing2DOF.eval_g!(traj0, params0, N, ly, lu, gout)
 # println(g0)
