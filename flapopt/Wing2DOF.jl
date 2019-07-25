@@ -43,7 +43,7 @@ function aero(y::Vector, u::Vector, _params::Vector)
     CLmax = 1.8
     CDmax = 3.4
     CD0 = 0.4
-    ρ = 1.225e-3 # mg/(mm^3)
+    ρ = 1.225e-3 # [mg/(mm^3)]
     
     # unpack
     cbar, T = _params
@@ -121,7 +121,7 @@ end
 
 # Create an initial traj --------------
 
-"freq [1/ms]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]"
+"freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]"
 function createInitialTraj(freq::Real, posGains::Vector, params0::Vector)
     # Create a traj
     σmax = Wing2DOF.limits()[end][1]
@@ -148,7 +148,7 @@ function createInitialTraj(freq::Real, posGains::Vector, params0::Vector)
     olTraju = [strokePosController(olTrajaa[i], trajt[i]) for i in 1:N] # get u1,...,uN
     traj0 = [vcat(olTrajaa...); olTraju; δt] # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
 
-    return trajt, traj0
+    return trajt .- trajt[1], traj0
 end
 
 # "Cost function components" ------------------
