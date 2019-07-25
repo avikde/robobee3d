@@ -10,14 +10,22 @@ const KSCALE = @SVector [RESCALE, 1, RESCALE, 1]
 
 const ny = 4
 const nu = 1
-const R = 20e-3
+const R = 20
 
 #=
 2DOF wing model config:
-- q[1] = actuator displacement (m)
-- q[2] = hinge angle
+- q[1] = actuator displacement (in mm)
+- q[2] = hinge angle (in rad)
 - y = (q, dq)
-- u = [τ], where τ = actuator force
+- u = [τ], where τ = actuator force in (mN)
+
+Units:
+- Instead of using SI units, I am using mm for length unit, mN for force unit, mg for mass, ms for time.
+- with this, 1mN = 1(mg)*1(mm)/1(ms)^2 works out
+- density 1kg/m^3 = 1e-3 mg/mm^3
+- rotational inertia 1kg*m^2 = 1e9 mg*mm^2
+- 1 N-m/rad = 1e6 mN-mm/rad
+- 1 N-m/(rad/s) = 1e9 mN-mm/(rad/ms)
 
 Reasonable limits:
 - MRL Bee: umax = 75mN, q[1]max = 300 μm, mass = 25 mg
@@ -33,16 +41,16 @@ NOTE:
 - Reasonable values: Toutput = 2666 rad/m in the current two-wing vehicle; 2150 rad/m in X-Wing; 3333 rad/m in Kevin Ma's older vehicles. With the R above, this suggests T ~= 20-30.
 =#
 
-"Returns aero force"
+"Returns paero [mm], Jaero, Faero [mN]"
 function aero(y::Vector, u::Vector, _params::Vector)
     CLmax = 1.8
     CDmax = 3.4
     CD0 = 0.4
-    ρ = 1.225
+    ρ = 1.225e-3 # mg/(mm^3)
     
     # unpack
     cbar, T = _params
-    σ, Ψ, dσ, dΨ = (@SVector [T, 1, T, 1]) .* y
+    σ, Ψ, dσ, dΨ = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]
     cΨ = cos(Ψ)
     sΨ = sin(Ψ)
 
@@ -65,7 +73,7 @@ function aero(y::Vector, u::Vector, _params::Vector)
     =#
     α = π/2 - Ψ # AoA
     Caero = @SVector [((CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2α)), CLmax * sin(2α)]
-    Faero = 1/2 * ρ * cbar * R * dσ^2 * Caero * sign(-dσ)
+    Faero = 1/2 * ρ * cbar * R * dσ^2 * Caero * sign(-dσ) # [mN]
 
     return paero, Jaero, Faero
 end
@@ -75,7 +83,7 @@ function dydt(yin::Vector, u::Vector, _params::Vector)
     # unpack
     cbar, T = _params
     y = (1 ./ KSCALE) .* yin
-    σ, Ψ, dσ, dΨ = (@SVector [T, 1, T, 1]) .* y
+    σ, Ψ, dσ, dΨ = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]
     # NOTE: for optimizing transmission ratio
     # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
     # u = (tau_actuator)
@@ -84,12 +92,12 @@ function dydt(yin::Vector, u::Vector, _params::Vector)
     sΨ = sin(Ψ)
 
     # params
-    mspar = 0
-    mwing = 0.51e-6
-    Iwing = mwing * cbar^2
+    mspar = 0 # [mg]
+    mwing = 0.51 # [mg]
+    Iwing = mwing * cbar^2 # cbar is in mm
     kσ = 0
-    kΨ = 2e-6
-    bΨ = 1e-9
+    kΨ = 2 # [mN-mm/rad]
+    bΨ = 1 # [mN-mm/(rad/ms)]
 
     # inertial terms
     M = @SMatrix [mspar+mwing   cbar*mwing*cΨ; cbar*mwing*cΨ   Iwing+cbar^2*mwing]
@@ -97,7 +105,7 @@ function dydt(yin::Vector, u::Vector, _params::Vector)
     # non-lagrangian terms
     τdamp = @SVector [0, -bΨ * dΨ]
     _, Jaero, Faero = aero(y, u, _params)
-    τaero = Jaero' * Faero
+    τaero = Jaero' * Faero # units of [mN, mN-mm]
     # input
     τinp = @SVector [u[1]/T, 0]
 
@@ -107,16 +115,17 @@ function dydt(yin::Vector, u::Vector, _params::Vector)
 end
 
 function limits()
-    # This is based on observing the OL trajectory
-    umax = @SVector [75e-3]
+    # This is based on observing the OL trajectory. See note on units above.
+    umax = @SVector [75]
     umin = -umax
-    xmax = @SVector [300e-6 * RESCALE, 1.5, Inf, Inf]
+    xmax = @SVector [300e-3 * RESCALE, 1.5, Inf, Inf]
     xmin = -xmax
     return umin, umax, xmin, xmax
 end
 
 # Create an initial traj --------------
 
+"freq [1/ms]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]"
 function createInitialTraj(freq::Real, posGains::Vector, params0::Vector)
     # Create a traj
     σmax = Wing2DOF.limits()[end][1]
@@ -126,7 +135,7 @@ function createInitialTraj(freq::Real, posGains::Vector, params0::Vector)
     end
     strokePosControlVF(y, p, t) = Wing2DOF.dydt(y, [strokePosController(y, t)], params0)
     # OL traj1
-    teval = collect(0:1e-4:0.1)
+    teval = collect(0:1e-1:100) # [ms]
     prob = ODEProblem(strokePosControlVF, zeros(4), (teval[1], teval[end]))
     sol = solve(prob, saveat=teval)
 
