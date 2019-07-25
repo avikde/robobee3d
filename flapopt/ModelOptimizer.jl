@@ -1,6 +1,4 @@
 
-module WingOptimizer
-
 using ForwardDiff, Ipopt
 using Plots; gr()
 
@@ -27,10 +25,11 @@ include("Model.jl")
 #     return g_L, g_U
 # end
 
-function setup(m::Model, traj::Vector)
+function optsetup(m::Model, traj::Vector; vart::Bool=true)
 	ny, nu = dims(m)
 	# Construct constraints
-	x_L, x_U = x_LU(m)
+	N = Nknot(m, traj; vart=vart)
+	x_L, x_U = x_LU(m, N; vart=vart)
 	# g_L, g_U = mdl.g_LU(N)
 
 	# prob = createProblem(
@@ -51,6 +50,4 @@ function setup(m::Model, traj::Vector)
 	# addOption(prob, "hessian_approximation", "limited-memory")
 
 	# return prob
-end
-
 end

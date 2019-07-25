@@ -62,3 +62,7 @@ function x_LU(m::Model, N::Int; vart::Bool=true)::Tuple{Vector, Vector}
 	return x_L, x_U
 end
 
+"Plot a list of traj"
+function plotTrajs(m::Model, t::Vector, params::Vector, args...)
+	
+end

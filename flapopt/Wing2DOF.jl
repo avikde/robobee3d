@@ -133,14 +133,14 @@ end
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::Wing2DOFModel, freq::Real, posGains::Vector, params0::Vector)
+function createInitialTraj(m::Wing2DOFModel, N::Int, freq::Real, posGains::Vector, params0::Vector)
     # Create a traj
-    σmax = Wing2DOF.limits()[end][1]
+    σmax = limits(m)[end][1]
     function strokePosController(y, t)
         σdes = 0.9 * σmax * sin(freq * 2 * π * t)
         return posGains[1] * (σdes - y[1]) - posGains[2] * y[3]
     end
-    strokePosControlVF(y, p, t) = Wing2DOF.dydt(y, [strokePosController(y, t)], params0)
+    strokePosControlVF(y, p, t) = dydt(m, y, [strokePosController(y, t)], params0)
     # OL traj1
     teval = collect(0:1e-1:100) # [ms]
     prob = ODEProblem(strokePosControlVF, zeros(4), (teval[1], teval[end]))
@@ -152,14 +152,29 @@ function createInitialTraj(m::Wing2DOFModel, freq::Real, posGains::Vector, param
     # gui()
 
     starti = 170
-    olRange = starti:3:(starti + 3*m.N)
+    olRange = starti:3:(starti + 3*N)
     trajt = sol.t[olRange]
     δt = trajt[2] - trajt[1]
     olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)
-    olTraju = [strokePosController(olTrajaa[i], trajt[i]) for i in 1:m.N] # get u1,...,uN
+    olTraju = [strokePosController(olTrajaa[i], trajt[i]) for i in 1:N] # get u1,...,uN
     traj0 = [vcat(olTrajaa...); olTraju; δt] # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
 
     return trajt .- trajt[1], traj0
+end
+
+function plotTrajs(m::Wing2DOFModel, t::Vector, params::Vector, args...; vart=true)
+	ny, nu = dims(m)
+	traj = args[1]
+
+	N = Nknot(m, traj; vart=vart)
+	Ny = (N+1)*ny
+	# stroke "angle" = T*y[1] / R
+	cbar, T = params
+	σt = plot(t, traj[1:ny:(N+1)*ny] * T / (R/2), marker=:auto, ylabel="stroke ang [r]", title="timestep=$(round(traj[end]; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
+	Ψt = plot(t, traj[2:ny:(N+1)*ny], marker=:auto, ylabel="hinge ang [r]")
+	ut = plot(t, [traj[Ny+1:nu:Ny+N*nu];NaN], marker=:auto, ylabel="stroke force [mN]")
+	plot(σt, Ψt, ut, layout=(3,1))
+	gui()
 end
 
 # "Cost function components" ------------------
