@@ -64,7 +64,7 @@ function aero(y::Vector, u::Vector, _params::Vector)
     {d\[Sigma], -1, 1}, {\[Psi], -\[Pi]/2, \[Pi]/2}]
     =#
     α = Ψ - π/2 # AoA
-    Caero = @SVector [((CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2α)) * sign(-dσ), CLmax * sin(2α)]
+    Caero = @SVector [((CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2α)), CLmax * sin(2α)]
     Faero = 1/2 * ρ * cbar * R * dσ^2 * Caero * sign(-dσ)
 
     return paero, Jaero, Faero
