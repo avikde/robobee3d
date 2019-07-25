@@ -56,7 +56,7 @@ end
 
 
 "Returns paero [mm], Jaero, Faero [mN]"
-function aero(y::Vector, u::Vector, _params::Vector)
+function w2daero(y::Vector, u::Vector, _params::Vector)
     CLmax = 1.8
     CDmax = 3.4
     CD0 = 0.4
@@ -117,7 +117,7 @@ function dydt(model::Wing2DOFModel, y::Vector, u::Vector, _params::Vector)::Vect
     corgrav = @SVector [kσ*σ - cbar*mwing*sΨ*dΨ^2, kΨ*Ψ]
     # non-lagrangian terms
     τdamp = @SVector [0, -bΨ * dΨ]
-    _, Jaero, Faero = aero(y, u, _params)
+    _, Jaero, Faero = w2daero(y, u, _params)
     τaero = Jaero' * Faero # units of [mN, mN-mm]
     # input
     τinp = @SVector [u[1]/T, 0]
