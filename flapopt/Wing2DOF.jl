@@ -1,12 +1,14 @@
 
-module Wing2DOF
-
 using LinearAlgebra, StaticArrays, DifferentialEquations
 # using Plots; gr()
-include("DirTranForm.jl")
+include("Model.jl")
 
-const ny = 4
-const nu = 1
+struct Wing2DOFModel <: Model end
+
+function dims(m::Wing2DOFModel)::Tuple{Int, Int}
+    return 4, 1
+end
+
 const R = 20
 
 #=
@@ -37,6 +39,21 @@ NOTE:
 - The "T" above is unitless. You can intuitively think of a wing "stroke angle" ~= T q[1] / (R / 2) (using σ as the arc length and "R/2" as the radius). This is distinct from the Toutput (in rad/m), and they are related as T ~= Toutput ⋅ (R / 2).
 - Reasonable values: Toutput = 2666 rad/m in the current two-wing vehicle; 2150 rad/m in X-Wing; 3333 rad/m in Kevin Ma's older vehicles. With the R above, this suggests T ~= 20-30.
 =#
+
+
+function limits(m::Wing2DOFModel)::Tuple{Vector, Vector, Vector, Vector}
+    # This is based on observing the OL trajectory. See note on units above.
+    umax = @SVector [75] # [mN]
+    umin = -umax
+    xmax = @SVector [300e-3, 1.5, Inf, Inf] # [mm, rad, mm/ms, rad/ms]
+    xmin = -xmax
+    return umin, umax, xmin, xmax
+end
+
+function limitsTimestep(m::Model)::Tuple{Float64, Float64}
+	return 0.01, 10.0
+end
+
 
 "Returns paero [mm], Jaero, Faero [mN]"
 function aero(y::Vector, u::Vector, _params::Vector)
@@ -76,7 +93,7 @@ function aero(y::Vector, u::Vector, _params::Vector)
 end
 
 "Continuous dynamics second order model"
-function dydt(y::Vector, u::Vector, _params::Vector)
+function dydt(model::Wing2DOFModel, y::Vector, u::Vector, _params::Vector)::Vector
     # unpack
     cbar, T = _params
     σ, Ψ, dσ, dΨ = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]
@@ -110,22 +127,13 @@ function dydt(y::Vector, u::Vector, _params::Vector)
     return [y[3], y[4], ddq[1], ddq[2]]
 end
 
-function limits()
-    # This is based on observing the OL trajectory. See note on units above.
-    umax = @SVector [75] # [mN]
-    umin = -umax
-    xmax = @SVector [300e-3, 1.5, Inf, Inf] # [mm, rad, mm/ms, rad/ms]
-    xmin = -xmax
-    return umin, umax, xmin, xmax
-end
-
 # Create an initial traj --------------
 
 """
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(freq::Real, posGains::Vector, params0::Vector)
+function createInitialTraj(m::Wing2DOFModel, freq::Real, posGains::Vector, params0::Vector)
     # Create a traj
     σmax = Wing2DOF.limits()[end][1]
     function strokePosController(y, t)
@@ -143,12 +151,12 @@ function createInitialTraj(freq::Real, posGains::Vector, params0::Vector)
     # plot(σt, Ψt, layout=(2,1))
     # gui()
 
-    olRange = 170:3:237
+    starti = 170
+    olRange = starti:3:(starti + 3*m.N)
     trajt = sol.t[olRange]
     δt = trajt[2] - trajt[1]
-    N::Int = length(trajt) - 1
     olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)
-    olTraju = [strokePosController(olTrajaa[i], trajt[i]) for i in 1:N] # get u1,...,uN
+    olTraju = [strokePosController(olTrajaa[i], trajt[i]) for i in 1:m.N] # get u1,...,uN
     traj0 = [vcat(olTrajaa...); olTraju; δt] # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
 
     return trajt .- trajt[1], traj0
@@ -157,37 +165,15 @@ end
 # "Cost function components" ------------------
 
 "Objective to minimize"
-function eval_f(traj, params, N::Int, ly::LinearIndices, lu::LinearIndices)
+function eval_f(m::Wing2DOFModel, traj, params)
+    liy, liu = linind(m)
     Favg = @SVector zeros(2)
-    for k = 1:N
-        vy = @view ly[:,k]
-        vu = @view lu[:,k]
+    for k = 1:m.N
+        vy = @view liy[:,k]
+        vu = @view liu[:,k]
         paero, _, Faero = aero(traj[vy], traj[vu], params)
         Favg += Faero
     end
     # max avg lift
 	return -Favg[2]
-end
-
-"Inequality and equality constraints"
-function eval_g!(traj, params, N::Int, ly::LinearIndices, lu::Array{Int}, g)
-    δt = traj[end]
-    for k = 1:N
-        # Dynamics constraints
-        vy = @view ly[:,k]
-        vy2 = @view ly[:,k+1]
-        vu = @view lu[:,k]
-        g[vy] = traj[vy2] - (traj[vy] + δt * dydt(traj[vy], traj[vu], params))
-    end
-
-end
-
-"Bounds corresponding to the constraints above"
-function g_LU(N::Int)
-    g_L = zeros(N*ny)
-    g_U = similar(g_L)
-    # first N*ny = 0 (dynamics)
-    return g_L, g_U
-end
-
 end
