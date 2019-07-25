@@ -9,12 +9,12 @@ const ny = 4
 const nu = 1
 
 # Functions to help with dirtran packing
-getN = traj -> (length(traj) - ny - 1) ÷ (ny + nu)
+getN(traj)::Int = (length(traj) - ny - 1) ÷ (ny + nu)
 "Return y(k),u(k) for traj, for k ∈ [1,...,(N+1)]"
 function linind(traj)
 	N = getN(traj)
 	liny = LinearIndices((1:ny, 1:(N+1)))
-	linu = liny[end] .+ LinearIndices((1:nu, 1:(N)))
+	linu = LinearIndices((1:nu, 1:(N))) .+ liny[end]
 	return liny, linu
 end
 
