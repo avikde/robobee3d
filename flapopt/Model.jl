@@ -1,5 +1,5 @@
 
-using ForwardDiff
+using LinearAlgebra, ForwardDiff
 
 """
 Implement these things
@@ -36,7 +36,7 @@ end
 Functions that can be specialized optionally
 ===========================================================================#
 
-"Use autograd to find Jacobian; specialization can do something else"
+"Use autograd to find Jacobians; specialization can do something else"
 function Df(m::Model, y::Vector, u::Vector, params::Vector)::Tuple{Matrix, Matrix}
 	fy(yy::Vector) = dydt(m, yy, u, params)
 	fu(uu::Vector) = dydt(m, y, uu, params)
@@ -87,15 +87,18 @@ function x_LU(m::Model, N::Int; vart::Bool=true)::Tuple{Vector, Vector}
 end
 
 "Dynamics constraint for time k"
-function gdyn(m::Model, ynext::Vector, y::Vector, u::Vector, params::Vector, δt::Float64; order::Int=1)::Vector
+function gdyn(m::Model, ynext::Vector, y::Vector, u::Vector, params::Vector, δt::Float64; order::Int=1)::Tuple
 	ny, nu = dims(m)
 	fy = dydt(m, y, u, params)
-	g = ynext - (y + δt * fy) # must be constrained to 0
+	g = -ynext + (y + δt * fy) # must be constrained to 0
+	# Get jacobians wrt VF
+	df_dy, df_du = Df(m, y, u, params)
 
+	dg_dynext = -I
+	dg_dy = I + δt * df_dy
+	dg_du = δt * df_du
+	dg_dδt = fy
 
-	dg_dynext = eye(ny)
-	dg_dy = -eye(ny) #+ δt #TODO:
-	# dg_du = δt * 
-	# return 
+	return g, dg_dynext, dg_dy, dg_du, dg_dδt
 end
 

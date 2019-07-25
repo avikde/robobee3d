@@ -12,7 +12,7 @@ ny, nu = dims(m)
 N = 23
 liy, liu = linind(m, N)
 
-params0 = [2, 20] # cbar, T
+params0 = [2.0, 20.0] # cbar, T
 
 # println("paero ", paeroFun(y0[1:2]))
 
@@ -29,7 +29,8 @@ plotTrajs(m, trajt, params0, traj0)
 
 # setup opt ---
 
-@btime Df(m, [0.1,0,0,0], [10], params0)
+@btime Df(m, [0.1,0,0,0], [10.], params0)
+@btime gdyn(m, [0.11,0.1,0,0], [0.1,0,0,0], [10.], params0, traj0[end])
 # optsetup(m, traj0)
 # @btime Wing2DOF.eval_g!(traj0, params0, N, ly, lu, gout)
 # println(g0)
