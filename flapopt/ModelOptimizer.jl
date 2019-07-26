@@ -108,9 +108,10 @@ end
 Objective
 =========================================================================#
 
-function ∇Jobj!(∇Jout, m::Model, traj::Vector, params::Vector; vart::Bool=true)::nothing
+function ∇Jobj!(∇Jout, m::Model, traj::Vector, params::Vector; vart::Bool=true)
 	Jtraj(tt::Vector) = Jobj(m, tt, params; vart=vart)
 	ForwardDiff.gradient!(∇Jout, Jtraj, traj)
+	return
 end
 
 #=========================================================================
