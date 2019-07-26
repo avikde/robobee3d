@@ -12,7 +12,7 @@ include("Wing2DOF.jl")
 # create an instance
 m = Wing2DOFModel()
 ny, nu = cu.dims(m)
-N = 23
+N = 22
 liy, liu = cu.linind(m, N)
 
 params0 = [2.0, 20.0] # cbar, T
@@ -27,7 +27,7 @@ params0 = [2.0, 20.0] # cbar, T
 # # println()
 # println(Wing2DOF.aero(y0, u0, params0)[2])
 
-trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
+trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 3e2], params0)
 cu.plotTrajs(m, trajt, params0, traj0)
 
 # setup opt ---

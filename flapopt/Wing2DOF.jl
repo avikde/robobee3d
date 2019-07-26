@@ -111,7 +111,7 @@ function cu.dydt(model::Wing2DOFModel, y::Vector, u::Vector, _params::Vector)::V
     mwing = 0.51 # [mg]
     Iwing = mwing * cbar^2 # cbar is in mm
     kσ = 0
-    kΨ = 2 # [mN-mm/rad]
+    kΨ = 5 # [mN-mm/rad]
     bΨ = 1 # [mN-mm/(rad/ms)]
 
     # inertial terms
@@ -148,12 +148,12 @@ function createInitialTraj(m::Wing2DOFModel, N::Int, freq::Real, posGains::Vecto
     prob = ODEProblem(strokePosControlVF, zeros(4), (teval[1], teval[end]))
     sol = solve(prob, saveat=teval)
 
-    # σt = plot(sol, vars=1, linewidth=1, ylabel="act disp [m]")
-    # Ψt = plot(sol, vars=2, linewidth=1, ylabel="hinge ang [r]")
+    # σt = plot(sol, vars=3, ylabel="act vel [m/s]")
+    # Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
     # plot(σt, Ψt, layout=(2,1))
     # gui()
 
-    starti = 170
+    starti = 172
     olRange = starti:3:(starti + 3*N)
     trajt = sol.t[olRange]
     δt = trajt[2] - trajt[1]
