@@ -32,15 +32,19 @@ trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
 
 # setup opt ---
 
-# @btime cu.Df(m, [0.1,0,0,0], [10.], params0)
-g0 = zeros(N*ny)
-# cu.g_LU(m, N)
+# cu.Jobj(m, traj0, params0)
+DJ = similar(traj0)
+@btime cu.∇Jobj!(DJ, m, traj0, params0)
+
+# # @btime cu.Df(m, [0.1,0,0,0], [10.], params0)
+# g0 = zeros(N*ny)
+# # cu.g_LU(m, N)
 # @btime cu.eval_g!(g0, m, traj0, params0)
-row = Int32[]
-col = Int32[]
-vals = Float64[]
+# row = Int32[]
+# col = Int32[]
+# vals = Float64[]
 # @btime cu.Dgsparse!(row, col, vals, m, traj0, params0, true)
-cu.nloptsetup(m, traj0, params0)
-# @btime Wing2DOF.eval_g!(traj0, params0, N, ly, lu, gout)
-# println(g0)
+# cu.nloptsetup(m, traj0, params0)
+# # @btime Wing2DOF.eval_g!(traj0, params0, N, ly, lu, gout)
+# # println(g0)
 

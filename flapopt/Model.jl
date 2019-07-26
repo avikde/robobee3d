@@ -1,5 +1,4 @@
 
-using LinearAlgebra, ForwardDiff
 
 """
 Implement these things
@@ -23,7 +22,7 @@ function limitsTimestep(m::Model)::Tuple{Float64, Float64}
 	return 0, Inf
 end
 
-function Jobj(m::Model, traj::Vector, params::Vector; vart::Bool=true)::Float64
+function Jobj(m::Model, traj::Vector, params::Vector; vart::Bool=true)
 	return 0
 end
 

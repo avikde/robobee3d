@@ -182,7 +182,7 @@ end
 # "Cost function components" ------------------
 
 "Objective to minimize"
-function cu.Jobj(m::Wing2DOFModel, traj::Vector, params::Vector; vart::Bool=true)::Float64
+function cu.Jobj(m::Wing2DOFModel, traj::Vector, params::Vector; vart::Bool=true)
 	N = cu.Nknot(m, traj; vart=vart)
     liy, liu = cu.linind(m, N)
     Favg = @SVector zeros(2)

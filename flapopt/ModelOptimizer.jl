@@ -1,8 +1,4 @@
 
-import Ipopt
-
-include("Model.jl")
-
 #===========================================================================
 Dynamics constraint
 ===========================================================================#
@@ -70,9 +66,9 @@ end
 Objective
 ===========================================================================#
 
-function DJobj!(DJ::Vector, traj::Vector)
-	# FIXME:
-	DJ = similar(traj)
+function ∇Jobj!(∇Jout, m::Model, traj::Vector, params::Vector; vart::Bool=true)
+	Jtraj(tt::Vector) = Jobj(m, tt, params; vart=vart)
+	ForwardDiff.gradient!(∇Jout, Jtraj, traj)
 end
 
 #===========================================================================
