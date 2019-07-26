@@ -125,7 +125,7 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 				offsB += 1
 				if mode == :Structure
 					row[offsB] = k*ny + i
-					col[offsB] = (N+1)*ny + k*nu + j
+					col[offsB] = (N+1)*ny + (k-1)*nu + j
 				else
 					value[offsB] = δt * df_du[i,j]
 				end
