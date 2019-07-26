@@ -16,6 +16,12 @@ Note that the actual constraints are:
 """
 function gvalues!(gout::Vector, m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt::Float64=1e-3, order::Int=1)
 	ny, nu = dims(m)
+	
+	#FIXME: only try init cond
+	gout[1:ny] = traj[1:ny]
+	return
+
+
 	N = Nknot(m, traj; vart=vart)
 	liy, liu = linind(m, N)
 	δt = vart ? traj[end] : fixedδt
@@ -34,74 +40,98 @@ function gvalues!(gout::Vector, m::Model, traj::Vector, params::Vector; vart::Bo
 end
 
 # "Bounds corresponding to the constraints above"
-function gbounds(m::Model, N::Int)::Tuple{Vector, Vector}
+function gbounds(m::Model, traj::Vector)::Tuple{Vector, Vector}
 	ny, nu = dims(m)
-    g_L = zeros((N+1)*ny)
-    g_U = similar(g_L)
-    # first N*ny = 0 (dynamics)
-    return g_L, g_U
+
+	#FIXME: only try init cond
+	return traj[1:ny], traj[1:ny]
+
+
+	# N = Nknot(m, traj; vart=vart)
+    # g_L = zeros((N+1)*ny)
+    # g_U = similar(g_L)
+    # # first N*ny = 0 (dynamics)
+    # return g_L, g_U
 end
 
 function Dgnnz(m::Model, N::Int; vart::Bool=true)::Int
 	ny, nu = dims(m)
-	# Assuming the Jacobians are dense. The terms below correspond to the "-I"s, the "I + δt A"'s, the "δt B"'s
-	return ny*(N+1) + ny^2*N + ny*nu*N
+	# FIXME:
+	return ny
+
+	# # Assuming the Jacobians are dense. The terms below correspond to the "-I"s, the "I + δt A"'s, the "δt B"'s
+	# return ny*(N+1) + ny^2*N + ny*nu*N
 end
 
 function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Model, traj::Vector, params::Vector, setVals::Bool; vart::Bool=true, fixedδt::Float64=1e-3, order::Int=1)
 	ny, nu = dims(m)
-	N = Nknot(m, traj; vart=vart)
-	liy, liu = linind(m, N)
-	δt = vart ? traj[end] : fixedδt
-	# Preallocate outputs
-	df_dy = zeros(ny, ny)
-	df_du = zeros(ny, nu)
 
-	# Fill in -I's
-	for ii = 1:ny*(N+1)
-		if setVals
-			value[ii] = -1
-		else
-			row[ii] = col[ii] = ii;
+	# FIXME: only try init cond
+	if setVals
+		for i = 1:ny
+			value[i] = 1
 		end
-	end
-	
-	# Offsets into the row[], col[], val[] arrays. These will be incremented and keep track of the index in the loops below.
-	offsA = ny*(N+1)
-	offsB = ny*(N+1) + ny^2*N
-
-	# Fill in Jacobians
-	for k = 1:N
-		# Get the jacobians at this y, u
-		Df!(df_dy, df_du, m, traj[@view liy[:,k]], traj[@view liu[:,k]], params)
-
-		# Insert A NOTE j outer loop for Julia's col-major storage and better loop unrolling
-		for j = 1:ny
-			for i = 1:ny
-				if setVals
-					value[offsA] = δt * df_dy[i,j] + (i == j ? 1 : 0)
-				else
-					row[offsA] = k*ny + i
-					col[offsA] = (k-1)*ny + j
-				end
-				offsA += 1
-			end
-		end
-
-		# Insert B
-		for j = 1:nu
-			for i = 1:ny
-				if setVals
-					value[offsB] = δt * df_du[i,j]
-				else
-					row[offsA] = k*ny + i
-					col[offsA] = (N+k)*ny + j
-				end
-				offsB += 1
-			end
+	else
+		for i = 1:ny
+			row[i] = col[i] = i
 		end
 	end
 	return
+
+
+
+	# N = Nknot(m, traj; vart=vart)
+	# liy, liu = linind(m, N)
+	# δt = vart ? traj[end] : fixedδt
+	# # Preallocate outputs
+	# df_dy = zeros(ny, ny)
+	# df_du = zeros(ny, nu)
+
+	# # Fill in -I's
+	# for ii = 1:ny*(N+1)
+	# 	if setVals
+	# 		value[ii] = -1
+	# 	else
+	# 		row[ii] = col[ii] = ii;
+	# 	end
+	# end
+	
+	# # Offsets into the row[], col[], val[] arrays. These will be incremented and keep track of the index in the loops below.
+	# offsA = ny*(N+1)
+	# offsB = ny*(N+1) + ny^2*N
+
+	# # Fill in Jacobians
+	# for k = 1:N
+	# 	# Get the jacobians at this y, u
+	# 	Df!(df_dy, df_du, m, traj[@view liy[:,k]], traj[@view liu[:,k]], params)
+
+	# 	# Insert A NOTE j outer loop for Julia's col-major storage and better loop unrolling
+	# 	for j = 1:ny
+	# 		for i = 1:ny
+	# 			if setVals
+	# 				value[offsA] = δt * df_dy[i,j] + (i == j ? 1 : 0)
+	# 			else
+	# 				row[offsA] = k*ny + i
+	# 				col[offsA] = (k-1)*ny + j
+	# 			end
+	# 			offsA += 1
+	# 		end
+	# 	end
+
+	# 	# Insert B
+	# 	for j = 1:nu
+	# 		for i = 1:ny
+	# 			if setVals
+	# 				value[offsB] = δt * df_du[i,j]
+	# 			else
+	# 				row[offsA] = k*ny + i
+	# 				col[offsA] = (N+k)*ny + j
+	# 			end
+	# 			offsB += 1
+	# 		end
+	# 	end
+	# end
+	# return
 end
 
 #=========================================================================
@@ -125,11 +155,11 @@ function nloptsetup(m::Model, traj::Vector, params::Vector; vart::Bool=true, fix
 
 	# Define the things needed for IPOPT
 	x_L, x_U = xbounds(m, N; vart=vart)
-	g_L, g_U = gbounds(m, N)
+	g_L, g_U = gbounds(m, traj)
 	eval_g(x::Vector, g::Vector) = gvalues!(g, m, x, params; vart=vart, fixedδt=fixedδt)
 	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgsparse!(rows, cols, values, m, x, params, mode == :Values; vart=vart, fixedδt=fixedδt)
 	eval_f(x::Vector{Float64}) = Jobj(m, x, params; vart=vart, fixedδt=fixedδt)
-	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ∇Jobj!(grad_f, x)
+	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ∇Jobj!(grad_f, m, x, params)
 
 	# Create IPOPT problem
 	prob = Ipopt.createProblem(
@@ -152,3 +182,4 @@ function nloptsetup(m::Model, traj::Vector, params::Vector; vart::Bool=true, fix
 	return prob
 end
 
+nloptsolve(prob) = Ipopt.solveProblem(prob)

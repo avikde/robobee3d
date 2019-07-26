@@ -3,6 +3,7 @@
 # push!(LOAD_PATH, pwd()) # Only needs to be run once
 
 using Plots, BenchmarkTools
+import Ipopt
 gr() # backend
 using Revise # while developing
 import controlutils
@@ -28,13 +29,13 @@ params0 = [2.0, 20.0] # cbar, T
 # println(Wing2DOF.aero(y0, u0, params0)[2])
 
 trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
-cu.plotTrajs(m, trajt, params0, traj0)
+# cu.plotTrajs(m, trajt, params0, traj0)
 
 # setup opt ---
 
 cu.Jobj(m, traj0, params0)
 # DJ = similar(traj0)
-# @btime cu.∇Jobj!(DJ, m, traj0, params0)
+# cu.∇Jobj!(DJ, m, traj0, params0)
 
 # # @btime cu.Df(m, [0.1,0,0,0], [10.], params0)
 # g0 = zeros(N*ny)
@@ -44,7 +45,8 @@ cu.Jobj(m, traj0, params0)
 # col = Int32[]
 # vals = Float64[]
 # @btime cu.Dgsparse!(row, col, vals, m, traj0, params0, true)
-# cu.nloptsetup(m, traj0, params0)
-# # @btime Wing2DOF.eval_g!(traj0, params0, N, ly, lu, gout)
-# # println(g0)
+prob = cu.nloptsetup(m, traj0, params0; fixedδt=0.3)
+
+status = cu.nloptsolve(prob)
+Ipopt.ApplicationReturnStatus[status]
 

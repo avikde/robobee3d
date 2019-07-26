@@ -188,20 +188,22 @@ end
 
 "Objective to minimize"
 function cu.Jobj(m::Wing2DOFModel, traj::Vector, params::Vector; vart::Bool=true, fixedδt::Float64=1e-3)::Number
-	N = cu.Nknot(m, traj; vart=vart)
-    liy, liu = cu.linind(m, N)
-	# δt = vart ? traj[end] : fixedδt
-    Favg = @SVector zeros(2)
-    for k = 1:N
-        vy = @view liy[:,k]
-        vu = @view liu[:,k]
-        paero, _, Faero = w2daero(traj[vy], traj[vu], params)
-        Favg += Faero
-    end
-    # Divide by the total time
-    Favg /= (N) # [mN]
-    # max avg lift
-	return -Favg[2]
+    return traj[end]
+    
+	# N = cu.Nknot(m, traj; vart=vart)
+    # liy, liu = cu.linind(m, N)
+	# # δt = vart ? traj[end] : fixedδt
+    # Favg = @SVector zeros(2)
+    # for k = 1:N
+    #     vy = @view liy[:,k]
+    #     vu = @view liu[:,k]
+    #     paero, _, Faero = w2daero(traj[vy], traj[vu], params)
+    #     Favg += Faero
+    # end
+    # # Divide by the total time
+    # Favg /= (N) # [mN]
+    # # max avg lift
+    # return -Favg[2]
 end
 
 
