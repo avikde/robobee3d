@@ -23,7 +23,7 @@ function limitsTimestep(m::Model)::Tuple{Float64, Float64}
 	return 0, Inf
 end
 
-function eval_f(m::Model, traj::Vector, params::Vector, N::Int)::Float64
+function Jobj(m::Model, traj::Vector, params::Vector; vart::Bool=true)::Float64
 	return 0
 end
 
