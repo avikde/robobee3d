@@ -81,8 +81,6 @@ cu.Dgsparse!(row, col, val, m, traj0, params0, :Structure)
 # # Ipopt.solveProblem(prob)
 
 
-
 prob = cu.nloptsetup(m, traj0, params0; fixedδt=0.3)
-status = cu.nloptsolve(prob)
-Ipopt.ApplicationReturnStatus[status]
-
+# status = cu.nloptsolve(prob)
+# Ipopt.ApplicationReturnStatus[status]
