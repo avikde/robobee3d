@@ -173,13 +173,13 @@ function cu.plotTrajs(m::Wing2DOFModel, t::Vector, params::Vector, args...; vart
 	Ny = (N+1)*ny
 	# stroke "angle" = T*y[1] / R
 	cbar, T = params
-	σt = plot(t, traj[@view liy[1,:]] * T / (R/2), marker=:auto, ylabel="stroke ang [r]", title="timestep=$(round(traj[end]; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
-	Ψt = plot(t, traj[@view liy[2,:]], marker=:auto, ylabel="hinge ang [r]")
-    ut = plot(t, [traj[@view liu[1,:]];NaN], marker=:auto, ylabel="stroke force [mN]")
+	σt = plot(t, traj[@view liy[1,:]] * T / (R/2), marker=:auto, ylabel="stroke ang [r]", legend=false, title="timestep=$(round(traj[end]; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
+	Ψt = plot(t, traj[@view liy[2,:]], marker=:auto, legend=false, ylabel="hinge ang [r]")
+    ut = plot(t, [traj[@view liu[1,:]];NaN], marker=:auto, legend=false, ylabel="stroke force [mN]")
     # Plot of aero forces at each instant
     Faerok = k -> w2daero(traj0[@view liy[:,k]], traj0[@view liu[:,k]], params0)[end]
     Faeros = hcat([Faerok(k) for k=1:N]...)
-	aerot = plot(t, [Faeros';[NaN NaN]], marker=:auto, ylabel="aero force [mN]")
+	aerot = plot(t, [Faeros';[NaN NaN]], marker=:auto, legend=false, ylabel="aero force [mN]")
 	plot(σt, Ψt, ut, aerot)
 	gui()
 end
