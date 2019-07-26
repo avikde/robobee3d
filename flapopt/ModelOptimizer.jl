@@ -2,7 +2,6 @@
 using Ipopt
 
 include("Model.jl")
-cu = controlutils
 # "Inequality and equality constraints"
 # function eval_g!(traj, params, N::Int, ly::LinearIndices, lu::Array{Int}, g)
 #     δt = traj[end]
@@ -24,11 +23,11 @@ cu = controlutils
 #     return g_L, g_U
 # end
 
-function optsetup(m::cu.Model, traj::Vector; vart::Bool=true)
-	ny, nu = cu.dims(m)
+function optsetup(m::Model, traj::Vector; vart::Bool=true)
+	ny, nu = dims(m)
 	# Construct constraints
-	N = cu.Nknot(m, traj; vart=vart)
-	x_L, x_U = cu.x_LU(m, N; vart=vart)
+	N = Nknot(m, traj; vart=vart)
+	x_L, x_U = x_LU(m, N; vart=vart)
 	# g_L, g_U = mdl.g_LU(N)
 
 	# prob = createProblem(
