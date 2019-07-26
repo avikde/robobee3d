@@ -37,16 +37,18 @@ cu.Jobj(m, traj0, params0)
 # DJ = similar(traj0)
 # cu.∇Jobj!(DJ, m, traj0, params0)
 
-# # @btime cu.Df(m, [0.1,0,0,0], [10.], params0)
-# g0 = zeros(N*ny)
-# # cu.g_LU(m, N)
-# @btime cu.eval_g!(g0, m, traj0, params0)
-# row = Int32[]
-# col = Int32[]
-# vals = Float64[]
-# @btime cu.Dgsparse!(row, col, vals, m, traj0, params0, true)
-prob = cu.nloptsetup(m, traj0, params0; fixedδt=0.3)
+# gL, gU = cu.gbounds(m, traj0)
+# g0 = similar(gL)
+# cu.gvalues!(g0, m, traj0, params0)
+# println(g0)
+# nnz = cu.Dgnnz(m, N) # 532
+# row = zeros(Int32, nnz)
+# col = similar(row)
+# val = zeros(nnz)
+# # cu.Dgsparse!(row, col, val, m, traj0, params0, true)
+# cu.Dgsparse!(row, col, val, m, traj0, params0, false)
 
+prob = cu.nloptsetup(m, traj0, params0; fixedδt=0.3)
 status = cu.nloptsolve(prob)
 Ipopt.ApplicationReturnStatus[status]
 
