@@ -4,9 +4,10 @@
 
 using Plots, BenchmarkTools
 gr() # backend
-include("Wing2DOF.jl")
+using Revise # while developing
 import controlutils
-# cu = controlutils
+cu = controlutils
+include("Wing2DOF.jl")
 
 # create an instance
 m = Wing2DOFModel()
@@ -31,8 +32,14 @@ cu.plotTrajs(m, trajt, params0, traj0)
 
 # setup opt ---
 
-@btime cu.Df(m, [0.1,0,0,0], [10.], params0)
-@btime cu.gdyn(m, [0.11,0.1,0,0], [0.1,0,0,0], [10.], params0, traj0[end])
+# @btime cu.Df(m, [0.1,0,0,0], [10.], params0)
+g = zeros(ny)
+dgdy = zeros(ny, ny)
+dgdu = zeros(ny, nu)
+dgdy2 = zeros(ny, ny)
+dgdt = zeros(ny)
+
+cu.gdyn!(g, dgdy2, dgdy, dgdu, dgdt, m, [0.11,0.1,0,0], [0.1,0,0,0], [10.], params0, traj0[end])
 # optsetup(m, traj0)
 # @btime Wing2DOF.eval_g!(traj0, params0, N, ly, lu, gout)
 # println(g0)

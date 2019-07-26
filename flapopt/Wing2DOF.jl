@@ -5,15 +5,7 @@ using Plots; gr()
 import controlutils
 cu = controlutils
 
-struct Wing2DOFModel <: controlutils.Model end
-
-function cu.dims(m::Wing2DOFModel)::Tuple{Int, Int}
-    return 4, 1
-end
-
-const R = 20
-
-#=
+"""
 2DOF wing model config:
 - q[1] = actuator displacement (in mm)
 - q[2] = hinge angle (in rad)
@@ -40,8 +32,16 @@ Params:
 NOTE:
 - The "T" above is unitless. You can intuitively think of a wing "stroke angle" ~= T q[1] / (R / 2) (using σ as the arc length and "R/2" as the radius). This is distinct from the Toutput (in rad/m), and they are related as T ~= Toutput ⋅ (R / 2).
 - Reasonable values: Toutput = 2666 rad/m in the current two-wing vehicle; 2150 rad/m in X-Wing; 3333 rad/m in Kevin Ma's older vehicles. With the R above, this suggests T ~= 20-30.
-=#
+"""
+struct Wing2DOFModel <: controlutils.Model end
 
+# Fixed params -----------------
+const R = 20
+
+
+function cu.dims(m::Wing2DOFModel)::Tuple{Int, Int}
+    return 4, 1
+end
 
 function cu.limits(m::Wing2DOFModel)::Tuple{Vector, Vector, Vector, Vector}
     # This is based on observing the OL trajectory. See note on units above.

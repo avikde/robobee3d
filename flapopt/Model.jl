@@ -87,17 +87,15 @@ function x_LU(m::Model, N::Int; vart::Bool=true)::Tuple{Vector, Vector}
 end
 
 "Dynamics constraint for time k"
-function gdyn(m::Model, ynext::Vector, y::Vector, u::Vector, params::Vector, δt::Float64; order::Int=1)::Tuple
+function gdyn!(g::Vector, dg_dynext::Matrix, dg_dy::Matrix, dg_du::Matrix, dg_dδt::Vector, m::Model, ynext::Vector, y::Vector, u::Vector, params::Vector, δt::Float64; order::Int=1)
 	ny, nu = dims(m)
 	fy = dydt(m, y, u, params)
-	g = -ynext + (y + δt * fy) # must be constrained to 0
+	g[:] = -ynext + (y + δt * fy) # must be constrained to 0
 	# Get jacobians wrt VF
 	df_dy, df_du = Df(m, y, u, params)
 
-	dg_dynext = -I
-	dg_dy = I + δt * df_dy
-	dg_du = δt * df_du
-	dg_dδt = fy
-
-	return g, dg_dynext, dg_dy, dg_du, dg_dδt
+	dg_dynext[:] = zeros(ny, ny)# - I
+	dg_dy[:] = δt * df_dy #+ I
+	dg_du[:] = δt * df_du
+	dg_dδt[:] = fy
 end

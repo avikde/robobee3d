@@ -23,6 +23,18 @@ include("Model.jl")
 #     return g_L, g_U
 # end
 
+# function g2(m::Model, traj::Vector, params::Vector, δt::Float64; vart=true, order::Int=1)::Tuple
+# 	ny, nu = dims(m)
+# 	N = Nknot(m, traj; vart=vart)
+# 	liy, liu = linind(m, N)
+
+# 	for k = 1:N
+# 		gdyn(m, )
+# 		# Have the matrices
+# 	end
+# end
+
+
 function optsetup(m::Model, traj::Vector; vart::Bool=true)
 	ny, nu = dims(m)
 	# Construct constraints
