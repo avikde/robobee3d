@@ -56,7 +56,7 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 	for k = 1:N
         vy = @view liy[:,k]
 		vu = @view liu[:,k]
-		df_dy[:], df_du[:] = Df(m, traj[vy], traj[vu], params)
+		Df!(df_dy, df_du, m, traj[vy], traj[vu], params)
 		# TODO:
 		if setVals
 

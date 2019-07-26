@@ -37,12 +37,11 @@ Functions that can be specialized optionally
 ===========================================================================#
 
 "Use autograd to find Jacobians; specialization can do something else"
-function Df(m::Model, y::Vector, u::Vector, params::Vector)::Tuple{Matrix, Matrix}
+function Df!(df_dy::Matrix, df_du::Matrix, m::Model, y::Vector, u::Vector, params::Vector)
 	fy(yy::Vector) = dydt(m, yy, u, params)
 	fu(uu::Vector) = dydt(m, y, uu, params)
-	Jac_fy = yy -> ForwardDiff.jacobian(fy, yy)
-	Jac_fu = uu -> ForwardDiff.jacobian(fu, uu)
-	return Jac_fy(y), Jac_fu(u)
+	ForwardDiff.jacobian!(df_dy, fy, y)
+	ForwardDiff.jacobian!(df_du, fu, u)
 end
 
 #===========================================================================
