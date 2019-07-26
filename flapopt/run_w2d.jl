@@ -39,7 +39,9 @@ dgdu = zeros(ny, nu)
 dgdy2 = zeros(ny, ny)
 dgdt = zeros(ny)
 
-cu.gdyn!(g, dgdy2, dgdy, dgdu, dgdt, m, [0.11,0.1,0,0], [0.1,0,0,0], [10.], params0, traj0[end])
+# @btime cu.gdyn!(g, dgdy2, dgdy, dgdu, dgdt, m, [0.11,0.1,0,0], [0.1,0,0,0], [10.], params0, traj0[end])
+
+@btime cu.gdyn!(g, dgdy, dgdu, m, [0.1,0,0,0], [10.], params0)
 # optsetup(m, traj0)
 # @btime Wing2DOF.eval_g!(traj0, params0, N, ly, lu, gout)
 # println(g0)
