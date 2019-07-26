@@ -40,7 +40,12 @@ function gbounds(m::Model, N::Int)::Tuple{Vector, Vector}
     return g_L, g_U
 end
 
-function Dgsparse!(row::Vector{Int}, col::Vector{Int}, value::Vector, m::Model, traj::Vector, params::Vector; vart::Bool=true, order::Int=1)
+function DgsparseNNZ(m::Model, N::Int)::Int
+	# TODO:
+	return 1
+end
+
+function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Model, traj::Vector, params::Vector, setVals::Bool; vart::Bool=true, order::Int=1)
 	ny, nu = dims(m)
 	N = Nknot(m, traj; vart=vart)
 	liy, liu = linind(m, N)
@@ -53,7 +58,21 @@ function Dgsparse!(row::Vector{Int}, col::Vector{Int}, value::Vector, m::Model, 
 		vu = @view liu[:,k]
 		df_dy[:], df_du[:] = Df(m, traj[vy], traj[vu], params)
 		# TODO:
+		if setVals
+
+		else
+
+		end
 	end
+end
+
+#===========================================================================
+Objective
+===========================================================================#
+
+function DJobj!(DJ::Vector, traj::Vector)
+	# FIXME:
+	DJ = similar(traj)
 end
 
 #===========================================================================
@@ -69,24 +88,27 @@ function nloptsetup(m::Model, traj::Vector, params::Vector; vart::Bool=true, fix
 	x_L, x_U = xbounds(m, N; vart=vart)
 	g_L, g_U = gbounds(m, N)
 	eval_g(x::Vector, g::Vector) = gvalues!(g, m, x, params; vart=vart, fixedδt=fixedδt)
+	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgsparse!(rows, cols, values, m, x, params, mode == :Values; vart=vart)
+	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = DJobj!(grad_f, x)
 
-	# prob = createProblem(
-	# 	length(traj), # Number of variables
-	# 	x_L, # Variable lower bounds
-	# 	x_U, # Variable upper bounds
-	# 	length(g_L), # Number of constraints
-	# 	g_L,       # Constraint lower bounds
-	# 	g_U,       # Constraint upper bounds
-	# 	nele_jac::Int,              # Number of non-zeros in Jacobian
-	# 	0,             # Number of non-zeros in Hessian
-	# 	eval_f,                     # Callback: objective function
-	# 	eval_g!,                     # Callback: constraint evaluation
-	# 	eval_grad_f,                # Callback: objective function gradient
-	# 	eval_jac_g,                 # Callback: Jacobian evaluation
-	# 	eval_h = nothing           # Callback: Hessian evaluation
-	# )
-	# addOption(prob, "hessian_approximation", "limited-memory")
+	# Create IPOPT problem
+	prob = createProblem(
+		length(traj), # Number of variables
+		x_L, # Variable lower bounds
+		x_U, # Variable upper bounds
+		length(g_L), # Number of constraints
+		g_L,       # Constraint lower bounds
+		g_U,       # Constraint upper bounds
+		DgsparseNNZ(m, N),  # Number of non-zeros in Jacobian
+		0,             # Number of non-zeros in Hessian
+		eval_f,                     # Callback: objective function
+		eval_g,                     # Callback: constraint evaluation
+		eval_grad_f,                # Callback: objective function gradient
+		eval_jac_g,                 # Callback: Jacobian evaluation
+		nothing           # Callback: Hessian evaluation
+	)
+	addOption(prob, "hessian_approximation", "limited-memory")
 
-	# return prob
+	return prob
 end
 
