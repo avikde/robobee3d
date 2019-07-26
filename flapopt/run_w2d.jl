@@ -37,16 +37,50 @@ cu.Jobj(m, traj0, params0)
 # DJ = similar(traj0)
 # cu.∇Jobj!(DJ, m, traj0, params0)
 
-# gL, gU = cu.gbounds(m, traj0)
-# g0 = similar(gL)
-# cu.gvalues!(g0, m, traj0, params0)
-# println(g0)
-# nnz = cu.Dgnnz(m, N) # 532
-# row = zeros(Int32, nnz)
-# col = similar(row)
-# val = zeros(nnz)
-# # cu.Dgsparse!(row, col, val, m, traj0, params0, true)
-# cu.Dgsparse!(row, col, val, m, traj0, params0, false)
+gL, gU = cu.gbounds(m, traj0)
+g0 = similar(gL)
+cu.gvalues!(g0, m, traj0, params0)
+nnz = cu.Dgnnz(m, N) # 532
+row = zeros(Int32, nnz)
+col = similar(row)
+val = zeros(nnz)
+# cu.Dgsparse!(row, col, val, m, traj0, params0, true)
+cu.Dgsparse!(row, col, val, m, traj0, params0, :Structure)
+
+# println(pointer_from_objref(row), pointer_from_objref(col), pointer_from_objref(val))
+# eval_jac_g(traj0, :Structure, row, col, val)
+# println(pointer_from_objref(row), pointer_from_objref(col), pointer_from_objref(val))
+
+
+
+# # Define the things needed for IPOPT
+# x_L, x_U = cu.xbounds(m, N)
+# g_L, g_U = cu.gbounds(m, traj0)
+# eval_g(x::Vector, g::Vector) = cu.gvalues!(g, m, x, params0)
+# eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = cu.Dgsparse!(rows, cols, values, m, x, params0, mode)
+# eval_f(x::Vector{Float64}) = cu.Jobj(m, x, params0)
+# eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = cu.∇Jobj!(grad_f, m, x, params0)
+
+# # Create IPOPT problem
+# prob = Ipopt.createProblem(
+# 	length(traj0), # Number of variables
+# 	x_L, # Variable lower bounds
+# 	x_U, # Variable upper bounds
+# 	length(g_L), # Number of constraints
+# 	g_L,       # Constraint lower bounds
+# 	g_U,       # Constraint upper bounds
+# 	cu.Dgnnz(m, N),  # Number of non-zeros in Jacobian
+# 	0,             # Number of non-zeros in Hessian
+# 	eval_f,                     # Callback: objective function
+# 	eval_g,                     # Callback: constraint evaluation
+# 	eval_grad_f,                # Callback: objective function gradient
+# 	eval_jac_g,                 # Callback: Jacobian evaluation
+# 	nothing           # Callback: Hessian evaluation
+# )
+# Ipopt.addOption(prob, "hessian_approximation", "limited-memory")
+# # Ipopt.solveProblem(prob)
+
+
 
 prob = cu.nloptsetup(m, traj0, params0; fixedδt=0.3)
 status = cu.nloptsolve(prob)

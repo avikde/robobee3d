@@ -80,11 +80,16 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 
 
 	N = Nknot(m, traj; vart=vart)
+	println("CALLED with $(mode) $(size(row)) $(size(col)) $(size(value)) $(ny) $(nu) $(N)")
 	liy, liu = linind(m, N)
-	δt = vart ? traj[end] : fixedδt
+
+	# FIXME: CRASH HERE unless hardcoded
+	δt = 0.3#vart ? traj[end] : fixedδt
 	# Preallocate outputs
 	df_dy = zeros(ny, ny)
 	df_du = zeros(ny, nu)
+	
+	println("HI 1")
 
 	# Fill in -I's
 	for ii = 1:ny*(N+1)
@@ -95,15 +100,22 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 			value[ii] = -1
 		end
 	end
+
+	println("HI 2")
 	
 	# Offsets into the row[], col[], val[] arrays. These will be incremented and keep track of the index in the loops below.
 	offsA = ny*(N+1)
 	offsB = ny*(N+1) + ny^2*N
+	
+	println("HI 3")
 
 	# Fill in Jacobians
 	for k = 1:N
 		# Get the jacobians at this y, u
+		# FIXME: CRASH HERE if the δt problem is bypassed
 		Df!(df_dy, df_du, m, traj[@view liy[:,k]], traj[@view liu[:,k]], params)
+	
+		println("HI 3.5")
 
 		# Insert A
 		# NOTE: j outer loop for Julia's col-major storage and better loop unrolling
@@ -118,6 +130,8 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 				end
 			end
 		end
+	
+		println("HI 4 $(k)")
 
 		# Insert B
 		for j = 1:nu
@@ -131,7 +145,11 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 				end
 			end
 		end
+		
+		println("HI 5 $(k)")
 	end
+	
+	println("HI 6")
 	return
 end
 
@@ -179,6 +197,9 @@ function nloptsetup(m::Model, traj::Vector, params::Vector; vart::Bool=true, fix
 		nothing           # Callback: Hessian evaluation
 	)
 	Ipopt.addOption(prob, "hessian_approximation", "limited-memory")
+
+	# TODO: this should be an update only without need to setup
+	prob.x = traj
 
 	return prob
 end
