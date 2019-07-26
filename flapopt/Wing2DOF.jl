@@ -1,13 +1,13 @@
 
-module controlutils
-
 using LinearAlgebra, StaticArrays, DifferentialEquations
-# using Plots; gr()
-include("Model.jl")
+using Plots; gr()
 
-struct Wing2DOFModel <: Model end
+import controlutils
+cu = controlutils
 
-function dims(m::Wing2DOFModel)::Tuple{Int, Int}
+struct Wing2DOFModel <: controlutils.Model end
+
+function cu.dims(m::Wing2DOFModel)::Tuple{Int, Int}
     return 4, 1
 end
 
@@ -43,7 +43,7 @@ NOTE:
 =#
 
 
-function limits(m::Wing2DOFModel)::Tuple{Vector, Vector, Vector, Vector}
+function cu.limits(m::Wing2DOFModel)::Tuple{Vector, Vector, Vector, Vector}
     # This is based on observing the OL trajectory. See note on units above.
     umax = @SVector [75] # [mN]
     umin = -umax
@@ -52,7 +52,7 @@ function limits(m::Wing2DOFModel)::Tuple{Vector, Vector, Vector, Vector}
     return umin, umax, xmin, xmax
 end
 
-function limitsTimestep(m::Model)::Tuple{Float64, Float64}
+function cu.limitsTimestep(m::Wing2DOFModel)::Tuple{Float64, Float64}
 	return 0.01, 10.0
 end
 
@@ -95,7 +95,7 @@ function w2daero(y::Vector, u::Vector, _params::Vector)
 end
 
 "Continuous dynamics second order model"
-function dydt(model::Wing2DOFModel, y::Vector, u::Vector, _params::Vector)::Vector
+function cu.dydt(model::Wing2DOFModel, y::Vector, u::Vector, _params::Vector)::Vector
     # unpack
     cbar, T = _params
     σ, Ψ, dσ, dΨ = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]
@@ -137,12 +137,12 @@ Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
 function createInitialTraj(m::Wing2DOFModel, N::Int, freq::Real, posGains::Vector, params0::Vector)
     # Create a traj
-    σmax = limits(m)[end][1]
+    σmax = cu.limits(m)[end][1]
     function strokePosController(y, t)
         σdes = 0.9 * σmax * sin(freq * 2 * π * t)
         return posGains[1] * (σdes - y[1]) - posGains[2] * y[3]
     end
-    strokePosControlVF(y, p, t) = dydt(m, y, [strokePosController(y, t)], params0)
+    strokePosControlVF(y, p, t) = cu.dydt(m, y, [strokePosController(y, t)], params0)
     # OL traj1
     teval = collect(0:1e-1:100) # [ms]
     prob = ODEProblem(strokePosControlVF, zeros(4), (teval[1], teval[end]))
@@ -164,11 +164,11 @@ function createInitialTraj(m::Wing2DOFModel, N::Int, freq::Real, posGains::Vecto
     return trajt .- trajt[1], traj0
 end
 
-function plotTrajs(m::Wing2DOFModel, t::Vector, params::Vector, args...; vart=true)
-	ny, nu = dims(m)
+function cu.plotTrajs(m::Wing2DOFModel, t::Vector, params::Vector, args...; vart=true)
+	ny, nu = cu.dims(m)
 	traj = args[1]
 
-	N = Nknot(m, traj; vart=vart)
+	N = cu.Nknot(m, traj; vart=vart)
 	Ny = (N+1)*ny
 	# stroke "angle" = T*y[1] / R
 	cbar, T = params
@@ -182,17 +182,17 @@ end
 # "Cost function components" ------------------
 
 "Objective to minimize"
-function eval_f(m::Wing2DOFModel, traj, params)
-    liy, liu = linind(m)
+function cu.eval_f(m::Wing2DOFModel, traj, params)
+    liy, liu = cu.linind(m)
     Favg = @SVector zeros(2)
     for k = 1:m.N
         vy = @view liy[:,k]
         vu = @view liu[:,k]
-        paero, _, Faero = aero(traj[vy], traj[vu], params)
+        paero, _, Faero = w2daero(traj[vy], traj[vu], params)
         Favg += Faero
     end
     # max avg lift
 	return -Favg[2]
 end
 
-end
+

@@ -1,6 +1,4 @@
 
-module controlutils
-
 using LinearAlgebra, ForwardDiff
 
 """
@@ -102,6 +100,4 @@ function gdyn(m::Model, ynext::Vector, y::Vector, u::Vector, params::Vector, δt
 	dg_dδt = fy
 
 	return g, dg_dynext, dg_dy, dg_du, dg_dδt
-end
-
 end

@@ -1,15 +1,15 @@
 
 # This is a "script" to test/run the functions from
+# push!(LOAD_PATH, pwd()) # Only needs to be run once
 
 using Plots, BenchmarkTools
 gr() # backend
 include("Wing2DOF.jl")
-include("ModelOptimizer.jl")
-
-cu = controlutils
+import controlutils
+# cu = controlutils
 
 # create an instance
-m = cu.Wing2DOFModel()
+m = Wing2DOFModel()
 ny, nu = cu.dims(m)
 N = 23
 liy, liu = cu.linind(m, N)
@@ -26,7 +26,7 @@ params0 = [2.0, 20.0] # cbar, T
 # # println()
 # println(Wing2DOF.aero(y0, u0, params0)[2])
 
-trajt, traj0 = cu.createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
+trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
 cu.plotTrajs(m, trajt, params0, traj0)
 
 # setup opt ---
