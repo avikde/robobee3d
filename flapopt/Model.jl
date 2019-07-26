@@ -74,7 +74,7 @@ function linind(m::Model, N::Int)
 end
 
 "Get upper/lower bound on the dirtran variable"
-function x_LU(m::Model, N::Int; vart::Bool=true)::Tuple{Vector, Vector}
+function xbounds(m::Model, N::Int; vart::Bool=true)::Tuple{Vector, Vector}
 	umin, umax, xmin, xmax = limits(m)
 	x_L = [repeat(xmin, N+1); repeat(umin, N)]
 	x_U = [repeat(xmax, N+1); repeat(umax, N)]
