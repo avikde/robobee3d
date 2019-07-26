@@ -63,7 +63,7 @@ function Dgnnz(m::Model, N::Int; vart::Bool=true)::Int
 	return ny*(N+1) + ny^2*N + ny*nu*N
 end
 
-function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Model, traj::Vector, params::Vector, setVals::Bool; vart::Bool=true, fixedδt::Float64=1e-3, order::Int=1)
+function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Model, traj::Vector, params::Vector, mode; vart::Bool=true, fixedδt::Float64=1e-3, order::Int=1)
 	ny, nu = dims(m)
 
 	# # FIXME: only try init cond
@@ -88,10 +88,11 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 
 	# Fill in -I's
 	for ii = 1:ny*(N+1)
-		if setVals
-			value[ii] = -1
+		if mode == :Structure
+			row[ii] = ii
+			col[ii] = ii
 		else
-			row[ii] = col[ii] = ii;
+			value[ii] = -1
 		end
 	end
 	
@@ -104,15 +105,16 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 		# Get the jacobians at this y, u
 		Df!(df_dy, df_du, m, traj[@view liy[:,k]], traj[@view liu[:,k]], params)
 
-		# Insert A NOTE j outer loop for Julia's col-major storage and better loop unrolling
+		# Insert A
+		# NOTE: j outer loop for Julia's col-major storage and better loop unrolling
 		for j = 1:ny
 			for i = 1:ny
 				offsA += 1 # needs to be up here due to 1-indexing!
-				if setVals
-					value[offsA] = δt * df_dy[i,j] + (i == j ? 1 : 0)
-				else
+				if mode == :Structure
 					row[offsA] = k*ny + i
 					col[offsA] = (k-1)*ny + j
+				else
+					value[offsA] = δt * df_dy[i,j] + (i == j ? 1 : 0)
 				end
 			end
 		end
@@ -121,11 +123,11 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 		for j = 1:nu
 			for i = 1:ny
 				offsB += 1
-				if setVals
-					value[offsB] = δt * df_du[i,j]
-				else
+				if mode == :Structure
 					row[offsB] = k*ny + i
 					col[offsB] = (N+1)*ny + k*nu + j
+				else
+					value[offsB] = δt * df_du[i,j]
 				end
 			end
 		end
@@ -156,7 +158,7 @@ function nloptsetup(m::Model, traj::Vector, params::Vector; vart::Bool=true, fix
 	x_L, x_U = xbounds(m, N; vart=vart)
 	g_L, g_U = gbounds(m, traj; vart=vart)
 	eval_g(x::Vector, g::Vector) = gvalues!(g, m, x, params; vart=vart, fixedδt=fixedδt)
-	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgsparse!(rows, cols, values, m, x, params, mode == :Values; vart=vart, fixedδt=fixedδt)
+	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgsparse!(rows, cols, values, m, x, params, mode; vart=vart, fixedδt=fixedδt)
 	eval_f(x::Vector{Float64}) = Jobj(m, x, params; vart=vart, fixedδt=fixedδt)
 	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ∇Jobj!(grad_f, m, x, params)
 
