@@ -32,10 +32,9 @@ trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
 
 # setup opt ---
 
-g = zeros((N+1)*ny)
-cu.gvalues!(g, m, traj0, params0)
-println(size(g), size(cu.gbounds(m, N)[1]))
-
+nnz = cu.Dgnnz(m, N)
+value = zeros(nnz)
+cu.Dgsparse!(Int32[], Int32[], value, m, traj0, params0, true)
 # # cu.Jobj(m, traj0, params0)
 # DJ = similar(traj0)
 # @btime cu.∇Jobj!(DJ, m, traj0, params0)
