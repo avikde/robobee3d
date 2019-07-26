@@ -32,9 +32,13 @@ trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
 
 # setup opt ---
 
-# cu.Jobj(m, traj0, params0)
-DJ = similar(traj0)
-@btime cu.∇Jobj!(DJ, m, traj0, params0)
+g = zeros((N+1)*ny)
+cu.gvalues!(g, m, traj0, params0)
+println(size(g), size(cu.gbounds(m, N)[1]))
+
+# # cu.Jobj(m, traj0, params0)
+# DJ = similar(traj0)
+# @btime cu.∇Jobj!(DJ, m, traj0, params0)
 
 # # @btime cu.Df(m, [0.1,0,0,0], [10.], params0)
 # g0 = zeros(N*ny)

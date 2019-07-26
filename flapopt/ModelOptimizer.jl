@@ -7,6 +7,7 @@ Dynamics constraint
 Dynamics constraint at state y, input u
 	
 Note that the actual constraints are:
+	g[1:ny] = y1 - y1(0) initial condition
 	g = -ynext + (y + δt * fy)
 	dg_dynext = -I
 	dg_dy = δt * df_dy + I
@@ -23,22 +24,28 @@ function gvalues!(gout::Vector, m::Model, traj::Vector, params::Vector; vart::Bo
         vy2 = @view liy[:,k+1]
         vy = @view liy[:,k]
 		vu = @view liu[:,k]
-		gout[vy] = traj[vy2] - (traj[vy] + δt * dydt(m, traj[vy], traj[vu], params))
+		gout[vy2] = traj[vy2] - (traj[vy] + δt * dydt(m, traj[vy], traj[vu], params))
 	end
+
+	# Initial condition
+	gout[liy[:,1]] = -traj[@view liy[:,1]]
+
+	return
 end
 
 # "Bounds corresponding to the constraints above"
 function gbounds(m::Model, N::Int)::Tuple{Vector, Vector}
 	ny, nu = dims(m)
-    g_L = zeros(N*ny)
+    g_L = zeros((N+1)*ny)
     g_U = similar(g_L)
     # first N*ny = 0 (dynamics)
     return g_L, g_U
 end
 
-function DgsparseNNZ(m::Model, N::Int)::Int
-	# TODO:
-	return 1
+function DgsparseNNZ(m::Model, N::Int; vart::Bool=true)::Int
+	ny, nu = dims(m)
+	N = Nknot(m, traj; vart=vart)
+	return ny*(N+1) + ny^2*N + ny*nu*N
 end
 
 function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Model, traj::Vector, params::Vector, setVals::Bool; vart::Bool=true, order::Int=1)
@@ -48,6 +55,9 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 	# Preallocate outputs
 	df_dy = zeros(ny, ny)
 	df_du = zeros(ny, nu)
+
+	# Fill in -I's
+	# for k = 1
 
 	for k = 1:N
         vy = @view liy[:,k]
@@ -60,13 +70,14 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 
 		end
 	end
+	return
 end
 
 #===========================================================================
 Objective
 ===========================================================================#
 
-function ∇Jobj!(∇Jout, m::Model, traj::Vector, params::Vector; vart::Bool=true)
+function ∇Jobj!(∇Jout, m::Model, traj::Vector, params::Vector; vart::Bool=true)::nothing
 	Jtraj(tt::Vector) = Jobj(m, tt, params; vart=vart)
 	ForwardDiff.gradient!(∇Jout, Jtraj, traj)
 end
@@ -85,7 +96,8 @@ function nloptsetup(m::Model, traj::Vector, params::Vector; vart::Bool=true, fix
 	g_L, g_U = gbounds(m, N)
 	eval_g(x::Vector, g::Vector) = gvalues!(g, m, x, params; vart=vart, fixedδt=fixedδt)
 	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgsparse!(rows, cols, values, m, x, params, mode == :Values; vart=vart)
-	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = DJobj!(grad_f, x)
+	eval_f(x::Vector{Float64}) = Jobj(m, x, params; vart=vart)
+	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ∇Jobj!(grad_f, x)
 
 	# Create IPOPT problem
 	prob = Ipopt.createProblem(
@@ -95,7 +107,7 @@ function nloptsetup(m::Model, traj::Vector, params::Vector; vart::Bool=true, fix
 		length(g_L), # Number of constraints
 		g_L,       # Constraint lower bounds
 		g_U,       # Constraint upper bounds
-		DgsparseNNZ(m, N),  # Number of non-zeros in Jacobian
+		DgsparseNNZ(m, N; vart=vart),  # Number of non-zeros in Jacobian
 		0,             # Number of non-zeros in Hessian
 		eval_f,                     # Callback: objective function
 		eval_g,                     # Callback: constraint evaluation
