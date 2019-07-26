@@ -1,5 +1,5 @@
 
-using Ipopt
+import Ipopt
 
 include("Model.jl")
 
@@ -92,7 +92,7 @@ function nloptsetup(m::Model, traj::Vector, params::Vector; vart::Bool=true, fix
 	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = DJobj!(grad_f, x)
 
 	# Create IPOPT problem
-	prob = createProblem(
+	prob = Ipopt.createProblem(
 		length(traj), # Number of variables
 		x_L, # Variable lower bounds
 		x_U, # Variable upper bounds
@@ -107,7 +107,7 @@ function nloptsetup(m::Model, traj::Vector, params::Vector; vart::Bool=true, fix
 		eval_jac_g,                 # Callback: Jacobian evaluation
 		nothing           # Callback: Hessian evaluation
 	)
-	addOption(prob, "hessian_approximation", "limited-memory")
+	Ipopt.addOption(prob, "hessian_approximation", "limited-memory")
 
 	return prob
 end
