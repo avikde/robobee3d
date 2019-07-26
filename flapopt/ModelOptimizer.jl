@@ -3,6 +3,20 @@ using Ipopt
 
 include("Model.jl")
 
+#===========================================================================
+Dynamics constraint
+===========================================================================#
+
+"""
+Dynamics constraint at state y, input u
+	
+Note that the actual constraints are:
+	g = -ynext + (y + δt * fy)
+	dg_dynext = -I
+	dg_dy = δt * df_dy + I
+	dg_du = δt * df_du
+	dg_dδt = fy
+"""
 function gvalues!(gout::Vector, m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt::Float64=1e-3, order::Int=1)
 	ny, nu = dims(m)
 	N = Nknot(m, traj; vart=vart)
@@ -26,26 +40,25 @@ function gbounds(m::Model, N::Int)::Tuple{Vector, Vector}
     return g_L, g_U
 end
 
-
-function eval_jac_g!(m::Model, traj::Vector, params::Vector; vart::Bool=true, order::Int=1)::Tuple
+function Dgsparse!(row::Vector{Int}, col::Vector{Int}, value::Vector, m::Model, traj::Vector, params::Vector; vart::Bool=true, order::Int=1)
 	ny, nu = dims(m)
 	N = Nknot(m, traj; vart=vart)
 	liy, liu = linind(m, N)
 	# Preallocate outputs
-	fy = zeros(ny)
-	# df_dy = zeros(ny, ny)
-	# df_du = zeros(ny, nu)
+	df_dy = zeros(ny, ny)
+	df_du = zeros(ny, nu)
 
 	for k = 1:N
-        vy2 = @view liy[:,k+1]
         vy = @view liy[:,k]
 		vu = @view liu[:,k]
-		g[vy] = traj[vy2] - (traj[vy] + δt * dydt(traj[vy], traj[vu], params))
-		# Get the matrices
-		cu.gdyn!(fy, df_dy, df_du, m, traj[vy], traj[vu], params0)
+		df_dy[:], df_du[:] = Df(m, traj[vy], traj[vu], params)
+		# TODO:
 	end
 end
 
+#===========================================================================
+Solver interface
+===========================================================================#
 
 function nloptsetup(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt::Float64=1e-3)
 	ny, nu = dims(m)

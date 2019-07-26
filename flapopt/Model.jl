@@ -85,24 +85,3 @@ function xbounds(m::Model, N::Int; vart::Bool=true)::Tuple{Vector, Vector}
 	end
 	return x_L, x_U
 end
-
-"""
-Dynamics information at state y, input u
-	
-Note that the actual constraints are:
-	g = -ynext + (y + δt * fy)
-	dg_dynext = -I
-	dg_dy = δt * df_dy + I
-	dg_du = δt * df_du
-	dg_dδt = fy
-
-Preallocate ouputs like this:
-	fy = zeros(ny)
-	df_dy = zeros(ny, ny)
-	df_du = zeros(ny, nu)
-"""
-function gdyn!(fy::Vector, df_dy::Matrix, df_du::Matrix, m::Model, y::Vector, u::Vector, params::Vector; order::Int=1)
-	fy[:] = dydt(m, y, u, params) # must be constrained to 0
-	# Get jacobians wrt VF
-	df_dy[:], df_du[:] = Df(m, y, u, params)
-end
