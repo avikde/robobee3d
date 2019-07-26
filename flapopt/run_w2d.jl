@@ -28,20 +28,14 @@ params0 = [2.0, 20.0] # cbar, T
 # println(Wing2DOF.aero(y0, u0, params0)[2])
 
 trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
-cu.plotTrajs(m, trajt, params0, traj0)
+# cu.plotTrajs(m, trajt, params0, traj0)
 
 # setup opt ---
 
 # @btime cu.Df(m, [0.1,0,0,0], [10.], params0)
-g = zeros(ny)
-dgdy = zeros(ny, ny)
-dgdu = zeros(ny, nu)
-dgdy2 = zeros(ny, ny)
-dgdt = zeros(ny)
-
-# @btime cu.gdyn!(g, dgdy2, dgdy, dgdu, dgdt, m, [0.11,0.1,0,0], [0.1,0,0,0], [10.], params0, traj0[end])
-
-@btime cu.gdyn!(g, dgdy, dgdu, m, [0.1,0,0,0], [10.], params0)
+g0 = zeros(N*ny)
+# cu.g_LU(m, N)
+@btime cu.eval_g!(g0, m, traj0, params0)
 # optsetup(m, traj0)
 # @btime Wing2DOF.eval_g!(traj0, params0, N, ly, lu, gout)
 # println(g0)
