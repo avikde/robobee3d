@@ -22,7 +22,7 @@ function limitsTimestep(m::Model)::Tuple{Float64, Float64}
 	return 0, Inf
 end
 
-function Jobj(m::Model, traj::Vector, params::Vector; vart::Bool=true)
+function Jobj(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt::Float64=1e-3)::Number
 	return 0
 end
 
@@ -31,9 +31,9 @@ function plotTrajs(m::Model, t::Vector, params::Vector, args...)
 	
 end
 
-#===========================================================================
+#=========================================================================
 Functions that can be specialized optionally
-===========================================================================#
+=========================================================================#
 
 "Use autograd to find Jacobians; specialization can do something else"
 function Df!(df_dy::Matrix, df_du::Matrix, m::Model, y::Vector, u::Vector, params::Vector)
@@ -44,9 +44,9 @@ function Df!(df_dy::Matrix, df_du::Matrix, m::Model, y::Vector, u::Vector, param
 	return
 end
 
-#===========================================================================
+#=========================================================================
 Functions valid for all instances without specialization
-===========================================================================#
+=========================================================================#
 
 # Direct transcription helpers
 # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}

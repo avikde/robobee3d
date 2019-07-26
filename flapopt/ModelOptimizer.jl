@@ -1,7 +1,7 @@
 
-#===========================================================================
+#=========================================================================
 Dynamics constraint
-===========================================================================#
+=========================================================================#
 
 """
 Dynamics constraint at state y, input u
@@ -104,18 +104,18 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 	return
 end
 
-#===========================================================================
+#=========================================================================
 Objective
-===========================================================================#
+=========================================================================#
 
 function ∇Jobj!(∇Jout, m::Model, traj::Vector, params::Vector; vart::Bool=true)::nothing
 	Jtraj(tt::Vector) = Jobj(m, tt, params; vart=vart)
 	ForwardDiff.gradient!(∇Jout, Jtraj, traj)
 end
 
-#===========================================================================
+#=========================================================================
 Solver interface
-===========================================================================#
+=========================================================================#
 
 function nloptsetup(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt::Float64=1e-3)
 	ny, nu = dims(m)
@@ -127,7 +127,7 @@ function nloptsetup(m::Model, traj::Vector, params::Vector; vart::Bool=true, fix
 	g_L, g_U = gbounds(m, N)
 	eval_g(x::Vector, g::Vector) = gvalues!(g, m, x, params; vart=vart, fixedδt=fixedδt)
 	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgsparse!(rows, cols, values, m, x, params, mode == :Values; vart=vart, fixedδt=fixedδt)
-	eval_f(x::Vector{Float64}) = Jobj(m, x, params; vart=vart)
+	eval_f(x::Vector{Float64}) = Jobj(m, x, params; vart=vart, fixedδt=fixedδt)
 	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ∇Jobj!(grad_f, x)
 
 	# Create IPOPT problem
