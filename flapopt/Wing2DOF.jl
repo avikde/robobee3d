@@ -66,7 +66,7 @@ function w2daero(y::Vector, u::Vector, _params::Vector)
     
     # unpack
     cbar, T = _params
-    σ, Ψ, dσ, dΨ = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]
+    σ, Ψ, σ̇, Ψ̇ = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]
     cΨ = cos(Ψ)
     sΨ = sin(Ψ)
 
@@ -89,7 +89,7 @@ function w2daero(y::Vector, u::Vector, _params::Vector)
     =#
     α = π/2 - Ψ # AoA
     Caero = @SVector [((CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2α)), CLmax * sin(2α)]
-    Faero = 1/2 * ρ * cbar * R * dσ^2 * Caero * sign(-dσ) # [mN]
+    Faero = 1/2 * ρ * cbar * R * σ̇^2 * Caero * sign(-σ̇) # [mN]
 
     return paero, Jaero, Faero
 end
@@ -98,7 +98,7 @@ end
 function cu.dydt(model::Wing2DOFModel, y::Vector, u::Vector, _params::Vector)::Vector
     # unpack
     cbar, T = _params
-    σ, Ψ, dσ, dΨ = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]
+    σ, Ψ, σ̇, Ψ̇ = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]
     # NOTE: for optimizing transmission ratio
     # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
     # u = (tau_actuator)
@@ -116,9 +116,9 @@ function cu.dydt(model::Wing2DOFModel, y::Vector, u::Vector, _params::Vector)::V
 
     # inertial terms
     M = @SMatrix [mspar+mwing   cbar*mwing*cΨ; cbar*mwing*cΨ   Iwing+cbar^2*mwing]
-    corgrav = @SVector [kσ*σ - cbar*mwing*sΨ*dΨ^2, kΨ*Ψ]
+    corgrav = @SVector [kσ*σ - cbar*mwing*sΨ*Ψ̇^2, kΨ*Ψ]
     # non-lagrangian terms
-    τdamp = @SVector [0, -bΨ * dΨ]
+    τdamp = @SVector [0, -bΨ * Ψ̇]
     _, Jaero, Faero = w2daero(y, u, _params)
     τaero = Jaero' * Faero # units of [mN, mN-mm]
     # input
