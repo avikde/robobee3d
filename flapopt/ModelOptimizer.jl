@@ -20,6 +20,7 @@ function gvalues!(gout::Vector, m::Model, traj::Vector, params::Vector; vart::Bo
 	# #FIXME: only try init cond
 	# gout[1:ny] = traj[1:ny]
 	# return
+	println("CALLED gvalues! with $(ny) $(nu) $(N) $(pointer_from_objref(traj))")
 
 
 	N = Nknot(m, traj; vart=vart)
@@ -46,8 +47,8 @@ function gbounds(m::Model, traj::Vector; vart::Bool=true)::Tuple{Vector, Vector}
 	# #FIXME: only try init cond
 	# return traj[1:ny], traj[1:ny]
 
-
 	N = Nknot(m, traj; vart=vart)
+	println("CALLED gbounds with $(ny) $(nu) $(N) $(pointer_from_objref(traj))")
 	g_L = [-traj[1:ny]; -Inf*ones(N*ny)]
     g_U = [-traj[1:ny]; Inf*ones(N*ny)]
     # first N*ny = 0 (dynamics)
@@ -58,6 +59,7 @@ function Dgnnz(m::Model, N::Int; vart::Bool=true)::Int
 	ny, nu = dims(m)
 	# FIXME:
 	# return ny
+	println("CALLED Dgnnz")
 
 	# Assuming the Jacobians are dense. The terms below correspond to the "-I"s, the "I + δt A"'s, the "δt B"'s
 	return ny*(N+1) + ny^2*N + ny*nu*N
@@ -81,7 +83,7 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 
 	N = Nknot(m, traj; vart=vart)
 	# FIXME: NOTE even including a print of traj[115] caused a crash here before this print
-	println("CALLED with $(mode) $(size(row)) $(size(col)) $(size(value)) $(ny) $(nu) $(N) $(pointer_from_objref(traj))")
+	println("CALLED Dgsparse! with $(mode) $(size(row)) $(size(col)) $(size(value)) $(ny) $(nu) $(N) $(pointer_from_objref(traj))")
 	liy, liu = linind(m, N)
 
 	# FIXME: CRASH HERE unless hardcoded
@@ -159,6 +161,7 @@ Objective
 =========================================================================#
 
 function ∇Jobj!(∇Jout, m::Model, traj::Vector, params::Vector; vart::Bool=true)
+	println("CALLED DJobj with $(pointer_from_objref(traj))")
 	Jtraj(tt::Vector) = Jobj(m, tt, params; vart=vart)
 	ForwardDiff.gradient!(∇Jout, Jtraj, traj)
 	return
