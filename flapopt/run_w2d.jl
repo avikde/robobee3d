@@ -55,13 +55,15 @@ println(pointer_from_objref(traj0))
 
 
 
-# # Define the things needed for IPOPT
-# x_L, x_U = cu.xbounds(m, N)
-# g_L, g_U = cu.gbounds(m, traj0)
-# eval_g(x::Vector, g::Vector) = cu.gvalues!(g, m, x, params0)
-# eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = cu.Dgsparse!(rows, cols, values, m, x, params0, mode)
-# eval_f(x::Vector{Float64}) = cu.Jobj(m, x, params0)
-# eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = cu.∇Jobj!(grad_f, m, x, params0)
+# Define the things needed for IPOPT
+x_L, x_U = cu.xbounds(m, N)
+g_L, g_U = cu.gbounds(m, traj0)
+eval_g(x::Vector, g::Vector) = cu.gvalues!(g, m, x, params0)
+eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = cu.Dgsparse!(rows, cols, values, m, x, params0, mode)
+eval_f(x::Vector{Float64}) = cu.Jobj(m, x, params0)
+eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = cu.∇Jobj!(grad_f, m, x, params0)
+
+eval_jac_g(traj0, :Structure, row, col, val)
 
 # # Create IPOPT problem
 # prob = Ipopt.createProblem(
@@ -79,10 +81,15 @@ println(pointer_from_objref(traj0))
 # 	eval_jac_g,                 # Callback: Jacobian evaluation
 # 	nothing           # Callback: Hessian evaluation
 # )
+# prob.x = traj0
+
 # Ipopt.addOption(prob, "hessian_approximation", "limited-memory")
+
+# println(pointer_from_objref(prob.x))
+
 # # Ipopt.solveProblem(prob)
 
 
-prob = cu.nloptsetup(m, traj0, params0; fixedδt=0.3)
+# prob = cu.nloptsetup(m, traj0, params0; fixedδt=0.3)
 # status = cu.nloptsolve(prob)
 # Ipopt.ApplicationReturnStatus[status]
