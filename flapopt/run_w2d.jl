@@ -47,6 +47,8 @@ val = zeros(nnz)
 # cu.Dgsparse!(row, col, val, m, traj0, params0, true)
 cu.Dgsparse!(row, col, val, m, traj0, params0, :Structure)
 
+println(pointer_from_objref(traj0))
+
 # println(pointer_from_objref(row), pointer_from_objref(col), pointer_from_objref(val))
 # eval_jac_g(traj0, :Structure, row, col, val)
 # println(pointer_from_objref(row), pointer_from_objref(col), pointer_from_objref(val))

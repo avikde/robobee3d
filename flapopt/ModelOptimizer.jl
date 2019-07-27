@@ -81,7 +81,7 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 
 	N = Nknot(m, traj; vart=vart)
 	# FIXME: NOTE even including a print of traj[115] caused a crash here before this print
-	println("CALLED with $(mode) $(size(row)) $(size(col)) $(size(value)) $(ny) $(nu) $(N)")
+	println("CALLED with $(mode) $(size(row)) $(size(col)) $(size(value)) $(ny) $(nu) $(N) $(pointer_from_objref(traj))")
 	liy, liu = linind(m, N)
 
 	# FIXME: CRASH HERE unless hardcoded
