@@ -190,9 +190,6 @@ end
 function cu.Jobj(m::Wing2DOFModel, traj::Vector, params::Vector; vart::Bool=true, fixedδt::Float64=1e-3)::Number
 	N = cu.Nknot(m, traj; vart=vart)
     liy, liu = cu.linind(m, N)
-
-	println("CALLED Jobj with $(ny) $(nu) $(N) $(pointer_from_objref(traj))")
-
 	# δt = vart ? traj[end] : fixedδt
     Favg = @SVector zeros(2)
     for k = 1:N
