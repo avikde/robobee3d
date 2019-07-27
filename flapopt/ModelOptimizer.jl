@@ -38,8 +38,8 @@ function gbounds(m::Model, traj::Vector; vart::Bool=true)::Tuple{Vector, Vector}
 	ny, nu = dims(m)
 	N = Nknot(m, traj; vart=vart)
 	println("CALLED gbounds with $(ny) $(nu) $(N) $(pointer_from_objref(traj))")
-	g_L = [-traj[1:ny]; -Inf*ones(N*ny)]
-    g_U = [-traj[1:ny]; Inf*ones(N*ny)]
+	g_L = [-traj[1:ny]; zeros(N*ny)]
+    g_U = [-traj[1:ny]; zeros(N*ny)]
     # first N*ny = 0 (dynamics)
     return g_L, g_U
 end
