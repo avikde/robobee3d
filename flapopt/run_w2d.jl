@@ -65,23 +65,25 @@ eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = cu.∇Jobj!(grad_f, m
 
 eval_jac_g(traj0, :Structure, row, col, val)
 
-# # Create IPOPT problem
-# prob = Ipopt.createProblem(
-# 	length(traj0), # Number of variables
-# 	x_L, # Variable lower bounds
-# 	x_U, # Variable upper bounds
-# 	length(g_L), # Number of constraints
-# 	g_L,       # Constraint lower bounds
-# 	g_U,       # Constraint upper bounds
-# 	cu.Dgnnz(m, N),  # Number of non-zeros in Jacobian
-# 	0,             # Number of non-zeros in Hessian
-# 	eval_f,                     # Callback: objective function
-# 	eval_g,                     # Callback: constraint evaluation
-# 	eval_grad_f,                # Callback: objective function gradient
-# 	eval_jac_g,                 # Callback: Jacobian evaluation
-# 	nothing           # Callback: Hessian evaluation
-# )
-# prob.x = traj0
+# Create IPOPT problem
+prob = Ipopt.createProblem(
+	length(traj0), # Number of variables
+	x_L, # Variable lower bounds
+	x_U, # Variable upper bounds
+	length(g_L), # Number of constraints
+	g_L,       # Constraint lower bounds
+	g_U,       # Constraint upper bounds
+	cu.Dgnnz(m, N),  # Number of non-zeros in Jacobian
+	0,             # Number of non-zeros in Hessian
+	eval_f,                     # Callback: objective function
+	eval_g,                     # Callback: constraint evaluation
+	eval_grad_f,                # Callback: objective function gradient
+	eval_jac_g,                 # Callback: Jacobian evaluation
+	nothing           # Callback: Hessian evaluation
+)
+prob.x = traj0
+
+eval_jac_g(prob.x, :Structure, row, col, val)
 
 # Ipopt.addOption(prob, "hessian_approximation", "limited-memory")
 
