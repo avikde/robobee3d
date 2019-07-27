@@ -6,7 +6,7 @@ sys.path.append('..')
 from scipy.integrate import solve_ivp
 from matplotlib import animation
 from matplotlib.collections import PatchCollection
-np.set_printoptions(precision=3, suppress=True, linewidth=200)
+np.set_printoptions(precision=4, suppress=False, linewidth=200)
 import osqp
 import wingopt
 
@@ -45,7 +45,6 @@ tvec = np.arange(0, tf, dt)
 y0 = np.array([1e-2, 0, 0, 0])
 # Sim of an openloop controller
 sol = solve_ivp(strokePosControlVF, [0,tf], y0, dense_output=True, t_eval=tvec)
-
 # Decimate the rate to get a starting traj for optimization with fewer knot points
 # At this point there is a "nominal trajectory" in sol.y
 yu0 = sol.y.copy()
@@ -123,6 +122,9 @@ params0 = wingopt.params
 # traj0 = np.hstack((traj0, wingopt.params))
 _, r = wingopt.Jcosttraj_penalty(traj0, wpo.N, params0)
 lambda0 = np.zeros_like(r)
+
+print(traj0.shape, traj0, r)
+sys.exit()
 
 optavglift = {'mu': 1e-1, 'timestep': (1e3, 1e-4, 1e-2)}
 optavgliftparams = {'mu':1e-1, 'dynamics': 1e3, 'method':wpo.NEWTON_METHOD}
