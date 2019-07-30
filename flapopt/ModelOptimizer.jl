@@ -134,6 +134,7 @@ function mysol(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt
 	N = Nknot(m, traj; vart=vart)
 	liy, liu = linind(m, N)
 	δt = vart ? traj[end] : fixedδt
+	μ = 1e-3
 
 	# Constraint bounds
 	x_L, x_U = xbounds(m, N; vart=vart)
@@ -151,7 +152,6 @@ function mysol(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt
 
 	# One step
 	gvalues!(g, m, traj, params; vart=vart, fixedδt=fixedδt)
-	μ = 1e-3
 	∇Jobj!(∇J, m, traj, params; vart=vart)
 	for k = 1:N
 		Df!(df_dy, df_du, m, traj[@view liy[:,k]], traj[@view liu[:,k]], params)
