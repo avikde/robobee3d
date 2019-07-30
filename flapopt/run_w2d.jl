@@ -17,7 +17,6 @@ N = 22
 params0 = [2.0, 20.0] # cbar, T
 
 trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
-# cu.plotTrajs(m, trajt, params0, traj0)
 
 # setup opt ---
 
@@ -40,4 +39,5 @@ cu.Jobj(m, traj0, params0)
 # status = cu.nloptsolve(prob)
 # Ipopt.ApplicationReturnStatus[status]
 
-cu.mysol(m, traj0, params0; fixedδt=0.3)
+traj1 = cu.mysol(m, traj0, params0; fixedδt=0.3)
+cu.plotTrajs(m, trajt, params0, traj0, traj1)

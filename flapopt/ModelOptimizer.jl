@@ -194,7 +194,7 @@ function _backtrackingLineSearch!(x1::Vector, J1::Float64, x0::Vector, ∇J0::Ve
 		σ = β * σ
 		x1 = x0 + σ * v
 		J1 = Jcallable(x1)
-		# # debug line search
+		# debug line search
 		println("J0", J0, "J1", J1, "σ", σ)
 	end
 end
