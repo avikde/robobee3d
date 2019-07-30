@@ -167,11 +167,36 @@ function mysol(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt
 	# This is an approx
 	# HJ = 
 
-	println(DgTg)
+	v = -∇J
+
+	traj1 = similar(traj)
+	J1 = 0.
+	function Jcallable(x::Vector)::Float64
+		gvalues!(g, m, x, params; vart=vart, fixedδt=fixedδt)
+		return Jobj(m, x, params; vart=vart, fixedδt=fixedδt) + μ/2 * g' * g
+	end
+
+	_backtrackingLineSearch!(traj1, J1, traj, ∇J, v, Jcallable)
+	return traj1
 end
 
-function backtrackingLineSearch(m::Model)
+function _backtrackingLineSearch!(x1::Vector, J1::Float64, x0::Vector, ∇J0::Vector, v::Vector, Jcallable)
+	# parameters
+	α = 1e-1
+	β = 0.9
 
+	J0 = Jcallable(x0)
+	σ = 1
+	x1 = x0 + σ * v
+	J1 = Jcallable(x1)
+	# search for s
+	while J1 > J0 + α * σ * ∇J0' * v && σ > 1e-6
+		σ = β * σ
+		x1 = x0 + σ * v
+		J1 = Jcallable(x1)
+		# # debug line search
+		println("J0", J0, "J1", J1, "σ", σ)
+	end
 end
 
 #=========================================================================
