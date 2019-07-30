@@ -37,7 +37,7 @@ end
 function gbounds(m::Model, traj::Vector; vart::Bool=true)::Tuple{Vector, Vector}
 	ny, nu = dims(m)
 	N = Nknot(m, traj; vart=vart)
-	println("CALLED gbounds with $(ny) $(nu) $(N) $(pointer_from_objref(traj))")
+	# println("CALLED gbounds with $(ny) $(nu) $(N) $(pointer_from_objref(traj))")
 	g_L = [-traj[1:ny]; zeros(N*ny)]
     g_U = [-traj[1:ny]; zeros(N*ny)]
     # first N*ny = 0 (dynamics)
@@ -123,6 +123,35 @@ function ∇Jobj!(∇Jout, m::Model, traj::Vector, params::Vector; vart::Bool=tr
 	Jtraj(tt::Vector) = Jobj(m, tt, params; vart=vart)
 	ForwardDiff.gradient!(∇Jout, Jtraj, traj)
 	return
+end
+
+#=========================================================================
+Custom solver
+=========================================================================#
+
+function mysol(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt::Float64=1e-3)
+	ny, nu = dims(m)
+	# Construct constraints
+	N = Nknot(m, traj; vart=vart)
+	# Constraint bounds
+	x_L, x_U = xbounds(m, N; vart=vart)
+	g_L, g_U = gbounds(m, traj; vart=vart)
+	# Preallocate outputs
+	g = similar(g_L)
+	Nx, Ng = length(traj), length(g)
+	df_dy = zeros(ny, ny)
+	df_du = zeros(ny, nu)
+	∇J = zeros(Nx)
+	HJ = zeros(Nx, Nx)
+	∇g = zeros(Ng, Nx)
+
+	# One step
+	gvalues!(g, m, traj, params; vart=vart, fixedδt=fixedδt)
+	print(g)
+end
+
+function backtrackingLineSearch(m::Model)
+
 end
 
 #=========================================================================

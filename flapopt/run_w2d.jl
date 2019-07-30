@@ -35,6 +35,9 @@ cu.Jobj(m, traj0, params0)
 # # cu.Dgsparse!(row, col, val, m, traj0, params0, true)
 # cu.Dgsparse!(row, col, val, m, traj0, params0, :Structure)
 
-prob = cu.nloptsetup(m, traj0, params0; fixedδt=0.3)
-status = cu.nloptsolve(prob)
-Ipopt.ApplicationReturnStatus[status]
+# IPOPT
+# prob = cu.nloptsetup(m, traj0, params0; fixedδt=0.3)
+# status = cu.nloptsolve(prob)
+# Ipopt.ApplicationReturnStatus[status]
+
+cu.mysol(m, traj0, params0; fixedδt=0.3)
