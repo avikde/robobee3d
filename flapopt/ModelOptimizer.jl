@@ -155,8 +155,11 @@ function mysol(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt
 	∇Jobj!(∇J, m, traj, params; vart=vart)
 	for k = 1:N
 		Df!(df_dy, df_du, m, traj[@view liy[:,k]], traj[@view liu[:,k]], params)
-		# [-g0 + A1^T g1, ..., -g(N-1) + AN^T gN, -gN]
-		DgTg[liy[:,k]] = -g[@view liy[:,k]] + df_dy' * g[@view liy[:,k+1]]
+		# Dg_y' * g = [-g0 + A1^T g1, ..., -g(N-1) + AN^T gN, -gN]
+		DgTg[liy[:,k]] = -g[@view liy[:,k]] + (I + δt * df_dy)' * g[@view liy[:,k+1]]
+		# Dg_u' * g = [B1^T g1, ..., BN^T gN]
+		DgTg[liu[:,k]] = (δt * df_du)' * g[@view liy[:,k+1]]
+		# Dg_δt' * g = 0
 	end
 	DgTg[liy[:,N+1]] = -g[@view liy[:,N+1]]
 	# Gradient
