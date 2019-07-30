@@ -131,23 +131,40 @@ Custom solver
 
 function mysol(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt::Float64=1e-3)
 	ny, nu = dims(m)
-	# Construct constraints
 	N = Nknot(m, traj; vart=vart)
+	liy, liu = linind(m, N)
+	δt = vart ? traj[end] : fixedδt
+
 	# Constraint bounds
 	x_L, x_U = xbounds(m, N; vart=vart)
 	g_L, g_U = gbounds(m, traj; vart=vart)
+
 	# Preallocate outputs
 	g = similar(g_L)
 	Nx, Ng = length(traj), length(g)
 	df_dy = zeros(ny, ny)
 	df_du = zeros(ny, nu)
 	∇J = zeros(Nx)
+	# TODO: sparse matrices for these spzeros
 	HJ = zeros(Nx, Nx)
-	∇g = zeros(Ng, Nx)
+	DgTg = zeros(Nx) # ∇g' * g
 
 	# One step
 	gvalues!(g, m, traj, params; vart=vart, fixedδt=fixedδt)
-	print(g)
+	μ = 1e-3
+	∇Jobj!(∇J, m, traj, params; vart=vart)
+	for k = 1:N
+		Df!(df_dy, df_du, m, traj[@view liy[:,k]], traj[@view liu[:,k]], params)
+		# [-g0 + A1^T g1, ..., -g(N-1) + AN^T gN, -gN]
+		DgTg[liy[:,k]] = -g[@view liy[:,k]] + df_dy' * g[@view liy[:,k+1]]
+	end
+	DgTg[liy[:,N+1]] = -g[@view liy[:,N+1]]
+	# Gradient
+	∇J .= ∇J + μ * DgTg
+	# This is an approx
+	# HJ = 
+
+	println(DgTg)
 end
 
 function backtrackingLineSearch(m::Model)
