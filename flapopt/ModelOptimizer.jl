@@ -185,17 +185,17 @@ function _backtrackingLineSearch!(x1::Vector, J1::Float64, x0::Vector, ∇J0::Ve
 	α = 1e-1
 	β = 0.9
 
-	J0 = Jcallable(x0)
 	σ = 1
-	x1 = x0 + σ * v
-	J1 = Jcallable(x1)
-	# search for s
-	while J1 > J0 + α * σ * ∇J0' * v && σ > 1e-6
+	J0 = Jcallable(x0)
+	toStop = false
+	# search for step size
+	while !toStop
 		σ = β * σ
-		x1 = x0 + σ * v
+		x1 .= x0 + σ * v
 		J1 = Jcallable(x1)
 		# debug line search
-		println("J0", J0, "J1", J1, "σ", σ)
+		println("J0=$(round(J0; sigdigits=4)), J1=$(round(J1; sigdigits=4)), σ=$(round(σ; sigdigits=6))")
+		toStop = J1 < J0 + α * σ * ∇J0' * v || σ < 1e-6
 	end
 end
 
