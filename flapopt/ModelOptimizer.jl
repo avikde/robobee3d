@@ -186,9 +186,10 @@ function mysol(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt
 
 	# Hessian of objective and add penalty term
 	ForwardDiff.hessian!(HJ, tt::Vector -> Jobj(m, tt, params; vart=vart), traj)
+	HJ .= 1/2 * (HJ' + HJ) #NEW: 
 	# TODO: better Dg' Dg computation that doesn't compute Dg
 	DgTDg = Dg' * Dg
-	HJ .= HJ + ρ * I + μ * DgTDg
+	HJ .= HJ + μ * DgTDg + ρ * I
 
 	# # Gradient descent
 	# v = -∇J
