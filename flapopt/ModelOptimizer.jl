@@ -143,14 +143,17 @@ function mysol(m::Model, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Ar
 	N = Nknot(m, traj0; vart=vart)
 	liy, liu = linind(m, N)
 	δt = vart ? traj0[end] : fixedδt
+	# This function allows us to concisely define the opt function below
+	_tup = _x::Vector -> (optWrt == WRT_TRAJ ? (_x, params0) : (traj0, _x))
+	x = (optWrt == WRT_TRAJ ? copy(traj0) : copy(params0))
 
 	# Constraint bounds
-	x_L, x_U = xbounds(m, N; vart=vart)
+	x_L, x_U = optWrt == WRT_TRAJ ? xbounds(m, N; vart=vart) : (fill(-Inf, size(params0)), fill(Inf, size(params0)))
 	g_L, g_U = gbounds(m, traj0; vart=vart)
 
 	# Preallocate outputs
 	g = similar(g_L)
-	Nx, Ng = length(traj0), length(g)
+	Ng, Nx = length(g), length(x)
 	df_dy = zeros(ny, ny)
 	df_du = zeros(ny, nu)
 	Ak = similar(df_dy)
@@ -162,14 +165,11 @@ function mysol(m::Model, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Ar
 	DgTg = zeros(Nx) # Dg' * g
 	# TODO: better Dg' Dg computation that doesn't compute Dg
 	Dg = zeros(Ng, Nx)
-	for ii = 1:(N+1)*ny
-		Dg[ii,ii] = -1
+	if optWrt == WRT_TRAJ
+		Dg[diagind(Dg)] .= -1
 	end
 	
 	# Take some number of steps
-	# This function allows us to concisely define the opt function below
-	_tup = _x::Vector -> (optWrt == WRT_TRAJ ? (_x, params0) : (traj0, _x))
-	x = (optWrt == WRT_TRAJ ? copy(traj0) : copy(params0))
 	# Preallocate output
 	x1 = similar(x)
 
