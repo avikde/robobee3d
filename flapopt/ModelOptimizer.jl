@@ -138,8 +138,7 @@ function mysol(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt
 	δt = vart ? traj[end] : fixedδt
 
 	# Parameters
-	μ = 1e-3 # penalty weight
-	ρ = 1e-5 # hessian regularization
+	μ = 1e-1 # penalty weight
 
 	# Constraint bounds
 	x_L, x_U = xbounds(m, N; vart=vart)
@@ -190,13 +189,12 @@ function mysol(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt
 
 	# TODO: better Dg' Dg computation that doesn't compute Dg
 	DgTDg = Dg' * Dg
-	HJ .= HJ + μ * DgTDg + ρ * I
-	println(isposdef(HJ))
+	HJ .= HJ + μ * DgTDg
 
 	# # Gradient descent
 	# v = -∇J
-	# Gauss Newton
-	v = HJ \ ∇J # FIXME: sign
+	# Newton or Gauss-Newton. Use PositiveFactorizations.jl to ensure psd Hessian
+	v = -(cholesky(Positive, HJ) \ ∇J)
 
 	traj1 = similar(traj)
 	J1 = 0.
@@ -212,7 +210,7 @@ end
 function _backtrackingLineSearch!(x1::Vector, J1::Float64, x0::Vector, ∇J0::Vector, v::Vector, Jcallable)
 	# parameters
 	α = 1e-1
-	β = 0.9
+	β = 0.7
 
 	σ = 1
 	J0 = Jcallable(x0)
