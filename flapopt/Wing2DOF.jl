@@ -164,7 +164,7 @@ function createInitialTraj(m::Wing2DOFModel, N::Int, freq::Real, posGains::Vecto
     return trajt .- trajt[1], traj0
 end
 
-function cu.plotTrajs(m::Wing2DOFModel, t::Vector, params::Vector, args...; vart=true)
+function plotTrajs(m::Wing2DOFModel, t::Vector, params::Vector, args...; vart=true)
 	ny, nu = cu.dims(m)
 	N = cu.Nknot(m, args[1]; vart=vart)
     liy, liu = cu.linind(m, N)

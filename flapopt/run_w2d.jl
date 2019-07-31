@@ -40,4 +40,4 @@ cu.Jobj(m, traj0, params0)
 # Ipopt.ApplicationReturnStatus[status]
 
 traj1 = @time cu.mysol(m, traj0, params0; fixedδt=0.3)
-cu.plotTrajs(m, trajt, params0, traj0, traj1)
+plotTrajs(m, trajt, params0, traj0, traj1)

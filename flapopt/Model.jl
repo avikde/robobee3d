@@ -26,11 +26,6 @@ function Jobj(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt:
 	return 0
 end
 
-"Plot a list of traj"
-function plotTrajs(m::Model, t::Vector, params::Vector, args...)
-	
-end
-
 #=========================================================================
 Functions that can be specialized optionally
 =========================================================================#
