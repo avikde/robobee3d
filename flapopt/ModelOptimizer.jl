@@ -135,7 +135,10 @@ function Ψ(x; ε::Float64=0.1)
 	end
 end
 
-function mysol(m::Model, traj0::Vector, params::Vector; μs::Array{Float64}=[1e-1], Ninner::Int=1, vart::Bool=true, fixedδt::Float64=1e-3)
+@enum OptVar WRT_TRAJ WRT_PARAMS
+
+"""Custom solver"""
+function mysol(m::Model, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Array{Float64}=[1e-1], Ninner::Int=1, vart::Bool=true, fixedδt::Float64=1e-3)
 	ny, nu = dims(m)
 	N = Nknot(m, traj0; vart=vart)
 	liy, liu = linind(m, N)
@@ -164,25 +167,29 @@ function mysol(m::Model, traj0::Vector, params::Vector; μs::Array{Float64}=[1e-
 	end
 	
 	# Take some number of steps
-	traj = copy(traj0)
-	traj1 = similar(traj)
+	# This function allows us to concisely define the opt function below
+	_tup = _x::Vector -> (optWrt == WRT_TRAJ ? (_x, params0) : (traj0, _x))
+	x = (optWrt == WRT_TRAJ ? copy(traj0) : copy(params0))
+	# Preallocate output
+	x1 = similar(x)
+
 	for μ in μs
 		for stepi = 1:Ninner
 			# One step
 			println("μ=$(μ), step=$(stepi)")
-			gvalues!(g, m, traj, params; vart=vart, fixedδt=fixedδt)
+			gvalues!(g, m, _tup(x)...; vart=vart, fixedδt=fixedδt)
 
 			# Non-quadratic cost
-			Jnq = x::Vector -> Jobj(m, x, params; vart=vart, fixedδt=fixedδt) + μ/2 * sum(Ψ.(x - x_U) + Ψ.(x_L - x))
+			Jnq = _x::Vector -> Jobj(m, _tup(_x)...; vart=vart, fixedδt=fixedδt) + μ/2 * sum(Ψ.(_x - x_U) + Ψ.(x_L - _x))
 			# Cost function for this step
-			function Jx(x::Vector)::Float64
-				gvalues!(g, m, x, params; vart=vart, fixedδt=fixedδt)
-				return Jnq(x) + μ/2 * g' * g
+			function Jx(_x::Vector)::Float64
+				gvalues!(g, m, _tup(_x)...; vart=vart, fixedδt=fixedδt)
+				return Jnq(_x) + μ/2 * g' * g
 			end
 
 			# Compute Jacobian and Hessian
 			for k = 1:N
-				Df!(df_dy, df_du, m, traj[@view liy[:,k]], traj[@view liu[:,k]], params)
+				Df!(df_dy, df_du, m, _tup(x)[1][@view liy[:,k]], _tup(x)[1][@view liu[:,k]], _tup(x)[2])
 				# Dg_y' * g = [-g0 + A1^T g1, ..., -g(N-1) + AN^T gN, -gN]
 				Ak .= I + δt * df_dy
 				DgTg[liy[:,k]] .= -g[@view liy[:,k]] + Ak' * g[@view liy[:,k+1]]
@@ -197,8 +204,8 @@ function mysol(m::Model, traj0::Vector, params::Vector; μs::Array{Float64}=[1e-
 			end
 			DgTg[liy[:,N+1]] .= -g[@view liy[:,N+1]]
 			# Calculate cost gradient from objective and an added penalty term
-			ForwardDiff.gradient!(∇J, Jnq, traj)
-			ForwardDiff.hessian!(HJ, Jnq, traj)
+			ForwardDiff.gradient!(∇J, Jnq, x)
+			ForwardDiff.hessian!(HJ, Jnq, x)
 
 			# Gradient: add penalty
 			∇J .= ∇J + μ * DgTg
@@ -213,11 +220,11 @@ function mysol(m::Model, traj0::Vector, params::Vector; μs::Array{Float64}=[1e-
 			# Newton or Gauss-Newton. Use PositiveFactorizations.jl to ensure psd Hessian
 			v = -(cholesky(Positive, HJ) \ ∇J)
 
-			_backtrackingLineSearch!(traj1, traj, ∇J, v, Jx; α=0.2, β=0.7)
-			traj .= traj1
+			_backtrackingLineSearch!(x1, x, ∇J, v, Jx; α=0.2, β=0.7)
+			x .= x1
 		end
 	end
-	return traj
+	return x
 end
 
 function _backtrackingLineSearch!(x1::Vector, x0::Vector, ∇J0::Vector, v::Vector, Jcallable; α::Float64=0.45, β::Float64=0.9)
