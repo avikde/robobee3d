@@ -172,11 +172,12 @@ function mysol(m::Model, traj0::Vector, params::Vector; μs::Array{Float64}=[1e-
 			println("μ=$(μ), step=$(stepi)")
 			gvalues!(g, m, traj, params; vart=vart, fixedδt=fixedδt)
 
-			Jobjx = tt::Vector -> Jobj(m, tt, params; vart=vart, fixedδt=fixedδt)
+			# Non-quadratic cost
+			Jnq = x::Vector -> Jobj(m, x, params; vart=vart, fixedδt=fixedδt) + μ/2 * sum(Ψ.(x - x_U) + Ψ.(x_L - x))
 			# Cost function for this step
 			function Jx(x::Vector)::Float64
 				gvalues!(g, m, x, params; vart=vart, fixedδt=fixedδt)
-				return Jobjx(x) + μ/2 * g' * g
+				return Jnq(x) + μ/2 * g' * g
 			end
 
 			# Compute Jacobian and Hessian
@@ -196,8 +197,8 @@ function mysol(m::Model, traj0::Vector, params::Vector; μs::Array{Float64}=[1e-
 			end
 			DgTg[liy[:,N+1]] .= -g[@view liy[:,N+1]]
 			# Calculate cost gradient from objective and an added penalty term
-			ForwardDiff.gradient!(∇J, Jobjx, traj)
-			ForwardDiff.hessian!(HJ, Jobjx, traj)
+			ForwardDiff.gradient!(∇J, Jnq, traj)
+			ForwardDiff.hessian!(HJ, Jnq, traj)
 
 			# Gradient: add penalty
 			∇J .= ∇J + μ * DgTg
