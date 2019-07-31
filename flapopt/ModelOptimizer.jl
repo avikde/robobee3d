@@ -131,14 +131,11 @@ end
 Custom solver
 =========================================================================#
 
-function mysol(m::Model, traj0::Vector, params::Vector; vart::Bool=true, fixedδt::Float64=1e-3)
+function mysol(m::Model, traj0::Vector, params::Vector; μs::Array{Float64}=[1e-1], Ninner::Int=1, vart::Bool=true, fixedδt::Float64=1e-3)
 	ny, nu = dims(m)
 	N = Nknot(m, traj0; vart=vart)
 	liy, liu = linind(m, N)
 	δt = vart ? traj0[end] : fixedδt
-
-	# Parameters
-	μ = 1e-1 # penalty weight
 
 	# Constraint bounds
 	x_L, x_U = xbounds(m, N; vart=vart)
@@ -165,57 +162,56 @@ function mysol(m::Model, traj0::Vector, params::Vector; vart::Bool=true, fixedδ
 	# Take some number of steps
 	traj = copy(traj0)
 	traj1 = similar(traj)
-	for iteri = 1:2
-		# One step
-		gvalues!(g, m, traj, params; vart=vart, fixedδt=fixedδt)
-		for k = 1:N
-			Df!(df_dy, df_du, m, traj[@view liy[:,k]], traj[@view liu[:,k]], params)
-			# Dg_y' * g = [-g0 + A1^T g1, ..., -g(N-1) + AN^T gN, -gN]
-			Ak .= I + δt * df_dy
-			DgTg[liy[:,k]] .= -g[@view liy[:,k]] + Ak' * g[@view liy[:,k+1]]
-			# Dg_u' * g = [B1^T g1, ..., BN^T gN]
-			Bk .= δt * df_du
-			DgTg[liu[:,k]] .= Bk' * g[@view liy[:,k+1]]
-			# Dg_δt' * g = 0
+	for μ in μs
+		for stepi = 1:Ninner
+			println("μ=$(μ), step=$(stepi)")
+			# One step
+			gvalues!(g, m, traj, params; vart=vart, fixedδt=fixedδt)
+			for k = 1:N
+				Df!(df_dy, df_du, m, traj[@view liy[:,k]], traj[@view liu[:,k]], params)
+				# Dg_y' * g = [-g0 + A1^T g1, ..., -g(N-1) + AN^T gN, -gN]
+				Ak .= I + δt * df_dy
+				DgTg[liy[:,k]] .= -g[@view liy[:,k]] + Ak' * g[@view liy[:,k+1]]
+				# Dg_u' * g = [B1^T g1, ..., BN^T gN]
+				Bk .= δt * df_du
+				DgTg[liu[:,k]] .= Bk' * g[@view liy[:,k+1]]
+				# Dg_δt' * g = 0
+
+				# TODO: better Dg' Dg computation that doesn't compute Dg
+				Dg[liy[:,k+1], liy[:,k]] .= Ak
+				Dg[liy[:,k+1], liu[:,k]] .= Bk
+			end
+			DgTg[liy[:,N+1]] .= -g[@view liy[:,N+1]]
+			# Calculate cost gradient from objective and an added penalty term
+			∇Jobj!(∇J, m, traj, params; vart=vart)
+			∇J .= ∇J + μ * DgTg
+
+			# Hessian of objective and add penalty term
+			ForwardDiff.hessian!(HJ, tt::Vector -> Jobj(m, tt, params; vart=vart), traj)
+			HJ .= 1/2 * (HJ' + HJ) # take the symmetric part
 
 			# TODO: better Dg' Dg computation that doesn't compute Dg
-			Dg[liy[:,k+1], liy[:,k]] .= Ak
-			Dg[liy[:,k+1], liu[:,k]] .= Bk
+			DgTDg = Dg' * Dg
+			HJ .= HJ + μ * DgTDg
+
+			# # Gradient descent
+			# v = -∇J
+			# Newton or Gauss-Newton. Use PositiveFactorizations.jl to ensure psd Hessian
+			v = -(cholesky(Positive, HJ) \ ∇J)
+
+			function Jcallable(x::Vector)::Float64
+				gvalues!(g, m, x, params; vart=vart, fixedδt=fixedδt)
+				return Jobj(m, x, params; vart=vart, fixedδt=fixedδt) + μ/2 * g' * g
+			end
+
+			_backtrackingLineSearch!(traj1, traj, ∇J, v, Jcallable; α=0.2, β=0.7)
+			traj .= traj1
 		end
-		DgTg[liy[:,N+1]] .= -g[@view liy[:,N+1]]
-		# Calculate cost gradient from objective and an added penalty term
-		∇Jobj!(∇J, m, traj, params; vart=vart)
-		∇J .= ∇J + μ * DgTg
-
-		# Hessian of objective and add penalty term
-		ForwardDiff.hessian!(HJ, tt::Vector -> Jobj(m, tt, params; vart=vart), traj)
-		HJ .= 1/2 * (HJ' + HJ) # take the symmetric part
-
-		# TODO: better Dg' Dg computation that doesn't compute Dg
-		DgTDg = Dg' * Dg
-		HJ .= HJ + μ * DgTDg
-
-		# # Gradient descent
-		# v = -∇J
-		# Newton or Gauss-Newton. Use PositiveFactorizations.jl to ensure psd Hessian
-		v = -(cholesky(Positive, HJ) \ ∇J)
-
-		function Jcallable(x::Vector)::Float64
-			gvalues!(g, m, x, params; vart=vart, fixedδt=fixedδt)
-			return Jobj(m, x, params; vart=vart, fixedδt=fixedδt) + μ/2 * g' * g
-		end
-
-		_backtrackingLineSearch!(traj1, traj, ∇J, v, Jcallable)
-		traj .= traj1
 	end
 	return traj
 end
 
-function _backtrackingLineSearch!(x1::Vector, x0::Vector, ∇J0::Vector, v::Vector, Jcallable)
-	# parameters
-	α = 0.45
-	β = 0.7
-
+function _backtrackingLineSearch!(x1::Vector, x0::Vector, ∇J0::Vector, v::Vector, Jcallable; α::Float64=0.45, β::Float64=0.9)
 	σ = 1
 	J0 = Jcallable(x0)
 	# search for step size

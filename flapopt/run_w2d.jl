@@ -39,5 +39,5 @@ cu.Jobj(m, traj0, params0)
 # status = cu.nloptsolve(prob)
 # Ipopt.ApplicationReturnStatus[status]
 
-traj1 = @time cu.mysol(m, traj0, params0; fixedδt=0.3)
+traj1 = @time cu.mysol(m, traj0, params0; Ninner=2, μs=[1e-1, 3e-1])
 plotTrajs(m, trajt, params0, traj0, traj1)
