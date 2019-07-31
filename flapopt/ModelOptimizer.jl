@@ -117,19 +117,23 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 end
 
 #=========================================================================
-Objective
-=========================================================================#
-
-function ∇Jobj!(∇Jout::Vector, m::Model, traj::Vector, params::Vector; vart::Bool=true)
-	# println("CALLED DJobj with $(pointer_from_objref(traj))")
-	Jtraj(tt::Vector) = Jobj(m, tt, params; vart=vart)
-	ForwardDiff.gradient!(∇Jout, Jtraj, traj)
-	return
-end
-
-#=========================================================================
 Custom solver
 =========================================================================#
+
+
+"""Indicator function to use inequality constraints in a penalty method.
+Following Geilinger et al (2018) skaterbots. Ref Bern et al (2017).
+
+A scalar inequality f(x) <= b should be modeled as Ψ(f(x) - b) and added to the cost."""
+function Ψ(x; ε::Float64=0.1)
+    if x <= -ε
+        return 0
+	elseif x > -ε && x < ε
+        return x^3/(6ε) + x^2/2 + ε*x/2 + ε^2/6
+    else
+		return x^2 + ε^2/3
+	end
+end
 
 function mysol(m::Model, traj0::Vector, params::Vector; μs::Array{Float64}=[1e-1], Ninner::Int=1, vart::Bool=true, fixedδt::Float64=1e-3)
 	ny, nu = dims(m)
@@ -164,9 +168,18 @@ function mysol(m::Model, traj0::Vector, params::Vector; μs::Array{Float64}=[1e-
 	traj1 = similar(traj)
 	for μ in μs
 		for stepi = 1:Ninner
-			println("μ=$(μ), step=$(stepi)")
 			# One step
+			println("μ=$(μ), step=$(stepi)")
 			gvalues!(g, m, traj, params; vart=vart, fixedδt=fixedδt)
+
+			Jobjx = tt::Vector -> Jobj(m, tt, params; vart=vart, fixedδt=fixedδt)
+			# Cost function for this step
+			function Jx(x::Vector)::Float64
+				gvalues!(g, m, x, params; vart=vart, fixedδt=fixedδt)
+				return Jobjx(x) + μ/2 * g' * g
+			end
+
+			# Compute Jacobian and Hessian
 			for k = 1:N
 				Df!(df_dy, df_du, m, traj[@view liy[:,k]], traj[@view liu[:,k]], params)
 				# Dg_y' * g = [-g0 + A1^T g1, ..., -g(N-1) + AN^T gN, -gN]
@@ -183,28 +196,23 @@ function mysol(m::Model, traj0::Vector, params::Vector; μs::Array{Float64}=[1e-
 			end
 			DgTg[liy[:,N+1]] .= -g[@view liy[:,N+1]]
 			# Calculate cost gradient from objective and an added penalty term
-			∇Jobj!(∇J, m, traj, params; vart=vart)
+			ForwardDiff.gradient!(∇J, Jobjx, traj)
+			ForwardDiff.hessian!(HJ, Jobjx, traj)
+
+			# Gradient: add penalty
 			∇J .= ∇J + μ * DgTg
 
 			# Hessian of objective and add penalty term
-			ForwardDiff.hessian!(HJ, tt::Vector -> Jobj(m, tt, params; vart=vart), traj)
 			HJ .= 1/2 * (HJ' + HJ) # take the symmetric part
-
 			# TODO: better Dg' Dg computation that doesn't compute Dg
-			DgTDg = Dg' * Dg
-			HJ .= HJ + μ * DgTDg
+			HJ .= HJ + μ * Dg' * Dg
 
 			# # Gradient descent
 			# v = -∇J
 			# Newton or Gauss-Newton. Use PositiveFactorizations.jl to ensure psd Hessian
 			v = -(cholesky(Positive, HJ) \ ∇J)
 
-			function Jcallable(x::Vector)::Float64
-				gvalues!(g, m, x, params; vart=vart, fixedδt=fixedδt)
-				return Jobj(m, x, params; vart=vart, fixedδt=fixedδt) + μ/2 * g' * g
-			end
-
-			_backtrackingLineSearch!(traj1, traj, ∇J, v, Jcallable; α=0.2, β=0.7)
+			_backtrackingLineSearch!(traj1, traj, ∇J, v, Jx; α=0.2, β=0.7)
 			traj .= traj1
 		end
 	end
@@ -243,7 +251,8 @@ function nloptsetup(m::Model, traj::Vector, params::Vector; vart::Bool=true, fix
 	eval_g(x::Vector, g::Vector) = gvalues!(g, m, x, params; vart=vart, fixedδt=fixedδt)
 	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgsparse!(rows, cols, values, m, x, params, mode; vart=vart, fixedδt=fixedδt)
 	eval_f(x::Vector{Float64}) = Jobj(m, x, params; vart=vart, fixedδt=fixedδt)
-	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ∇Jobj!(grad_f, m, x, params)
+	Jobjx = tt::Vector -> Jobj(m, tt, params; vart=vart, fixedδt=fixedδt)
+	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, Jobjx, x)
 
 	# Create IPOPT problem
 	prob = Ipopt.createProblem(
