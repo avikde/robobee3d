@@ -1,4 +1,6 @@
 
+include("Model.jl") #< including this helps vscode reference the functions in there
+
 #=========================================================================
 Dynamics constraint
 =========================================================================#
@@ -172,7 +174,7 @@ function mysol(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt
 	traj1 = similar(traj)
 	J1 = 0.
 	function Jcallable(x::Vector)::Float64
-		gvalues!(g, m, x, params; vart=vart, fixedδt=fixedδt)
+		@time gvalues!(g, m, x, params; vart=vart, fixedδt=fixedδt)
 		return Jobj(m, x, params; vart=vart, fixedδt=fixedδt) + μ/2 * g' * g
 	end
 
