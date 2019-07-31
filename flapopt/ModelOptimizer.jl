@@ -120,7 +120,7 @@ end
 Objective
 =========================================================================#
 
-function ∇Jobj!(∇Jout, m::Model, traj::Vector, params::Vector; vart::Bool=true)
+function ∇Jobj!(∇Jout::Vector, m::Model, traj::Vector, params::Vector; vart::Bool=true)
 	# println("CALLED DJobj with $(pointer_from_objref(traj))")
 	Jtraj(tt::Vector) = Jobj(m, tt, params; vart=vart)
 	ForwardDiff.gradient!(∇Jout, Jtraj, traj)
@@ -136,7 +136,10 @@ function mysol(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt
 	N = Nknot(m, traj; vart=vart)
 	liy, liu = linind(m, N)
 	δt = vart ? traj[end] : fixedδt
-	μ = 1e-3
+
+	# Parameters
+	μ = 1e-3 # penalty weight
+	ρ = 1e-5 # hessian regularization
 
 	# Constraint bounds
 	x_L, x_U = xbounds(m, N; vart=vart)
@@ -148,13 +151,14 @@ function mysol(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt
 	df_dy = zeros(ny, ny)
 	df_du = zeros(ny, nu)
 	∇J = zeros(Nx)
+
 	# TODO: sparse matrices for these spzeros
 	HJ = zeros(Nx, Nx)
-	DgTg = zeros(Nx) # ∇g' * g
+	DgTg = zeros(Nx) # Dg' * g
+	DgTDg = zeros(Nx, Nx) # Dg' * Dg
 
 	# One step
 	gvalues!(g, m, traj, params; vart=vart, fixedδt=fixedδt)
-	∇Jobj!(∇J, m, traj, params; vart=vart)
 	for k = 1:N
 		Df!(df_dy, df_du, m, traj[@view liy[:,k]], traj[@view liu[:,k]], params)
 		# Dg_y' * g = [-g0 + A1^T g1, ..., -g(N-1) + AN^T gN, -gN]
@@ -164,17 +168,23 @@ function mysol(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt
 		# Dg_δt' * g = 0
 	end
 	DgTg[liy[:,N+1]] = -g[@view liy[:,N+1]]
-	# Gradient
+	# Calculate cost gradient from objective and an added penalty term
+	∇Jobj!(∇J, m, traj, params; vart=vart)
 	∇J .= ∇J + μ * DgTg
-	# This is an approx
-	# HJ = 
 
-	v = -∇J
+	# Hessian of objective and add penalty term
+	ForwardDiff.hessian!(HJ, tt::Vector -> Jobj(m, tt, params; vart=vart), traj)
+	HJ .= HJ + ρ * I #+ μ * DgTDg
+
+	# # Gradient descent
+	# v = -∇J
+	# Gauss Newton
+	v = HJ \ ∇J # FIXME: sign
 
 	traj1 = similar(traj)
 	J1 = 0.
 	function Jcallable(x::Vector)::Float64
-		@time gvalues!(g, m, x, params; vart=vart, fixedδt=fixedδt)
+		gvalues!(g, m, x, params; vart=vart, fixedδt=fixedδt)
 		return Jobj(m, x, params; vart=vart, fixedδt=fixedδt) + μ/2 * g' * g
 	end
 
