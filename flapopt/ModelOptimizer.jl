@@ -150,31 +150,45 @@ function mysol(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt
 	Nx, Ng = length(traj), length(g)
 	df_dy = zeros(ny, ny)
 	df_du = zeros(ny, nu)
+	Ak = similar(df_dy)
+	Bk = similar(df_du)
 	∇J = zeros(Nx)
 
 	# TODO: sparse matrices for these spzeros
 	HJ = zeros(Nx, Nx)
 	DgTg = zeros(Nx) # Dg' * g
-	DgTDg = zeros(Nx, Nx) # Dg' * Dg
+	# TODO: better Dg' Dg computation that doesn't compute Dg
+	Dg = zeros(Ng, Nx)
+	for ii = 1:(N+1)*ny
+		Dg[ii,ii] = -1
+	end
 
 	# One step
 	gvalues!(g, m, traj, params; vart=vart, fixedδt=fixedδt)
 	for k = 1:N
 		Df!(df_dy, df_du, m, traj[@view liy[:,k]], traj[@view liu[:,k]], params)
 		# Dg_y' * g = [-g0 + A1^T g1, ..., -g(N-1) + AN^T gN, -gN]
-		DgTg[liy[:,k]] = -g[@view liy[:,k]] + (I + δt * df_dy)' * g[@view liy[:,k+1]]
+		Ak .= I + δt * df_dy
+		DgTg[liy[:,k]] .= -g[@view liy[:,k]] + Ak' * g[@view liy[:,k+1]]
 		# Dg_u' * g = [B1^T g1, ..., BN^T gN]
-		DgTg[liu[:,k]] = (δt * df_du)' * g[@view liy[:,k+1]]
+		Bk .= δt * df_du
+		DgTg[liu[:,k]] .= Bk' * g[@view liy[:,k+1]]
 		# Dg_δt' * g = 0
+
+		# TODO: better Dg' Dg computation that doesn't compute Dg
+		Dg[liy[:,k+1], liy[:,k]] .= Ak
+		Dg[liy[:,k+1], liu[:,k]] .= Bk
 	end
-	DgTg[liy[:,N+1]] = -g[@view liy[:,N+1]]
+	DgTg[liy[:,N+1]] .= -g[@view liy[:,N+1]]
 	# Calculate cost gradient from objective and an added penalty term
 	∇Jobj!(∇J, m, traj, params; vart=vart)
 	∇J .= ∇J + μ * DgTg
 
 	# Hessian of objective and add penalty term
 	ForwardDiff.hessian!(HJ, tt::Vector -> Jobj(m, tt, params; vart=vart), traj)
-	HJ .= HJ + ρ * I #+ μ * DgTDg
+	# TODO: better Dg' Dg computation that doesn't compute Dg
+	DgTDg = Dg' * Dg
+	HJ .= HJ + ρ * I + μ * DgTDg
 
 	# # Gradient descent
 	# v = -∇J
