@@ -179,7 +179,6 @@ function mysol(m::Model, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Ar
 	for μ in μs
 		for stepi = 1:Ninner
 			# One step
-			println("μ=$(μ), step=$(stepi)")
 			gvalues!(g, m, _tup(x)...; vart=vart, fixedδt=fixedδt)
 
 			# Non-quadratic cost
@@ -231,28 +230,41 @@ function mysol(m::Model, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Ar
 			# Newton or Gauss-Newton. Use PositiveFactorizations.jl to ensure psd Hessian
 			v = -(cholesky(Positive, HJ) \ ∇J)
 
-			_backtrackingLineSearch!(x1, x, ∇J, v, Jx; α=0.2, β=0.7)
+			J0 = Jx(x)
+			J1 = _backtrackingLineSearch!(x1, x, ∇J, v, J0, Jx; α=0.2, β=0.7)
 			x .= x1
+			println("μ=$(μ)\tstep=$(stepi)\tJ $(round(J0;sigdigits=4)) → $(round(J1;sigdigits=4))")
 		end
 	end
 	return x
 end
 
-function _backtrackingLineSearch!(x1::Vector, x0::Vector, ∇J0::Vector, v::Vector, Jcallable; α::Float64=0.45, β::Float64=0.9)
+function _backtrackingLineSearch!(x1::Vector, x0::Vector, ∇J0::Vector, v::Vector, J0::Float64, Jcallable; α::Float64=0.45, β::Float64=0.9)
 	σ = 1
-	J0 = Jcallable(x0)
 	# search for step size
 	while true
 		σ = β * σ
 		x1 .= x0 + σ * v
 		J1 = Jcallable(x1)
 		# debug line search
-		println("J0=$(round(J0; sigdigits=4)), J1=$(round(J1; sigdigits=4)), σ=$(round(σ; sigdigits=6))")
+		# println("J0=$(round(J0; sigdigits=4)), J1=$(round(J1; sigdigits=4)), σ=$(round(σ; sigdigits=6))")
 		if J1 < J0 + α * σ * ∇J0' * v || σ < 1e-6
 			return J1
 		end
 	end
 	return J0
+end
+
+function alternateSol(m::Model, traj0::Vector, params0::Vector, NaltSteps::Int=1; μst::Array{Float64}=[1e-1], Ninnert::Int=1, μsp::Array{Float64}=[1e-1], Ninnerp::Int=1, vart::Bool=true, fixedδt::Float64=1e-3)
+	# reshape into Nx1 matrices
+	trajs = reshape(copy(traj0), :, 1)
+	params = reshape(copy(params0), :, 1)
+	# Append columns for each step
+	for isteps = 1:NaltSteps
+		@time trajs = [trajs mysol(m, trajs[:,end], params[:,end], WRT_TRAJ; Ninner=Ninnert, μs=μst)]
+		@time params = [params mysol(m, trajs[:,end], params[:,end], WRT_PARAMS; Ninner=Ninnerp, μs=μsp)]
+	end
+	return trajs, params
 end
 
 #=========================================================================

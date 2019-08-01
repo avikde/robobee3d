@@ -39,8 +39,7 @@ cu.Jobj(m, traj0, params0)
 # status = cu.nloptsolve(prob)
 # Ipopt.ApplicationReturnStatus[status]
 
-traj1 = @time cu.mysol(m, traj0, params0, cu.WRT_TRAJ; Ninner=2, μs=[1e-1, 3e-1])
+trajs, params = cu.alternateSol(m, traj0, params0, 2; μst=[1e-2,1e-2], Ninnert=2, μsp=[1e-2,1e-2], Ninnerp=2)
 
-params1 = @time cu.mysol(m, traj1, params0, cu.WRT_PARAMS; Ninner=2, μs=[1e-1, 3e-1])
-
-plotTrajs(m, trajt, params0, traj0, traj1)
+plotTrajs(m, trajt, params0, (trajs[:,i] for i = 1:size(trajs,2))...)
+display(params)
