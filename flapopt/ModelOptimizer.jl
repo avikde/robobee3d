@@ -22,15 +22,16 @@ function gvalues!(gout::Vector, m::Model, traj::Vector, params::Vector; vart::Bo
 	liy, liu = linind(m, N)
 	δt = vart ? traj[end] : fixedδt
 
+	# Dynamics constraint
 	for k = 1:N
         vy2 = @view liy[:,k+1]
         vy = @view liy[:,k]
 		vu = @view liu[:,k]
-		gout[vy2] = traj[vy2] - (traj[vy] + δt * dydt(m, traj[vy], traj[vu], params))
+		gout[vy2] .= traj[vy2] - ddynamics(m, traj[vy], traj[vu], params, δt)
 	end
 
 	# Initial condition
-	gout[liy[:,1]] = -traj[@view liy[:,1]]
+	gout[liy[:,1]] .= -traj[@view liy[:,1]]
 
 	return
 end

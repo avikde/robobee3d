@@ -48,6 +48,13 @@ function dlin!(Ak::Matrix, Bk::Matrix, m::Model, y::Vector, u::Vector, params::V
 	# Continuous -> discrete
 	Ak .= I + δt * Ak
 	Bk .= δt * Bk
+	# TODO: affine term??
+end
+
+"Discrete dynamics step"
+function ddynamics(m::Model, y::Vector, u::Vector, params::Vector, δt::Float64; useLinearization::Bool=false)
+	return y + δt * dydt(m, y, u, params)
+	# TODO: useLinearization
 end
 
 #=========================================================================
