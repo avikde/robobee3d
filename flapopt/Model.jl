@@ -50,6 +50,12 @@ function ddynamics(m::Model, y::Vector, u::Vector, params::Vector, δt::Float64;
 	# TODO: useLinearization
 end
 
+"Discrete linearization wrt params."
+function dlinp!(Pk::Matrix, m::Model, y::Vector, u::Vector, params::Vector, δt::Float64)
+	ForwardDiff.jacobian!(Pk, pp -> dydt(m, y, u, pp), params)
+	Pk .= δt * Pk
+end
+
 #=========================================================================
 Functions valid for all instances without specialization
 =========================================================================#

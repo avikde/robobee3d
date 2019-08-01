@@ -147,6 +147,8 @@ function mysol(m::Model, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Ar
 	# This function allows us to concisely define the opt function below
 	_tup = _x::Vector -> (optWrt == WRT_TRAJ ? (_x, params0) : (traj0, _x))
 	x = (optWrt == WRT_TRAJ ? copy(traj0) : copy(params0))
+	# get (y,u,p,δt) at time k--point at which to evaluate dynamics
+	_yupt = k::Int -> (_tup(x)[1][@view liy[:,k]], _tup(x)[1][@view liu[:,k]], _tup(x)[2], δt)
 
 	# Constraint bounds
 	x_L, x_U = optWrt == WRT_TRAJ ? xbounds(m, N; vart=vart) : (fill(-Inf, size(params0)), fill(Inf, size(params0)))
@@ -155,8 +157,6 @@ function mysol(m::Model, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Ar
 	# Preallocate outputs
 	g = similar(g_L)
 	Ng, Nx = length(g), length(x)
-	Ak = zeros(ny, ny)
-	Bk = zeros(ny, nu)
 	∇J = zeros(Nx)
 
 	# TODO: sparse matrices for these spzeros
@@ -166,6 +166,10 @@ function mysol(m::Model, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Ar
 	Dg = zeros(Ng, Nx)
 	if optWrt == WRT_TRAJ
 		Dg[diagind(Dg)] .= -1
+		Ak = zeros(ny, ny)
+		Bk = zeros(ny, nu)
+	elseif optWrt == WRT_PARAMS
+		Pk = zeros(ny, Nx)
 	end
 	
 	# Take some number of steps
@@ -188,18 +192,28 @@ function mysol(m::Model, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Ar
 
 			# Compute Jacobian and Hessian
 			for k = 1:N
-				dlin!(Ak, Bk, m, _tup(x)[1][@view liy[:,k]], _tup(x)[1][@view liu[:,k]], _tup(x)[2], δt)
-				# Dg_y' * g = [-g0 + A1^T g1, ..., -g(N-1) + AN^T gN, -gN]
-				DgTg[liy[:,k]] .= -g[@view liy[:,k]] + Ak' * g[@view liy[:,k+1]]
-				# Dg_u' * g = [B1^T g1, ..., BN^T gN]
-				DgTg[liu[:,k]] .= Bk' * g[@view liy[:,k+1]]
-				# Dg_δt' * g = 0
+				if optWrt == WRT_TRAJ
+					dlin!(Ak, Bk, m, _yupt(k)...)
+					# Dg_y' * g = [-g0 + A1^T g1, ..., -g(N-1) + AN^T gN, -gN]
+					DgTg[liy[:,k]] .= -g[@view liy[:,k]] + Ak' * g[@view liy[:,k+1]]
+					# Dg_u' * g = [B1^T g1, ..., BN^T gN]
+					DgTg[liu[:,k]] .= Bk' * g[@view liy[:,k+1]]
+					# Dg_δt' * g = 0
 
-				# TODO: better Dg' Dg computation that doesn't compute Dg
-				Dg[liy[:,k+1], liy[:,k]] .= Ak
-				Dg[liy[:,k+1], liu[:,k]] .= Bk
+					# TODO: better Dg' Dg computation that doesn't compute Dg
+					Dg[liy[:,k+1], liy[:,k]] .= Ak
+					Dg[liy[:,k+1], liu[:,k]] .= Bk
+				elseif optWrt == WRT_PARAMS
+					dlinp!(Pk, m, _yupt(k)...)
+					# Dg0 = 0
+					Dg[liy[:,k+1], :] .= Pk
+					DgTg .= DgTg + Pk' * g[@view liy[:,k]]
+				end
 			end
-			DgTg[liy[:,N+1]] .= -g[@view liy[:,N+1]]
+			
+			if optWrt == WRT_TRAJ
+				DgTg[liy[:,N+1]] .= -g[@view liy[:,N+1]]
+			end
 			# Calculate cost gradient from objective and an added penalty term
 			ForwardDiff.gradient!(∇J, Jnq, x)
 			ForwardDiff.hessian!(HJ, Jnq, x)
