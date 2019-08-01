@@ -1,4 +1,6 @@
 
+include("Model.jl") #< including this helps vscode reference the functions in there
+
 #=========================================================================
 Dynamics constraint
 =========================================================================#
@@ -14,21 +16,22 @@ Note that the actual constraints are:
 	dg_du = δt * df_du
 	dg_dδt = fy
 """
-function gvalues!(gout::Vector, m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt::Float64=1e-3, order::Int=1)
+function gvalues!(gout::Vector, m::Model, traj::Vector, params::Vector, y0::Vector; vart::Bool=true, fixedδt::Float64=1e-3, order::Int=1)
 	ny, nu = dims(m)
 	N = Nknot(m, traj; vart=vart)
 	liy, liu = linind(m, N)
 	δt = vart ? traj[end] : fixedδt
 
+	# Dynamics constraint
 	for k = 1:N
         vy2 = @view liy[:,k+1]
         vy = @view liy[:,k]
 		vu = @view liu[:,k]
-		gout[vy2] = traj[vy2] - (traj[vy] + δt * dydt(m, traj[vy], traj[vu], params))
+		gout[vy2] .= -traj[vy2] + ddynamics(m, traj[vy], traj[vu], params, δt)
 	end
 
 	# Initial condition
-	gout[liy[:,1]] = -traj[@view liy[:,1]]
+	gout[liy[:,1]] .= -traj[@view liy[:,1]] + y0
 
 	return
 end
@@ -37,7 +40,7 @@ end
 function gbounds(m::Model, traj::Vector; vart::Bool=true)::Tuple{Vector, Vector}
 	ny, nu = dims(m)
 	N = Nknot(m, traj; vart=vart)
-	println("CALLED gbounds with $(ny) $(nu) $(N) $(pointer_from_objref(traj))")
+	# println("CALLED gbounds with $(ny) $(nu) $(N) $(pointer_from_objref(traj))")
 	g_L = [-traj[1:ny]; zeros(N*ny)]
     g_U = [-traj[1:ny]; zeros(N*ny)]
     # first N*ny = 0 (dynamics)
@@ -59,8 +62,8 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 	if mode != :Structure
 		δt = vart ? traj[end] : fixedδt
 		# Preallocate outputs
-		df_dy = zeros(ny, ny)
-		df_du = zeros(ny, nu)
+		Ak = zeros(ny, ny)
+		Bk = zeros(ny, nu)
 	end
 
 	# Fill in -I's
@@ -81,7 +84,7 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 	for k = 1:N
 		if mode != :Structure
 			# Get the jacobians at this y, u
-			Df!(df_dy, df_du, m, traj[@view liy[:,k]], traj[@view liu[:,k]], params)
+			dlin!(Ak, Bk, m, traj[@view liy[:,k]], traj[@view liu[:,k]], params, δt)
 		end
 
 		# Insert A
@@ -93,7 +96,7 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 					row[offsA] = k*ny + i
 					col[offsA] = (k-1)*ny + j
 				else
-					value[offsA] = δt * df_dy[i,j] + (i == j ? 1 : 0)
+					value[offsA] = Ak[i,j]
 				end
 			end
 		end
@@ -106,7 +109,7 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 					row[offsB] = k*ny + i
 					col[offsB] = (N+1)*ny + (k-1)*nu + j
 				else
-					value[offsB] = δt * df_du[i,j]
+					value[offsB] = Bk[i,j]
 				end
 			end
 		end
@@ -115,14 +118,153 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 end
 
 #=========================================================================
-Objective
+Custom solver
 =========================================================================#
 
-function ∇Jobj!(∇Jout, m::Model, traj::Vector, params::Vector; vart::Bool=true)
-	# println("CALLED DJobj with $(pointer_from_objref(traj))")
-	Jtraj(tt::Vector) = Jobj(m, tt, params; vart=vart)
-	ForwardDiff.gradient!(∇Jout, Jtraj, traj)
-	return
+
+"""Indicator function to use inequality constraints in a penalty method.
+Following Geilinger et al (2018) skaterbots. Ref Bern et al (2017).
+
+A scalar inequality f(x) <= b should be modeled as Ψ(f(x) - b) and added to the cost."""
+function Ψ(x; ε::Float64=0.1)
+    if x <= -ε
+        return 0
+	elseif x > -ε && x < ε
+        return x^3/(6ε) + x^2/2 + ε*x/2 + ε^2/6
+    else
+		return x^2 + ε^2/3
+	end
+end
+
+@enum OptVar WRT_TRAJ WRT_PARAMS
+
+"""Custom solver"""
+function csSolve(m::Model, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Array{Float64}=[1e-1], Ninner::Int=1, vart::Bool=true, fixedδt::Float64=1e-3)
+	ny, nu = dims(m)
+	N = Nknot(m, traj0; vart=vart)
+	liy, liu = linind(m, N)
+	δt = vart ? traj0[end] : fixedδt
+	# This function allows us to concisely define the opt function below
+	_tup = _x::Vector -> (optWrt == WRT_TRAJ ? (_x, params0) : (traj0, _x))
+	x = (optWrt == WRT_TRAJ ? copy(traj0) : copy(params0))
+	# get (y,u,p,δt) at time k--point at which to evaluate dynamics
+	_yupt = k::Int -> (_tup(x)[1][@view liy[:,k]], _tup(x)[1][@view liu[:,k]], _tup(x)[2], δt)
+
+	# Constraint bounds
+	x_L, x_U = optWrt == WRT_TRAJ ? xbounds(m, N; vart=vart) : (fill(-Inf, size(params0)), fill(Inf, size(params0)))
+	g_L, g_U = gbounds(m, traj0; vart=vart)
+
+	# Preallocate outputs
+	g = similar(g_L)
+	Ng, Nx = length(g), length(x)
+	∇J = zeros(Nx)
+
+	# TODO: sparse matrices for these spzeros
+	HJ = zeros(Nx, Nx)
+	DgTg = zeros(Nx) # Dg' * g
+	# TODO: better Dg' Dg computation that doesn't compute Dg
+	Dg = zeros(Ng, Nx)
+	if optWrt == WRT_TRAJ
+		Dg[diagind(Dg)] .= -1
+		Ak = zeros(ny, ny)
+		Bk = zeros(ny, nu)
+	elseif optWrt == WRT_PARAMS
+		Pk = zeros(ny, Nx)
+	end
+	
+	# Take some number of steps
+	# Preallocate output
+	x1 = similar(x)
+
+	for μ in μs
+		for stepi = 1:Ninner
+			# One step
+			gvalues!(g, m, _tup(x)..., traj0[1:ny]; vart=vart, fixedδt=fixedδt)
+
+			# Non-quadratic cost
+			Jnq = _x::Vector -> Jobj(m, _tup(_x)...; vart=vart, fixedδt=fixedδt) + μ/2 * sum(Ψ.(_x - x_U) + Ψ.(x_L - _x))
+			# Cost function for this step
+			function Jx(_x::Vector)::Float64
+				gvalues!(g, m, _tup(_x)..., traj0[1:ny]; vart=vart, fixedδt=fixedδt)
+				return Jnq(_x) + μ/2 * g' * g
+			end
+
+			# Compute Jacobian and Hessian
+			for k = 1:N
+				if optWrt == WRT_TRAJ
+					dlin!(Ak, Bk, m, _yupt(k)...)
+					# Dg_y' * g = [-g0 + A1^T g1, ..., -g(N-1) + AN^T gN, -gN]
+					DgTg[liy[:,k]] .= -g[@view liy[:,k]] + Ak' * g[@view liy[:,k+1]]
+					# Dg_u' * g = [B1^T g1, ..., BN^T gN]
+					DgTg[liu[:,k]] .= Bk' * g[@view liy[:,k+1]]
+					# Dg_δt' * g = 0
+
+					# TODO: better Dg' Dg computation that doesn't compute Dg
+					Dg[liy[:,k+1], liy[:,k]] .= Ak
+					Dg[liy[:,k+1], liu[:,k]] .= Bk
+				elseif optWrt == WRT_PARAMS
+					dlinp!(Pk, m, _yupt(k)...)
+					# Dg0 = 0
+					Dg[liy[:,k+1], :] .= Pk
+					DgTg .= DgTg + Pk' * g[@view liy[:,k]]
+				end
+			end
+			
+			if optWrt == WRT_TRAJ
+				DgTg[liy[:,N+1]] .= -g[@view liy[:,N+1]]
+			end
+			# Calculate cost gradient from objective and an added penalty term
+			ForwardDiff.gradient!(∇J, Jnq, x)
+			ForwardDiff.hessian!(HJ, Jnq, x)
+
+			# Gradient: add penalty
+			∇J .= ∇J + μ * DgTg
+
+			# Hessian of objective and add penalty term
+			HJ .= 1/2 * (HJ' + HJ) # take the symmetric part
+			# TODO: better Dg' Dg computation that doesn't compute Dg
+			HJ .= HJ + μ * Dg' * Dg
+
+			# # Gradient descent
+			# v = -∇J
+			# Newton or Gauss-Newton. Use PositiveFactorizations.jl to ensure psd Hessian
+			v = -(cholesky(Positive, HJ) \ ∇J)
+
+			J0 = Jx(x)
+			J1 = csBacktrackingLineSearch!(x1, x, ∇J, v, J0, Jx; α=0.2, β=0.7)
+			x .= x1
+			println("μ=$(μ)\tstep=$(stepi)\tJ $(round(J0;sigdigits=4)) → $(round(J1;sigdigits=4))")
+		end
+	end
+	return x
+end
+
+function csBacktrackingLineSearch!(x1::Vector, x0::Vector, ∇J0::Vector, v::Vector, J0::Float64, Jcallable; α::Float64=0.45, β::Float64=0.9)
+	σ = 1
+	# search for step size
+	while true
+		σ = β * σ
+		x1 .= x0 + σ * v
+		J1 = Jcallable(x1)
+		# debug line search
+		# println("J0=$(round(J0; sigdigits=4)), J1=$(round(J1; sigdigits=4)), σ=$(round(σ; sigdigits=6))")
+		if J1 < J0 + α * σ * ∇J0' * v || σ < 1e-6
+			return J1
+		end
+	end
+	return J0
+end
+
+function csAlternateSolve(m::Model, traj0::Vector, params0::Vector, NaltSteps::Int=1; μst::Array{Float64}=[1e-1], Ninnert::Int=1, μsp::Array{Float64}=[1e-1], Ninnerp::Int=1, vart::Bool=true, fixedδt::Float64=1e-3)
+	# reshape into Nx1 matrices
+	trajs = reshape(copy(traj0), :, 1)
+	params = reshape(copy(params0), :, 1)
+	# Append columns for each step
+	for isteps = 1:NaltSteps
+		@time trajs = [trajs csSolve(m, trajs[:,end], params[:,end], WRT_TRAJ; Ninner=Ninnert, μs=μst)]
+		@time params = [params csSolve(m, trajs[:,end], params[:,end], WRT_PARAMS; Ninner=Ninnerp, μs=μsp)]
+	end
+	return trajs, params
 end
 
 #=========================================================================
@@ -137,10 +279,10 @@ function nloptsetup(m::Model, traj::Vector, params::Vector; vart::Bool=true, fix
 	# Define the things needed for IPOPT
 	x_L, x_U = xbounds(m, N; vart=vart)
 	g_L, g_U = gbounds(m, traj; vart=vart)
-	eval_g(x::Vector, g::Vector) = gvalues!(g, m, x, params; vart=vart, fixedδt=fixedδt)
+	eval_g(x::Vector, g::Vector) = gvalues!(g, m, x, params, traj[1:ny]; vart=vart, fixedδt=fixedδt)
 	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgsparse!(rows, cols, values, m, x, params, mode; vart=vart, fixedδt=fixedδt)
 	eval_f(x::Vector{Float64}) = Jobj(m, x, params; vart=vart, fixedδt=fixedδt)
-	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ∇Jobj!(grad_f, m, x, params)
+	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, eval_f, x)
 
 	# Create IPOPT problem
 	prob = Ipopt.createProblem(

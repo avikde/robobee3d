@@ -26,22 +26,34 @@ function Jobj(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt:
 	return 0
 end
 
-"Plot a list of traj"
-function plotTrajs(m::Model, t::Vector, params::Vector, args...)
-	
-end
-
 #=========================================================================
 Functions that can be specialized optionally
 =========================================================================#
 
-"Use autograd to find Jacobians; specialization can do something else"
-function Df!(df_dy::Matrix, df_du::Matrix, m::Model, y::Vector, u::Vector, params::Vector)
+"Discrete linearization using autograd (model must provide dydt).
+A model can specialize this function to m::MyModel if it is already linear"
+function dlin!(Ak::Matrix, Bk::Matrix, m::Model, y::Vector, u::Vector, params::Vector, δt::Float64)
+	# Autograd linearization of dydt
 	fy(yy::Vector) = dydt(m, yy, u, params)
 	fu(uu::Vector) = dydt(m, y, uu, params)
-	ForwardDiff.jacobian!(df_dy, fy, y)
-	ForwardDiff.jacobian!(df_du, fu, u)
-	return
+	ForwardDiff.jacobian!(Ak, fy, y)
+	ForwardDiff.jacobian!(Bk, fu, u)
+	# Continuous -> discrete
+	Ak .= I + δt * Ak
+	Bk .= δt * Bk
+	# TODO: affine term??
+end
+
+"Discrete dynamics step"
+function ddynamics(m::Model, y::Vector, u::Vector, params::Vector, δt::Float64; useLinearization::Bool=false)
+	return y + δt * dydt(m, y, u, params)
+	# TODO: useLinearization
+end
+
+"Discrete linearization wrt params."
+function dlinp!(Pk::Matrix, m::Model, y::Vector, u::Vector, params::Vector, δt::Float64)
+	ForwardDiff.jacobian!(Pk, pp -> dydt(m, y, u, pp), params)
+	Pk .= δt * Pk
 end
 
 #=========================================================================

@@ -17,7 +17,6 @@ N = 22
 params0 = [2.0, 20.0] # cbar, T
 
 trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
-# cu.plotTrajs(m, trajt, params0, traj0)
 
 # setup opt ---
 
@@ -35,6 +34,17 @@ cu.Jobj(m, traj0, params0)
 # # cu.Dgsparse!(row, col, val, m, traj0, params0, true)
 # cu.Dgsparse!(row, col, val, m, traj0, params0, :Structure)
 
-prob = cu.nloptsetup(m, traj0, params0; fixedδt=0.3)
-status = cu.nloptsolve(prob)
-Ipopt.ApplicationReturnStatus[status]
+# IPOPT
+# prob = cu.nloptsetup(m, traj0, params0; fixedδt=0.3)
+# status = cu.nloptsolve(prob)
+# Ipopt.ApplicationReturnStatus[status]
+
+trajs, params = cu.csAlternateSolve(m, traj0, params0, 2; μst=[1e-2,1e-2], Ninnert=2, μsp=[1e-2,1e-2], Ninnerp=2)
+
+pl1 = plotTrajs(m, trajt, params0, (trajs[:,i] for i = 1:size(trajs,2))...)
+pl2 = plotParams(m, trajs[:,end], (params[:,i] for i = 1:size(params,2))...; μ=1e-1)
+display(params)
+
+l = @layout [grid(2,2) a]
+plot(pl1..., pl2, layout=l, size=(900,400))
+gui()
