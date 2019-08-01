@@ -16,7 +16,7 @@ Note that the actual constraints are:
 	dg_du = δt * df_du
 	dg_dδt = fy
 """
-function gvalues!(gout::Vector, m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt::Float64=1e-3, order::Int=1)
+function gvalues!(gout::Vector, m::Model, traj::Vector, params::Vector, y0::Vector; vart::Bool=true, fixedδt::Float64=1e-3, order::Int=1)
 	ny, nu = dims(m)
 	N = Nknot(m, traj; vart=vart)
 	liy, liu = linind(m, N)
@@ -27,11 +27,11 @@ function gvalues!(gout::Vector, m::Model, traj::Vector, params::Vector; vart::Bo
         vy2 = @view liy[:,k+1]
         vy = @view liy[:,k]
 		vu = @view liu[:,k]
-		gout[vy2] .= traj[vy2] - ddynamics(m, traj[vy], traj[vu], params, δt)
+		gout[vy2] .= -traj[vy2] + ddynamics(m, traj[vy], traj[vu], params, δt)
 	end
 
 	# Initial condition
-	gout[liy[:,1]] .= -traj[@view liy[:,1]]
+	gout[liy[:,1]] .= -traj[@view liy[:,1]] + y0
 
 	return
 end
@@ -179,13 +179,13 @@ function csSolve(m::Model, traj0::Vector, params0::Vector, optWrt::OptVar; μs::
 	for μ in μs
 		for stepi = 1:Ninner
 			# One step
-			gvalues!(g, m, _tup(x)...; vart=vart, fixedδt=fixedδt)
+			gvalues!(g, m, _tup(x)..., traj0[1:ny]; vart=vart, fixedδt=fixedδt)
 
 			# Non-quadratic cost
 			Jnq = _x::Vector -> Jobj(m, _tup(_x)...; vart=vart, fixedδt=fixedδt) + μ/2 * sum(Ψ.(_x - x_U) + Ψ.(x_L - _x))
 			# Cost function for this step
 			function Jx(_x::Vector)::Float64
-				gvalues!(g, m, _tup(_x)...; vart=vart, fixedδt=fixedδt)
+				gvalues!(g, m, _tup(_x)..., traj0[1:ny]; vart=vart, fixedδt=fixedδt)
 				return Jnq(_x) + μ/2 * g' * g
 			end
 
@@ -279,7 +279,7 @@ function nloptsetup(m::Model, traj::Vector, params::Vector; vart::Bool=true, fix
 	# Define the things needed for IPOPT
 	x_L, x_U = xbounds(m, N; vart=vart)
 	g_L, g_U = gbounds(m, traj; vart=vart)
-	eval_g(x::Vector, g::Vector) = gvalues!(g, m, x, params; vart=vart, fixedδt=fixedδt)
+	eval_g(x::Vector, g::Vector) = gvalues!(g, m, x, params, traj[1:ny]; vart=vart, fixedδt=fixedδt)
 	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgsparse!(rows, cols, values, m, x, params, mode; vart=vart, fixedδt=fixedδt)
 	eval_f(x::Vector{Float64}) = Jobj(m, x, params; vart=vart, fixedδt=fixedδt)
 	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, eval_f, x)

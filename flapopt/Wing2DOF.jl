@@ -195,7 +195,7 @@ function plotParams(m::Wing2DOFModel, traj::Vector, args...; vart::Bool=true, fi
 
     g = cu.gbounds(m, traj; vart=vart)[1]
     f(p1, p2) = begin
-        cu.gvalues!(g, m, traj, [p1,p2]; vart=vart, fixedδt=fixedδt)
+        cu.gvalues!(g, m, traj, [p1,p2], traj[1:4]; vart=vart, fixedδt=fixedδt)
         cu.Jobj(m, traj, [p1,p2]; vart=vart, fixedδt=fixedδt) + μ/2 * g' * g
     end
 
