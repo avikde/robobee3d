@@ -256,8 +256,7 @@ function nloptsetup(m::Model, traj::Vector, params::Vector; vart::Bool=true, fix
 	eval_g(x::Vector, g::Vector) = gvalues!(g, m, x, params; vart=vart, fixedδt=fixedδt)
 	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgsparse!(rows, cols, values, m, x, params, mode; vart=vart, fixedδt=fixedδt)
 	eval_f(x::Vector{Float64}) = Jobj(m, x, params; vart=vart, fixedδt=fixedδt)
-	Jobjx = tt::Vector -> Jobj(m, tt, params; vart=vart, fixedδt=fixedδt)
-	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, Jobjx, x)
+	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, eval_f, x)
 
 	# Create IPOPT problem
 	prob = Ipopt.createProblem(
