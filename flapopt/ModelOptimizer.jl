@@ -139,7 +139,7 @@ end
 @enum OptVar WRT_TRAJ WRT_PARAMS
 
 """Custom solver"""
-function mysol(m::Model, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Array{Float64}=[1e-1], Ninner::Int=1, vart::Bool=true, fixedδt::Float64=1e-3)
+function csSolve(m::Model, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Array{Float64}=[1e-1], Ninner::Int=1, vart::Bool=true, fixedδt::Float64=1e-3)
 	ny, nu = dims(m)
 	N = Nknot(m, traj0; vart=vart)
 	liy, liu = linind(m, N)
@@ -231,7 +231,7 @@ function mysol(m::Model, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Ar
 			v = -(cholesky(Positive, HJ) \ ∇J)
 
 			J0 = Jx(x)
-			J1 = _backtrackingLineSearch!(x1, x, ∇J, v, J0, Jx; α=0.2, β=0.7)
+			J1 = csBacktrackingLineSearch!(x1, x, ∇J, v, J0, Jx; α=0.2, β=0.7)
 			x .= x1
 			println("μ=$(μ)\tstep=$(stepi)\tJ $(round(J0;sigdigits=4)) → $(round(J1;sigdigits=4))")
 		end
@@ -239,7 +239,7 @@ function mysol(m::Model, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Ar
 	return x
 end
 
-function _backtrackingLineSearch!(x1::Vector, x0::Vector, ∇J0::Vector, v::Vector, J0::Float64, Jcallable; α::Float64=0.45, β::Float64=0.9)
+function csBacktrackingLineSearch!(x1::Vector, x0::Vector, ∇J0::Vector, v::Vector, J0::Float64, Jcallable; α::Float64=0.45, β::Float64=0.9)
 	σ = 1
 	# search for step size
 	while true
@@ -255,14 +255,14 @@ function _backtrackingLineSearch!(x1::Vector, x0::Vector, ∇J0::Vector, v::Vect
 	return J0
 end
 
-function alternateSol(m::Model, traj0::Vector, params0::Vector, NaltSteps::Int=1; μst::Array{Float64}=[1e-1], Ninnert::Int=1, μsp::Array{Float64}=[1e-1], Ninnerp::Int=1, vart::Bool=true, fixedδt::Float64=1e-3)
+function csAlternateSolve(m::Model, traj0::Vector, params0::Vector, NaltSteps::Int=1; μst::Array{Float64}=[1e-1], Ninnert::Int=1, μsp::Array{Float64}=[1e-1], Ninnerp::Int=1, vart::Bool=true, fixedδt::Float64=1e-3)
 	# reshape into Nx1 matrices
 	trajs = reshape(copy(traj0), :, 1)
 	params = reshape(copy(params0), :, 1)
 	# Append columns for each step
 	for isteps = 1:NaltSteps
-		@time trajs = [trajs mysol(m, trajs[:,end], params[:,end], WRT_TRAJ; Ninner=Ninnert, μs=μst)]
-		@time params = [params mysol(m, trajs[:,end], params[:,end], WRT_PARAMS; Ninner=Ninnerp, μs=μsp)]
+		@time trajs = [trajs csSolve(m, trajs[:,end], params[:,end], WRT_TRAJ; Ninner=Ninnert, μs=μst)]
+		@time params = [params csSolve(m, trajs[:,end], params[:,end], WRT_PARAMS; Ninner=Ninnerp, μs=μsp)]
 	end
 	return trajs, params
 end

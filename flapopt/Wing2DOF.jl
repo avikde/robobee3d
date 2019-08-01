@@ -185,8 +185,20 @@ function plotTrajs(m::Wing2DOFModel, t::Vector, params::Vector, args...; vart=tr
     end
     aerot = plot(t, hcat([aeroPlotVec(traj) for traj in args]...), marker=:auto, ylabel="lift [mN]")
     # Combine the subplots
-	plot(σt, Ψt, ut, aerot)
-	gui()
+	return (σt, Ψt, ut, aerot)
+end
+
+function plotParams(m::Wing2DOFModel, traj::Vector, args...; vart::Bool=true, fixedδt::Float64=1e-3, μ::Float64=1e-1)
+    p1 = 0:0.5:5.0
+    p2 = 5:2:40
+
+    g = cu.gbounds(m, traj; vart=vart)[1]
+    f(p1, p2) = begin
+        cu.gvalues!(g, m, traj, [p1,p2]; vart=vart, fixedδt=fixedδt)
+        cu.Jobj(m, traj, [p1,p2]; vart=vart, fixedδt=fixedδt) + μ/2 * g' * g
+    end
+    
+    return contour(p1, p2, f, fill=true)
 end
 
 # "Cost function components" ------------------
