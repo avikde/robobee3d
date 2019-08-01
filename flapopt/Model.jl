@@ -39,6 +39,17 @@ function Df!(df_dy::Matrix, df_du::Matrix, m::Model, y::Vector, u::Vector, param
 	return
 end
 
+"Discrete linearization using autograd (model must provide dydt)
+
+A model can specialize this function to m::MyModel if it is already linear"
+function dlin!(Ak::Matrix, Bk::Matrix, m::Model, y::Vector, u::Vector, params::Vector, δt::Float64)
+	# Autograd linearization of dydt
+	Df!(Ak, Bk, m, y, u, params)
+	# Continuous -> discrete
+	Ak .= I + δt * Ak
+	Bk .= δt * Bk
+end
+
 #=========================================================================
 Functions valid for all instances without specialization
 =========================================================================#

@@ -61,8 +61,8 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 	if mode != :Structure
 		δt = vart ? traj[end] : fixedδt
 		# Preallocate outputs
-		df_dy = zeros(ny, ny)
-		df_du = zeros(ny, nu)
+		Ak = zeros(ny, ny)
+		Bk = zeros(ny, nu)
 	end
 
 	# Fill in -I's
@@ -83,7 +83,7 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 	for k = 1:N
 		if mode != :Structure
 			# Get the jacobians at this y, u
-			Df!(df_dy, df_du, m, traj[@view liy[:,k]], traj[@view liu[:,k]], params)
+			dlin!(Ak, Bk, m, traj[@view liy[:,k]], traj[@view liu[:,k]], params, δt)
 		end
 
 		# Insert A
@@ -95,7 +95,7 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 					row[offsA] = k*ny + i
 					col[offsA] = (k-1)*ny + j
 				else
-					value[offsA] = δt * df_dy[i,j] + (i == j ? 1 : 0)
+					value[offsA] = Ak[i,j]
 				end
 			end
 		end
@@ -108,7 +108,7 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 					row[offsB] = k*ny + i
 					col[offsB] = (N+1)*ny + (k-1)*nu + j
 				else
-					value[offsB] = δt * df_du[i,j]
+					value[offsB] = Bk[i,j]
 				end
 			end
 		end
@@ -154,10 +154,8 @@ function mysol(m::Model, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Ar
 	# Preallocate outputs
 	g = similar(g_L)
 	Ng, Nx = length(g), length(x)
-	df_dy = zeros(ny, ny)
-	df_du = zeros(ny, nu)
-	Ak = similar(df_dy)
-	Bk = similar(df_du)
+	Ak = zeros(ny, ny)
+	Bk = zeros(ny, nu)
 	∇J = zeros(Nx)
 
 	# TODO: sparse matrices for these spzeros
@@ -189,12 +187,10 @@ function mysol(m::Model, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Ar
 
 			# Compute Jacobian and Hessian
 			for k = 1:N
-				Df!(df_dy, df_du, m, _tup(x)[1][@view liy[:,k]], _tup(x)[1][@view liu[:,k]], _tup(x)[2])
+				dlin!(Ak, Bk, m, _tup(x)[1][@view liy[:,k]], _tup(x)[1][@view liu[:,k]], _tup(x)[2], δt)
 				# Dg_y' * g = [-g0 + A1^T g1, ..., -g(N-1) + AN^T gN, -gN]
-				Ak .= I + δt * df_dy
 				DgTg[liy[:,k]] .= -g[@view liy[:,k]] + Ak' * g[@view liy[:,k+1]]
 				# Dg_u' * g = [B1^T g1, ..., BN^T gN]
-				Bk .= δt * df_du
 				DgTg[liu[:,k]] .= Bk' * g[@view liy[:,k+1]]
 				# Dg_δt' * g = 0
 
