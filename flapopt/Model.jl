@@ -30,21 +30,14 @@ end
 Functions that can be specialized optionally
 =========================================================================#
 
-"Use autograd to find Jacobians; specialization can do something else"
-function Df!(df_dy::Matrix, df_du::Matrix, m::Model, y::Vector, u::Vector, params::Vector)
-	fy(yy::Vector) = dydt(m, yy, u, params)
-	fu(uu::Vector) = dydt(m, y, uu, params)
-	ForwardDiff.jacobian!(df_dy, fy, y)
-	ForwardDiff.jacobian!(df_du, fu, u)
-	return
-end
-
-"Discrete linearization using autograd (model must provide dydt)
-
+"Discrete linearization using autograd (model must provide dydt).
 A model can specialize this function to m::MyModel if it is already linear"
 function dlin!(Ak::Matrix, Bk::Matrix, m::Model, y::Vector, u::Vector, params::Vector, δt::Float64)
 	# Autograd linearization of dydt
-	Df!(Ak, Bk, m, y, u, params)
+	fy(yy::Vector) = dydt(m, yy, u, params)
+	fu(uu::Vector) = dydt(m, y, uu, params)
+	ForwardDiff.jacobian!(Ak, fy, y)
+	ForwardDiff.jacobian!(Bk, fu, u)
 	# Continuous -> discrete
 	Ak .= I + δt * Ak
 	Bk .= δt * Bk
