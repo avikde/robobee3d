@@ -172,23 +172,24 @@ function plotTrajs(m::Wing2DOFModel, t::Vector, params::Vector, args...; vart=tr
 	# stroke "angle" = T*y[1] / R
     cbar, T = params
     # If plot is given a matrix each column becomes a different line
-    σt = plot(t, hcat([traj[@view liy[1,:]] * T / (R/2) for traj in args]...), marker=:auto, ylabel="stroke ang [r]", title="timestep=$(round(args[1][end]; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
+    σt = plot(t, hcat([traj[@view liy[1,:]] * T / (R/2) for traj in args]...), marker=:auto, ylabel="stroke ang [r]", title="δt=$(round(args[1][end]; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
     
-    Ψt = plot(t, hcat([traj[@view liy[2,:]] for traj in args]...), marker=:auto, ylabel="hinge ang [r]")
+    Ψt = plot(t, hcat([traj[@view liy[2,:]] for traj in args]...), marker=:auto, legend=false, ylabel="hinge ang [r]")
     
-    ut = plot(t, hcat([[traj[@view liu[1,:]];NaN] for traj in args]...), marker=:auto, ylabel="stroke force [mN]")
+    ut = plot(t, hcat([[traj[@view liu[1,:]];NaN] for traj in args]...), marker=:auto, legend=false, ylabel="stroke force [mN]")
     # Plot of aero forces at each instant
     function aeroPlotVec(_traj::Vector)
         Faerok = k -> w2daero(_traj[@view liy[:,k]], _traj[@view liu[:,k]], params0)[end]
         Faeros = hcat([Faerok(k) for k=1:N]...)
         return [Faeros[2,:]' NaN]'
     end
-    aerot = plot(t, hcat([aeroPlotVec(traj) for traj in args]...), marker=:auto, ylabel="lift [mN]")
+    aerot = plot(t, hcat([aeroPlotVec(traj) for traj in args]...), marker=:auto, legend=false, ylabel="lift [mN]")
     # Combine the subplots
 	return (σt, Ψt, ut, aerot)
 end
 
 function plotParams(m::Wing2DOFModel, traj::Vector, args...; vart::Bool=true, fixedδt::Float64=1e-3, μ::Float64=1e-1)
+    # First plot the param landscape
     p1 = 0:0.5:5.0
     p2 = 5:2:40
 
@@ -197,8 +198,14 @@ function plotParams(m::Wing2DOFModel, traj::Vector, args...; vart::Bool=true, fi
         cu.gvalues!(g, m, traj, [p1,p2]; vart=vart, fixedδt=fixedδt)
         cu.Jobj(m, traj, [p1,p2]; vart=vart, fixedδt=fixedδt) + μ/2 * g' * g
     end
+
+    paramLandscape = contour(p1, p2, f, fill=true)
+
+    # Now plot the path taken
+    params = hcat(args...) # Np x Nsteps
+    plot!(paramLandscape, params[1,:], params[2,:], marker=:auto)
     
-    return contour(p1, p2, f, fill=true)
+    return (paramLandscape)
 end
 
 # "Cost function components" ------------------

@@ -45,5 +45,6 @@ pl1 = plotTrajs(m, trajt, params0, (trajs[:,i] for i = 1:size(trajs,2))...)
 pl2 = plotParams(m, trajs[:,end], (params[:,i] for i = 1:size(params,2))...; μ=1e-1)
 display(params)
 
-plot(pl1..., pl2)
+l = @layout [grid(2,2) a]
+plot(pl1..., pl2, layout=l, size=(900,400))
 gui()
