@@ -1,7 +1,7 @@
 
 include("Model.jl") #< including this helps vscode reference the functions in there
 
-struct OptWorkspace
+mutable struct OptWorkspace
 	x::Vector
 	g::Vector
 	# TODO: sparse matrices for these spzeros
@@ -233,15 +233,17 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::Vector, pa
 				end
 			end
 			
-			# if optWrt == WRT_TRAJ
-			# 	wk.DgTg[liy[:,N+1]] .= -wk.g[@view liy[:,N+1]]
-			# end
-			# # Calculate cost gradient from objective and an added penalty term
-			# ForwardDiff.gradient!(wk.∇J, Jnq, x)
-			# ForwardDiff.hessian!(wk.HJ, Jnq, x)
+			if optWrt == WRT_TRAJ
+				wk.DgTg[liy[:,N+1]] = -gk(N+1)
+			end
 
-			# # Gradient: add penalty
-			# wk.∇J .= wk.∇J + μ * wk.DgTg
+			# Calculate cost gradient from objective and an added penalty term
+			# FIXME: these allocate a lot; take up ~10ms
+			ForwardDiff.gradient!(wk.∇J, Jnq, x)
+			ForwardDiff.hessian!(wk.HJ, Jnq, x)
+
+			# Gradient: add penalty
+			wk.∇J += μ * wk.DgTg
 
 			# # Hessian of objective and add penalty term
 			# wk.HJ .= 1/2 * (wk.HJ' + wk.HJ) # take the symmetric part
