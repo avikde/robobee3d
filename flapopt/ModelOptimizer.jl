@@ -171,6 +171,7 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::Vector, pa
 	# functions for views
 	yk = k -> @view trajp[1][liy[:,k]]
 	uk = k -> @view trajp[1][liu[:,k]]
+	gk = k -> @view wk.g[liy[:,k]]
 
 	# get (y,u,p,δt) at time k--point at which to evaluate dynamics
 	_yupt = k::Int -> (yk(k), uk(k), trajp[2], δt)
@@ -211,26 +212,26 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::Vector, pa
 				return Jnq(_x) + μ/2 * (wk.g ⋅ wk.g)
 			end
 
-			# # Compute Jacobian and Hessian
-			# for k = 1:N
-			# 	if optWrt == WRT_TRAJ
-			# 		dlin!(Ak, Bk, m, _yupt(k)...)
-			# 		# Dg_y' * g = [-g0 + A1^T g1, ..., -g(N-1) + AN^T gN, -gN]
-			# 		DgTg[liy[:,k]] .= -g[@view liy[:,k]] + Ak' * g[@view liy[:,k+1]]
-			# 		# Dg_u' * g = [B1^T g1, ..., BN^T gN]
-			# 		DgTg[liu[:,k]] .= Bk' * g[@view liy[:,k+1]]
-			# 		# Dg_δt' * g = 0
+			# Compute Jacobian and Hessian
+			for k = 1:N
+				if optWrt == WRT_TRAJ
+					dlin!(Ak, Bk, m, _yupt(k)...)
+					# Dg_y' * g = [-g0 + A1^T g1, ..., -g(N-1) + AN^T gN, -gN]
+					wk.DgTg[liy[:,k]] = -gk(k) + Ak' * gk(k+1)
+					# Dg_u' * g = [B1^T g1, ..., BN^T gN]
+					wk.DgTg[liu[:,k]] = Bk' * gk(k+1)
+					# Dg_δt' * g = 0
 
-			# 		# TODO: better Dg' Dg computation that doesn't compute Dg
-			# 		Dg[liy[:,k+1], liy[:,k]] .= Ak
-			# 		Dg[liy[:,k+1], liu[:,k]] .= Bk
-			# 	elseif optWrt == WRT_PARAMS
-			# 		dlinp!(Pk, m, _yupt(k)...)
-			# 		# Dg0 = 0
-			# 		wk.Dg[liy[:,k+1], :] .= Pk
-			# 		wk.DgTg .= wk.DgTg + Pk' * wk.g[@view liy[:,k]]
-			# 	end
-			# end
+					# TODO: better Dg' Dg computation that doesn't compute Dg
+					wk.Dg[liy[:,k+1], liy[:,k]] = Ak
+					wk.Dg[liy[:,k+1], liu[:,k]] = Bk
+				elseif optWrt == WRT_PARAMS
+					dlinp!(Pk, m, _yupt(k)...)
+					# Dg0 = 0
+					wk.Dg[liy[:,k+1], :] = Pk
+					wk.DgTg = wk.DgTg + Pk' * gk(k)
+				end
+			end
 			
 			# if optWrt == WRT_TRAJ
 			# 	wk.DgTg[liy[:,N+1]] .= -wk.g[@view liy[:,N+1]]

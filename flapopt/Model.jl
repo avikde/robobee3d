@@ -46,14 +46,12 @@ Functions that can be specialized optionally
 
 "Discrete linearization using autograd (model must provide dydt).
 A model can specialize this function to m::MyModel if it is already linear"
-function dlin!(Ak::Matrix, Bk::Matrix, m::Model, y::Vector, u::Vector, params::Vector, δt::Float64)
+function dlin!(Ak::Matrix{T}, Bk::Matrix{T}, m::Model, y::AbstractArray{T}, u::AbstractArray{T}, params::AbstractArray{T}, δt::T) where {T}
 	# Autograd linearization of dydt
-	fy(yy::Vector) = dydt(m, yy, u, params)
-	fu(uu::Vector) = dydt(m, y, uu, params)
-	ForwardDiff.jacobian!(Ak, fy, y)
-	ForwardDiff.jacobian!(Bk, fu, u)
+	ForwardDiff.jacobian!(Ak, yy -> dydt(m, yy, u, params), y)
+	ForwardDiff.jacobian!(Bk, uu -> dydt(m, y, uu, params), u)
 	# Continuous -> discrete
-	Ak .= I + δt * Ak
+	Ak .= δt * Ak + I
 	Bk .= δt * Bk
 	# TODO: affine term??
 end
