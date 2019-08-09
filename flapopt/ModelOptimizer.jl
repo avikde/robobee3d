@@ -219,14 +219,13 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractAr
 	# Take some number of steps
 	# Preallocate output
 	x1 = similar(x)
+	v = similar(wk.∇J)
 
 	for μ in μs
 		for stepi = 1:Ninner
 			# One step
 			gvalues!(wk.g, m, opt, _tup(x)..., @view traj0[1:ny])
 
-			# Non-quadratic cost
-			# Jnq = _x::Vector -> Jobj(m, opt, _tup(_x)...) + μ/2 * sum(Ψ.(_x - x_U) + Ψ.(x_L - _x))
 			# Cost function for this step
 			function Jx(_x::AbstractArray)::Real
 				gvalues!(wk.g, m, opt, _tup(_x)..., @view traj0[1:ny])
@@ -259,11 +258,6 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractAr
 				wk.DgTg[liy[:,N+1]] = -gk(N+1)
 			end
 
-			# # Calculate cost gradient from objective and an added penalty term
-			# # FIXME: these allocate a lot; take up ~10ms
-			# ForwardDiff.gradient!(wk.∇J, Jnq, x)
-			# ForwardDiff.hessian!(wk.HJ, Jnq, x)
-
 			# No special structure for the objective, but we only need the gradient and no Hessian
 			ro = robjx(x)
 			Dro = ForwardDiff.jacobian(robjx, x)
@@ -274,21 +268,18 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractAr
 			wk.∇J[:] = Dro' * ro + μ * (wk.DgTg + 1/2 * (dΨ.(x_Udiff) - dΨ.(x_Ldiff)))
 			wk.HJ[:] = Dro' * Dro + μ * (wk.Dg' * wk.Dg)
 			wk.HJ[diagind(wk.HJ)] += μ/2 * (ddΨ.(x_Udiff) + ddΨ.(x_Ldiff))
+			# Regularization, and then we know this is pos def
+			wk.HJ[diagind(wk.HJ)] .+= opt.hessReg
 
-			# # Hessian of objective and add penalty term
-			# wk.HJ .= 1/2 * (wk.HJ' + wk.HJ) # take the symmetric part
-			# # TODO: better Dg' Dg computation that doesn't compute Dg
-			# wk.HJ .= wk.HJ + μ * wk.Dg' * wk.Dg
+			# # Gradient descent
+			# v .= -∇J
+			# Newton or Gauss-Newton. Use PositiveFactorizations.jl to ensure psd Hessian
+			v .= -wk.HJ\wk.∇J #-(cholesky(Positive, wk.HJ) \ wk.∇J)
 
-			# # # Gradient descent
-			# # v = -∇J
-			# # Newton or Gauss-Newton. Use PositiveFactorizations.jl to ensure psd Hessian
-			# v = -(cholesky(Positive, wk.HJ) \ wk.∇J)
-
-			# J0 = Jx(x)
-			# J1 = csBacktrackingLineSearch!(x1, x, wk.∇J, v, J0, Jx; α=0.2, β=0.7)
-			# x .= x1
-			# println("μ=$(μ)\tstep=$(stepi)\tJ $(round(J0;sigdigits=4)) → $(round(J1;sigdigits=4))")
+			J0 = Jx(x)
+			J1 = csBacktrackingLineSearch!(x1, x, wk.∇J, v, J0, Jx; α=0.2, β=0.7)
+			x .= x1
+			println("μ=$(μ)\tstep=$(stepi)\tJ $(round(J0;sigdigits=4)) → $(round(J1;sigdigits=4))")
 		end
 	end
 	return x

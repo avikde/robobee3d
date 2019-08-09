@@ -13,6 +13,7 @@ struct OptOptions
 	fixedδt::Float64 # irrelevant if vart=true
 	order::Int
 	boundaryConstraint::OptBoundaryConstraint
+	hessReg::Float64
 end
 
 #=========================================================================

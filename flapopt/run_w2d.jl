@@ -13,7 +13,7 @@ includet("Wing2DOF.jl")
 # create an instance
 m = Wing2DOFModel()
 ny, nu = cu.dims(m)
-opt = cu.OptOptions(true, 0.1, 1, cu.SYMMETRIC)
+opt = cu.OptOptions(true, 0.1, 1, cu.SYMMETRIC, 1e-4)
 N = opt.boundaryConstraint == cu.SYMMETRIC ? 11 : 22
 params0 = [2.0, 20.0] # cbar, T
 
@@ -21,7 +21,7 @@ trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
 
 wk = cu.OptWorkspace((N+1)*ny + N*nu + 1, (N+2)*ny)
 
-@btime cu.csSolve!(wk, m, opt, traj0, params0, cu.WRT_TRAJ)
+cu.csSolve!(wk, m, opt, traj0, params0, cu.WRT_TRAJ)
 
 # # setup opt ---
 
