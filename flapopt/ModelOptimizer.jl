@@ -31,28 +31,28 @@ Note that the actual constraints are:
 	dg_du = δt * df_du
 	dg_dδt = fy
 """
-function Gy(y::Vector{T})::Vector{T} where {T}
-	return -y
-end
-
 function gvalues!(gout::Vector{T}, m::Model, opt::OptOptions, traj::Vector{T}, params::Vector{T}, y0::Vector{T}) where {T}
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+	li = LinearIndices((1:ny, 1:(N+2))) # to N+2
 
+	gout[1:(N+1)*ny] = -traj[1:(N+1)*ny]
 	# Dynamics constraint
 	for k = 1:N
-        vy2 = @view liy[:,k+1]
         vy = @view liy[:,k]
 		vu = @view liu[:,k]
-		gout[vy2] .= -traj[vy2] + ddynamics(m, traj[vy], traj[vu], params, δt)
+		gout[liy[:,k+1]] += ddynamics(m, traj[vy], traj[vu], params, δt)
 	end
 
+	k1 = @view li[:,1]
+	kNp1 = @view li[:,N+1]
+
 	# Initial condition
-	gout[liy[:,1]] .= -traj[@view liy[:,1]] + y0
+	gout[li[:,1]] = y0 - traj[k1]
 
 	# Periodicity or symmetry
 	if opt.boundaryConstraint == SYMMETRIC
-		li = LinearIndices((1:ny, 1:(N+2)))
-		gout[li[:,N+2]] .= -traj[@view liy[:,1]] + Gy(traj[@view liy[:,N+1]])
+		# FIXME: for now hardcoded symmetry G(y) = -y
+		gout[li[:,N+2]] = -traj[k1] - traj[kNp1]
 	end
 
 	return
