@@ -266,10 +266,14 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractAr
 
 			# No special structure for the objective, but we only need the gradient and no Hessian
 			ro = robjx(x)
-			Dro = ForwardDiff.gradient(robjx, x)
+			Dro = ForwardDiff.jacobian(robjx, x)
 
 			# Gradient: most terms are quadratic and hence use the Gauss-Newton approx; otherwise use the ineq constraint and its special "diagonal" form
-			# wk.∇J[:] = μ * (wk.DgTg + 1/2 * (dΨ.(_x - x_U) - dΨ.(x_L - _x))) + 
+			x_Udiff = x - x_U
+			x_Ldiff = x_L - x
+			wk.∇J[:] = Dro' * ro + μ * (wk.DgTg + 1/2 * (dΨ.(x_Udiff) - dΨ.(x_Ldiff)))
+			wk.HJ[:] = Dro' * Dro + μ * (wk.Dg' * wk.Dg)
+			wk.HJ[diagind(wk.HJ)] += μ/2 * (ddΨ.(x_Udiff) + ddΨ.(x_Ldiff))
 
 			# # Hessian of objective and add penalty term
 			# wk.HJ .= 1/2 * (wk.HJ' + wk.HJ) # take the symmetric part
