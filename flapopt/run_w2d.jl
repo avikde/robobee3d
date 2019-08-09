@@ -21,7 +21,7 @@ trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
 
 wk = cu.OptWorkspace((N+1)*ny + N*nu + 1, (N+2)*ny)
 
-@btime cu.csSolve(m, opt, traj0, params0, cu.WRT_TRAJ)
+@btime cu.csSolve!(wk, m, opt, traj0, params0, cu.WRT_TRAJ)
 
 # # setup opt ---
 

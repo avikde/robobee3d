@@ -58,7 +58,7 @@ end
 
 
 "Returns paero [mm], Jaero, Faero [mN]"
-function w2daero(y::Vector, u::Vector, _params::Vector)
+function w2daero(y::SVector{4}, u::SVector{1}, _params::Vector)
     CLmax = 1.8
     CDmax = 3.4
     CD0 = 0.4
@@ -95,7 +95,7 @@ function w2daero(y::Vector, u::Vector, _params::Vector)
 end
 
 "Continuous dynamics second order model"
-function cu.dydt(model::Wing2DOFModel, y::Vector, u::Vector, _params::Vector)::Vector
+function cu.dydt(model::Wing2DOFModel, y::SVector{4}, u::SVector{1}, _params::Vector)::SVector{4}
     # unpack
     cbar, T = _params
     σ, Ψ, σ̇, Ψ̇ = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]

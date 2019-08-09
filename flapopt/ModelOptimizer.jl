@@ -34,28 +34,26 @@ Note that the actual constraints are:
 	dg_du = δt * df_du
 	dg_dδt = fy
 """
-function gvalues!(gout::Vector{T}, m::Model, opt::OptOptions, traj::Vector{T}, params::Vector{T}, y0::Vector{T}) where {T}
+function gvalues!(gout::Vector{T}, m::Model, opt::OptOptions, traj::Vector{T}, params::Vector{T}, y0::AbstractArray{T}) where {T}
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	li = LinearIndices((1:ny, 1:(N+2))) # to N+2
 
-	gout[1:(N+1)*ny] = -traj[1:(N+1)*ny]
+	yk = k -> @view traj[liy[:,k]]
+	uk = k -> @view traj[liu[:,k]]
+
+	gout[1:(N+1)*ny] = -(@view traj[1:(N+1)*ny])
 	# Dynamics constraint
 	for k = 1:N
-        vy = @view liy[:,k]
-		vu = @view liu[:,k]
-		gout[liy[:,k+1]] += ddynamics(m, traj[vy], traj[vu], params, δt)
+		gout[li[:,k+1]] += ddynamics(m, yk(k), uk(k), params, δt)
 	end
 
-	k1 = @view li[:,1]
-	kNp1 = @view li[:,N+1]
-
 	# Initial condition
-	gout[li[:,1]] = y0 - traj[k1]
+	gout[li[:,1]] = y0 - yk(1)
 
 	# Periodicity or symmetry
 	if opt.boundaryConstraint == SYMMETRIC
 		# FIXME: for now hardcoded symmetry G(y) = -y
-		gout[li[:,N+2]] = -traj[k1] - traj[kNp1]
+		gout[li[:,N+2]] = -yk(1) - yk(N+1)
 	end
 
 	return
@@ -162,14 +160,20 @@ end
 @enum OptVar WRT_TRAJ WRT_PARAMS
 
 """Custom solver"""
-function csSolve(m::Model, opt::OptOptions, wt::OptWorkspace, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Array{Float64}=[1e-1], Ninner::Int=1)
+function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Array{Float64}=[1e-1], Ninner::Int=1)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj0)
 
 	# This function allows us to concisely define the opt function below
 	_tup = _x::Vector -> (optWrt == WRT_TRAJ ? (_x, params0) : (traj0, _x))
 	x = (optWrt == WRT_TRAJ ? copy(traj0) : copy(params0))
+
+	trajp = _tup(x)
+	# functions for views
+	yk = k -> @view trajp[1][liy[:,k]]
+	uk = k -> @view trajp[1][liu[:,k]]
+
 	# get (y,u,p,δt) at time k--point at which to evaluate dynamics
-	_yupt = k::Int -> (_tup(x)[1][@view liy[:,k]], _tup(x)[1][@view liu[:,k]], _tup(x)[2], δt)
+	_yupt = k::Int -> (yk(k), uk(k), trajp[2], δt)
 
 	# Constraint bounds
 	x_L, x_U = optWrt == WRT_TRAJ ? xbounds(m, opt, N) : (fill(-Inf, size(params0)), fill(Inf, size(params0)))
@@ -180,8 +184,8 @@ function csSolve(m::Model, opt::OptOptions, wt::OptWorkspace, traj0::Vector, par
 		end
 		if opt.boundaryConstraint == SYMMETRIC
 			for j = 1:ny
-				Dg[(N+1) * ny + j, j] = -1.0
-				Dg[(N+1) * ny + j, (N) * ny + j] = -1.0
+				wk.Dg[(N+1) * ny + j, j] = -1.0
+				wk.Dg[(N+1) * ny + j, (N) * ny + j] = -1.0
 			end
 		end
 		Ak = zeros(ny, ny)
@@ -194,66 +198,66 @@ function csSolve(m::Model, opt::OptOptions, wt::OptWorkspace, traj0::Vector, par
 	# Preallocate output
 	x1 = similar(x)
 
-	# for μ in μs
-	# 	for stepi = 1:Ninner
-	# 		# One step
-	# 		gvalues!(g, m, opt, _tup(x)..., traj0[1:ny])
+	for μ in μs
+		for stepi = 1:Ninner
+			# One step
+			gvalues!(wk.g, m, opt, _tup(x)..., @view traj0[1:ny])
 
-	# 		# Non-quadratic cost
-	# 		Jnq = _x::Vector -> Jobj(m, opt, _tup(_x)...) + μ/2 * sum(Ψ.(_x - x_U) + Ψ.(x_L - _x))
-	# 		# Cost function for this step
-	# 		function Jx(_x::Vector)::Float64
-	# 			gvalues!(g, m, opt, _tup(_x)..., traj0[1:ny])
-	# 			return Jnq(_x) + μ/2 * g' * g
-	# 		end
+			# Non-quadratic cost
+			Jnq = _x::Vector -> Jobj(m, opt, _tup(_x)...) + μ/2 * sum(Ψ.(_x - x_U) + Ψ.(x_L - _x))
+			# Cost function for this step
+			function Jx(_x::Vector)::Float64
+				gvalues!(wk.g, m, opt, _tup(_x)..., @view traj0[1:ny])
+				return Jnq(_x) + μ/2 * (wk.g ⋅ wk.g)
+			end
 
-	# 		# Compute Jacobian and Hessian
-	# 		for k = 1:N
-	# 			if optWrt == WRT_TRAJ
-	# 				dlin!(Ak, Bk, m, _yupt(k)...)
-	# 				# Dg_y' * g = [-g0 + A1^T g1, ..., -g(N-1) + AN^T gN, -gN]
-	# 				DgTg[liy[:,k]] .= -g[@view liy[:,k]] + Ak' * g[@view liy[:,k+1]]
-	# 				# Dg_u' * g = [B1^T g1, ..., BN^T gN]
-	# 				DgTg[liu[:,k]] .= Bk' * g[@view liy[:,k+1]]
-	# 				# Dg_δt' * g = 0
+			# # Compute Jacobian and Hessian
+			# for k = 1:N
+			# 	if optWrt == WRT_TRAJ
+			# 		dlin!(Ak, Bk, m, _yupt(k)...)
+			# 		# Dg_y' * g = [-g0 + A1^T g1, ..., -g(N-1) + AN^T gN, -gN]
+			# 		DgTg[liy[:,k]] .= -g[@view liy[:,k]] + Ak' * g[@view liy[:,k+1]]
+			# 		# Dg_u' * g = [B1^T g1, ..., BN^T gN]
+			# 		DgTg[liu[:,k]] .= Bk' * g[@view liy[:,k+1]]
+			# 		# Dg_δt' * g = 0
 
-	# 				# TODO: better Dg' Dg computation that doesn't compute Dg
-	# 				Dg[liy[:,k+1], liy[:,k]] .= Ak
-	# 				Dg[liy[:,k+1], liu[:,k]] .= Bk
-	# 			elseif optWrt == WRT_PARAMS
-	# 				dlinp!(Pk, m, _yupt(k)...)
-	# 				# Dg0 = 0
-	# 				Dg[liy[:,k+1], :] .= Pk
-	# 				DgTg .= DgTg + Pk' * g[@view liy[:,k]]
-	# 			end
-	# 		end
+			# 		# TODO: better Dg' Dg computation that doesn't compute Dg
+			# 		Dg[liy[:,k+1], liy[:,k]] .= Ak
+			# 		Dg[liy[:,k+1], liu[:,k]] .= Bk
+			# 	elseif optWrt == WRT_PARAMS
+			# 		dlinp!(Pk, m, _yupt(k)...)
+			# 		# Dg0 = 0
+			# 		wk.Dg[liy[:,k+1], :] .= Pk
+			# 		wk.DgTg .= wk.DgTg + Pk' * wk.g[@view liy[:,k]]
+			# 	end
+			# end
 			
-	# 		if optWrt == WRT_TRAJ
-	# 			DgTg[liy[:,N+1]] .= -g[@view liy[:,N+1]]
-	# 		end
-	# 		# Calculate cost gradient from objective and an added penalty term
-	# 		ForwardDiff.gradient!(∇J, Jnq, x)
-	# 		ForwardDiff.hessian!(HJ, Jnq, x)
+			# if optWrt == WRT_TRAJ
+			# 	wk.DgTg[liy[:,N+1]] .= -wk.g[@view liy[:,N+1]]
+			# end
+			# # Calculate cost gradient from objective and an added penalty term
+			# ForwardDiff.gradient!(wk.∇J, Jnq, x)
+			# ForwardDiff.hessian!(wk.HJ, Jnq, x)
 
-	# 		# Gradient: add penalty
-	# 		∇J .= ∇J + μ * DgTg
+			# # Gradient: add penalty
+			# wk.∇J .= wk.∇J + μ * wk.DgTg
 
-	# 		# Hessian of objective and add penalty term
-	# 		HJ .= 1/2 * (HJ' + HJ) # take the symmetric part
-	# 		# TODO: better Dg' Dg computation that doesn't compute Dg
-	# 		HJ .= HJ + μ * Dg' * Dg
+			# # Hessian of objective and add penalty term
+			# wk.HJ .= 1/2 * (wk.HJ' + wk.HJ) # take the symmetric part
+			# # TODO: better Dg' Dg computation that doesn't compute Dg
+			# wk.HJ .= wk.HJ + μ * wk.Dg' * wk.Dg
 
-	# 		# # Gradient descent
-	# 		# v = -∇J
-	# 		# Newton or Gauss-Newton. Use PositiveFactorizations.jl to ensure psd Hessian
-	# 		v = -(cholesky(Positive, HJ) \ ∇J)
+			# # # Gradient descent
+			# # v = -∇J
+			# # Newton or Gauss-Newton. Use PositiveFactorizations.jl to ensure psd Hessian
+			# v = -(cholesky(Positive, wk.HJ) \ wk.∇J)
 
-	# 		J0 = Jx(x)
-	# 		J1 = csBacktrackingLineSearch!(x1, x, ∇J, v, J0, Jx; α=0.2, β=0.7)
-	# 		x .= x1
-	# 		println("μ=$(μ)\tstep=$(stepi)\tJ $(round(J0;sigdigits=4)) → $(round(J1;sigdigits=4))")
-	# 	end
-	# end
+			# J0 = Jx(x)
+			# J1 = csBacktrackingLineSearch!(x1, x, wk.∇J, v, J0, Jx; α=0.2, β=0.7)
+			# x .= x1
+			# println("μ=$(μ)\tstep=$(stepi)\tJ $(round(J0;sigdigits=4)) → $(round(J1;sigdigits=4))")
+		end
+	end
 	return x
 end
 
