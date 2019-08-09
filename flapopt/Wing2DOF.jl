@@ -191,7 +191,9 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, args...;
     p1 = 0:0.5:5.0
     p2 = 5:2:40
 
-    g = cu.gbounds(m, opt, traj)[1]
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+    Ng = opt.boundaryConstraint == cu.SYMMETRIC ? (N+2)*ny : (N+1)*ny
+    g = zeros(Ng)#cu.gbounds(m, opt, traj)[1]
     f(p1, p2) = begin
         cu.gvalues!(g, m, opt, traj, [p1,p2], traj[1:4])
         cu.Jobj(m, opt, traj, [p1,p2]) + μ/2 * g' * g

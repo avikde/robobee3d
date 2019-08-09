@@ -16,7 +16,11 @@ Note that the actual constraints are:
 	dg_du = δt * df_du
 	dg_dδt = fy
 """
-function gvalues!(gout::Vector, m::Model, opt::OptOptions, traj::Vector, params::Vector, y0::Vector)
+function Gy(y::Vector{T})::Vector{T} where {T}
+	return -y
+end
+
+function gvalues!(gout::Vector{T}, m::Model, opt::OptOptions, traj::Vector{T}, params::Vector{T}, y0::Vector{T}) where {T}
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 
 	# Dynamics constraint
@@ -32,7 +36,8 @@ function gvalues!(gout::Vector, m::Model, opt::OptOptions, traj::Vector, params:
 
 	# Periodicity or symmetry
 	if opt.boundaryConstraint == SYMMETRIC
-		# TODO:
+		li = LinearIndices((1:ny, 1:(N+2)))
+		gout[li[:,N+2]] .= -traj[@view liy[:,1]] + Gy(traj[@view liy[:,N+1]])
 	end
 
 	return
@@ -150,10 +155,9 @@ function csSolve(m::Model, opt::OptOptions, traj0::Vector, params0::Vector, optW
 
 	# Constraint bounds
 	x_L, x_U = optWrt == WRT_TRAJ ? xbounds(m, opt, N) : (fill(-Inf, size(params0)), fill(Inf, size(params0)))
-	g_L, g_U = gbounds(m, opt, traj0)
 
 	# Preallocate outputs
-	g = similar(g_L)
+	g = zeros((N+2)*ny)
 	Ng, Nx = length(g), length(x)
 	∇J = zeros(Nx)
 
@@ -163,7 +167,15 @@ function csSolve(m::Model, opt::OptOptions, traj0::Vector, params0::Vector, optW
 	# TODO: better Dg' Dg computation that doesn't compute Dg
 	Dg = zeros(Ng, Nx)
 	if optWrt == WRT_TRAJ
-		Dg[diagind(Dg)] .= -1
+		for i = 1:ny*(N+1)
+			Dg[i,i] = -1.0
+		end
+		if opt.boundaryConstraint == SYMMETRIC
+			for j = 1:ny
+				Dg[(N+1) * ny + j, j] = -1.0
+				Dg[(N+1) * ny + j, (N) * ny + j] = -1.0
+			end
+		end
 		Ak = zeros(ny, ny)
 		Bk = zeros(ny, nu)
 	elseif optWrt == WRT_PARAMS
