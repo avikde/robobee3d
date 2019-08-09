@@ -4,13 +4,16 @@ include("Model.jl") #< including this helps vscode reference the functions in th
 struct OptWorkspace
 	x::Vector
 	g::Vector
+	# TODO: sparse matrices for these spzeros
 	Dg::Matrix
+	DgTg::Vector
 	∇J::Vector
 	HJ::Matrix
 	OptWorkspace(Nx::Int, Nc::Int) = new(
 		zeros(Nx), 
 		zeros(Nc), 
 		zeros(Nc, Nx), 
+		zeros(Nx), 
 		zeros(Nx), 
 		zeros(Nx, Nx)
 	)
@@ -57,7 +60,7 @@ function gvalues!(gout::Vector{T}, m::Model, opt::OptOptions, traj::Vector{T}, p
 
 	return
 end
-
+#=
 # "Bounds corresponding to the constraints above"
 function gbounds(m::Model, opt::OptOptions, traj::Vector)::Tuple{Vector, Vector}
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
@@ -136,7 +139,7 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 	end
 	return
 end
-
+=#
 #=========================================================================
 Custom solver
 =========================================================================#
@@ -159,7 +162,7 @@ end
 @enum OptVar WRT_TRAJ WRT_PARAMS
 
 """Custom solver"""
-function csSolve(m::Model, opt::OptOptions, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Array{Float64}=[1e-1], Ninner::Int=1)
+function csSolve(m::Model, opt::OptOptions, wt::OptWorkspace, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Array{Float64}=[1e-1], Ninner::Int=1)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj0)
 
 	# This function allows us to concisely define the opt function below
@@ -171,19 +174,9 @@ function csSolve(m::Model, opt::OptOptions, traj0::Vector, params0::Vector, optW
 	# Constraint bounds
 	x_L, x_U = optWrt == WRT_TRAJ ? xbounds(m, opt, N) : (fill(-Inf, size(params0)), fill(Inf, size(params0)))
 
-	# Preallocate outputs
-	g = zeros((N+2)*ny)
-	Ng, Nx = length(g), length(x)
-	∇J = zeros(Nx)
-
-	# TODO: sparse matrices for these spzeros
-	HJ = zeros(Nx, Nx)
-	DgTg = zeros(Nx) # Dg' * g
-	# TODO: better Dg' Dg computation that doesn't compute Dg
-	Dg = zeros(Ng, Nx)
 	if optWrt == WRT_TRAJ
 		for i = 1:ny*(N+1)
-			Dg[i,i] = -1.0
+			wk.Dg[i,i] = -1.0
 		end
 		if opt.boundaryConstraint == SYMMETRIC
 			for j = 1:ny
