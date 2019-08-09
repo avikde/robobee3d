@@ -36,8 +36,8 @@ function limitsTimestep(m::Model)::Tuple{Float64, Float64}
 	return 0, Inf
 end
 
-function Jobj(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt::Float64=1e-3)::Number
-	return 0
+function robj(m::Model, opt::OptOptions, traj::AbstractArray, params::AbstractArray)::AbstractArray
+	return zeros(0)
 end
 
 #=========================================================================

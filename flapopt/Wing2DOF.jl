@@ -211,20 +211,21 @@ end
 # "Cost function components" ------------------
 
 "Objective to minimize"
-function cu.Jobj(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, params::Vector)::Number
+function cu.robj(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, params::AbstractArray)::AbstractArray
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+    
+	yk = k -> @view traj[liy[:,k]]
+	uk = k -> @view traj[liu[:,k]]
     
     Favg = @SVector zeros(2)
     for k = 1:N
-        vy = @view liy[:,k]
-        vu = @view liu[:,k]
-        paero, _, Faero = w2daero(traj[vy], traj[vu], params)
+        paero, _, Faero = w2daero(yk(k), uk(k), params)
         Favg += Faero
     end
     # Divide by the total time
     Favg /= (N) # [mN]
-    # max avg lift
-    return -Favg[2]
+    # avg lift
+    return [Favg[2] - 100]
 end
 
 

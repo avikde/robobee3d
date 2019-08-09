@@ -1,7 +1,7 @@
 
 include("Model.jl") #< including this helps vscode reference the functions in there
 
-mutable struct OptWorkspace
+struct OptWorkspace
 	x::Vector
 	g::Vector
 	# TODO: sparse matrices for these spzeros
@@ -157,14 +157,35 @@ function Ψ(x; ε::Float64=0.1)
 	end
 end
 
+function dΨ(x; ε::Float64=0.1)
+    if x <= -ε
+        return 0
+	elseif x > -ε && x < ε
+        return x^2/(2ε) + x + ε/2
+    else
+		return 2x
+	end
+end
+
+function ddΨ(x; ε::Float64=0.1)
+    if x <= -ε
+        return 0
+	elseif x > -ε && x < ε
+        return x/(ε) + 1
+    else
+		return 2
+	end
+end
+
 @enum OptVar WRT_TRAJ WRT_PARAMS
 
 """Custom solver"""
-function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Array{Float64}=[1e-1], Ninner::Int=1)
+function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractArray{T}, params0::AbstractArray, optWrt::OptVar; μs::Array{Float64}=[1e-1], Ninner::Int=1) where {T}
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj0)
 
-	# This function allows us to concisely define the opt function below
-	_tup = _x::Vector -> (optWrt == WRT_TRAJ ? (_x, params0) : (traj0, _x))
+	# These functions allows us to concisely define the opt function below
+	_tup = _x -> (optWrt == WRT_TRAJ ? (_x, params0) : (traj0, _x))
+	robjx = _x -> robj(m, opt, _tup(_x)...)
 	x = (optWrt == WRT_TRAJ ? copy(traj0) : copy(params0))
 
 	trajp = _tup(x)
@@ -205,11 +226,12 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::Vector, pa
 			gvalues!(wk.g, m, opt, _tup(x)..., @view traj0[1:ny])
 
 			# Non-quadratic cost
-			Jnq = _x::Vector -> Jobj(m, opt, _tup(_x)...) + μ/2 * sum(Ψ.(_x - x_U) + Ψ.(x_L - _x))
+			# Jnq = _x::Vector -> Jobj(m, opt, _tup(_x)...) + μ/2 * sum(Ψ.(_x - x_U) + Ψ.(x_L - _x))
 			# Cost function for this step
-			function Jx(_x::Vector)::Float64
+			function Jx(_x::AbstractArray)::Real
 				gvalues!(wk.g, m, opt, _tup(_x)..., @view traj0[1:ny])
-				return Jnq(_x) + μ/2 * (wk.g ⋅ wk.g)
+				_ro = robj(m, opt, _tup(_x)...)
+				return (_ro ⋅ _ro) + μ/2 * ((wk.g ⋅ wk.g) + sum(Ψ.(_x - x_U) + Ψ.(x_L - _x)))
 			end
 
 			# Compute Jacobian and Hessian
@@ -237,13 +259,17 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::Vector, pa
 				wk.DgTg[liy[:,N+1]] = -gk(N+1)
 			end
 
-			# Calculate cost gradient from objective and an added penalty term
-			# FIXME: these allocate a lot; take up ~10ms
-			ForwardDiff.gradient!(wk.∇J, Jnq, x)
-			ForwardDiff.hessian!(wk.HJ, Jnq, x)
+			# # Calculate cost gradient from objective and an added penalty term
+			# # FIXME: these allocate a lot; take up ~10ms
+			# ForwardDiff.gradient!(wk.∇J, Jnq, x)
+			# ForwardDiff.hessian!(wk.HJ, Jnq, x)
 
-			# Gradient: add penalty
-			wk.∇J += μ * wk.DgTg
+			# No special structure for the objective, but we only need the gradient and no Hessian
+			ro = robjx(x)
+			Dro = ForwardDiff.gradient(robjx, x)
+
+			# Gradient: most terms are quadratic and hence use the Gauss-Newton approx; otherwise use the ineq constraint and its special "diagonal" form
+			# wk.∇J[:] = μ * (wk.DgTg + 1/2 * (dΨ.(_x - x_U) - dΨ.(x_L - _x))) + 
 
 			# # Hessian of objective and add penalty term
 			# wk.HJ .= 1/2 * (wk.HJ' + wk.HJ) # take the symmetric part
