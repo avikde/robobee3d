@@ -20,6 +20,8 @@ params0 = [2.0, 20.0] # cbar, T
 
 trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
 
+wk = cu.OptWorkspace((N+1)*ny + N*nu + 1, (N+2)*ny)
+
 # setup opt ---
 
 cu.Jobj(m, traj0, params0)
