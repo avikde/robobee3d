@@ -13,7 +13,8 @@ include("Wing2DOF.jl")
 # create an instance
 m = Wing2DOFModel()
 ny, nu = cu.dims(m)
-N = 22
+useSymm = true
+N = useSymm ? 11 : 22
 params0 = [2.0, 20.0] # cbar, T
 
 trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
