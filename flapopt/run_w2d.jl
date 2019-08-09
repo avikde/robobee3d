@@ -8,12 +8,13 @@ gr() # backend
 using Revise # while developing
 import controlutils
 cu = controlutils
-include("Wing2DOF.jl")
+includet("Wing2DOF.jl")
 
 # create an instance
 m = Wing2DOFModel()
 ny, nu = cu.dims(m)
-useSymm = true
+useSymm = false
+opt = cu.OptOptions(true, 0.1, 1)
 N = useSymm ? 11 : 22
 params0 = [2.0, 20.0] # cbar, T
 
@@ -40,10 +41,10 @@ cu.Jobj(m, traj0, params0)
 # status = cu.nloptsolve(prob)
 # Ipopt.ApplicationReturnStatus[status]
 
-trajs, params = cu.csAlternateSolve(m, traj0, params0, 2; μst=[1e-2,1e-2], Ninnert=2, μsp=[1e-2,1e-2], Ninnerp=2)
+trajs, params = cu.csAlternateSolve(m, opt, traj0, params0, 2; μst=[1e-2,1e-2], Ninnert=2, μsp=[1e-2,1e-2], Ninnerp=2)
 
-pl1 = plotTrajs(m, trajt, params0, (trajs[:,i] for i = 1:size(trajs,2))...)
-pl2 = plotParams(m, trajs[:,end], (params[:,i] for i = 1:size(params,2))...; μ=1e-1)
+pl1 = plotTrajs(m, opt, trajt, params0, (trajs[:,i] for i = 1:size(trajs,2))...)
+pl2 = plotParams(m, opt, trajs[:,end], (params[:,i] for i = 1:size(params,2))...; μ=1e-1)
 display(params)
 
 l = @layout [grid(2,2) a]

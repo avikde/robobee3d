@@ -164,10 +164,8 @@ function createInitialTraj(m::Wing2DOFModel, N::Int, freq::Real, posGains::Vecto
     return trajt .- trajt[1], traj0
 end
 
-function plotTrajs(m::Wing2DOFModel, t::Vector, params::Vector, args...; vart=true)
-	ny, nu = cu.dims(m)
-	N = cu.Nknot(m, args[1]; vart=vart)
-    liy, liu = cu.linind(m, N)
+function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params::Vector, args...)
+	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, args[1])
 	Ny = (N+1)*ny
 	# stroke "angle" = T*y[1] / R
     cbar, T = params
@@ -188,15 +186,15 @@ function plotTrajs(m::Wing2DOFModel, t::Vector, params::Vector, args...; vart=tr
 	return (σt, Ψt, ut, aerot)
 end
 
-function plotParams(m::Wing2DOFModel, traj::Vector, args...; vart::Bool=true, fixedδt::Float64=1e-3, μ::Float64=1e-1)
+function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, args...; μ::Float64=1e-1)
     # First plot the param landscape
     p1 = 0:0.5:5.0
     p2 = 5:2:40
 
-    g = cu.gbounds(m, traj; vart=vart)[1]
+    g = cu.gbounds(m, opt, traj)[1]
     f(p1, p2) = begin
-        cu.gvalues!(g, m, traj, [p1,p2], traj[1:4]; vart=vart, fixedδt=fixedδt)
-        cu.Jobj(m, traj, [p1,p2]; vart=vart, fixedδt=fixedδt) + μ/2 * g' * g
+        cu.gvalues!(g, m, opt, traj, [p1,p2], traj[1:4])
+        cu.Jobj(m, opt, traj, [p1,p2]) + μ/2 * g' * g
     end
 
     paramLandscape = contour(p1, p2, f, fill=true)
@@ -211,10 +209,9 @@ end
 # "Cost function components" ------------------
 
 "Objective to minimize"
-function cu.Jobj(m::Wing2DOFModel, traj::Vector, params::Vector; vart::Bool=true, fixedδt::Float64=1e-3)::Number
-	N = cu.Nknot(m, traj; vart=vart)
-    liy, liu = cu.linind(m, N)
-	# δt = vart ? traj[end] : fixedδt
+function cu.Jobj(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, params::Vector)::Number
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+    
     Favg = @SVector zeros(2)
     for k = 1:N
         vy = @view liy[:,k]
