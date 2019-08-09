@@ -30,6 +30,11 @@ function gvalues!(gout::Vector, m::Model, opt::OptOptions, traj::Vector, params:
 	# Initial condition
 	gout[liy[:,1]] .= -traj[@view liy[:,1]] + y0
 
+	# Periodicity or symmetry
+	if opt.boundaryConstraint == SYMMETRIC
+		# TODO:
+	end
+
 	return
 end
 
@@ -55,7 +60,7 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 
 	# NOTE: traj is NULL when in :Structure mode
 	if mode != :Structure
-		δt = vart ? traj[end] : fixedδt
+		δt = opt.vart ? traj[end] : opt.fixedδt
 		# Preallocate outputs
 		Ak = zeros(ny, ny)
 		Bk = zeros(ny, nu)

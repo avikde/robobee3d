@@ -14,8 +14,8 @@ includet("Wing2DOF.jl")
 m = Wing2DOFModel()
 ny, nu = cu.dims(m)
 useSymm = false
-opt = cu.OptOptions(true, 0.1, 1)
-N = useSymm ? 11 : 22
+opt = cu.OptOptions(true, 0.1, 1, cu.SYMMETRIC)
+N = opt.boundaryConstraint == cu.SYMMETRIC ? 11 : 22
 params0 = [2.0, 20.0] # cbar, T
 
 trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)

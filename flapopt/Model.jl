@@ -5,11 +5,14 @@ Implement these things
 """
 abstract type Model end
 
+@enum OptBoundaryConstraint NONE SYMMETRIC PERIODIC
+
 "An immutable struct of options"
 struct OptOptions
 	vart::Bool
 	fixedδt::Float64 # irrelevant if vart=true
 	order::Int
+	boundaryConstraint::OptBoundaryConstraint
 end
 
 #=========================================================================
