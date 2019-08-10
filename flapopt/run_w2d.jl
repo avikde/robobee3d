@@ -27,13 +27,22 @@ trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
 # status = cu.nloptsolve(prob)
 # Ipopt.ApplicationReturnStatus[status]
 
-trajs, params = cu.csAlternateSolve(m, opt, traj0, params0, 1; μst=[1e6, 1e3], Ninnert=10, μsp=[1e-2,1e-2], Ninnerp=2)
+trajs, params, wkt = cu.csAlternateSolve(m, opt, traj0, params0, 1; μst=[1e6, 1e3], Ninnert=10, μsp=[1e-2,1e-2], Ninnerp=2)
 
 pl1 = plotTrajs(m, opt, trajt, params0, (trajs[:,i] for i = 1:size(trajs,2))...)
 # pl2 = plotParams(m, opt, trajs[:,end], (params[:,i] for i = 1:size(params,2))...; μ=1e-1)
 # display(params)
 
-# l = @layout [grid(2,2) a]
-# plot(pl1..., pl2, layout=l, size=(900,400))
-plot(pl1...)
+# visualize constraint violations
+g0 = similar(wkt.g)
+g1 = similar(wkt.g)
+cu.gvalues!(g0, m, opt, traj0, params0, traj0[1:ny])
+cu.gvalues!(g1, m, opt, trajs[:,end], params0, traj0[1:ny])
+pl2 = plot([g0,g1], title="Constraint violations")
+hline!(pl2, [0], color="black", alpha=0.3)
+
+l = @layout [grid(2,2) a]
+plot(pl1..., pl2, layout=l, size=(900,400))
+
+# plot(pl1...)
 gui()

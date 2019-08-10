@@ -326,8 +326,8 @@ function csAlternateSolve(m::Model, opt::OptOptions, traj0::AbstractArray, param
 		@time trajs = [trajs csSolve!(wkt, m, opt, trajs[:,end], params[:,end], WRT_TRAJ; Ninner=Ninnert, μs=μst)]
 		# @time params = [params csSolve!(wkp, m, opt, trajs[:,end], params[:,end], WRT_PARAMS; Ninner=Ninnerp, μs=μsp)]
 	end
-	println(wkt.λ, wkt.g)
-	return trajs, params
+	
+	return trajs, params, wkt
 end
 
 #=========================================================================
