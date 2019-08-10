@@ -14,6 +14,7 @@ struct OptOptions
 	order::Int
 	boundaryConstraint::OptBoundaryConstraint
 	hessReg::Float64
+	augLag::Bool
 end
 
 #=========================================================================

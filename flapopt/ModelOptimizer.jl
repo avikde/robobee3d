@@ -9,13 +9,15 @@ struct OptWorkspace
 	DgTg::Vector
 	∇J::Vector
 	HJ::Matrix
+	λ::Vector # Augmented Lagrangian
 	OptWorkspace(Nx::Int, Nc::Int) = new(
 		zeros(Nx), 
 		zeros(Nc), 
 		zeros(Nc, Nx), 
 		zeros(Nx), 
 		zeros(Nx), 
-		zeros(Nx, Nx)
+		zeros(Nx, Nx), 
+		zeros(Nc)
 	)
 end
 
@@ -199,6 +201,7 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractAr
 
 	# Constraint bounds
 	x_L, x_U = optWrt == WRT_TRAJ ? xbounds(m, opt, N) : (fill(-Inf, size(params0)), fill(Inf, size(params0)))
+	fill!(wk.λ, 0.0)
 
 	if optWrt == WRT_TRAJ
 		for i = 1:ny*(N+1)
@@ -230,7 +233,7 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractAr
 			function Jx(_x::AbstractArray)::Real
 				gvalues!(wk.g, m, opt, _tup(_x)..., @view traj0[1:ny])
 				_ro = robj(m, opt, _tup(_x)...)
-				return (_ro ⋅ _ro) + μ/2 * ((wk.g ⋅ wk.g) + sum(Ψ.(_x - x_U) + Ψ.(x_L - _x)))
+				return (_ro ⋅ _ro) + μ/2 * ((wk.g ⋅ wk.g) + sum(Ψ.(_x - x_U) + Ψ.(x_L - _x))) + (wk.g ⋅ wk.λ)
 			end
 
 			# Compute Jacobian and Hessian
@@ -265,7 +268,7 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractAr
 			# Gradient: most terms are quadratic and hence use the Gauss-Newton approx; otherwise use the ineq constraint and its special "diagonal" form
 			x_Udiff = x - x_U
 			x_Ldiff = x_L - x
-			wk.∇J[:] = Dro' * ro + μ * (wk.DgTg + 1/2 * (dΨ.(x_Udiff) - dΨ.(x_Ldiff)))
+			wk.∇J[:] = Dro' * ro + μ * (wk.DgTg + 1/2 * (dΨ.(x_Udiff) - dΨ.(x_Ldiff))) + (wk.Dg' * wk.λ)
 			wk.HJ[:] = Dro' * Dro + μ * (wk.Dg' * wk.Dg)
 			wk.HJ[diagind(wk.HJ)] += μ/2 * (ddΨ.(x_Udiff) + ddΨ.(x_Ldiff))
 			# Regularization, and then we know this is pos def
@@ -274,11 +277,17 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractAr
 			# # Gradient descent
 			# v .= -∇J
 			# Newton or Gauss-Newton. Use PositiveFactorizations.jl to ensure psd Hessian
-			v = -wk.HJ\wk.∇J #-(cholesky(Positive, wk.HJ) \ wk.∇J)
+			# v = -(cholesky(Positive, wk.HJ) \ wk.∇J)# #
+			v = -wk.HJ\wk.∇J
 
 			J0 = Jx(x)
 			J1 = csBacktrackingLineSearch!(x1, x, wk.∇J, v, J0, Jx; α=0.2, β=0.7)
 			x .= x1
+			# Update augmented Lagrangian
+			gvalues!(wk.g, m, opt, _tup(x)..., @view traj0[1:ny])
+			if opt.augLag
+				wk.λ[:] -= μ/2 * wk.g
+			end
 			println("μ=$(μ)\tstep=$(stepi)\tJ $(round(J0;sigdigits=4)) → $(round(J1;sigdigits=4))")
 		end
 	end
@@ -317,6 +326,7 @@ function csAlternateSolve(m::Model, opt::OptOptions, traj0::AbstractArray, param
 		@time trajs = [trajs csSolve!(wkt, m, opt, trajs[:,end], params[:,end], WRT_TRAJ; Ninner=Ninnert, μs=μst)]
 		# @time params = [params csSolve!(wkp, m, opt, trajs[:,end], params[:,end], WRT_PARAMS; Ninner=Ninnerp, μs=μsp)]
 	end
+	println(wkt.λ, wkt.g)
 	return trajs, params
 end
 
