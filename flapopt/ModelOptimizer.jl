@@ -180,7 +180,7 @@ end
 @enum OptVar WRT_TRAJ WRT_PARAMS
 
 """Custom solver"""
-function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractArray{T}, params0::AbstractArray, optWrt::OptVar; μs::Array{Float64}=[1e-1], Ninner::Int=1) where {T}
+function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractArray, params0::AbstractArray, optWrt::OptVar; μs::Array{Float64}=[1e-1], Ninner::Int=1)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj0)
 
 	# These functions allows us to concisely define the opt function below
@@ -274,7 +274,7 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractAr
 			# # Gradient descent
 			# v .= -∇J
 			# Newton or Gauss-Newton. Use PositiveFactorizations.jl to ensure psd Hessian
-			v .= -wk.HJ\wk.∇J #-(cholesky(Positive, wk.HJ) \ wk.∇J)
+			v = -wk.HJ\wk.∇J #-(cholesky(Positive, wk.HJ) \ wk.∇J)
 
 			J0 = Jx(x)
 			J1 = csBacktrackingLineSearch!(x1, x, wk.∇J, v, J0, Jx; α=0.2, β=0.7)
@@ -301,14 +301,21 @@ function csBacktrackingLineSearch!(x1::Vector, x0::Vector, ∇J0::Vector, v::Vec
 	return J0
 end
 
-function csAlternateSolve(m::Model, opt::OptOptions, traj0::Vector, params0::Vector, NaltSteps::Int=1; μst::Array{Float64}=[1e-1], Ninnert::Int=1, μsp::Array{Float64}=[1e-1], Ninnerp::Int=1)
+function csAlternateSolve(m::Model, opt::OptOptions, traj0::AbstractArray, params0::AbstractArray, NaltSteps::Int=1; μst::Array{Float64}=[1e-1], Ninnert::Int=1, μsp::Array{Float64}=[1e-1], Ninnerp::Int=1)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj0)
+
 	# reshape into Nx1 matrices
 	trajs = reshape(copy(traj0), :, 1)
 	params = reshape(copy(params0), :, 1)
+	# Create workspaces
+	wkt = OptWorkspace((N+1)*ny + N*nu + 1, (N+2)*ny)
+	# np = length(params0)
+	# wkp = OptWorkspace(np, (N+2)*ny)
+
 	# Append columns for each step
 	for isteps = 1:NaltSteps
-		@time trajs = [trajs csSolve(m, opt, trajs[:,end], params[:,end], WRT_TRAJ; Ninner=Ninnert, μs=μst)]
-		@time params = [params csSolve(m, opt, trajs[:,end], params[:,end], WRT_PARAMS; Ninner=Ninnerp, μs=μsp)]
+		@time trajs = [trajs csSolve!(wkt, m, opt, trajs[:,end], params[:,end], WRT_TRAJ; Ninner=Ninnert, μs=μst)]
+		# @time params = [params csSolve!(wkp, m, opt, trajs[:,end], params[:,end], WRT_PARAMS; Ninner=Ninnerp, μs=μsp)]
 	end
 	return trajs, params
 end
