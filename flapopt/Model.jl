@@ -5,11 +5,27 @@ Implement these things
 """
 abstract type Model end
 
+@enum OptBoundaryConstraint NONE SYMMETRIC PERIODIC
+
+"An immutable struct of options"
+struct OptOptions
+	vart::Bool
+	fixedδt::Float64 # irrelevant if vart=true
+	order::Int
+	boundaryConstraint::OptBoundaryConstraint
+	hessReg::Float64
+	augLag::Bool
+end
+
+#=========================================================================
+Functions that must be specialized by a Model
+=========================================================================#
+
 function dims(m::Model)::Tuple{Int, Int}
 	return 0, 0 # ny, nu
 end
 
-function dydt(m::Model, y::Vector, u::Vector, params::Vector)::Vector
+function dydt(m::Model, y::AbstractArray{T}, u::AbstractArray{T}, params::AbstractArray{T})::AbstractArray{T} where {T}
 	return similar(y)
 end
 
@@ -22,8 +38,8 @@ function limitsTimestep(m::Model)::Tuple{Float64, Float64}
 	return 0, Inf
 end
 
-function Jobj(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt::Float64=1e-3)::Number
-	return 0
+function robj(m::Model, opt::OptOptions, traj::AbstractArray, params::AbstractArray)::AbstractArray
+	return zeros(0)
 end
 
 #=========================================================================
@@ -32,20 +48,18 @@ Functions that can be specialized optionally
 
 "Discrete linearization using autograd (model must provide dydt).
 A model can specialize this function to m::MyModel if it is already linear"
-function dlin!(Ak::Matrix, Bk::Matrix, m::Model, y::Vector, u::Vector, params::Vector, δt::Float64)
+function dlin!(Ak::Matrix{T}, Bk::Matrix{T}, m::Model, y::AbstractArray{T}, u::AbstractArray{T}, params::AbstractArray{T}, δt::T) where {T}
 	# Autograd linearization of dydt
-	fy(yy::Vector) = dydt(m, yy, u, params)
-	fu(uu::Vector) = dydt(m, y, uu, params)
-	ForwardDiff.jacobian!(Ak, fy, y)
-	ForwardDiff.jacobian!(Bk, fu, u)
+	ForwardDiff.jacobian!(Ak, yy -> dydt(m, yy, u, params), y)
+	ForwardDiff.jacobian!(Bk, uu -> dydt(m, y, uu, params), u)
 	# Continuous -> discrete
-	Ak .= I + δt * Ak
+	Ak .= δt * Ak + I
 	Bk .= δt * Bk
 	# TODO: affine term??
 end
 
 "Discrete dynamics step"
-function ddynamics(m::Model, y::Vector, u::Vector, params::Vector, δt::Float64; useLinearization::Bool=false)
+function ddynamics(m::Model, y::AbstractArray{T}, u::AbstractArray{T}, params::AbstractArray{T}, δt::T; useLinearization::Bool=false) where {T}
 	return y + δt * dydt(m, y, u, params)
 	# TODO: useLinearization
 end
@@ -64,15 +78,15 @@ Functions valid for all instances without specialization
 # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
 
 "Go from traj length"
-function Nknot(m::Model, traj::Vector; vart::Bool=true)::Int
+function Nknot(m::Model, opt::OptOptions, traj::Vector)::Int
 	ny, nu = dims(m)
-	(length(traj) - ny - (vart ? 1 : 0)) ÷ (ny + nu)
+	(length(traj) - ny - (opt.vart ? 1 : 0)) ÷ (ny + nu)
 end
 
 "Go from #knot points to traj length"
-function Ntraj(m::Model, N::Int; vart::Bool=true)::Int
+function Ntraj(m::Model, opt::OptOptions, N::Int)::Int
 	ny, nu = dims(m)
-	return (N+1)*ny + N*nu + (vart ? 1 : 0)
+	return (N+1)*ny + N*nu + (opt.vart ? 1 : 0)
 end
 
 "Return y(k),u(k) for traj, for k ∈ [1,...,(N+1)]"
@@ -85,14 +99,28 @@ function linind(m::Model, N::Int)
 end
 
 "Get upper/lower bound on the dirtran variable"
-function xbounds(m::Model, N::Int; vart::Bool=true)::Tuple{Vector, Vector}
+function xbounds(m::Model, opt::OptOptions, N::Int)::Tuple{Vector, Vector}
 	umin, umax, xmin, xmax = limits(m)
 	x_L = [repeat(xmin, N+1); repeat(umin, N)]
 	x_U = [repeat(xmax, N+1); repeat(umax, N)]
-	if vart
+	if opt.vart
 		δtmin, δtmax = limitsTimestep(m)
 		x_L = [x_L; δtmin]
 		x_U = [x_U; δtmax]
 	end
 	return x_L, x_U
+end
+
+"Return the dynamics timestep"
+function getδt(opt::OptOptions, traj::Vector)::Number
+	return opt.vart ? traj[end] : opt.fixedδt
+end
+
+"Helper to get all model info in one line"
+function modelInfo(m::Model, opt::OptOptions, traj::Vector)::Tuple
+	ny, nu = dims(m)
+	N = Nknot(m, opt, traj)
+	δt = getδt(opt, traj)
+	liy, liu = linind(m, N)
+	return ny, nu, N, δt, liy, liu
 end

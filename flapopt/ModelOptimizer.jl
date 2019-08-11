@@ -1,6 +1,26 @@
 
 include("Model.jl") #< including this helps vscode reference the functions in there
 
+struct OptWorkspace
+	x::Vector
+	g::Vector
+	# TODO: sparse matrices for these spzeros
+	Dg::Matrix
+	DgTg::Vector
+	∇J::Vector
+	HJ::Matrix
+	λ::Vector # Augmented Lagrangian
+	OptWorkspace(Nx::Int, Nc::Int) = new(
+		zeros(Nx), 
+		zeros(Nc), 
+		zeros(Nc, Nx), 
+		zeros(Nx), 
+		zeros(Nx), 
+		zeros(Nx, Nx), 
+		zeros(Nc)
+	)
+end
+
 #=========================================================================
 Dynamics constraint
 =========================================================================#
@@ -16,30 +36,35 @@ Note that the actual constraints are:
 	dg_du = δt * df_du
 	dg_dδt = fy
 """
-function gvalues!(gout::Vector, m::Model, traj::Vector, params::Vector, y0::Vector; vart::Bool=true, fixedδt::Float64=1e-3, order::Int=1)
-	ny, nu = dims(m)
-	N = Nknot(m, traj; vart=vart)
-	liy, liu = linind(m, N)
-	δt = vart ? traj[end] : fixedδt
+function gvalues!(gout::Vector{T}, m::Model, opt::OptOptions, traj::Vector{T}, params::Vector{T}, y0::AbstractArray{T}) where {T}
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+	li = LinearIndices((1:ny, 1:(N+2))) # to N+2
 
+	yk = k -> @view traj[liy[:,k]]
+	uk = k -> @view traj[liu[:,k]]
+
+	gout[1:(N+1)*ny] = -(@view traj[1:(N+1)*ny])
 	# Dynamics constraint
 	for k = 1:N
-        vy2 = @view liy[:,k+1]
-        vy = @view liy[:,k]
-		vu = @view liu[:,k]
-		gout[vy2] .= -traj[vy2] + ddynamics(m, traj[vy], traj[vu], params, δt)
+		gout[li[:,k+1]] += ddynamics(m, yk(k), uk(k), params, δt)
 	end
 
 	# Initial condition
-	gout[liy[:,1]] .= -traj[@view liy[:,1]] + y0
+	gout[li[:,1]] = y0 - yk(1)
+
+	# Periodicity or symmetry
+	if opt.boundaryConstraint == SYMMETRIC
+		# FIXME: for now hardcoded symmetry G(y) = -y
+		gout[li[:,N+2]] = -yk(1) - yk(N+1)
+	end
 
 	return
 end
-
+#=
 # "Bounds corresponding to the constraints above"
-function gbounds(m::Model, traj::Vector; vart::Bool=true)::Tuple{Vector, Vector}
-	ny, nu = dims(m)
-	N = Nknot(m, traj; vart=vart)
+function gbounds(m::Model, opt::OptOptions, traj::Vector)::Tuple{Vector, Vector}
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+
 	# println("CALLED gbounds with $(ny) $(nu) $(N) $(pointer_from_objref(traj))")
 	g_L = [-traj[1:ny]; zeros(N*ny)]
     g_U = [-traj[1:ny]; zeros(N*ny)]
@@ -47,20 +72,18 @@ function gbounds(m::Model, traj::Vector; vart::Bool=true)::Tuple{Vector, Vector}
     return g_L, g_U
 end
 
-function Dgnnz(m::Model, N::Int; vart::Bool=true)::Int
-	ny, nu = dims(m)
+function Dgnnz(m::Model, opt::OptOptions, N::Int)::Int
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	# Assuming the Jacobians are dense. The terms below correspond to the "-I"s, the "I + δt A"'s, the "δt B"'s
 	return ny*(N+1) + ny^2*N + ny*nu*N
 end
 
-function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Model, traj::Vector, params::Vector, mode; vart::Bool=true, fixedδt::Float64=1e-3, order::Int=1)
-	ny, nu = dims(m)
-	N = Nknot(m, traj; vart=vart)
-	liy, liu = linind(m, N)
+function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Model, opt::OptOptions, traj::Vector, params::Vector, mode)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 
 	# NOTE: traj is NULL when in :Structure mode
 	if mode != :Structure
-		δt = vart ? traj[end] : fixedδt
+		δt = opt.vart ? traj[end] : opt.fixedδt
 		# Preallocate outputs
 		Ak = zeros(ny, ny)
 		Bk = zeros(ny, nu)
@@ -116,7 +139,7 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 	end
 	return
 end
-
+=#
 #=========================================================================
 Custom solver
 =========================================================================#
@@ -136,36 +159,60 @@ function Ψ(x; ε::Float64=0.1)
 	end
 end
 
+function dΨ(x; ε::Float64=0.1)
+    if x <= -ε
+        return 0
+	elseif x > -ε && x < ε
+        return x^2/(2ε) + x + ε/2
+    else
+		return 2x
+	end
+end
+
+function ddΨ(x; ε::Float64=0.1)
+    if x <= -ε
+        return 0
+	elseif x > -ε && x < ε
+        return x/(ε) + 1
+    else
+		return 2
+	end
+end
+
 @enum OptVar WRT_TRAJ WRT_PARAMS
 
 """Custom solver"""
-function csSolve(m::Model, traj0::Vector, params0::Vector, optWrt::OptVar; μs::Array{Float64}=[1e-1], Ninner::Int=1, vart::Bool=true, fixedδt::Float64=1e-3)
-	ny, nu = dims(m)
-	N = Nknot(m, traj0; vart=vart)
-	liy, liu = linind(m, N)
-	δt = vart ? traj0[end] : fixedδt
-	# This function allows us to concisely define the opt function below
-	_tup = _x::Vector -> (optWrt == WRT_TRAJ ? (_x, params0) : (traj0, _x))
+function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractArray, params0::AbstractArray, optWrt::OptVar; μs::Array{Float64}=[1e-1], Ninner::Int=1)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj0)
+
+	# These functions allows us to concisely define the opt function below
+	_tup = _x -> (optWrt == WRT_TRAJ ? (_x, params0) : (traj0, _x))
+	robjx = _x -> robj(m, opt, _tup(_x)...)
 	x = (optWrt == WRT_TRAJ ? copy(traj0) : copy(params0))
+
+	trajp = _tup(x)
+	# functions for views
+	yk = k -> @view trajp[1][liy[:,k]]
+	uk = k -> @view trajp[1][liu[:,k]]
+	gk = k -> @view wk.g[liy[:,k]]
+
 	# get (y,u,p,δt) at time k--point at which to evaluate dynamics
-	_yupt = k::Int -> (_tup(x)[1][@view liy[:,k]], _tup(x)[1][@view liu[:,k]], _tup(x)[2], δt)
+	_yupt = k::Int -> (yk(k), uk(k), trajp[2], δt)
 
 	# Constraint bounds
-	x_L, x_U = optWrt == WRT_TRAJ ? xbounds(m, N; vart=vart) : (fill(-Inf, size(params0)), fill(Inf, size(params0)))
-	g_L, g_U = gbounds(m, traj0; vart=vart)
+	x_L, x_U = optWrt == WRT_TRAJ ? xbounds(m, opt, N) : (fill(-Inf, size(params0)), fill(Inf, size(params0)))
+	fill!(wk.λ, 0.0)
 
-	# Preallocate outputs
-	g = similar(g_L)
-	Ng, Nx = length(g), length(x)
-	∇J = zeros(Nx)
-
-	# TODO: sparse matrices for these spzeros
-	HJ = zeros(Nx, Nx)
-	DgTg = zeros(Nx) # Dg' * g
-	# TODO: better Dg' Dg computation that doesn't compute Dg
-	Dg = zeros(Ng, Nx)
 	if optWrt == WRT_TRAJ
-		Dg[diagind(Dg)] .= -1
+		for i = 1:ny*(N+1)
+			wk.Dg[i,i] = -1.0
+		end
+		if opt.boundaryConstraint == SYMMETRIC
+			for j = 1:ny
+				wk.Dg[(N+1) * ny + j, j] = -1.0
+				wk.Dg[(N+1) * ny + j, (N) * ny + j] = -1.0
+			end
+		end
 		Ak = zeros(ny, ny)
 		Bk = zeros(ny, nu)
 	elseif optWrt == WRT_PARAMS
@@ -175,18 +222,18 @@ function csSolve(m::Model, traj0::Vector, params0::Vector, optWrt::OptVar; μs::
 	# Take some number of steps
 	# Preallocate output
 	x1 = similar(x)
+	v = similar(wk.∇J)
 
 	for μ in μs
 		for stepi = 1:Ninner
 			# One step
-			gvalues!(g, m, _tup(x)..., traj0[1:ny]; vart=vart, fixedδt=fixedδt)
+			gvalues!(wk.g, m, opt, _tup(x)..., @view traj0[1:ny])
 
-			# Non-quadratic cost
-			Jnq = _x::Vector -> Jobj(m, _tup(_x)...; vart=vart, fixedδt=fixedδt) + μ/2 * sum(Ψ.(_x - x_U) + Ψ.(x_L - _x))
 			# Cost function for this step
-			function Jx(_x::Vector)::Float64
-				gvalues!(g, m, _tup(_x)..., traj0[1:ny]; vart=vart, fixedδt=fixedδt)
-				return Jnq(_x) + μ/2 * g' * g
+			function Jx(_x::AbstractArray)::Real
+				gvalues!(wk.g, m, opt, _tup(_x)..., @view traj0[1:ny])
+				_ro = robj(m, opt, _tup(_x)...)
+				return (_ro ⋅ _ro) + μ/2 * ((wk.g ⋅ wk.g) + sum(Ψ.(_x - x_U) + Ψ.(x_L - _x))) + (wk.g ⋅ wk.λ)
 			end
 
 			# Compute Jacobian and Hessian
@@ -194,45 +241,53 @@ function csSolve(m::Model, traj0::Vector, params0::Vector, optWrt::OptVar; μs::
 				if optWrt == WRT_TRAJ
 					dlin!(Ak, Bk, m, _yupt(k)...)
 					# Dg_y' * g = [-g0 + A1^T g1, ..., -g(N-1) + AN^T gN, -gN]
-					DgTg[liy[:,k]] .= -g[@view liy[:,k]] + Ak' * g[@view liy[:,k+1]]
+					wk.DgTg[liy[:,k]] = -gk(k) + Ak' * gk(k+1)
 					# Dg_u' * g = [B1^T g1, ..., BN^T gN]
-					DgTg[liu[:,k]] .= Bk' * g[@view liy[:,k+1]]
+					wk.DgTg[liu[:,k]] = Bk' * gk(k+1)
 					# Dg_δt' * g = 0
 
 					# TODO: better Dg' Dg computation that doesn't compute Dg
-					Dg[liy[:,k+1], liy[:,k]] .= Ak
-					Dg[liy[:,k+1], liu[:,k]] .= Bk
+					wk.Dg[liy[:,k+1], liy[:,k]] = Ak
+					wk.Dg[liy[:,k+1], liu[:,k]] = Bk
 				elseif optWrt == WRT_PARAMS
 					dlinp!(Pk, m, _yupt(k)...)
 					# Dg0 = 0
-					Dg[liy[:,k+1], :] .= Pk
-					DgTg .= DgTg + Pk' * g[@view liy[:,k]]
+					wk.Dg[liy[:,k+1], :] = Pk
+					wk.DgTg = wk.DgTg + Pk' * gk(k)
 				end
 			end
 			
 			if optWrt == WRT_TRAJ
-				DgTg[liy[:,N+1]] .= -g[@view liy[:,N+1]]
+				wk.DgTg[liy[:,N+1]] = -gk(N+1)
 			end
-			# Calculate cost gradient from objective and an added penalty term
-			ForwardDiff.gradient!(∇J, Jnq, x)
-			ForwardDiff.hessian!(HJ, Jnq, x)
 
-			# Gradient: add penalty
-			∇J .= ∇J + μ * DgTg
+			# No special structure for the objective, but we only need the gradient and no Hessian
+			ro = robjx(x)
+			Dro = ForwardDiff.jacobian(robjx, x)
 
-			# Hessian of objective and add penalty term
-			HJ .= 1/2 * (HJ' + HJ) # take the symmetric part
-			# TODO: better Dg' Dg computation that doesn't compute Dg
-			HJ .= HJ + μ * Dg' * Dg
+			# Gradient: most terms are quadratic and hence use the Gauss-Newton approx; otherwise use the ineq constraint and its special "diagonal" form
+			x_Udiff = x - x_U
+			x_Ldiff = x_L - x
+			wk.∇J[:] = Dro' * ro + μ * (wk.DgTg + 1/2 * (dΨ.(x_Udiff) - dΨ.(x_Ldiff))) + (wk.Dg' * wk.λ)
+			wk.HJ[:] = Dro' * Dro + μ * (wk.Dg' * wk.Dg)
+			wk.HJ[diagind(wk.HJ)] += μ/2 * (ddΨ.(x_Udiff) + ddΨ.(x_Ldiff))
+			# Regularization, and then we know this is pos def
+			wk.HJ[diagind(wk.HJ)] .+= opt.hessReg
 
 			# # Gradient descent
-			# v = -∇J
+			# v .= -∇J
 			# Newton or Gauss-Newton. Use PositiveFactorizations.jl to ensure psd Hessian
-			v = -(cholesky(Positive, HJ) \ ∇J)
+			# v = -(cholesky(Positive, wk.HJ) \ wk.∇J)# #
+			v = -wk.HJ\wk.∇J
 
 			J0 = Jx(x)
-			J1 = csBacktrackingLineSearch!(x1, x, ∇J, v, J0, Jx; α=0.2, β=0.7)
+			J1 = csBacktrackingLineSearch!(x1, x, wk.∇J, v, J0, Jx; α=0.2, β=0.7)
 			x .= x1
+			# Update augmented Lagrangian
+			gvalues!(wk.g, m, opt, _tup(x)..., @view traj0[1:ny])
+			if opt.augLag
+				wk.λ[:] -= μ/2 * wk.g
+			end
 			println("μ=$(μ)\tstep=$(stepi)\tJ $(round(J0;sigdigits=4)) → $(round(J1;sigdigits=4))")
 		end
 	end
@@ -255,33 +310,39 @@ function csBacktrackingLineSearch!(x1::Vector, x0::Vector, ∇J0::Vector, v::Vec
 	return J0
 end
 
-function csAlternateSolve(m::Model, traj0::Vector, params0::Vector, NaltSteps::Int=1; μst::Array{Float64}=[1e-1], Ninnert::Int=1, μsp::Array{Float64}=[1e-1], Ninnerp::Int=1, vart::Bool=true, fixedδt::Float64=1e-3)
+function csAlternateSolve(m::Model, opt::OptOptions, traj0::AbstractArray, params0::AbstractArray, NaltSteps::Int=1; μst::Array{Float64}=[1e-1], Ninnert::Int=1, μsp::Array{Float64}=[1e-1], Ninnerp::Int=1)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj0)
+
 	# reshape into Nx1 matrices
 	trajs = reshape(copy(traj0), :, 1)
 	params = reshape(copy(params0), :, 1)
+	# Create workspaces
+	wkt = OptWorkspace((N+1)*ny + N*nu + 1, (N+2)*ny)
+	# np = length(params0)
+	# wkp = OptWorkspace(np, (N+2)*ny)
+
 	# Append columns for each step
 	for isteps = 1:NaltSteps
-		@time trajs = [trajs csSolve(m, trajs[:,end], params[:,end], WRT_TRAJ; Ninner=Ninnert, μs=μst)]
-		@time params = [params csSolve(m, trajs[:,end], params[:,end], WRT_PARAMS; Ninner=Ninnerp, μs=μsp)]
+		@time trajs = [trajs csSolve!(wkt, m, opt, trajs[:,end], params[:,end], WRT_TRAJ; Ninner=Ninnert, μs=μst)]
+		# @time params = [params csSolve!(wkp, m, opt, trajs[:,end], params[:,end], WRT_PARAMS; Ninner=Ninnerp, μs=μsp)]
 	end
-	return trajs, params
+	
+	return trajs, params, wkt
 end
 
 #=========================================================================
 Solver interface
 =========================================================================#
 
-function nloptsetup(m::Model, traj::Vector, params::Vector; vart::Bool=true, fixedδt::Float64=1e-3)
-	ny, nu = dims(m)
-	# Construct constraints
-	N = Nknot(m, traj; vart=vart)
+function nloptsetup(m::Model, opt::OptOptions, traj::Vector, params::Vector)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 
 	# Define the things needed for IPOPT
-	x_L, x_U = xbounds(m, N; vart=vart)
-	g_L, g_U = gbounds(m, traj; vart=vart)
-	eval_g(x::Vector, g::Vector) = gvalues!(g, m, x, params, traj[1:ny]; vart=vart, fixedδt=fixedδt)
-	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgsparse!(rows, cols, values, m, x, params, mode; vart=vart, fixedδt=fixedδt)
-	eval_f(x::Vector{Float64}) = Jobj(m, x, params; vart=vart, fixedδt=fixedδt)
+	x_L, x_U = xbounds(m, opt, N)
+	g_L, g_U = gbounds(m, opt, traj)
+	eval_g(x::Vector, g::Vector) = gvalues!(g, m, opt, x, params, traj[1:ny])
+	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgsparse!(rows, cols, values, m, opt, x, params, mode)
+	eval_f(x::Vector{Float64}) = Jobj(m, opt, x, params)
 	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, eval_f, x)
 
 	# Create IPOPT problem

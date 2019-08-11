@@ -45,7 +45,7 @@ end
 
 function cu.limits(m::Wing2DOFModel)::Tuple{Vector, Vector, Vector, Vector}
     # This is based on observing the OL trajectory. See note on units above.
-    umax = @SVector [75] # [mN]
+    umax = @SVector [75.0] # [mN]
     umin = -umax
     xmax = @SVector [300e-3, 1.5, Inf, Inf] # [mm, rad, mm/ms, rad/ms]
     xmin = -xmax
@@ -58,7 +58,7 @@ end
 
 
 "Returns paero [mm], Jaero, Faero [mN]"
-function w2daero(y::Vector, u::Vector, _params::Vector)
+function w2daero(y::AbstractArray, u::AbstractArray, _params::Vector)
     CLmax = 1.8
     CDmax = 3.4
     CD0 = 0.4
@@ -95,7 +95,7 @@ function w2daero(y::Vector, u::Vector, _params::Vector)
 end
 
 "Continuous dynamics second order model"
-function cu.dydt(model::Wing2DOFModel, y::Vector, u::Vector, _params::Vector)::Vector
+function cu.dydt(model::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _params::Vector)::AbstractArray
     # unpack
     cbar, T = _params
     σ, Ψ, σ̇, Ψ̇ = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]
@@ -164,10 +164,8 @@ function createInitialTraj(m::Wing2DOFModel, N::Int, freq::Real, posGains::Vecto
     return trajt .- trajt[1], traj0
 end
 
-function plotTrajs(m::Wing2DOFModel, t::Vector, params::Vector, args...; vart=true)
-	ny, nu = cu.dims(m)
-	N = cu.Nknot(m, args[1]; vart=vart)
-    liy, liu = cu.linind(m, N)
+function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params::Vector, args...)
+	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, args[1])
 	Ny = (N+1)*ny
 	# stroke "angle" = T*y[1] / R
     cbar, T = params
@@ -188,15 +186,17 @@ function plotTrajs(m::Wing2DOFModel, t::Vector, params::Vector, args...; vart=tr
 	return (σt, Ψt, ut, aerot)
 end
 
-function plotParams(m::Wing2DOFModel, traj::Vector, args...; vart::Bool=true, fixedδt::Float64=1e-3, μ::Float64=1e-1)
+function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, args...; μ::Float64=1e-1)
     # First plot the param landscape
     p1 = 0:0.5:5.0
     p2 = 5:2:40
 
-    g = cu.gbounds(m, traj; vart=vart)[1]
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+    Ng = opt.boundaryConstraint == cu.SYMMETRIC ? (N+2)*ny : (N+1)*ny
+    g = zeros(Ng)#cu.gbounds(m, opt, traj)[1]
     f(p1, p2) = begin
-        cu.gvalues!(g, m, traj, [p1,p2], traj[1:4]; vart=vart, fixedδt=fixedδt)
-        cu.Jobj(m, traj, [p1,p2]; vart=vart, fixedδt=fixedδt) + μ/2 * g' * g
+        cu.gvalues!(g, m, opt, traj, [p1,p2], traj[1:4])
+        cu.Jobj(m, opt, traj, [p1,p2]) + μ/2 * g' * g
     end
 
     paramLandscape = contour(p1, p2, f, fill=true)
@@ -211,21 +211,21 @@ end
 # "Cost function components" ------------------
 
 "Objective to minimize"
-function cu.Jobj(m::Wing2DOFModel, traj::Vector, params::Vector; vart::Bool=true, fixedδt::Float64=1e-3)::Number
-	N = cu.Nknot(m, traj; vart=vart)
-    liy, liu = cu.linind(m, N)
-	# δt = vart ? traj[end] : fixedδt
+function cu.robj(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, params::AbstractArray)::AbstractArray
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+    
+	yk = k -> @view traj[liy[:,k]]
+	uk = k -> @view traj[liu[:,k]]
+    
     Favg = @SVector zeros(2)
     for k = 1:N
-        vy = @view liy[:,k]
-        vu = @view liu[:,k]
-        paero, _, Faero = w2daero(traj[vy], traj[vu], params)
+        paero, _, Faero = w2daero(yk(k), uk(k), params)
         Favg += Faero
     end
     # Divide by the total time
     Favg /= (N) # [mN]
-    # max avg lift
-    return -Favg[2]
+    # avg lift
+    return [Favg[2] - 100]
 end
 
 
