@@ -191,6 +191,25 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params::Vect
 	return (σt, Ψt, ut, aerot)
 end
 
+function animateTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params::Vector, args...)
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, args[1])
+    
+	yk(traj, k) = @view traj[liy[:,k]]
+    uk(traj, k) = @view traj[liu[:,k]]
+    
+    paerok = k -> w2daero(yk(args[1], k), uk(args[1], k), params)[1]
+    wing1 = k -> [yk(args[1], k)[1];0]
+    wing2 = k -> wing1(k) + 2*(paerok(1) - wing1(k))
+    
+    @gif for k=1:N
+        wingdraw = plot([wing1(k)[1]; wing2(k)[1]], [wing1(k)[2]; wing2(k)[2]], marker=:auto, aspect_ratio=:equal)
+
+        plot!(wingdraw, [-10,10], [0, 0], color="black", linestyle=:dash)
+    end
+
+    # return wingdraw 
+end
+
 function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, args...; μ::Float64=1e-1)
     # First plot the param landscape
     p1 = 0:0.5:5.0
