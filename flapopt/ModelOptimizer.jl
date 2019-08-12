@@ -272,17 +272,24 @@ function Dgnnz(m::Model, opt::OptOptions, traj::Vector)::Int
 	return ny*(N+1) + ny^2*N + ny*nu*N
 end
 
-function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Model, opt::OptOptions, traj::Vector, params::Vector, mode)
-	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Model, opt::OptOptions, traj::Vector, params::Vector, mode, ny, nu, N, δt)
+	#=
+	NOTE ON USAGE
 
-	# NOTE: traj is NULL when in :Structure mode
+	If the iRow and jCol arguments are not NULL, then IPOPT wants you to fill in the sparsity structure of the Jacobian (the row and column indices only). At this time, the x argument and the values argument will be NULL.
+	If the x argument and the values argument are not NULL, then IPOPT wants you to fill in the values of the Jacobian as calculated from the array x (using the same order as you used when specifying the sparsity structure). At this time, the iRow and jCol arguments will be NULL;
+	=#
+	# ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	if mode != :Structure
-		δt = opt.vart ? traj[end] : opt.fixedδt
+		ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+		yk = k -> @view traj[liy[:,k]]
+		uk = k -> @view traj[liu[:,k]]
 		# Preallocate outputs
 		Ak = zeros(ny, ny)
 		Bk = zeros(ny, nu)
 	end
 
+	# TODO: the new symmetry constraint
 	# Fill in -I's
 	for ii = 1:ny*(N+1)
 		if mode == :Structure
@@ -301,7 +308,7 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 	for k = 1:N
 		if mode != :Structure
 			# Get the jacobians at this y, u
-			dlin!(Ak, Bk, m, traj[@view liy[:,k]], traj[@view liu[:,k]], params, δt)
+			dlin!(Ak, Bk, m, yk(k), uk(k), params, δt)
 		end
 
 		# Insert A
@@ -336,12 +343,13 @@ end
 
 function nloptsetup(m::Model, opt::OptOptions, traj::Vector, params::Vector)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+	δt = opt.vart ? traj[end] : opt.fixedδt
 
 	# Define the things needed for IPOPT
 	x_L, x_U = xbounds(m, opt, N)
 	g_L, g_U = gbounds(m, opt, traj)
 	eval_g(x::Vector, g::Vector) = gvalues!(g, m, opt, x, params, traj[1:ny])
-	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgsparse!(rows, cols, values, m, opt, x, params, mode)
+	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgsparse!(rows, cols, values, m, opt, x, params, mode, ny, nu, N, δt)
 	function eval_f(x::AbstractArray)
 		_ro = robj(m, opt, x, params)
 		return (_ro ⋅ _ro)
