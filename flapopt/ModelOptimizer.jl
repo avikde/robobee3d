@@ -60,86 +60,7 @@ function gvalues!(gout::Vector{T}, m::Model, opt::OptOptions, traj::Vector{T}, p
 
 	return
 end
-#=
-# "Bounds corresponding to the constraints above"
-function gbounds(m::Model, opt::OptOptions, traj::Vector)::Tuple{Vector, Vector}
-	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 
-	# println("CALLED gbounds with $(ny) $(nu) $(N) $(pointer_from_objref(traj))")
-	g_L = [-traj[1:ny]; zeros(N*ny)]
-    g_U = [-traj[1:ny]; zeros(N*ny)]
-    # first N*ny = 0 (dynamics)
-    return g_L, g_U
-end
-
-function Dgnnz(m::Model, opt::OptOptions, N::Int)::Int
-	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
-	# Assuming the Jacobians are dense. The terms below correspond to the "-I"s, the "I + δt A"'s, the "δt B"'s
-	return ny*(N+1) + ny^2*N + ny*nu*N
-end
-
-function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Model, opt::OptOptions, traj::Vector, params::Vector, mode)
-	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
-
-	# NOTE: traj is NULL when in :Structure mode
-	if mode != :Structure
-		δt = opt.vart ? traj[end] : opt.fixedδt
-		# Preallocate outputs
-		Ak = zeros(ny, ny)
-		Bk = zeros(ny, nu)
-	end
-
-	# Fill in -I's
-	for ii = 1:ny*(N+1)
-		if mode == :Structure
-			row[ii] = ii
-			col[ii] = ii
-		else
-			value[ii] = -1
-		end
-	end
-	
-	# Offsets into the row[], col[], val[] arrays. These will be incremented and keep track of the index in the loops below.
-	offsA = ny*(N+1)
-	offsB = ny*(N+1) + ny^2*N
-
-	# Fill in Jacobians
-	for k = 1:N
-		if mode != :Structure
-			# Get the jacobians at this y, u
-			dlin!(Ak, Bk, m, traj[@view liy[:,k]], traj[@view liu[:,k]], params, δt)
-		end
-
-		# Insert A
-		# NOTE: j outer loop for Julia's col-major storage and better loop unrolling
-		for j = 1:ny
-			for i = 1:ny
-				offsA += 1 # needs to be up here due to 1-indexing!
-				if mode == :Structure
-					row[offsA] = k*ny + i
-					col[offsA] = (k-1)*ny + j
-				else
-					value[offsA] = Ak[i,j]
-				end
-			end
-		end
-
-		# Insert B
-		for j = 1:nu
-			for i = 1:ny
-				offsB += 1
-				if mode == :Structure
-					row[offsB] = k*ny + i
-					col[offsB] = (N+1)*ny + (k-1)*nu + j
-				else
-					value[offsB] = Bk[i,j]
-				end
-			end
-		end
-	end
-	return
-end
-=#
 #=========================================================================
 Custom solver
 =========================================================================#
@@ -331,8 +252,87 @@ function csAlternateSolve(m::Model, opt::OptOptions, traj0::AbstractArray, param
 end
 
 #=========================================================================
-Solver interface
+IPOPT Solver interface
 =========================================================================#
+
+# "Bounds corresponding to the constraints above"
+function gbounds(m::Model, opt::OptOptions, traj::Vector)::Tuple{Vector, Vector}
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+
+	# println("CALLED gbounds with $(ny) $(nu) $(N) $(pointer_from_objref(traj))")
+	g_L = zeros((N+2)*ny)
+    g_U = zeros((N+2)*ny)
+    # first N*ny = 0 (dynamics)
+    return g_L, g_U
+end
+
+function Dgnnz(m::Model, opt::OptOptions, traj::Vector)::Int
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+	# Assuming the Jacobians are dense. The terms below correspond to the "-I"s, the "I + δt A"'s, the "δt B"'s
+	return ny*(N+1) + ny^2*N + ny*nu*N
+end
+
+function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Model, opt::OptOptions, traj::Vector, params::Vector, mode)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+
+	# NOTE: traj is NULL when in :Structure mode
+	if mode != :Structure
+		δt = opt.vart ? traj[end] : opt.fixedδt
+		# Preallocate outputs
+		Ak = zeros(ny, ny)
+		Bk = zeros(ny, nu)
+	end
+
+	# Fill in -I's
+	for ii = 1:ny*(N+1)
+		if mode == :Structure
+			row[ii] = ii
+			col[ii] = ii
+		else
+			value[ii] = -1
+		end
+	end
+	
+	# Offsets into the row[], col[], val[] arrays. These will be incremented and keep track of the index in the loops below.
+	offsA = ny*(N+1)
+	offsB = ny*(N+1) + ny^2*N
+
+	# Fill in Jacobians
+	for k = 1:N
+		if mode != :Structure
+			# Get the jacobians at this y, u
+			dlin!(Ak, Bk, m, traj[@view liy[:,k]], traj[@view liu[:,k]], params, δt)
+		end
+
+		# Insert A
+		# NOTE: j outer loop for Julia's col-major storage and better loop unrolling
+		for j = 1:ny
+			for i = 1:ny
+				offsA += 1 # needs to be up here due to 1-indexing!
+				if mode == :Structure
+					row[offsA] = k*ny + i
+					col[offsA] = (k-1)*ny + j
+				else
+					value[offsA] = Ak[i,j]
+				end
+			end
+		end
+
+		# Insert B
+		for j = 1:nu
+			for i = 1:ny
+				offsB += 1
+				if mode == :Structure
+					row[offsB] = k*ny + i
+					col[offsB] = (N+1)*ny + (k-1)*nu + j
+				else
+					value[offsB] = Bk[i,j]
+				end
+			end
+		end
+	end
+	return
+end
 
 function nloptsetup(m::Model, opt::OptOptions, traj::Vector, params::Vector)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
@@ -342,8 +342,23 @@ function nloptsetup(m::Model, opt::OptOptions, traj::Vector, params::Vector)
 	g_L, g_U = gbounds(m, opt, traj)
 	eval_g(x::Vector, g::Vector) = gvalues!(g, m, opt, x, params, traj[1:ny])
 	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgsparse!(rows, cols, values, m, opt, x, params, mode)
-	eval_f(x::Vector{Float64}) = Jobj(m, opt, x, params)
+	function eval_f(x::AbstractArray)
+		_ro = robj(m, opt, x, params)
+		return (_ro ⋅ _ro)
+	end
 	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, eval_f, x)
+
+	# TEST the interface
+	println("TESTING")
+	println("xL", x_L, "xU", x_U)
+	println("gL", g_L, "gU", g_U)
+	g = similar(g_L)
+	eval_g(traj, g)
+	println("g", g)
+	println("f", eval_f(traj))
+	Df = similar(traj)
+	eval_grad_f(traj, Df)
+	println("Df", Df)
 
 	# Create IPOPT problem
 	prob = Ipopt.createProblem(
@@ -353,7 +368,7 @@ function nloptsetup(m::Model, opt::OptOptions, traj::Vector, params::Vector)
 		length(g_L), # Number of constraints
 		g_L,       # Constraint lower bounds
 		g_U,       # Constraint upper bounds
-		Dgnnz(m, N; vart=vart),  # Number of non-zeros in Jacobian
+		Dgnnz(m, opt, traj),  # Number of non-zeros in Jacobian
 		0,             # Number of non-zeros in Hessian
 		eval_f,                     # Callback: objective function
 		eval_g,                     # Callback: constraint evaluation
