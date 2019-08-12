@@ -45,8 +45,6 @@ function gvalues!(gout::Vector{T}, m::Model, opt::OptOptions, traj::Vector{T}, p
 
 	# Initial condition
 	gout[li[:,1]] = y0 - yk(1)
-	# FIXME: for some reason IPOPT is failing with the actual initial condition. the hinge angle is the worst
-	gout[2] = 0 #FIXME:
 
 	# Dynamics constraint
 	for k = 1:N
@@ -257,13 +255,15 @@ IPOPT Solver interface
 =========================================================================#
 
 # "Bounds corresponding to the constraints above"
-function gbounds(m::Model, opt::OptOptions, traj::Vector)::Tuple{Vector, Vector}
+function gbounds(m::Model, opt::OptOptions, traj::Vector, εic::Float64=0., εdyn::Float64=0., εsymm::Float64=0.)::Tuple{Vector, Vector}
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 
 	# println("CALLED gbounds with $(ny) $(nu) $(N) $(pointer_from_objref(traj))")
-	Ng = opt.boundaryConstraint == SYMMETRIC ? (N+2)*ny : (N+1)*ny
-    # first N*ny = 0 (dynamics)
-    return zeros(Ng), zeros(Ng)
+	gU = [fill(εic, ny); fill(εdyn, N*ny)]
+	if opt.boundaryConstraint == SYMMETRIC
+		gU = [gU; fill(εsymm, ny)]
+	end
+    return -gU, gU
 end
 
 function Dgnnz(m::Model, opt::OptOptions, traj::Vector)::Int
@@ -371,7 +371,7 @@ function nloptsetup(m::Model, opt::OptOptions, traj::Vector, params::Vector; kwa
 
 	# Define the things needed for IPOPT
 	x_L, x_U = xbounds(m, opt, N)
-	g_L, g_U = gbounds(m, opt, traj)
+	g_L, g_U = gbounds(m, opt, traj, 1., 0.1, 0.1)
 	y0 = copy(traj[1:ny])
 	eval_g(x::Vector, g::Vector) = gvalues!(g, m, opt, x, params, y0)
 	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgsparse!(rows, cols, values, m, opt, x, params, mode, ny, nu, N, δt)

@@ -107,7 +107,7 @@ function cu.dydt(model::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _para
     sΨ = sin(Ψ)
 
     # params
-    mspar = 0 # [mg]
+    mspar = 1 # [mg]
     mwing = 0.51 # [mg]
     Iwing = mwing * cbar^2 # cbar is in mm
     kσ = 0
