@@ -364,7 +364,7 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 	return
 end
 
-function nloptsetup(m::Model, opt::OptOptions, traj::Vector, params::Vector)
+function nloptsetup(m::Model, opt::OptOptions, traj::Vector, params::Vector; kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	δt = opt.vart ? traj[end] : opt.fixedδt
 
@@ -379,17 +379,17 @@ function nloptsetup(m::Model, opt::OptOptions, traj::Vector, params::Vector)
 	end
 	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, eval_f, x)
 
-	# TEST the interface
-	println("TESTING")
-	println("xL", x_L, "xU", x_U)
-	println("gL", g_L, "gU", g_U)
-	g = similar(g_L)
-	eval_g(traj, g)
-	println("g", g)
-	println("f", eval_f(traj))
-	Df = similar(traj)
-	eval_grad_f(traj, Df)
-	println("Df", Df)
+	# # TEST the interface
+	# println("TESTING")
+	# println("xL", x_L, "xU", x_U)
+	# println("gL", g_L, "gU", g_U)
+	# g = similar(g_L)
+	# eval_g(traj, g)
+	# println("g", g)
+	# println("f", eval_f(traj))
+	# Df = similar(traj)
+	# eval_grad_f(traj, Df)
+	# println("Df", Df)
 
 	# Create IPOPT problem
 	prob = Ipopt.createProblem(
@@ -408,6 +408,12 @@ function nloptsetup(m::Model, opt::OptOptions, traj::Vector, params::Vector)
 		nothing           # Callback: Hessian evaluation
 	)
 	Ipopt.addOption(prob, "hessian_approximation", "limited-memory")
+
+	# Add options using kwargs
+	for (k,v) in pairs(kwargs)
+		println(k, " => ", v)
+		Ipopt.addOption(prob, string(k), v)
+	end
 
 	# TODO: this should be an update only without need to setup
 	prob.x = traj

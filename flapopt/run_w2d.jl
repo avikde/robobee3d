@@ -23,7 +23,7 @@ trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
 # cu.csSolve!(wk, m, opt, traj0, params0, cu.WRT_TRAJ)
 
 # IPOPT
-prob = cu.nloptsetup(m, opt, traj0, params0)
+prob = cu.nloptsetup(m, opt, traj0, params0; tol=1e-2)
 status = cu.nloptsolve(prob)
 Ipopt.ApplicationReturnStatus[status]
 
