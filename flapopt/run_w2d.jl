@@ -14,7 +14,7 @@ includet("Wing2DOF.jl")
 m = Wing2DOFModel()
 ny, nu = cu.dims(m)
 opt = cu.OptOptions(true, 0.1, 1, cu.SYMMETRIC, 1e-8, false)
-N = opt.boundaryConstraint == cu.SYMMETRIC ? 11 : 22
+N = opt.boundaryConstraint == cu.SYMMETRIC ? 16 : 32
 params0 = [2.0, 20.0] # cbar, T
 
 trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
@@ -23,7 +23,7 @@ trajt, traj0 = createInitialTraj(m, N, 0.15, [1e3, 1e2], params0)
 # cu.csSolve!(wk, m, opt, traj0, params0, cu.WRT_TRAJ)
 
 # IPOPT
-prob = cu.nloptsetup(m, opt, traj0, params0; tol=1e-2, constr_viol_tol=1e1, acceptable_constr_viol_tol=1e1, acceptable_dual_inf_tol=1e1)
+prob = cu.nloptsetup(m, opt, traj0, params0)
 status = cu.nloptsolve(prob)
 trajs = [traj0, prob.x]
 pl1 = plotTrajs(m, opt, trajt, params0, traj0, prob.x)

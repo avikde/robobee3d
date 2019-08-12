@@ -370,7 +370,9 @@ function nloptsetup(m::Model, opt::OptOptions, traj::Vector, params::Vector; kwa
 	# Define the things needed for IPOPT
 	x_L, x_U = xbounds(m, opt, N)
 	g_L, g_U = gbounds(m, opt, traj)
-	eval_g(x::Vector, g::Vector) = gvalues!(g, m, opt, x, params, traj[1:ny])
+	# FIXME: for some reason IPOPT is failing with the actual initial condition. the hinge angle is the worst
+	y0 = zeros(ny)#copy(traj[1:ny])
+	eval_g(x::Vector, g::Vector) = gvalues!(g, m, opt, x, params, y0)
 	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgsparse!(rows, cols, values, m, opt, x, params, mode, ny, nu, N, δt)
 	function eval_f(x::AbstractArray)
 		_ro = robj(m, opt, x, params)

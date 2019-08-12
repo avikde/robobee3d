@@ -154,7 +154,7 @@ function createInitialTraj(m::Wing2DOFModel, N::Int, freq::Real, posGains::Vecto
     # gui()
 
     starti = 172
-    olRange = starti:3:(starti + 3*N)
+    olRange = starti:2:(starti + 2*N)
     trajt = sol.t[olRange]
     δt = trajt[2] - trajt[1]
     olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)
