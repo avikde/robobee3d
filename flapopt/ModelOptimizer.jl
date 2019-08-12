@@ -260,16 +260,19 @@ function gbounds(m::Model, opt::OptOptions, traj::Vector)::Tuple{Vector, Vector}
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 
 	# println("CALLED gbounds with $(ny) $(nu) $(N) $(pointer_from_objref(traj))")
-	g_L = zeros((N+2)*ny)
-    g_U = zeros((N+2)*ny)
+	Ng = opt.boundaryConstraint == SYMMETRIC ? (N+2)*ny : (N+1)*ny
     # first N*ny = 0 (dynamics)
-    return g_L, g_U
+    return zeros(Ng), zeros(Ng)
 end
 
 function Dgnnz(m::Model, opt::OptOptions, traj::Vector)::Int
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
-	# Assuming the Jacobians are dense. The terms below correspond to the "-I"s, the "I + δt A"'s, the "δt B"'s
-	return ny*(N+1) + ny^2*N + ny*nu*N
+	# Assuming the Jacobians are dense. The terms below correspond to the "-I"s, the "I + δt A"'s, the "δt B"'s, 
+	nnz = ny*(N+1) + ny^2*N + ny*nu*N
+	if opt.boundaryConstraint == SYMMETRIC
+		nnz += 2*ny # the two I's for symmetry
+	end
+	return nnz
 end
 
 function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Model, opt::OptOptions, traj::Vector, params::Vector, mode, ny, nu, N, δt)
@@ -289,7 +292,6 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 		Bk = zeros(ny, nu)
 	end
 
-	# TODO: the new symmetry constraint
 	# Fill in -I's
 	for ii = 1:ny*(N+1)
 		if mode == :Structure
@@ -335,6 +337,27 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 				else
 					value[offsB] = Bk[i,j]
 				end
+			end
+		end
+	end
+
+	# the new symmetry constraint
+	if opt.boundaryConstraint == SYMMETRIC
+		for j = 1:ny
+			# Two -I's
+			offsB += 1
+			if mode == :Structure
+				row[offsB] = (N+1) * ny + j
+				col[offsB] = j
+			else
+				value[offsB] = -1
+			end
+			offsB += 1
+			if mode == :Structure
+				row[offsB] = (N+1) * ny + j
+				col[offsB] = (N) * ny + j
+			else
+				value[offsB] = -1
 			end
 		end
 	end
