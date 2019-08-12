@@ -43,14 +43,13 @@ function gvalues!(gout::Vector{T}, m::Model, opt::OptOptions, traj::Vector{T}, p
 	yk = k -> @view traj[liy[:,k]]
 	uk = k -> @view traj[liu[:,k]]
 
-	gout[1:(N+1)*ny] = -(@view traj[1:(N+1)*ny])
-	# Dynamics constraint
-	for k = 1:N
-		gout[li[:,k+1]] += ddynamics(m, yk(k), uk(k), params, δt)
-	end
-
 	# Initial condition
 	gout[li[:,1]] = y0 - yk(1)
+
+	# Dynamics constraint
+	for k = 1:N
+		gout[li[:,k+1]] = -yk(k+1) + ddynamics(m, yk(k), uk(k), params, δt)
+	end
 
 	# Periodicity or symmetry
 	if opt.boundaryConstraint == SYMMETRIC
