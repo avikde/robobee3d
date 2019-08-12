@@ -45,6 +45,8 @@ function gvalues!(gout::Vector{T}, m::Model, opt::OptOptions, traj::Vector{T}, p
 
 	# Initial condition
 	gout[li[:,1]] = y0 - yk(1)
+	# FIXME: for some reason IPOPT is failing with the actual initial condition. the hinge angle is the worst
+	gout[2] = 0 #FIXME:
 
 	# Dynamics constraint
 	for k = 1:N
@@ -370,8 +372,7 @@ function nloptsetup(m::Model, opt::OptOptions, traj::Vector, params::Vector; kwa
 	# Define the things needed for IPOPT
 	x_L, x_U = xbounds(m, opt, N)
 	g_L, g_U = gbounds(m, opt, traj)
-	# FIXME: for some reason IPOPT is failing with the actual initial condition. the hinge angle is the worst
-	y0 = zeros(ny)#copy(traj[1:ny])
+	y0 = copy(traj[1:ny])
 	eval_g(x::Vector, g::Vector) = gvalues!(g, m, opt, x, params, y0)
 	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgsparse!(rows, cols, values, m, opt, x, params, mode, ny, nu, N, δt)
 	function eval_f(x::AbstractArray)

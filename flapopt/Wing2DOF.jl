@@ -53,7 +53,7 @@ function cu.limits(m::Wing2DOFModel)::Tuple{Vector, Vector, Vector, Vector}
 end
 
 function cu.limitsTimestep(m::Wing2DOFModel)::Tuple{Float64, Float64}
-	return 0.01, 10.0
+	return 0.01, 0.07
 end
 
 
@@ -154,7 +154,7 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     # gui()
 
     starti = 172
-    olRange = starti:2:(starti + 2*N)
+    olRange = starti:3:(starti + 3*N)
     trajt = sol.t[olRange]
     δt = trajt[2] - trajt[1]
     olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)
