@@ -135,7 +135,7 @@ end
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::Wing2DOFModel, N::Int, freq::Real, posGains::Vector, params0::Vector)
+function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params0::Vector)
     # Create a traj
     σmax = cu.limits(m)[end][1]
     function strokePosController(y, t)
@@ -159,7 +159,12 @@ function createInitialTraj(m::Wing2DOFModel, N::Int, freq::Real, posGains::Vecto
     δt = trajt[2] - trajt[1]
     olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)
     olTraju = [strokePosController(olTrajaa[i], trajt[i]) for i in 1:N] # get u1,...,uN
-    traj0 = [vcat(olTrajaa...); olTraju; δt] # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
+    traj0 = [vcat(olTrajaa...); olTraju] # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
+    if opt.vart
+        traj0 = [traj0; δt]
+    else
+        println("Initial traj δt=", δt, ", opt.fixedδt=", opt.fixedδt)
+    end
 
     return trajt .- trajt[1], traj0
 end
