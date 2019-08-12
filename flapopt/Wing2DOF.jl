@@ -182,7 +182,7 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params::Vect
     ut = plot(t, hcat([[traj[@view liu[1,:]];NaN] for traj in args]...), marker=:auto, legend=false, ylabel="stroke force [mN]")
     # Plot of aero forces at each instant
     function aeroPlotVec(_traj::Vector)
-        Faerok = k -> w2daero(_traj[@view liy[:,k]], _traj[@view liu[:,k]], params0)[end]
+        Faerok = k -> w2daero(_traj[@view liy[:,k]], _traj[@view liu[:,k]], params)[end]
         Faeros = hcat([Faerok(k) for k=1:N]...)
         return [Faeros[2,:]' NaN]'
     end
