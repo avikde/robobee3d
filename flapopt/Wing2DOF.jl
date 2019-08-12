@@ -47,7 +47,7 @@ function cu.limits(m::Wing2DOFModel)::Tuple{Vector, Vector, Vector, Vector}
     # This is based on observing the OL trajectory. See note on units above.
     umax = @SVector [75.0] # [mN]
     umin = -umax
-    xmax = @SVector [300e-3, 1.5, Inf, Inf] # [mm, rad, mm/ms, rad/ms]
+    xmax = @SVector [300e-3, 1.5, 100, 100] # [mm, rad, mm/ms, rad/ms]
     xmin = -xmax
     return umin, umax, xmin, xmax
 end
