@@ -52,7 +52,7 @@ function gvalues!(gout::Vector{T}, m::Model, opt::OptOptions, traj::Vector{T}, p
 		fkp1 = dydt(m, yk(1), uk(1), params) # initialize for usage below
 		uc = zeros(nu)
 		yc = similar(y0)
-		ycdot = similar(y0)
+		ycdotδt = similar(y0)
 		ukp1 = similar(uc)
 	end
 
@@ -74,9 +74,9 @@ function gvalues!(gout::Vector{T}, m::Model, opt::OptOptions, traj::Vector{T}, p
 			fkp1 .= dydt(m, yk(k+1), ukp1, params)
 			# interpolate http://underactuated.mit.edu/underactuated.html?chapter=trajopt
 			yc .= 1/2 * (yk(k) + yk(k+1)) + δt/8 * (fk - fkp1)
-			ycdot .= -3/(2*δt) * (yk(k) - yk(k+1)) - 1/4 * (fk + fkp1)
+			ycdotδt .= -3/(2) * (yk(k) - yk(k+1)) - δt/4 * (fk + fkp1)
 			# collocation constraint
-			gout[li[:,k+1]] = -ycdot + dydt(m, yc, uc, params)
+			gout[li[:,k+1]] = -ycdotδt + δt * dydt(m, yc, uc, params)
 		end
 	end
 
