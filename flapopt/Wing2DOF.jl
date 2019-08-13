@@ -135,14 +135,14 @@ end
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params0::Vector)
+function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector)
     # Create a traj
     σmax = cu.limits(m)[end][1]
     function strokePosController(y, t)
         σdes = 0.9 * σmax * sin(freq * 2 * π * t)
         return posGains[1] * (σdes - y[1]) - posGains[2] * y[3]
     end
-    strokePosControlVF(y, p, t) = cu.dydt(m, y, [strokePosController(y, t)], params0)
+    strokePosControlVF(y, p, t) = cu.dydt(m, y, [strokePosController(y, t)], params)
     # OL traj1
     teval = collect(0:1e-1:100) # [ms]
     prob = ODEProblem(strokePosControlVF, zeros(4), (teval[1], teval[end]))
@@ -152,6 +152,14 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     # Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
     # plot(σt, Ψt, layout=(2,1))
     # gui()
+
+    # # Animate whole traj
+    # Nt = length(sol.t)
+    # @gif for k = 1:Nt
+    #     yk = sol.u[k]
+    #     uk = [strokePosController(yk, sol.t[k])]
+    #     drawFrame(m, yk, uk, params)
+    # end
 
     starti = 172
     olRange = starti:3:(starti + 3*N)
@@ -191,12 +199,18 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params::Vect
 	return (σt, Ψt, ut, aerot)
 end
 
-function drawFrame(m::Wing2DOFModel, yk, uk, params)
-    paerok = w2daero(yk, uk, params)[1]
-    wing1 = [yk[1];0]
-    wing2 = wing1 + 2*(paerok - wing1)
-    w = plot([wing1[1]; wing2[1]], [wing1[2]; wing2[2]], marker=:auto, aspect_ratio=:equal, xlims=(-2,2), ylims=(-1,1))
-    plot!(w, [-10,10], [0, 0], color="black", linestyle=:dash)
+function drawFrame(m::Wing2DOFModel, yk, uk, params; Faeroscale=5.0)
+    cbar, T = params
+    paero, _, Faero = w2daero(yk, uk, params)
+    wing1 = [yk[1] * T;0] # wing tip
+    wing2 = wing1 + 2*(paero - wing1)
+    # draw wing
+    w = plot([wing1[1]; wing2[1]], [wing1[2]; wing2[2]], marker=:auto, aspect_ratio=:equal, linewidth=4, xlims=(-T,T), ylims=(-10,10))
+    # Faero
+    FaeroEnd = paero + Faeroscale * Faero
+    plot!(w, [paero[1], FaeroEnd[1]], [paero[2], FaeroEnd[2]], color=:red, linewidth=2, line=:arrow)
+    # stroke plane
+    plot!(w, [-T,T], [0, 0], color="black", linestyle=:dash)
 end
 
 function animateTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params::Vector, args...)
