@@ -243,7 +243,7 @@ function csAlternateSolve(m::Model, opt::OptOptions, traj0::AbstractArray, param
 
 	# Append columns for each step
 	for isteps = 1:NaltSteps
-		@time trajs = [trajs csSolve!(wkt, m, opt, trajs[:,end], params[:,end], WRT_TRAJ; Ninner=Ninnert, μs=μst)]
+		@time trajs = [trajs csSolve!(wkt, m, opt, trajs[:,end], params[:,end], :traj; Ninner=Ninnert, μs=μst)]
 		# @time params = [params csSolve!(wkp, m, opt, trajs[:,end], params[:,end], WRT_PARAMS; Ninner=Ninnerp, μs=μsp)]
 	end
 	
