@@ -52,7 +52,7 @@ function gvalues!(gout::Vector{T}, m::Model, opt::OptOptions, traj::Vector{T}, p
 	end
 
 	# Periodicity or symmetry
-	if opt.boundaryConstraint == SYMMETRIC
+	if opt.boundaryConstraint == :symmetric
 		# FIXME: for now hardcoded symmetry G(y) = -y
 		gout[li[:,N+2]] = -yk(1) - yk(N+1)
 	end
@@ -99,16 +99,16 @@ function ddΨ(x; ε::Float64=0.1)
 	end
 end
 
-@enum OptVar WRT_TRAJ WRT_PARAMS
-
 """Custom solver"""
-function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractArray, params0::AbstractArray, optWrt::OptVar; μs::Array{Float64}=[1e-1], Ninner::Int=1)
+function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractArray, params0::AbstractArray, optWrt::Symbol; μs::Array{Float64}=[1e-1], Ninner::Int=1)
+	optWrt in OptVar || throw(ArgumentError("invalid optWrt: $optWrt"))
+
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj0)
 
 	# These functions allows us to concisely define the opt function below
-	_tup = _x -> (optWrt == WRT_TRAJ ? (_x, params0) : (traj0, _x))
+	_tup = _x -> (optWrt == :traj ? (_x, params0) : (traj0, _x))
 	robjx = _x -> robj(m, opt, _tup(_x)...)
-	x = (optWrt == WRT_TRAJ ? copy(traj0) : copy(params0))
+	x = (optWrt == :traj ? copy(traj0) : copy(params0))
 
 	trajp = _tup(x)
 	# functions for views
@@ -120,14 +120,14 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractAr
 	_yupt = k::Int -> (yk(k), uk(k), trajp[2], δt)
 
 	# Constraint bounds
-	x_L, x_U = optWrt == WRT_TRAJ ? xbounds(m, opt, N) : (fill(-Inf, size(params0)), fill(Inf, size(params0)))
+	x_L, x_U = optWrt == :traj ? xbounds(m, opt, N) : (fill(-Inf, size(params0)), fill(Inf, size(params0)))
 	fill!(wk.λ, 0.0)
 
-	if optWrt == WRT_TRAJ
+	if optWrt == :traj
 		for i = 1:ny*(N+1)
 			wk.Dg[i,i] = -1.0
 		end
-		if opt.boundaryConstraint == SYMMETRIC
+		if opt.boundaryConstraint == :symmetric
 			for j = 1:ny
 				wk.Dg[(N+1) * ny + j, j] = -1.0
 				wk.Dg[(N+1) * ny + j, (N) * ny + j] = -1.0
@@ -135,7 +135,7 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractAr
 		end
 		Ak = zeros(ny, ny)
 		Bk = zeros(ny, nu)
-	elseif optWrt == WRT_PARAMS
+	else
 		Pk = zeros(ny, Nx)
 	end
 	
@@ -158,7 +158,7 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractAr
 
 			# Compute Jacobian and Hessian
 			for k = 1:N
-				if optWrt == WRT_TRAJ
+				if optWrt == :traj
 					dlin!(Ak, Bk, m, _yupt(k)...)
 					# Dg_y' * g = [-g0 + A1^T g1, ..., -g(N-1) + AN^T gN, -gN]
 					wk.DgTg[liy[:,k]] = -gk(k) + Ak' * gk(k+1)
@@ -169,7 +169,7 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractAr
 					# TODO: better Dg' Dg computation that doesn't compute Dg
 					wk.Dg[liy[:,k+1], liy[:,k]] = Ak
 					wk.Dg[liy[:,k+1], liu[:,k]] = Bk
-				elseif optWrt == WRT_PARAMS
+				else
 					dlinp!(Pk, m, _yupt(k)...)
 					# Dg0 = 0
 					wk.Dg[liy[:,k+1], :] = Pk
@@ -177,7 +177,7 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractAr
 				end
 			end
 			
-			if optWrt == WRT_TRAJ
+			if optWrt == :traj
 				wk.DgTg[liy[:,N+1]] = -gk(N+1)
 			end
 
@@ -260,7 +260,7 @@ function gbounds(m::Model, opt::OptOptions, traj::Vector, εic::Float64=0., εdy
 
 	# println("CALLED gbounds with $(ny) $(nu) $(N) $(pointer_from_objref(traj))")
 	gU = [fill(εic, ny); fill(εdyn, N*ny)]
-	if opt.boundaryConstraint == SYMMETRIC
+	if opt.boundaryConstraint == :symmetric
 		gU = [gU; fill(εsymm, ny)]
 	end
     return -gU, gU
@@ -270,7 +270,7 @@ function Dgnnz(m::Model, opt::OptOptions, traj::Vector)::Int
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	# Assuming the Jacobians are dense. The terms below correspond to the "-I"s, the "I + δt A"'s, the "δt B"'s, 
 	nnz = ny*(N+1) + ny^2*N + ny*nu*N
-	if opt.boundaryConstraint == SYMMETRIC
+	if opt.boundaryConstraint == :symmetric
 		nnz += 2*ny # the two I's for symmetry
 	end
 	return nnz
@@ -343,7 +343,7 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 	end
 
 	# the new symmetry constraint
-	if opt.boundaryConstraint == SYMMETRIC
+	if opt.boundaryConstraint == :symmetric
 		for j = 1:ny
 			# Two -I's
 			offsB += 1

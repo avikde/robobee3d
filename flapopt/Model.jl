@@ -5,14 +5,15 @@ Implement these things
 """
 abstract type Model end
 
-@enum OptBoundaryConstraint NONE SYMMETRIC PERIODIC
+const BoundaryConstraints = Set([:none, :symmetric, :periodic])
+const OptVar = Set([:traj, :param])
 
 "An immutable struct of options"
 struct OptOptions
 	vart::Bool
 	fixedδt::Float64 # irrelevant if vart=true
 	order::Int
-	boundaryConstraint::OptBoundaryConstraint
+	boundaryConstraint::Symbol
 	hessReg::Float64
 	augLag::Bool
 end
