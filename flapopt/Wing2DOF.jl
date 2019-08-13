@@ -206,24 +206,32 @@ function drawFrame(m::Wing2DOFModel, yk, uk, params; Faeroscale=5.0)
     wing1 = [yk[1] * T;0] # wing tip
     wing2 = wing1 + 2*(paero - wing1)
     # draw wing
-    w = plot([wing1[1]; wing2[1]], [wing1[2]; wing2[2]], marker=:auto, aspect_ratio=:equal, linewidth=4, xlims=(-T,T), ylims=(-10,10))
+    w = plot([wing1[1]; wing2[1]], [wing1[2]; wing2[2]], marker=:auto, aspect_ratio=:equal, linewidth=4, legend=false, xlims=(-T,T), ylims=(-5,5))
     # Faero
     FaeroEnd = paero + Faeroscale * Faero
     plot!(w, [paero[1], FaeroEnd[1]], [paero[2], FaeroEnd[2]], color=:red, linewidth=2, line=:arrow)
     # stroke plane
     plot!(w, [-T,T], [0, 0], color="black", linestyle=:dash)
+    return w
 end
 
 function animateTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params::Vector, args...)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, args[1])
 
-    # simulate with a waypoint controller and symmetry
+    # TODO: simulate with a waypoint controller for more steps
     
 	yk(traj, k) = @view traj[liy[:,k]]
     uk(traj, k) = @view traj[liu[:,k]]
     
-    @gif for k=1:N
-        drawFrame(m, yk(args[1], k), uk(args[1], k), params)
+    Nanim = opt.boundaryConstraint == :symmetric ? 2*N : N
+
+    function drawTrajFrame(traj, k)
+        _yk = opt.boundaryConstraint == :symmetric && k > N ? -yk(traj, k-N) : yk(traj, k)
+        _uk = opt.boundaryConstraint == :symmetric && k > N ? -uk(traj, k-N) : uk(traj, k)
+        return drawFrame(m, _yk, _uk, params)
+    end
+    @gif for k=1:Nanim
+        plot([drawTrajFrame(tr, k) for tr in args]..., layout=(length(args),1))
     end
 
     # return wingdraw 

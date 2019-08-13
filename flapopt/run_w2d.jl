@@ -18,9 +18,7 @@ params0 = [2.0, 20.0] # cbar, T
 
 trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], params0)
 
-# pla = animateTrajs(m, opt, params0, traj0)
-# plot(pla)
-# gui()
+animateTrajs(m, opt, params0, traj0, prob.x)
 
 # # wkt = cu.OptWorkspace((N+1)*ny + N*nu + 1, (N+2)*ny)
 # # cu.csSolve!(wk, m, opt, traj0, params0, cu.WRT_TRAJ)
