@@ -107,18 +107,19 @@ function cu.dydt(model::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _para
     sΨ = sin(Ψ)
 
     # params
-    mspar = 1 # [mg]
+    mspar = 0 # [mg]
     mwing = 0.51 # [mg]
-    Iwing = mwing * cbar^2 # cbar is in mm
-    kσ = 0
+    Iwing = 0.2 * mwing * cbar^2 # cbar is in mm
+    kσ = 0 # [mN/mm]
+    bσ = 1 # [mN/(mm/ms)]
     kΨ = 5 # [mN-mm/rad]
-    bΨ = 1 # [mN-mm/(rad/ms)]
+    bΨ = 2 # [mN-mm/(rad/ms)]
 
     # inertial terms
     M = @SMatrix [mspar+mwing   cbar*mwing*cΨ; cbar*mwing*cΨ   Iwing+cbar^2*mwing]
     corgrav = @SVector [kσ*σ - cbar*mwing*sΨ*Ψ̇^2, kΨ*Ψ]
     # non-lagrangian terms
-    τdamp = @SVector [0, -bΨ * Ψ̇]
+    τdamp = @SVector [-bσ * σ̇, -bΨ * Ψ̇]
     _, Jaero, Faero = w2daero(y, u, _params)
     τaero = Jaero' * Faero # units of [mN, mN-mm]
     # input
@@ -145,21 +146,21 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     strokePosControlVF(y, p, t) = cu.dydt(m, y, [strokePosController(y, t)], params)
     # OL traj1
     teval = collect(0:1e-1:100) # [ms]
-    prob = ODEProblem(strokePosControlVF, zeros(4), (teval[1], teval[end]))
+    prob = ODEProblem(strokePosControlVF, [0.,1.,0.,0.], (teval[1], teval[end]))
     sol = solve(prob, saveat=teval)
 
-    # σt = plot(sol, vars=3, ylabel="act vel [m/s]")
-    # Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
-    # plot(σt, Ψt, layout=(2,1))
-    # gui()
-
-    # # Animate whole traj
-    # Nt = length(sol.t)
-    # @gif for k = 1:Nt
-    #     yk = sol.u[k]
-    #     uk = [strokePosController(yk, sol.t[k])]
-    #     drawFrame(m, yk, uk, params)
-    # end
+    # Animate whole traj
+    Nt = length(sol.t)
+    @gif for k = 1:Nt
+        yk = sol.u[k]
+        uk = [strokePosController(yk, sol.t[k])]
+        drawFrame(m, yk, uk, params)
+    end
+    # Plot
+    σt = plot(sol, vars=3, ylabel="act vel [m/s]")
+    Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
+    plot(σt, Ψt, layout=(2,1))
+    gui()
 
     starti = 172
     olRange = starti:3:(starti + 3*N)
@@ -215,6 +216,8 @@ end
 
 function animateTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params::Vector, args...)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, args[1])
+
+    # simulate with a waypoint controller and symmetry
     
 	yk(traj, k) = @view traj[liy[:,k]]
     uk(traj, k) = @view traj[liu[:,k]]
