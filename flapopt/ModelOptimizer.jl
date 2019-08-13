@@ -297,8 +297,8 @@ end
 
 function Dgnnz(m::Model, opt::OptOptions, traj::Vector)::Int
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
-	# Assuming the Jacobians are dense. The terms below correspond to the "-I"s, the "I + δt A"'s, the "δt B"'s, 
-	nnz = ny*(N+1) + ny^2*N + ny*nu*N
+	# Assuming the Jacobians are dense. The terms below correspond to initial cond., dynamics
+	nnz = ny + (ny + ny^2)*N + ny*nu*N
 	if opt.boundaryConstraint == :symmetric
 		nnz += 2*ny # the two I's for symmetry
 	end
@@ -393,6 +393,128 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 	end
 	return
 end
+
+#=========================================================================
+Direct Collocation
+=========================================================================#
+
+function DgnnzDirCol(m::Model, opt::OptOptions, traj::Vector)::Int
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+	# Assuming the Jacobians are dense.
+	nnz = ny + ny^2*2*N + ny*nu*2*N
+	if opt.boundaryConstraint == :symmetric
+		nnz += 2*ny # the two I's for symmetry
+	end
+	return nnz
+end
+
+function DgsparseDirCol!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Model, opt::OptOptions, traj::Vector, params::Vector, mode, ny, nu, N, δt)
+	#=
+	NOTE ON USAGE
+
+	If the iRow and jCol arguments are not NULL, then IPOPT wants you to fill in the sparsity structure of the Jacobian (the row and column indices only). At this time, the x argument and the values argument will be NULL.
+	If the x argument and the values argument are not NULL, then IPOPT wants you to fill in the values of the Jacobian as calculated from the array x (using the same order as you used when specifying the sparsity structure). At this time, the iRow and jCol arguments will be NULL;
+	=#
+	# ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+	if mode != :Structure
+		ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+		yk = k -> @view traj[liy[:,k]]
+		uk = k -> @view traj[liu[:,k]]
+		# Preallocate outputs
+		Ak = zeros(ny, ny)
+		Bk = zeros(ny, nu)
+	end
+
+	# For IC
+	for ii = 1:ny
+		if mode == :Structure
+			row[ii] = ii
+			col[ii] = ii
+		else
+			value[ii] = -1
+		end
+	end
+	
+	# Offsets into the row[], col[], val[] arrays. These will be incremented and keep track of the index in the loops below.
+	offs = ny
+
+	# Fill in Jacobians
+	for k = 1:N
+		if mode != :Structure
+			# Get the jacobians at this y, u
+			dlin!(Ak, Bk, m, yk(k), uk(k), params, δt)
+		end
+
+		# Insert A
+		# NOTE: j outer loop for Julia's col-major storage and better loop unrolling
+		for j = 1:ny
+			for i = 1:ny
+				# dgk/dyk
+				offs += 1 # needs to be up here due to 1-indexing!
+				if mode == :Structure
+					row[offs] = k*ny + i
+					col[offs] = (k-1)*ny + j
+				else
+					value[offs] = Ak[i,j]
+				end
+				# dgk/dykp1
+				offs += 1 # needs to be up here due to 1-indexing!
+				if mode == :Structure
+					row[offs] = k*ny + i
+					col[offs] = k*ny + j
+				else
+					value[offs] = Ak[i,j]
+				end
+			end
+		end
+
+		# Insert B
+		for j = 1:nu
+			for i = 1:ny
+				# dgk/duk
+				offs += 1
+				if mode == :Structure
+					row[offs] = k*ny + i
+					col[offs] = (N+1)*ny + (k-1)*nu + j
+				else
+					value[offs] = Bk[i,j]
+				end
+				# dgk/dukp1
+				offs += 1
+				if mode == :Structure
+					row[offs] = k*ny + i
+					# FIXME: will go out of range
+					col[offs] = (N+1)*ny + k*nu + j
+				else
+					value[offs] = Bk[i,j]
+				end
+			end
+		end
+	end
+
+	# the new symmetry constraint
+	if opt.boundaryConstraint == :symmetric
+		for j = 1:ny
+			# Two -I's
+			offs += 1
+			if mode == :Structure
+				row[offs] = (N+1) * ny + j
+				col[offs] = j
+			else
+				value[offs] = -1
+			end
+			offs += 1
+			if mode == :Structure
+				row[offs] = (N+1) * ny + j
+				col[offs] = (N) * ny + j
+			else
+				value[offs] = -1
+			end
+		end
+	end
+	return
+end
+
 
 function nloptsetup(m::Model, opt::OptOptions, traj::Vector, params::Vector; kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
