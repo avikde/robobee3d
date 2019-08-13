@@ -47,8 +47,37 @@ function gvalues!(gout::Vector{T}, m::Model, opt::OptOptions, traj::Vector{T}, p
 	gout[li[:,1]] = y0 - yk(1)
 
 	# Dynamics constraint
+	if opt.order > 1
+		fk = similar(y0)
+		fkp1 = dydt(m, yk(1), uk(1), params) # initialize for usage below
+		uc = zeros(nu)
+		yc = similar(y0)
+		ycdot = similar(y0)
+		ukp1 = similar(uc)
+	end
+
 	for k = 1:N
-		gout[li[:,k+1]] = -yk(k+1) + ddynamics(m, yk(k), uk(k), params, δt)
+		if opt.order == 1
+			gout[li[:,k+1]] = -yk(k+1) + ddynamics(m, yk(k), uk(k), params, δt)
+		else # assume collocation
+			# Get collocation point states/inputs
+			if k < N
+				ukp1 .= uk(k+1)
+			elseif k == N && opt.boundaryConstraint == :symmetric
+				ukp1 .= -uk(1)
+			else
+				ukp1 .= uk(k) # don't have any more u's in the current parameterization
+			end
+			uc = (uk(k) + ukp1) / 2
+			# Can reuse fkp1 as fk for the next loop iterate
+			fk .= fkp1
+			fkp1 .= dydt(m, yk(k+1), ukp1, params)
+			# interpolate http://underactuated.mit.edu/underactuated.html?chapter=trajopt
+			yc .= 1/2 * (yk(k) + yk(k+1)) + δt/8 * (fk - fkp1)
+			ycdot .= -3/(2*δt) * (yk(k) - yk(k+1)) - 1/4 * (fk + fkp1)
+			# collocation constraint
+			gout[li[:,k+1]] = -ycdot + dydt(m, yc, uc, params)
+		end
 	end
 
 	# Periodicity or symmetry

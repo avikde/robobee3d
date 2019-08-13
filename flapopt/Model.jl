@@ -12,7 +12,7 @@ const OptVar = Set([:traj, :param])
 struct OptOptions
 	vart::Bool
 	fixedδt::Float64 # irrelevant if vart=true
-	order::Int
+	order::Int # 1 => transcription, 3 => collocation
 	boundaryConstraint::Symbol
 	hessReg::Float64
 	augLag::Bool
