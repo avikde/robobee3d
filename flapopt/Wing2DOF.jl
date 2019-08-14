@@ -109,11 +109,11 @@ function cu.dydt(model::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _para
     # params
     mspar = 0 # [mg]
     mwing = 0.51 # [mg]
-    Iwing = 0.2 * mwing * cbar^2 # cbar is in mm
-    kσ = 0.1 # [mN/mm]
+    Iwing = mwing * cbar^2 # cbar is in mm
+    kσ = 0 # [mN/mm]
     bσ = 0 # [mN/(mm/ms)]
     kΨ = 5 # [mN-mm/rad]
-    bΨ = 2 # [mN-mm/(rad/ms)]
+    bΨ = 3 # [mN-mm/(rad/ms)]
 
     # inertial terms
     M = @SMatrix [mspar+mwing   cbar*mwing*cΨ; cbar*mwing*cΨ   Iwing+cbar^2*mwing]
@@ -127,7 +127,7 @@ function cu.dydt(model::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _para
 
     ddq = inv(M) * (-corgrav + τdamp + τaero + τinp)
     # return ddq
-    return [y[3], y[4], ddq[1], ddq[2]]
+    return [y[3], y[4], ddq[1] / T, ddq[2]]
 end
 
 # Create an initial traj --------------
@@ -149,18 +149,18 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     prob = ODEProblem(strokePosControlVF, [0.,1.,0.,0.], (teval[1], teval[end]))
     sol = solve(prob, saveat=teval)
 
-    # # Animate whole traj
-    # Nt = length(sol.t)
-    # @gif for k = 1:Nt
-    #     yk = sol.u[k]
-    #     uk = [strokePosController(yk, sol.t[k])]
-    #     drawFrame(m, yk, uk, params)
-    # end
-    # # Plot
-    # σt = plot(sol, vars=3, ylabel="act vel [m/s]")
-    # Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
-    # plot(σt, Ψt, layout=(2,1))
-    # gui()
+    # Animate whole traj
+    Nt = length(sol.t)
+    @gif for k = 1:3:Nt
+        yk = sol.u[k]
+        uk = [strokePosController(yk, sol.t[k])]
+        drawFrame(m, yk, uk, params)
+    end
+    # Plot
+    σt = plot(sol, vars=3, ylabel="act vel [m/s]")
+    Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
+    plot(σt, Ψt, layout=(2,1))
+    gui()
 
     starti = 170
     olRange = starti:3:(starti + 3*N)

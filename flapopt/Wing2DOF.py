@@ -59,11 +59,11 @@ class Wing2DOF(Model):
         # params
         mspar = 0 # [mg]
         mwing = 0.51 # [mg]
-        Iwing = 0.2 * mwing * cbar**2 # cbar is in mm
-        kσ = 0.1 # [mN/mm]
+        Iwing = mwing * cbar^2 # cbar is in mm
+        kσ = 0 # [mN/mm]
         bσ = 0 # [mN/(mm/ms)]
         kΨ = 5 # [mN-mm/rad]
-        bΨ = 2 # [mN-mm/(rad/ms)]
+        bΨ = 3 # [mN-mm/(rad/ms)]
 
         # inertial terms
         M = np.array([[mspar+mwing, cbar*mwing*cΨ], [cbar*mwing*cΨ, Iwing + cbar**2*mwing]])
