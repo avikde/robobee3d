@@ -16,8 +16,8 @@ params0 = np.array([2.0, 20.0]) # cbar, T
 
 w2d = Wing2DOF.Wing2DOF()
 trajt, traj0 = w2d.createInitialTraj(opt, N, 0.15, [1e3, 1e2], params0)
-
-w2d.plotTrajs(opt, params0, traj0)
+trajei = w2d.eulerIntegrate(opt, traj0, params0)
+w2d.plotTrajs(opt, params0, traj0, trajei)
 
 plt.show()
 

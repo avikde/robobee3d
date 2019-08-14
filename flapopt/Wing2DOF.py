@@ -172,3 +172,12 @@ class Wing2DOF(Model):
         
         plt.tight_layout()
 
+    def eulerIntegrate(self, opt, traj, params):
+        """Test applying euler integration to the initial traj"""
+        trajei = traj.copy()
+        N, δt, yk, uk = self.modelInfo(opt, trajei)
+
+        for k in range(N):
+            trajei[(k+1)*self.ny : (k+2)*self.ny] = yk(k) + δt * self.dydt(yk(k), uk(k), params)
+        return trajei
+
