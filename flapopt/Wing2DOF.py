@@ -1,0 +1,127 @@
+
+import numpy as np
+from scipy.integrate import solve_ivp
+
+class Wing2DOF():
+    ny = 4
+    nu = 1
+    # CONST
+    R = 20
+
+    def aero(self, y, u, _params=[]):
+        CLmax = 1.8
+        CDmax = 3.4
+        CD0 = 0.4
+        ρ = 1.225e-3 # [mg/(mm^3)]
+        R = 15e-3
+        
+        # unpack
+        cbar, T = _params
+        σ, Ψ, σ̇, Ψ̇ = np.array([T, 1, T, 1]) * y # [mm, rad, mm/ms, rad/ms]
+        cΨ = np.cos(Ψ)
+        sΨ = np.sin(Ψ)
+        α = np.pi/2 - Ψ # AoA
+        """    
+        Use this in Mathematica to debug the signs.
+        Manipulate[
+        \[Alpha] = -\[Pi]/2 + \[Psi];
+        Graphics@
+        Arrow[{{0, 0},
+            {((CDmax + CD0)/2 - (CDmax - CD0)/2*Cos[2 \[Alpha]]), CLmax Sin[2 \[Alpha]]} Sign[-d\[Sigma]]}],
+        {d\[Sigma], -1, 1}, {\[Psi], -\[Pi]/2, \[Pi]/2}]
+        """
+        # aero force
+        wing1 = np.array([σ, 0])
+        paero = wing1 + np.array([[cΨ, -sΨ], [sΨ, cΨ]]) @ np.array([0, -cbar])
+        Jaero = np.array([[1, cbar * cΨ], [0, cbar * sΨ]])
+        Caero = np.array([(CDmax+CD0)/2 - (CDmax-CD0)/2 * np.cos(2*α), CLmax * np.sin(2*α)])
+        Faero = 1/2 * ρ * cbar * self.R * σ̇**2 * Caero * np.sign(-σ̇) #[mN]
+
+        return paero, Jaero, Faero
+
+    def dydt(self, y, u, _params=[]):
+        """Continuous dynamics second order model"""
+        cbar, T = _params
+        σ, Ψ, σ̇, Ψ̇ = np.array([T, 1, T, 1]) * y # [mm, rad, mm/ms, rad/ms]
+        # NOTE: for optimizing transmission ratio
+        # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
+        # u = (tau_actuator)
+        # sigma = sigma_actuator * T; tau = tau_actuator / T
+        cΨ = np.cos(Ψ)
+        sΨ = np.sin(Ψ)
+
+        # params
+        mspar = 0 # [mg]
+        mwing = 0.51 # [mg]
+        Iwing = 0.2 * mwing * cbar**2 # cbar is in mm
+        kσ = 0.1 # [mN/mm]
+        bσ = 0 # [mN/(mm/ms)]
+        kΨ = 5 # [mN-mm/rad]
+        bΨ = 2 # [mN-mm/(rad/ms)]
+
+        # inertial terms
+        M = np.array([[mspar+mwing, cbar*mwing*cΨ], [cbar*mwing*cΨ, Iwing + cbar**2*mwing]])
+        corgrav = np.array([kσ*σ - cbar*mwing*sΨ*Ψ̇**2, kΨ*Ψ])
+        # non-lagrangian terms
+        τdamp = np.array([-bσ * σ̇, -bΨ * Ψ̇])
+        _, Jaero, Faero = self.aero(y, u, _params)
+        τaero = Jaero.T @ Faero
+        # input
+        τinp = np.array([u[0] / T, 0])
+
+        ddq = np.linalg.inv(M) @ (-corgrav + τdamp + τaero + τinp)
+
+        return np.array([y[2], y[3], ddq[0], ddq[1]])
+
+    @property
+    def limits(self):
+        # This is based on observing the OL trajectory
+        umax = np.array([75.0]) # [mN]
+        umin = -umax
+        xmax = np.array([300e-3, 1.5, 100, 100]) # [mm, rad, mm/ms, rad/ms]
+        xmin = -xmax
+        return umin, umax, xmin, xmax
+
+    def createInitialTraj(self, opt, N, freq, posGains, params):
+        σmax = self.limits[-1][0]
+        def strokePosController(y, t):
+            σdes = 0.9 * σmax * np.sin(freq * 2 * np.pi * t)
+            return posGains[0] * (σdes - y[0]) - posGains[1] * y[2]
+        
+        strokePosControlVF = lambda t, y: self.dydt(y, [strokePosController(y, t)], params)
+        # OL traj1
+        teval = np.arange(0, 100, 0.1) # [ms]
+        # Sim of an openloop controller
+        sol = solve_ivp(strokePosControlVF, [teval[0], teval[-1]], [0.,1.,0.,0.], dense_output=True, t_eval=teval)
+
+        # # Animate whole traj
+        # Nt = length(sol.t)
+        # @gif for k = 1:Nt
+        #     yk = sol.u[k]
+        #     uk = [strokePosController(yk, sol.t[k])]
+        #     drawFrame(m, yk, uk, params)
+        # end
+        # # Plot
+        # σt = plot(sol, vars=3, ylabel="act vel [m/s]")
+        # Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
+        # plot(σt, Ψt, layout=(2,1))
+        # gui()
+
+        starti = 170
+        traj_s = np.s_[starti:starti + 3*(N+1):3]
+        trajt = sol.t[traj_s]
+        trajym = sol.y[:, traj_s] # ny x (N+1) array
+        δt = trajt[1] - trajt[0]
+        # Transcribe to x = [y1,...,yNp1, u1,...,uNp1]
+        traj = np.hstack((
+            trajym.reshape((N+1)*self.ny, order='F'), 
+            [strokePosController(trajym[:,i], trajt[i]) for i in range(N+1)]
+            ))
+            
+        if opt['vart']:
+            traj = np.append(traj, δt)
+        else:
+            print("Initial traj δt=", δt, ", opt.fixedδt=", opt['fixedδt'])
+
+        return trajt - trajt[0], traj
+
