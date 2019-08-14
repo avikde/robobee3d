@@ -23,7 +23,7 @@ trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], params0)
 # pl1 = plotTrajs(m, opt, trajt, params0, traj0, trajei)
 
 # IPOPT
-eps = [0.05, 0.1, 0.3] # IC, dyn, symm
+eps = [0.05, 0.02, 0.5] # IC, dyn, symm
 prob = cu.nloptsetup(m, opt, traj0, params0, eps)
 status = cu.nloptsolve(prob)
 trajs = [traj0, prob.x]
