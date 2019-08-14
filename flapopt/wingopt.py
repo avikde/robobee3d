@@ -476,30 +476,6 @@ class WingPenaltyOptimizer:
         # perform Newton update
         return x1, J, J1, None if lambda0 is None else lambda0 - opt['mu'] * r1
         
-    def plotTrajs(self, *args):
-        """Helper function to plot a bunch of trajectories superimposed"""
-        umin, umax, xmin, xmax = m.limits
-        trajt = range(self.N) # timestep is the last elem
-        yend = (self.N) * m.nx # N to ignore the last one
-        ustart = (self.N+1) * m.nx
-        uend = ustart + self.N*m.nu
-        _, ax = plt.subplots(3)
-        for arg in args:
-            ax[0].plot(trajt * arg[-1], arg[0:yend:m.nx], '.-')
-        for yy in [xmin[0], xmax[0], 0]:
-            ax[0].axhline(y=yy, color='k', alpha=0.3)
-        ax[0].set_ylabel('act. disp (m)')
-        for arg in args:
-            ax[1].plot(trajt * arg[-1], arg[1:yend:m.nx], '.-')
-        for yy in [xmin[1], xmax[1], np.pi/4, -np.pi/4]:
-            ax[1].axhline(y=yy, color='k', alpha=0.3)
-        ax[1].set_ylabel('hinge angle (rad)')
-        for arg in args:
-            ax[2].plot(trajt * arg[-1], arg[ustart:uend:m.nu], '.-')
-        ax[2].axhline(y=umin[0], color='k', alpha=0.3)
-        ax[2].axhline(y=umax[0], color='k', alpha=0.3)
-        ax[2].set_ylabel('act. force (N)')
-
 # Create "cts" trajectories from traj (control) knot points ----
 
 def knotPointControl(t, y, traj, ttraj):

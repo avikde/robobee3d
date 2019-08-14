@@ -1,8 +1,12 @@
 
 import numpy as np
 from scipy.integrate import solve_ivp
+import matplotlib.pyplot as plt
+import sys
+sys.path.append('..')
+from controlutils.py.model import Model
 
-class Wing2DOF():
+class Wing2DOF(Model):
     ny = 4
     nu = 1
     # CONST
@@ -117,11 +121,54 @@ class Wing2DOF():
             trajym.reshape((N+1)*self.ny, order='F'), 
             [strokePosController(trajym[:,i], trajt[i]) for i in range(N+1)]
             ))
-            
+
         if opt['vart']:
             traj = np.append(traj, δt)
         else:
             print("Initial traj δt=", δt, ", opt.fixedδt=", opt['fixedδt'])
 
         return trajt - trajt[0], traj
+
+    def plotTrajs(self, opt, params, *args):
+        """Helper function to plot a bunch of trajectories superimposed"""
+        umin, umax, xmin, xmax = self.limits
+        N, δt, yk, uk = self.modelInfo(opt, args[0])
+        
+        cbar, T = params
+
+        trajt = range(N+1) * δt
+        yend = (N+1)*self.ny
+        uend = (N+1)*(self.ny + self.nu)
+        
+        _, ax = plt.subplots(2,2)
+        ax = np.ravel(ax)
+        for arg in args:
+            ax[0].plot(trajt, arg[0:yend:self.ny] * T / (self.R/2), '.-')
+        for yy in [xmin[0], xmax[0], 0]:
+            ax[0].axhline(y=yy, color='k', alpha=0.3)
+        ax[0].set_ylabel('stroke ang [r]')
+
+        for arg in args:
+            ax[1].plot(trajt, arg[1:yend:self.ny], '.-')
+        for yy in [xmin[1], xmax[1], np.pi/4, -np.pi/4]:
+            ax[1].axhline(y=yy, color='k', alpha=0.3)
+        ax[1].set_ylabel('hinge ang [r]')
+
+        for arg in args:
+            ax[2].plot(trajt, arg[yend:uend:self.nu], '.-')
+        ax[2].axhline(y=umin[0], color='k', alpha=0.3)
+        ax[2].axhline(y=umax[0], color='k', alpha=0.3)
+        ax[2].set_ylabel('stroke force [mN]')
+
+        def aeroPlotVec(_traj):
+            _, _, _yk, _uk = self.modelInfo(opt, _traj)
+            Faerok = lambda k : self.aero(_yk(k), _uk(k), params)[-1]
+            return np.vstack([Faerok(k) for k in range(N+1)])
+        
+        for arg in args:
+            ax[3].plot(trajt, aeroPlotVec(arg)[:,1], '.-')
+        ax[3].axhline(y=0, color='k', alpha=0.3)
+        ax[3].set_ylabel('lift [mN]')
+        
+        plt.tight_layout()
 
