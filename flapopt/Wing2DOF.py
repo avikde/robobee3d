@@ -16,7 +16,8 @@ class Wing2DOF(Model):
     ny = 4
     nu = 1
     # CONST
-    R = 20
+    R = 20.0
+    γ = 5.0 # wing shape fitting
 
     def aero(self, y, u, _params=[]):
         CLmax = 1.8
@@ -31,6 +32,7 @@ class Wing2DOF(Model):
         cΨ = np.cos(Ψ)
         sΨ = np.sin(Ψ)
         α = np.pi/2 - Ψ # AoA
+        
         """    
         Use this in Mathematica to debug the signs.
         Manipulate[
@@ -42,8 +44,9 @@ class Wing2DOF(Model):
         """
         # aero force
         wing1 = np.array([σ, 0])
-        paero = wing1 + np.array([[cΨ, -sΨ], [sΨ, cΨ]]) @ np.array([0, -cbar])
-        Jaero = np.array([[1, cbar * cΨ], [0, cbar * sΨ]])
+        rcopnondim = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - np.abs(Ψ))/π))) # [(6), Chen (IROS2016)]
+        paero = wing1 + np.array([[cΨ, -sΨ], [sΨ, cΨ]]) @ np.array([0, -rcopnondim*cbar])
+        Jaero = np.array([[1, rcopnondim*cbar * cΨ], [0, rcopnondim*cbar * sΨ]])
         Caero = np.array([(CDmax+CD0)/2 - (CDmax-CD0)/2 * np.cos(2*α), CLmax * np.sin(2*α)])
         Faero = 1/2 * ρ * cbar * self.R * σ̇**2 * Caero * np.sign(-σ̇) #[mN]
 

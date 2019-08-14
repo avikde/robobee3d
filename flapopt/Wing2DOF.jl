@@ -36,8 +36,8 @@ NOTE:
 struct Wing2DOFModel <: controlutils.Model end
 
 # Fixed params -----------------
-const R = 20
-
+const R = 20.0
+const γ = 5.0 # wing shape fitting
 
 function cu.dims(m::Wing2DOFModel)::Tuple{Int, Int}
     return 4, 1
@@ -73,9 +73,11 @@ function w2daero(y::AbstractArray, u::AbstractArray, _params::Vector)
     # CoP kinematics
     wing1 = @SVector [σ, 0]
     RΨ = @SMatrix [cΨ -sΨ; sΨ cΨ] # Ψ > 0 => hinge looks like \; Ψ < 0 => hinge looks like /
-    paero = wing1 + RΨ * @SVector [0, -cbar]
-    # TODO: add moving CoP from [Chen et al (2017)]
-    Jaero = @SMatrix [1 cbar * cΨ; 0 cbar * sΨ]
+    α = π/2 - Ψ # AoA
+    rcopnondim = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
+    paero = wing1 + RΨ * @SVector [0, -rcopnondim*cbar]
+    # approx don't include the variation in COP in this
+    Jaero = @SMatrix [1 rcopnondim*cbar * cΨ; 0 rcopnondim*cbar * sΨ]
     
     # Aero force
     #=
@@ -87,7 +89,6 @@ function w2daero(y::AbstractArray, u::AbstractArray, _params::Vector)
         {((CDmax + CD0)/2 - (CDmax - CD0)/2*Cos[2 \[Alpha]]), CLmax Sin[2 \[Alpha]]} Sign[-d\[Sigma]]}],
     {d\[Sigma], -1, 1}, {\[Psi], -\[Pi]/2, \[Pi]/2}]
     =#
-    α = π/2 - Ψ # AoA
     Caero = @SVector [((CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2α)), CLmax * sin(2α)]
     Faero = 1/2 * ρ * cbar * R * σ̇^2 * Caero * sign(-σ̇) # [mN]
 
@@ -208,7 +209,7 @@ function drawFrame(m::Wing2DOFModel, yk, uk, params; Faeroscale=5.0)
     cbar, T = params
     paero, _, Faero = w2daero(yk, uk, params)
     wing1 = [yk[1] * T;0] # wing tip
-    wing2 = wing1 + 2*(paero - wing1)
+    wing2 = wing1 + normalize(paero - wing1)*cbar
     # draw wing
     w = plot([wing1[1]; wing2[1]], [wing1[2]; wing2[2]], marker=:auto, aspect_ratio=:equal, linewidth=4, legend=false, xlims=(-T,T), ylims=(-5,5))
     # Faero

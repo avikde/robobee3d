@@ -23,7 +23,7 @@ trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], params0)
 # pl1 = plotTrajs(m, opt, trajt, params0, traj0, trajei)
 
 # IPOPT
-eps = [0.5, 0.05, 0.5] # IC, dyn, symm
+eps = [0.05, 0.1, 0.3] # IC, dyn, symm
 prob = cu.nloptsetup(m, opt, traj0, params0, eps)
 status = cu.nloptsolve(prob)
 trajs = [traj0, prob.x]
@@ -32,13 +32,14 @@ pl1 = plotTrajs(m, opt, trajt, params0, traj0, prob.x)
 pl2 = cu.visualizeConstraintViolations(m, opt, params0, traj0, prob.x)
 
 # # Custom solver
-# trajs, params, wkt = cu.csAlternateSolve(m, opt, traj0, params0, 1; μst=[1e6, 1e3], Ninnert=10, μsp=[1e-2,1e-2], Ninnerp=2)
+# trajs, params, wkt = cu.csAlternateSolve(m, opt, traj0, params0, 1; μst=[1e3, 1e6], Ninnert=10, μsp=[1e-2,1e-2], Ninnerp=2)
 
 # animateTrajs(m, opt, params0, [view(trajs, :, i) for i in 1:size(trajs, 2)]...)
 
 # pl1 = plotTrajs(m, opt, trajt, params0, (trajs[:,i] for i = 1:size(trajs,2))...)
-# # pl2 = plotParams(m, opt, trajs[:,end], (params[:,i] for i = 1:size(params,2))...; μ=1e-1)
-# # display(params)
+# pl2 = cu.visualizeConstraintViolations(m, opt, params0, traj0, trajs[:,end])
+# # # pl2 = plotParams(m, opt, trajs[:,end], (params[:,i] for i = 1:size(params,2))...; μ=1e-1)
+# # # display(params)
 
 # visualize constraint violations
 
