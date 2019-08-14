@@ -3,12 +3,25 @@ from autograd import jacobian, hessian
 import matplotlib.pyplot as plt
 import sys
 sys.path.append('..')
-from scipy.integrate import solve_ivp
 from matplotlib import animation
 from matplotlib.collections import PatchCollection
 np.set_printoptions(precision=4, suppress=False, linewidth=200)
 import osqp
-import wingopt
+# import wingopt
+import Wing2DOF
+
+opt = {'vart': True}
+N = 16
+params0 = np.array([2.0, 20.0]) # cbar, T
+
+w2d = Wing2DOF.Wing2DOF()
+trajt, traj0 = w2d.createInitialTraj(opt, N, 0.15, [1e3, 1e2], params0)
+trajei = w2d.eulerIntegrate(opt, traj0, params0)
+w2d.plotTrajs(opt, params0, traj0, trajei)
+
+plt.show()
+
+sys.exit()
 
 # ---------------------------------------------------
 m = wingopt.m

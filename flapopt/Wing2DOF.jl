@@ -36,8 +36,8 @@ NOTE:
 struct Wing2DOFModel <: controlutils.Model end
 
 # Fixed params -----------------
-const R = 20
-
+const R = 20.0
+const γ = 5.0 # wing shape fitting
 
 function cu.dims(m::Wing2DOFModel)::Tuple{Int, Int}
     return 4, 1
@@ -47,13 +47,13 @@ function cu.limits(m::Wing2DOFModel)::Tuple{Vector, Vector, Vector, Vector}
     # This is based on observing the OL trajectory. See note on units above.
     umax = @SVector [75.0] # [mN]
     umin = -umax
-    xmax = @SVector [300e-3, 1.5, Inf, Inf] # [mm, rad, mm/ms, rad/ms]
+    xmax = @SVector [300e-3, 1.5, 100, 100] # [mm, rad, mm/ms, rad/ms]
     xmin = -xmax
     return umin, umax, xmin, xmax
 end
 
 function cu.limitsTimestep(m::Wing2DOFModel)::Tuple{Float64, Float64}
-	return 0.01, 10.0
+	return 0.01, 0.07
 end
 
 
@@ -73,9 +73,11 @@ function w2daero(y::AbstractArray, u::AbstractArray, _params::Vector)
     # CoP kinematics
     wing1 = @SVector [σ, 0]
     RΨ = @SMatrix [cΨ -sΨ; sΨ cΨ] # Ψ > 0 => hinge looks like \; Ψ < 0 => hinge looks like /
-    paero = wing1 + RΨ * @SVector [0, -cbar]
-    # TODO: add moving CoP from [Chen et al (2017)]
-    Jaero = @SMatrix [1 cbar * cΨ; 0 cbar * sΨ]
+    α = π/2 - Ψ # AoA
+    rcopnondim = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
+    paero = wing1 + RΨ * @SVector [0, -rcopnondim*cbar]
+    # approx don't include the variation in COP in this
+    Jaero = @SMatrix [1 rcopnondim*cbar * cΨ; 0 rcopnondim*cbar * sΨ]
     
     # Aero force
     #=
@@ -87,7 +89,6 @@ function w2daero(y::AbstractArray, u::AbstractArray, _params::Vector)
         {((CDmax + CD0)/2 - (CDmax - CD0)/2*Cos[2 \[Alpha]]), CLmax Sin[2 \[Alpha]]} Sign[-d\[Sigma]]}],
     {d\[Sigma], -1, 1}, {\[Psi], -\[Pi]/2, \[Pi]/2}]
     =#
-    α = π/2 - Ψ # AoA
     Caero = @SVector [((CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2α)), CLmax * sin(2α)]
     Faero = 1/2 * ρ * cbar * R * σ̇^2 * Caero * sign(-σ̇) # [mN]
 
@@ -110,15 +111,16 @@ function cu.dydt(model::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _para
     mspar = 0 # [mg]
     mwing = 0.51 # [mg]
     Iwing = mwing * cbar^2 # cbar is in mm
-    kσ = 0
+    kσ = 0 # [mN/mm]
+    bσ = 0 # [mN/(mm/ms)]
     kΨ = 5 # [mN-mm/rad]
-    bΨ = 1 # [mN-mm/(rad/ms)]
+    bΨ = 3 # [mN-mm/(rad/ms)]
 
     # inertial terms
     M = @SMatrix [mspar+mwing   cbar*mwing*cΨ; cbar*mwing*cΨ   Iwing+cbar^2*mwing]
     corgrav = @SVector [kσ*σ - cbar*mwing*sΨ*Ψ̇^2, kΨ*Ψ]
     # non-lagrangian terms
-    τdamp = @SVector [0, -bΨ * Ψ̇]
+    τdamp = @SVector [-bσ * σ̇, -bΨ * Ψ̇]
     _, Jaero, Faero = w2daero(y, u, _params)
     τaero = Jaero' * Faero # units of [mN, mN-mm]
     # input
@@ -126,7 +128,7 @@ function cu.dydt(model::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _para
 
     ddq = inv(M) * (-corgrav + τdamp + τaero + τinp)
     # return ddq
-    return [y[3], y[4], ddq[1], ddq[2]]
+    return [y[3], y[4], ddq[1] / T, ddq[2]]
 end
 
 # Create an initial traj --------------
@@ -135,31 +137,48 @@ end
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::Wing2DOFModel, N::Int, freq::Real, posGains::Vector, params0::Vector)
+function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector)
     # Create a traj
     σmax = cu.limits(m)[end][1]
     function strokePosController(y, t)
         σdes = 0.9 * σmax * sin(freq * 2 * π * t)
         return posGains[1] * (σdes - y[1]) - posGains[2] * y[3]
     end
-    strokePosControlVF(y, p, t) = cu.dydt(m, y, [strokePosController(y, t)], params0)
+    strokePosControlVF(y, p, t) = cu.dydt(m, y, [strokePosController(y, t)], params)
     # OL traj1
-    teval = collect(0:1e-1:100) # [ms]
-    prob = ODEProblem(strokePosControlVF, zeros(4), (teval[1], teval[end]))
+    simdt = 0.1 # [ms]
+    teval = collect(0:simdt:100) # [ms]
+    prob = ODEProblem(strokePosControlVF, [0.,1.,0.,0.], (teval[1], teval[end]))
     sol = solve(prob, saveat=teval)
 
+    # # Animate whole traj
+    # Nt = length(sol.t)
+    # @gif for k = 1:3:Nt
+    #     yk = sol.u[k]
+    #     uk = [strokePosController(yk, sol.t[k])]
+    #     drawFrame(m, yk, uk, params)
+    # end
+    # # Plot
     # σt = plot(sol, vars=3, ylabel="act vel [m/s]")
     # Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
     # plot(σt, Ψt, layout=(2,1))
     # gui()
 
-    starti = 172
-    olRange = starti:3:(starti + 3*N)
+    # expectedInterval = opt.boundaryConstraint == cu.SYMMETRIC ? 1/(2*freq) : 1/freq # [ms]
+    # expectedPts = expectedInterval / simdt
+
+    starti = 170
+    olRange = starti:2:(starti + 2*N)
     trajt = sol.t[olRange]
     δt = trajt[2] - trajt[1]
     olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)
     olTraju = [strokePosController(olTrajaa[i], trajt[i]) for i in 1:N] # get u1,...,uN
-    traj0 = [vcat(olTrajaa...); olTraju; δt] # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
+    traj0 = [vcat(olTrajaa...); olTraju] # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
+    if opt.vart
+        traj0 = [traj0; δt]
+    else
+        println("Initial traj δt=", δt, ", opt.fixedδt=", opt.fixedδt)
+    end
 
     return trajt .- trajt[1], traj0
 end
@@ -177,13 +196,50 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params::Vect
     ut = plot(t, hcat([[traj[@view liu[1,:]];NaN] for traj in args]...), marker=:auto, legend=false, ylabel="stroke force [mN]")
     # Plot of aero forces at each instant
     function aeroPlotVec(_traj::Vector)
-        Faerok = k -> w2daero(_traj[@view liy[:,k]], _traj[@view liu[:,k]], params0)[end]
+        Faerok = k -> w2daero(_traj[@view liy[:,k]], _traj[@view liu[:,k]], params)[end]
         Faeros = hcat([Faerok(k) for k=1:N]...)
         return [Faeros[2,:]' NaN]'
     end
     aerot = plot(t, hcat([aeroPlotVec(traj) for traj in args]...), marker=:auto, legend=false, ylabel="lift [mN]")
     # Combine the subplots
 	return (σt, Ψt, ut, aerot)
+end
+
+function drawFrame(m::Wing2DOFModel, yk, uk, params; Faeroscale=5.0)
+    cbar, T = params
+    paero, _, Faero = w2daero(yk, uk, params)
+    wing1 = [yk[1] * T;0] # wing tip
+    wing2 = wing1 + normalize(paero - wing1)*cbar
+    # draw wing
+    w = plot([wing1[1]; wing2[1]], [wing1[2]; wing2[2]], marker=:auto, aspect_ratio=:equal, linewidth=4, legend=false, xlims=(-T,T), ylims=(-5,5))
+    # Faero
+    FaeroEnd = paero + Faeroscale * Faero
+    plot!(w, [paero[1], FaeroEnd[1]], [paero[2], FaeroEnd[2]], color=:red, linewidth=2, line=:arrow)
+    # stroke plane
+    plot!(w, [-T,T], [0, 0], color="black", linestyle=:dash)
+    return w
+end
+
+function animateTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params::Vector, args...)
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, args[1])
+
+    # TODO: simulate with a waypoint controller for more steps
+    
+	yk(traj, k) = @view traj[liy[:,k]]
+    uk(traj, k) = @view traj[liu[:,k]]
+    
+    Nanim = opt.boundaryConstraint == :symmetric ? 2*N : N
+
+    function drawTrajFrame(traj, k)
+        _yk = opt.boundaryConstraint == :symmetric && k > N ? -yk(traj, k-N) : yk(traj, k)
+        _uk = opt.boundaryConstraint == :symmetric && k > N ? -uk(traj, k-N) : uk(traj, k)
+        return drawFrame(m, _yk, _uk, params)
+    end
+    @gif for k=1:Nanim
+        plot([drawTrajFrame(tr, k) for tr in args]..., layout=(length(args),1))
+    end
+
+    # return wingdraw 
 end
 
 function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, args...; μ::Float64=1e-1)
@@ -206,6 +262,19 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, args...;
     plot!(paramLandscape, params[1,:], params[2,:], marker=:auto)
     
     return (paramLandscape)
+end
+
+# Test applying euler integration to the initial traj
+function eulerIntegrate(m::cu.Model, opt::cu.OptOptions, traj::Vector, params::Vector)
+    trajei = copy(traj)
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+
+    yk(k) = @view trajei[liy[:,k]]
+    uk(k) = @view trajei[liu[:,k]]
+    for k=1:N
+        trajei[liy[:,k+1]] = cu.ddynamics(m, yk(k), uk(k), params, δt)
+    end
+    return trajei
 end
 
 # "Cost function components" ------------------

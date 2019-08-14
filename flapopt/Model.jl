@@ -5,14 +5,15 @@ Implement these things
 """
 abstract type Model end
 
-@enum OptBoundaryConstraint NONE SYMMETRIC PERIODIC
+const BoundaryConstraints = Set([:none, :symmetric, :periodic])
+const OptVar = Set([:traj, :param])
 
 "An immutable struct of options"
 struct OptOptions
 	vart::Bool
 	fixedδt::Float64 # irrelevant if vart=true
-	order::Int
-	boundaryConstraint::OptBoundaryConstraint
+	order::Int # 1 => transcription, 3 => collocation
+	boundaryConstraint::Symbol
 	hessReg::Float64
 	augLag::Bool
 end
@@ -78,7 +79,7 @@ Functions valid for all instances without specialization
 # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
 
 "Go from traj length"
-function Nknot(m::Model, opt::OptOptions, traj::Vector)::Int
+function Nknot(m::Model, opt::OptOptions, traj::AbstractArray)::Int
 	ny, nu = dims(m)
 	(length(traj) - ny - (opt.vart ? 1 : 0)) ÷ (ny + nu)
 end
@@ -112,12 +113,12 @@ function xbounds(m::Model, opt::OptOptions, N::Int)::Tuple{Vector, Vector}
 end
 
 "Return the dynamics timestep"
-function getδt(opt::OptOptions, traj::Vector)::Number
+function getδt(opt::OptOptions, traj::AbstractArray)::Number
 	return opt.vart ? traj[end] : opt.fixedδt
 end
 
 "Helper to get all model info in one line"
-function modelInfo(m::Model, opt::OptOptions, traj::Vector)::Tuple
+function modelInfo(m::Model, opt::OptOptions, traj::AbstractArray)::Tuple
 	ny, nu = dims(m)
 	N = Nknot(m, opt, traj)
 	δt = getδt(opt, traj)
