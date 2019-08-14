@@ -83,7 +83,7 @@ function gvalues!(gout::Vector{T}, m::Model, opt::OptOptions, traj::Vector{T}, p
 			# Can reuse fkp1 as fk for the next loop iterate
 			fk .= fkp1
 			# collocation constraint
-			gout[li[:,k+1]], fkp1 = gkDirCol(m, yk(k), yk(k+1), uk(k), ukp1, δt, fk)
+			gout[li[:,k+1]], fkp1 = gkDirCol(m, params, yk(k), yk(k+1), uk(k), ukp1, δt, fk)
 		end
 	end
 
@@ -544,7 +544,7 @@ function nloptsetup(m::Model, opt::OptOptions, traj::Vector, params::Vector; kwa
 	g_L, g_U = gbounds(m, opt, traj, 100., 0.01, 0.)
 	y0 = copy(traj[1:ny])
 	eval_g(x::Vector, g::Vector) = gvalues!(g, m, opt, x, params, y0)
-	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgsparse!(rows, cols, values, m, opt, x, params, mode, ny, nu, N, δt)
+	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = opt.order == 1 ? Dgsparse!(rows, cols, values, m, opt, x, params, mode, ny, nu, N, δt) : DgsparseDirCol!(rows, cols, values, m, opt, x, params, mode, ny, nu, N, δt)
 	function eval_f(x::AbstractArray)
 		_ro = robj(m, opt, x, params)
 		return (_ro ⋅ _ro)
@@ -571,7 +571,7 @@ function nloptsetup(m::Model, opt::OptOptions, traj::Vector, params::Vector; kwa
 		length(g_L), # Number of constraints
 		g_L,       # Constraint lower bounds
 		g_U,       # Constraint upper bounds
-		Dgnnz(m, opt, traj),  # Number of non-zeros in Jacobian
+		opt.order == 1 ? Dgnnz(m, opt, traj) : DgnnzDirCol(m, opt, traj),  # Number of non-zeros in Jacobian
 		0,             # Number of non-zeros in Hessian
 		eval_f,                     # Callback: objective function
 		eval_g,                     # Callback: constraint evaluation
