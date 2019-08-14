@@ -11,9 +11,9 @@ includet("Wing2DOF.jl")
 # create an instance
 m = Wing2DOFModel()
 ny, nu = cu.dims(m)
-opt = cu.OptOptions(true, 0.1, 3, :symmetric, 1e-8, false)
+opt = cu.OptOptions(true, 0.1, 1, :symmetric, 1e-8, false)
 # opt = cu.OptOptions(false, 0.2, 1, cu.SYMMETRIC, 1e-8, false)
-N = opt.boundaryConstraint == :symmetric ? 11 : 22
+N = opt.boundaryConstraint == :symmetric ? 16 : 32
 params0 = [2.0, 20.0] # cbar, T
 
 trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], params0)
@@ -23,7 +23,8 @@ trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], params0)
 # pl1 = plotTrajs(m, opt, trajt, params0, traj0, trajei)
 
 # IPOPT
-prob = cu.nloptsetup(m, opt, traj0, params0)
+eps = [0.5, 0.05, 0.5] # IC, dyn, symm
+prob = cu.nloptsetup(m, opt, traj0, params0, eps)
 status = cu.nloptsolve(prob)
 trajs = [traj0, prob.x]
 animateTrajs(m, opt, params0, traj0, prob.x)

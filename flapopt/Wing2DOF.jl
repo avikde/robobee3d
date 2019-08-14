@@ -145,7 +145,8 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     end
     strokePosControlVF(y, p, t) = cu.dydt(m, y, [strokePosController(y, t)], params)
     # OL traj1
-    teval = collect(0:1e-1:100) # [ms]
+    simdt = 0.1 # [ms]
+    teval = collect(0:simdt:100) # [ms]
     prob = ODEProblem(strokePosControlVF, [0.,1.,0.,0.], (teval[1], teval[end]))
     sol = solve(prob, saveat=teval)
 
@@ -162,8 +163,11 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     # plot(σt, Ψt, layout=(2,1))
     # gui()
 
+    # expectedInterval = opt.boundaryConstraint == cu.SYMMETRIC ? 1/(2*freq) : 1/freq # [ms]
+    # expectedPts = expectedInterval / simdt
+
     starti = 170
-    olRange = starti:3:(starti + 3*N)
+    olRange = starti:2:(starti + 2*N)
     trajt = sol.t[olRange]
     δt = trajt[2] - trajt[1]
     olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)

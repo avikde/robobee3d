@@ -535,13 +535,13 @@ function DgsparseDirCol!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, 
 end
 
 
-function nloptsetup(m::Model, opt::OptOptions, traj::Vector, params::Vector; kwargs...)
+function nloptsetup(m::Model, opt::OptOptions, traj::Vector, params::Vector, εs; kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	δt = opt.vart ? traj[end] : opt.fixedδt
 
 	# Define the things needed for IPOPT
 	x_L, x_U = xbounds(m, opt, N)
-	g_L, g_U = gbounds(m, opt, traj, 100., 0.02, 0.1)
+	g_L, g_U = gbounds(m, opt, traj, εs...)
 	y0 = copy(traj[1:ny])
 	eval_g(x::Vector, g::Vector) = gvalues!(g, m, opt, x, params, y0)
 	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = opt.order == 1 ? Dgsparse!(rows, cols, values, m, opt, x, params, mode, ny, nu, N, δt) : DgsparseDirCol!(rows, cols, values, m, opt, x, params, mode, ny, nu, N, δt)
