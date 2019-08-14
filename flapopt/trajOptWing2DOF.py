@@ -11,7 +11,7 @@ import osqp
 import Wing2DOF
 
 opt = {'vart': True}
-N = 11
+N = 16
 params0 = np.array([2.0, 20.0]) # cbar, T
 
 w2d = Wing2DOF.Wing2DOF()

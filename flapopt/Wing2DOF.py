@@ -7,6 +7,12 @@ sys.path.append('..')
 from controlutils.py.model import Model
 
 class Wing2DOF(Model):
+    """
+    NOTE: for optimizing transmission ratio
+    Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
+    u = (tau_actuator)
+    sigma = sigma_actuator * T; tau = tau_actuator / T
+    """
     ny = 4
     nu = 1
     # CONST
@@ -47,10 +53,6 @@ class Wing2DOF(Model):
         """Continuous dynamics second order model"""
         cbar, T = _params
         σ, Ψ, σ̇, Ψ̇ = np.array([T, 1, T, 1]) * y # [mm, rad, mm/ms, rad/ms]
-        # NOTE: for optimizing transmission ratio
-        # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
-        # u = (tau_actuator)
-        # sigma = sigma_actuator * T; tau = tau_actuator / T
         cΨ = np.cos(Ψ)
         sΨ = np.sin(Ψ)
 
@@ -75,7 +77,7 @@ class Wing2DOF(Model):
 
         ddq = np.linalg.inv(M) @ (-corgrav + τdamp + τaero + τinp)
 
-        return np.array([y[2], y[3], ddq[0], ddq[1]])
+        return np.array([y[2], y[3], ddq[0] / T, ddq[1]])
 
     @property
     def limits(self):
@@ -112,7 +114,7 @@ class Wing2DOF(Model):
         # gui()
 
         starti = 170
-        traj_s = np.s_[starti:starti + 3*(N+1):3]
+        traj_s = np.s_[starti:starti + 2*(N+1):2]
         trajt = sol.t[traj_s]
         trajym = sol.y[:, traj_s] # ny x (N+1) array
         δt = trajt[1] - trajt[0]
