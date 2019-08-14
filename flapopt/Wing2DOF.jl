@@ -149,18 +149,18 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     prob = ODEProblem(strokePosControlVF, [0.,1.,0.,0.], (teval[1], teval[end]))
     sol = solve(prob, saveat=teval)
 
-    # Animate whole traj
-    Nt = length(sol.t)
-    @gif for k = 1:3:Nt
-        yk = sol.u[k]
-        uk = [strokePosController(yk, sol.t[k])]
-        drawFrame(m, yk, uk, params)
-    end
-    # Plot
-    σt = plot(sol, vars=3, ylabel="act vel [m/s]")
-    Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
-    plot(σt, Ψt, layout=(2,1))
-    gui()
+    # # Animate whole traj
+    # Nt = length(sol.t)
+    # @gif for k = 1:3:Nt
+    #     yk = sol.u[k]
+    #     uk = [strokePosController(yk, sol.t[k])]
+    #     drawFrame(m, yk, uk, params)
+    # end
+    # # Plot
+    # σt = plot(sol, vars=3, ylabel="act vel [m/s]")
+    # Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
+    # plot(σt, Ψt, layout=(2,1))
+    # gui()
 
     starti = 170
     olRange = starti:3:(starti + 3*N)
