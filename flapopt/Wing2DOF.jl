@@ -259,6 +259,19 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, args...;
     return (paramLandscape)
 end
 
+# Test applying euler integration to the initial traj
+function eulerIntegrate(m::cu.Model, opt::cu.OptOptions, traj::Vector, params::Vector)
+    trajei = copy(traj)
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+
+    yk(k) = @view trajei[liy[:,k]]
+    uk(k) = @view trajei[liu[:,k]]
+    for k=1:N
+        trajei[liy[:,k+1]] = cu.ddynamics(m, yk(k), uk(k), params, δt)
+    end
+    return trajei
+end
+
 # "Cost function components" ------------------
 
 "Objective to minimize"
