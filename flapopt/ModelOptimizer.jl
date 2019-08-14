@@ -25,6 +25,18 @@ end
 Dynamics constraint
 =========================================================================#
 
+function gkDirCol(m::Model, params, yk, ykp1, uk, ukp1, δt, fk=nothing)
+	uc = (uk + ukp1) / 2
+	if isnothing(fk)
+		fk = dydt(m, yk, uk, params)
+	end
+	fkp1 = dydt(m, ykp1, ukp1, params)
+	# interpolate http://underactuated.mit.edu/underactuated.html?chapter=trajopt
+	yc = 1/2 * (yk + ykp1) + δt/8 * (fk - fkp1)
+	ycdotδt = -3/(2) * (yk - ykp1) - δt/4 * (fk + fkp1)
+	return -ycdotδt + δt * dydt(m, yc, uc, params), fkp1
+end
+
 """
 Dynamics constraint at state y, input u
 	
@@ -68,15 +80,10 @@ function gvalues!(gout::Vector{T}, m::Model, opt::OptOptions, traj::Vector{T}, p
 			else
 				ukp1 .= uk(k) # don't have any more u's in the current parameterization
 			end
-			uc = (uk(k) + ukp1) / 2
 			# Can reuse fkp1 as fk for the next loop iterate
 			fk .= fkp1
-			fkp1 .= dydt(m, yk(k+1), ukp1, params)
-			# interpolate http://underactuated.mit.edu/underactuated.html?chapter=trajopt
-			yc .= 1/2 * (yk(k) + yk(k+1)) + δt/8 * (fk - fkp1)
-			ycdotδt .= -3/(2) * (yk(k) - yk(k+1)) - δt/4 * (fk + fkp1)
 			# collocation constraint
-			gout[li[:,k+1]] = -ycdotδt + δt * dydt(m, yc, uc, params)
+			gout[li[:,k+1]], fkp1 = gkDirCol(m, yk(k), yk(k+1), uk(k), ukp1, δt, fk)
 		end
 	end
 
@@ -421,8 +428,10 @@ function DgsparseDirCol!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, 
 		yk = k -> @view traj[liy[:,k]]
 		uk = k -> @view traj[liu[:,k]]
 		# Preallocate outputs
-		Ak = zeros(ny, ny)
-		Bk = zeros(ny, nu)
+		dg_dyk = zeros(ny, ny)
+		dg_dykp1 = zeros(ny, ny)
+		dg_duk = zeros(ny, nu)
+		dg_dukp1 = zeros(ny, nu)
 	end
 
 	# For IC
@@ -441,8 +450,18 @@ function DgsparseDirCol!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, 
 	# Fill in Jacobians
 	for k = 1:N
 		if mode != :Structure
+			if k < N
+				ukp1 = uk(k+1)
+			elseif k == N && opt.boundaryConstraint == :symmetric
+				ukp1 = -uk(1)
+			else
+				ukp1 = uk(k) # don't have any more u's in the current parameterization
+			end
 			# Get the jacobians at this y, u
-			dlin!(Ak, Bk, m, yk(k), uk(k), params, δt)
+			ForwardDiff.jacobian!(dg_dyk, yy -> gkDirCol(m, params, yy, yk(k+1), uk(k), ukp1, δt)[1], yk(k))
+			ForwardDiff.jacobian!(dg_dykp1, yy -> gkDirCol(m, params, yk(k), yy, uk(k), ukp1, δt)[1], yk(k+1))
+			ForwardDiff.jacobian!(dg_duk, uu -> gkDirCol(m, params, yk(k), yk(k+1), uu, ukp1, δt)[1], uk(k))
+			ForwardDiff.jacobian!(dg_dukp1, uu -> gkDirCol(m, params, yk(k), yk(k+1), uk(k), uu, δt)[1], ukp1)
 		end
 
 		# Insert A
@@ -455,7 +474,7 @@ function DgsparseDirCol!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, 
 					row[offs] = k*ny + i
 					col[offs] = (k-1)*ny + j
 				else
-					value[offs] = Ak[i,j]
+					value[offs] = dg_dyk[i,j]
 				end
 				# dgk/dykp1
 				offs += 1 # needs to be up here due to 1-indexing!
@@ -463,7 +482,7 @@ function DgsparseDirCol!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, 
 					row[offs] = k*ny + i
 					col[offs] = k*ny + j
 				else
-					value[offs] = Ak[i,j]
+					value[offs] = dg_dykp1[i,j]
 				end
 			end
 		end
@@ -477,7 +496,7 @@ function DgsparseDirCol!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, 
 					row[offs] = k*ny + i
 					col[offs] = (N+1)*ny + (k-1)*nu + j
 				else
-					value[offs] = Bk[i,j]
+					value[offs] = dg_duk[i,j]
 				end
 				# dgk/dukp1
 				offs += 1
@@ -486,7 +505,7 @@ function DgsparseDirCol!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, 
 					# FIXME: will go out of range
 					col[offs] = (N+1)*ny + k*nu + j
 				else
-					value[offs] = Bk[i,j]
+					value[offs] = dg_dukp1[i,j]
 				end
 			end
 		end
