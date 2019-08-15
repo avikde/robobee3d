@@ -41,5 +41,5 @@ function paramopt(m::Model, opt::OptOptions, traj::AbstractArray, params0::Abstr
 
 	# Non-QP version first
 	δp = -dg_dp \ Dg * δx
-	println(δp)
+	return params0 + 0.05 * δp
 end

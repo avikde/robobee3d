@@ -100,18 +100,19 @@ end
 Visualization
 =========================================================================#
 
-function visualizeConstraintViolations(m::Model, opt::OptOptions, params::Vector, args...)
-	ny, nu, N, δt, liy, liu = modelInfo(m, opt, args[1])
-	g_L, g_U = gbounds(m, opt, args[1])
+function visualizeConstraintViolations(m::Model, opt::OptOptions, params, trajs)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, trajs[1])
+	g_L, g_U = gbounds(m, opt, trajs[1])
 
-	function getg(traj)
+	function getg(traj, param)
 		g0 = similar(g_L)
-		gvalues!(g0, m, opt, traj, params, args[1][1:ny])
+		gvalues!(g0, m, opt, traj, param, trajs[1][1:ny])
 		return g0
 	end
 
 	# println(g0, g1)
-	pl2 = plot([getg(arg) for arg in args], marker=:auto, title="Constraint violations")
+    Nt = length(trajs)
+	pl2 = plot([getg(trajs[i], params[i]) for i=1:Nt], marker=:auto, title="Constraint violations")
 	hline!(pl2, [0], color="black", alpha=0.3)
 end
 

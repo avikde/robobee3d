@@ -28,8 +28,16 @@ trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], params0)
 εs = [0.05, 0.005, 0.001] # IC, dyn, symm
 prob = cu.ipoptsetup(m, opt, traj0, params0, εs)
 status = cu.ipoptsolve(prob)
-trajs = [traj0, prob.x]
+# trajs = [traj0, prob.x]
 
+# with param opt
+traj1 = prob.x
+params1 = cu.paramopt(m, opt, traj1, params0, εs)
+
+prob = cu.ipoptsetup(m, opt, traj1, params1, εs)
+status = cu.ipoptsolve(prob)
+trajs = [traj0, traj1, prob.x]
+params = [params0, params0, params1]
 # # Custom solver
 # wkt = cu.OptWorkspace(cu.Ntraj(m, opt, N), (N+2)*ny)
 # @time traj1 = cu.csSolve!(wkt, m, opt, traj0, params0, :traj; Ninner=30, μs=[1e6])
@@ -41,15 +49,15 @@ trajs = [traj0, prob.x]
 
 # paramopt -------------------------------------
 
-cu.paramopt(m, opt, traj0, params0, εs)
 
 # visualize --------------------------------------------
 
 println("Objectives: ", [(_ro = cu.robj(m, opt, tt, params0); _ro ⋅ _ro) for tt in trajs])
+println("Params: ", params)
 
-animateTrajs(m, opt, params0, trajs...)
-pl1 = plotTrajs(m, opt, trajt, params0, trajs...)
-pl2 = cu.visualizeConstraintViolations(m, opt, params0, trajs...)
+animateTrajs(m, opt, params, trajs)
+pl1 = plotTrajs(m, opt, trajt, params, trajs)
+pl2 = cu.visualizeConstraintViolations(m, opt, params, trajs)
 
 l = @layout [grid(2,2) a]
 plot(pl1..., pl2, layout=l, size=(900,400))
