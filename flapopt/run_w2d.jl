@@ -14,7 +14,7 @@ ny, nu = cu.dims(m)
 opt = cu.OptOptions(false, 0.2, 1, :symmetric, 1e-8, false)
 # opt = cu.OptOptions(false, 0.2, 1, cu.SYMMETRIC, 1e-8, false)
 N = opt.boundaryConstraint == :symmetric ? 17 : 34
-params0 = [2.0, 20.0] # cbar, T
+param0 = [2.0, 20.0] # cbar, T
 
 trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], params0)
 
@@ -26,9 +26,12 @@ trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], params0)
 
 # IPOPT
 εs = [0.05, 0.005, 0.001] # IC, dyn, symm
-traj1 = cu.ipoptsolve(m, opt, traj0, params0, εs, :traj)
-trajs = [traj0, traj1]
-params = [params0, params0]
+# traj1 = cu.ipoptsolve(m, opt, traj0, params0, εs, :traj)
+# trajs = [traj0, traj1]
+# params = [params0, params0]
+
+# naive param opt
+param1 = cu.ipoptsolve(m, opt, traj0, param0, εs, :param)
 
 # # with param opt
 # params1 = cu.paramopt(m, opt, traj1, params0, εs; step=0.3)

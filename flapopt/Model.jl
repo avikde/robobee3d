@@ -75,7 +75,7 @@ function ddynamics(m::Model, y::AbstractArray, u::AbstractArray, params::Abstrac
 end
 
 "Discrete linearization wrt params."
-function dlinp!(Pk::Matrix, m::Model, y::Vector, u::Vector, params::Vector, δt::Float64)
+function dlinp!(Pk::Matrix, m::Model, y::AbstractArray, u::AbstractArray, params::AbstractArray, δt::Float64)
 	ForwardDiff.jacobian!(Pk, pp -> δt * dydt(m, y, u, pp), params)
 end
 
