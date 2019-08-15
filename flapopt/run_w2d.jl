@@ -22,26 +22,28 @@ trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], params0)
 # trajei = eulerIntegrate(m, opt, traj0, params0)
 # pl1 = plotTrajs(m, opt, trajt, params0, traj0, trajei)
 
-# # IPOPT
-# eps = [0.05, 0.02, 0.5] # IC, dyn, symm
-# prob = cu.nloptsetup(m, opt, traj0, params0, eps)
-# status = cu.nloptsolve(prob)
-# trajs = [traj0, prob.x]
-# animateTrajs(m, opt, params0, traj0, prob.x)
-# pl1 = plotTrajs(m, opt, trajt, params0, traj0, prob.x)
-# pl2 = cu.visualizeConstraintViolations(m, opt, params0, traj0, prob.x)
+# IPOPT
+eps = [0.05, 0.005, 0.001] # IC, dyn, symm
+prob = cu.nloptsetup(m, opt, traj0, params0, eps)
+status = cu.nloptsolve(prob)
+trajs = [traj0, prob.x]
 
-# Custom solver
-trajs, params, wkt = cu.csAlternateSolve(m, opt, traj0, params0, 1; μst=[1e6], Ninnert=30, μsp=[1e-2,1e-2], Ninnerp=2)
+# # Custom solver
+# wkt = cu.OptWorkspace(cu.Ntraj(m, opt, N), (N+2)*ny)
+# @time traj1 = cu.csSolve!(wkt, m, opt, traj0, params0, :traj; Ninner=30, μs=[1e6])
+# trajs = [traj0, prob.x, traj1]
+# trajs, params, wkt = cu.csAlternateSolve(m, opt, traj0, params0, 1; μst=[1e6], Ninnert=30, μsp=[1e-2,1e-2], Ninnerp=2)
 
-animateTrajs(m, opt, params0, [view(trajs, :, i) for i in 1:size(trajs, 2)]...)
+# pl2 = plotParams(m, opt, trajs[:,end], (params[:,i] for i = 1:size(params,2))...; μ=1e-1)
+# display(params)
 
-pl1 = plotTrajs(m, opt, trajt, params0, (trajs[:,i] for i = 1:size(trajs,2))...)
-pl2 = cu.visualizeConstraintViolations(m, opt, params0, traj0, trajs[:,end])
-# # # pl2 = plotParams(m, opt, trajs[:,end], (params[:,i] for i = 1:size(params,2))...; μ=1e-1)
-# # # display(params)
+# visualize --------------------------------------------
 
-# visualize constraint violations
+println("Objectives: ", [(_ro = cu.robj(m, opt, tt, params0); _ro ⋅ _ro) for tt in trajs])
+
+animateTrajs(m, opt, params0, trajs...)
+pl1 = plotTrajs(m, opt, trajt, params0, trajs...)
+pl2 = cu.visualizeConstraintViolations(m, opt, params0, trajs...)
 
 l = @layout [grid(2,2) a]
 plot(pl1..., pl2, layout=l, size=(900,400))
