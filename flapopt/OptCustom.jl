@@ -45,6 +45,7 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractAr
 	optWrt in OptVar || throw(ArgumentError("invalid optWrt: $optWrt"))
 
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj0)
+	np = pdims(m)
 
 	# These functions allows us to concisely define the opt function below
 	_tup = _x -> (optWrt == :traj ? (_x, params0) : (traj0, _x))
@@ -77,7 +78,7 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractAr
 		Ak = zeros(ny, ny)
 		Bk = zeros(ny, nu)
 	else
-		Pk = zeros(ny, Nx)
+		Pk = zeros(ny, np)
 	end
 	
 	# Take some number of steps
@@ -114,7 +115,7 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractAr
 					dlinp!(Pk, m, _yupt(k)...)
 					# Dg0 = 0
 					wk.Dg[liy[:,k+1], :] = Pk
-					wk.DgTg = wk.DgTg + Pk' * gk(k)
+					wk.DgTg .= wk.DgTg + Pk' * gk(k)
 				end
 			end
 			
