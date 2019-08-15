@@ -305,15 +305,9 @@ function ipoptsolve(m::Model, opt::OptOptions, traj::Vector, params::Vector, εs
 	y0 = copy(traj[1:ny])
 	eval_g(x::Vector, g::Vector) = gvalues!(g, m, opt, _tup(x)..., y0)
 
-	# if optWrt == :traj
-		nnz = opt.order == 1 ? Dgnnz(m, opt, traj) : DgnnzDirCol(m, opt, traj)
-		eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = opt.order == 1 ? Dgsparse!(rows, cols, values, m, opt, _tup(x)..., mode, ny, nu, N, δt) : DgsparseDirCol!(rows, cols, values, m, opt, _tup(x)..., mode, ny, nu, N, δt)
-		x_L, x_U = xbounds(m, opt, N)
-	# elseif optWrt == :param
-	# 	nnz = N*ny*np
-	# 	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgpsparse!(rows, cols, values, m, opt, _tup(x)..., mode, ny, nu, N, δt)
-	# 	x_L, x_U = plimits(m)
-	# end
+	nnz = optWrt == :traj ? (opt.order == 1 ? Dgnnz(m, opt, traj) : DgnnzDirCol(m, opt, traj)) : N*ny*np
+	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = optWrt == :traj ? (opt.order == 1 ? Dgsparse!(rows, cols, values, m, opt, _tup(x)..., mode, ny, nu, N, δt) : DgsparseDirCol!(rows, cols, values, m, opt, _tup(x)..., mode, ny, nu, N, δt)) : Dgpsparse!(rows, cols, values, m, opt, _tup(x)..., mode, ny, nu, N, δt)
+	x_L, x_U = optWrt == :traj ? xbounds(m, opt, N) : plimits(m)
 
 	function eval_f(x::AbstractArray)
 		_ro = robj(m, opt, _tup(x)...)
