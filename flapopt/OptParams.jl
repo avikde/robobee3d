@@ -7,7 +7,6 @@ Param opt
 
 function paramopt(m::Model, opt::OptOptions, traj::AbstractArray, params0::AbstractArray, εs; step=0.05)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
-	wkp = OptWorkspace(length(params0), (N+2)*ny)
 	
 	# FIXME: this is really more suited to the custom solver where Dg is already computed
 	g_L, g_U = gbounds(m, opt, traj, εs...)
@@ -42,4 +41,16 @@ function paramopt(m::Model, opt::OptOptions, traj::AbstractArray, params0::Abstr
 	# Non-QP version first
 	δp = -dg_dp \ Dg * δx
 	return params0 + step * δp
+end
+
+function paramoptJ(m::Model, opt::OptOptions, traj::AbstractArray, params0::AbstractArray, εs; step=0.05)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+	
+	function eval_f(x::AbstractArray)
+		_ro = robj(m, opt, traj, x)
+		return (_ro ⋅ _ro)
+	end
+	dJ_dp = ForwardDiff.gradient(eval_f, params0)
+
+	return params0 - dJ_dp * step
 end
