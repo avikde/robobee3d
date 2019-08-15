@@ -37,9 +37,10 @@ params = [params0, params0, params1]
 
 # # Custom solver
 # wkt = cu.OptWorkspace(cu.Ntraj(m, opt, N), (N+2)*ny)
-# @time traj1 = cu.csSolve!(wkt, m, opt, traj0, params0, :traj; Ninner=30, μs=[1e6])
-# trajs = [traj0, prob.x, traj1]
-# trajs, params, wkt = cu.csAlternateSolve(m, opt, traj0, params0, 1; μst=[1e6], Ninnert=30, μsp=[1e-2,1e-2], Ninnerp=2)
+# @time traj2 = cu.csSolve!(wkt, m, opt, traj0, params0, :traj; Ninner=30, μs=[1e5])
+# trajs = [traj0, traj1, traj2]
+# params = [params0, params0, params0]
+# # trajs, params, wkt = cu.csAlternateSolve(m, opt, traj0, params0, 1; μst=[1e6], Ninnert=30, μsp=[1e-2,1e-2], Ninnerp=2)
 
 # pl2 = plotParams(m, opt, trajs[:,end], (params[:,i] for i = 1:size(params,2))...; μ=1e-1)
 # display(params)
