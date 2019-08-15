@@ -214,9 +214,9 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, traj
 	return (σt, Ψt, ut, aerot)
 end
 
-function drawFrame(m::Wing2DOFModel, yk, uk, params; Faeroscale=1.0)
-    cbar, T = params
-    paero, _, Faero = w2daero(yk, uk, params)
+function drawFrame(m::Wing2DOFModel, yk, uk, param; Faeroscale=1.0)
+    cbar, T = param
+    paero, _, Faero = w2daero(yk, uk, param)
     wing1 = [yk[1] * T;0] # wing tip
     wing2 = wing1 + normalize(paero - wing1)*cbar
     # draw wing

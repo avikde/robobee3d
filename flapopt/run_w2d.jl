@@ -28,17 +28,20 @@ trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], params0)
 εs = [0.05, 0.005, 0.001] # IC, dyn, symm
 # traj1 = cu.ipoptsolve(m, opt, traj0, params0, εs, :traj)
 # trajs = [traj0, traj1]
-# params = [params0, params0]
+# params = [param0, param0]
 
 # naive param opt
+εsp = [100.0, 0.005, 100.0] # IC, dyn, symm
 param1 = cu.ipoptsolve(m, opt, traj0, param0, εs, :param)
+trajs = [traj0, traj0]
+params = [param0, param1]
 
-# # with param opt
-# params1 = cu.paramopt(m, opt, traj1, params0, εs; step=0.3)
-# traj2 = cu.ipoptsolve(m, opt, traj1, params1, εs, :traj)
+# # with Coros g-preferred param opt
+# param1 = cu.paramopt(m, opt, traj1, param0, εs; step=0.3)
+# traj2 = cu.ipoptsolve(m, opt, traj1, param1, εs, :traj)
 
 # trajs = [traj0, traj1, traj2]
-# params = [params0, params0, params1]
+# params = [param0, param0, param1]
 
 # # Custom solver
 # wkt = cu.OptWorkspace(cu.Ntraj(m, opt, N), (N+2)*ny)
@@ -58,7 +61,7 @@ param1 = cu.ipoptsolve(m, opt, traj0, param0, εs, :param)
 println("Objectives: ", [(_ro = cu.robj(m, opt, tt, params0); _ro ⋅ _ro) for tt in trajs])
 println("Params: ", params)
 
-animateTrajs(m, opt, params, trajs)
+# animateTrajs(m, opt, params, trajs)
 pl1 = plotTrajs(m, opt, trajt, params, trajs)
 pl2 = cu.visualizeConstraintViolations(m, opt, params, trajs)
 
