@@ -11,7 +11,7 @@ includet("Wing2DOF.jl")
 # create an instance
 m = Wing2DOFModel()
 ny, nu = cu.dims(m)
-opt = cu.OptOptions(true, 0.1, 1, :symmetric, 1e-8, false)
+opt = cu.OptOptions(false, 0.2, 1, :symmetric, 1e-8, false)
 # opt = cu.OptOptions(false, 0.2, 1, cu.SYMMETRIC, 1e-8, false)
 N = opt.boundaryConstraint == :symmetric ? 17 : 34
 params0 = [2.0, 20.0] # cbar, T
