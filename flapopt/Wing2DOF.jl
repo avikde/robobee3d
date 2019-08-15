@@ -206,18 +206,18 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, traj
 	return (σt, Ψt, ut, aerot)
 end
 
-function drawFrame(m::Wing2DOFModel, yk, uk, params; Faeroscale=5.0)
+function drawFrame(m::Wing2DOFModel, yk, uk, params; Faeroscale=1.0)
     cbar, T = params
     paero, _, Faero = w2daero(yk, uk, params)
     wing1 = [yk[1] * T;0] # wing tip
     wing2 = wing1 + normalize(paero - wing1)*cbar
     # draw wing
-    w = plot([wing1[1]; wing2[1]], [wing1[2]; wing2[2]], marker=:auto, aspect_ratio=:equal, linewidth=4, legend=false, xlims=(-T,T), ylims=(-5,5))
+    w = plot([wing1[1]; wing2[1]], [wing1[2]; wing2[2]], color=:gray, aspect_ratio=:equal, linewidth=5, legend=false, xlims=(-15,15), ylims=(-3,3))
     # Faero
     FaeroEnd = paero + Faeroscale * Faero
     plot!(w, [paero[1], FaeroEnd[1]], [paero[2], FaeroEnd[2]], color=:red, linewidth=2, line=:arrow)
     # stroke plane
-    plot!(w, [-T,T], [0, 0], color="black", linestyle=:dash)
+    plot!(w, [-T,T], [0, 0], color=:black, linestyle=:dash)
     return w
 end
 

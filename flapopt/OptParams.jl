@@ -5,7 +5,7 @@ include("OptBase.jl") #< including this helps vscode reference the functions in 
 Param opt
 =========================================================================#
 
-function paramopt(m::Model, opt::OptOptions, traj::AbstractArray, params0::AbstractArray, εs; μs::Array{Float64}=[1e-1], Ninner::Int=1)
+function paramopt(m::Model, opt::OptOptions, traj::AbstractArray, params0::AbstractArray, εs; step=0.05)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	wkp = OptWorkspace(length(params0), (N+2)*ny)
 	
@@ -41,5 +41,5 @@ function paramopt(m::Model, opt::OptOptions, traj::AbstractArray, params0::Abstr
 
 	# Non-QP version first
 	δp = -dg_dp \ Dg * δx
-	return params0 + 0.05 * δp
+	return params0 + step * δp
 end
