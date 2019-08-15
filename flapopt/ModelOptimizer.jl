@@ -273,7 +273,7 @@ function csAlternateSolve(m::Model, opt::OptOptions, traj0::AbstractArray, param
 	trajs = reshape(copy(traj0), :, 1)
 	params = reshape(copy(params0), :, 1)
 	# Create workspaces
-	wkt = OptWorkspace((N+1)*ny + N*nu + 1, (N+2)*ny)
+	wkt = OptWorkspace(Ntraj(m, opt, N), (N+2)*ny)
 	# np = length(params0)
 	# wkp = OptWorkspace(np, (N+2)*ny)
 
