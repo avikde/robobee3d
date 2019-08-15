@@ -117,6 +117,45 @@ function Dgsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Mod
 end
 
 #=========================================================================
+Param opt Dg
+=========================================================================#
+
+function Dgpsparse!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, m::Model, opt::OptOptions, traj::Vector, params::Vector, mode, ny, nu, N, δt)
+	np = pdims(m)
+	if mode != :Structure
+		ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+		yk = k -> @view traj[liy[:,k]]
+		uk = k -> @view traj[liu[:,k]]
+		# Preallocate outputs
+		Pk = zeros(ny, np)
+	end
+	offs = 0
+	
+	# Fill in Jacobians
+	for k = 1:N
+		if mode != :Structure
+			# Get the jacobians at this y, u
+			dlinp!(Pk, m, yk(k), uk(k), params, δt)
+		end
+
+		# Insert A
+		# NOTE: j outer loop for Julia's col-major storage and better loop unrolling
+		for j = 1:np
+			for i = 1:ny
+				offs += 1 # needs to be up here due to 1-indexing!
+				if mode == :Structure
+					row[offs] = k*ny + i
+					col[offs] = j
+				else
+					value[offs] = Pk[i,j]
+				end
+			end
+		end
+	end
+	return
+end
+
+#=========================================================================
 Direct Collocation
 =========================================================================#
 
@@ -250,18 +289,34 @@ function DgsparseDirCol!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, 
 end
 
 
-function ipoptsolve(m::Model, opt::OptOptions, traj::Vector, params::Vector, εs; kwargs...)
+function ipoptsolve(m::Model, opt::OptOptions, traj::Vector, params::Vector, εs, optWrt::Symbol; kwargs...)
+	optWrt in OptVar || throw(ArgumentError("invalid optWrt: $optWrt"))
+
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+	np = pdims(m)
 	δt = opt.vart ? traj[end] : opt.fixedδt
 
+	# These functions allows us to concisely define the opt function below
+	_tup = _x -> (optWrt == :traj ? (_x, params) : (traj, _x))
+	x = (optWrt == :traj ? copy(traj) : copy(params))
+
 	# Define the things needed for IPOPT
-	x_L, x_U = xbounds(m, opt, N)
 	g_L, g_U = gbounds(m, opt, traj, εs...)
 	y0 = copy(traj[1:ny])
-	eval_g(x::Vector, g::Vector) = gvalues!(g, m, opt, x, params, y0)
-	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = opt.order == 1 ? Dgsparse!(rows, cols, values, m, opt, x, params, mode, ny, nu, N, δt) : DgsparseDirCol!(rows, cols, values, m, opt, x, params, mode, ny, nu, N, δt)
+	eval_g(x::Vector, g::Vector) = gvalues!(g, m, opt, _tup(x)..., y0)
+
+	# if optWrt == :traj
+		nnz = opt.order == 1 ? Dgnnz(m, opt, traj) : DgnnzDirCol(m, opt, traj)
+		eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = opt.order == 1 ? Dgsparse!(rows, cols, values, m, opt, _tup(x)..., mode, ny, nu, N, δt) : DgsparseDirCol!(rows, cols, values, m, opt, _tup(x)..., mode, ny, nu, N, δt)
+		x_L, x_U = xbounds(m, opt, N)
+	# elseif optWrt == :param
+	# 	nnz = N*ny*np
+	# 	eval_jac_g(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int32}, values::Vector) = Dgpsparse!(rows, cols, values, m, opt, _tup(x)..., mode, ny, nu, N, δt)
+	# 	x_L, x_U = plimits(m)
+	# end
+
 	function eval_f(x::AbstractArray)
-		_ro = robj(m, opt, x, params)
+		_ro = robj(m, opt, _tup(x)...)
 		return (_ro ⋅ _ro)
 	end
 	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, eval_f, x)
@@ -280,13 +335,13 @@ function ipoptsolve(m::Model, opt::OptOptions, traj::Vector, params::Vector, εs
 
 	# Create IPOPT problem
 	prob = Ipopt.createProblem(
-		length(traj), # Number of variables
+		length(x), # Number of variables
 		x_L, # Variable lower bounds
 		x_U, # Variable upper bounds
 		length(g_L), # Number of constraints
 		g_L,       # Constraint lower bounds
 		g_U,       # Constraint upper bounds
-		opt.order == 1 ? Dgnnz(m, opt, traj) : DgnnzDirCol(m, opt, traj),  # Number of non-zeros in Jacobian
+		nnz,  # Number of non-zeros in Jacobian
 		0,             # Number of non-zeros in Hessian
 		eval_f,                     # Callback: objective function
 		eval_g,                     # Callback: constraint evaluation
@@ -303,8 +358,7 @@ function ipoptsolve(m::Model, opt::OptOptions, traj::Vector, params::Vector, εs
 	end
 
 	# TODO: this should be an update only without need to setup. would need to update params.
-	prob.x = copy(traj)
-
+	prob.x = x
 	status = Ipopt.solveProblem(prob)
 
 	if Ipopt.ApplicationReturnStatus[status] == :Infeasible_Problem_Detected

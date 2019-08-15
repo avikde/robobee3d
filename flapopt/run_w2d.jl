@@ -26,14 +26,16 @@ trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], params0)
 
 # IPOPT
 εs = [0.05, 0.005, 0.001] # IC, dyn, symm
-traj1 = cu.ipoptsolve(m, opt, traj0, params0, εs)
+traj1 = cu.ipoptsolve(m, opt, traj0, params0, εs, :traj)
+trajs = [traj0, traj1]
+params = [params0, params0]
 
-# with param opt
-params1 = cu.paramopt(m, opt, traj1, params0, εs; step=0.3)
-traj2 = cu.ipoptsolve(m, opt, traj1, params1, εs)
+# # with param opt
+# params1 = cu.paramopt(m, opt, traj1, params0, εs; step=0.3)
+# traj2 = cu.ipoptsolve(m, opt, traj1, params1, εs, :traj)
 
-trajs = [traj0, traj1, traj2]
-params = [params0, params0, params1]
+# trajs = [traj0, traj1, traj2]
+# params = [params0, params0, params1]
 
 # # Custom solver
 # wkt = cu.OptWorkspace(cu.Ntraj(m, opt, N), (N+2)*ny)

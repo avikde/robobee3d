@@ -43,6 +43,15 @@ function robj(m::Model, opt::OptOptions, traj::AbstractArray, params::AbstractAr
 	return zeros(0)
 end
 
+function pdims(m::Model)::Int
+	return 0
+end
+
+function plimits(m::Model)
+	return [], []
+end
+
+
 #=========================================================================
 Functions that can be specialized optionally
 =========================================================================#
@@ -67,8 +76,7 @@ end
 
 "Discrete linearization wrt params."
 function dlinp!(Pk::Matrix, m::Model, y::Vector, u::Vector, params::Vector, δt::Float64)
-	ForwardDiff.jacobian!(Pk, pp -> dydt(m, y, u, pp), params)
-	Pk .= δt * Pk
+	ForwardDiff.jacobian!(Pk, pp -> δt * dydt(m, y, u, pp), params)
 end
 
 #=========================================================================

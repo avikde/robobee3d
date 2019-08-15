@@ -43,6 +43,14 @@ function cu.dims(m::Wing2DOFModel)::Tuple{Int, Int}
     return 4, 1
 end
 
+function cu.pdims(m::Wing2DOFModel)::Int
+    return 2
+end
+
+function cu.plimits(m::Wing2DOFModel)
+    return [0.1, 1.0], [5.0, 100.0]
+end
+
 function cu.limits(m::Wing2DOFModel)::Tuple{Vector, Vector, Vector, Vector}
     # This is based on observing the OL trajectory. See note on units above.
     umax = @SVector [75.0] # [mN]
