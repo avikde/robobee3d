@@ -22,9 +22,11 @@ trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], params0)
 # trajei = eulerIntegrate(m, opt, traj0, params0)
 # pl1 = plotTrajs(m, opt, trajt, params0, traj0, trajei)
 
+# traj opt ------------------------------------
+
 # IPOPT
-eps = [0.05, 0.005, 0.001] # IC, dyn, symm
-prob = cu.ipoptsetup(m, opt, traj0, params0, eps)
+εs = [0.05, 0.005, 0.001] # IC, dyn, symm
+prob = cu.ipoptsetup(m, opt, traj0, params0, εs)
 status = cu.ipoptsolve(prob)
 trajs = [traj0, prob.x]
 
@@ -36,6 +38,10 @@ trajs = [traj0, prob.x]
 
 # pl2 = plotParams(m, opt, trajs[:,end], (params[:,i] for i = 1:size(params,2))...; μ=1e-1)
 # display(params)
+
+# paramopt -------------------------------------
+
+cu.paramopt(m, opt, traj0, params0, εs)
 
 # visualize --------------------------------------------
 

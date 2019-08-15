@@ -26,7 +26,7 @@ function dims(m::Model)::Tuple{Int, Int}
 	return 0, 0 # ny, nu
 end
 
-function dydt(m::Model, y::AbstractArray{T}, u::AbstractArray{T}, params::AbstractArray{T})::AbstractArray{T} where {T}
+function dydt(m::Model, y::AbstractArray, u::AbstractArray, params::AbstractArray)::AbstractArray
 	return similar(y)
 end
 
@@ -60,7 +60,7 @@ function dlin!(Ak::Matrix{T}, Bk::Matrix{T}, m::Model, y::AbstractArray{T}, u::A
 end
 
 "Discrete dynamics step"
-function ddynamics(m::Model, y::AbstractArray{T}, u::AbstractArray{T}, params::AbstractArray{T}, δt::T; useLinearization::Bool=false) where {T}
+function ddynamics(m::Model, y::AbstractArray, u::AbstractArray, params::AbstractArray, δt; useLinearization::Bool=false)
 	return y + δt * dydt(m, y, u, params)
 	# TODO: useLinearization
 end

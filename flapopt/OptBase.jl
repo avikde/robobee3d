@@ -48,7 +48,7 @@ Note that the actual constraints are:
 	dg_du = δt * df_du
 	dg_dδt = fy
 """
-function gvalues!(gout::Vector{T}, m::Model, opt::OptOptions, traj::Vector{T}, params::Vector{T}, y0::AbstractArray{T}) where {T}
+function gvalues!(gout::AbstractArray, m::Model, opt::OptOptions, traj::AbstractArray, params::AbstractArray, y0::AbstractArray)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	li = LinearIndices((1:ny, 1:(N+2))) # to N+2
 
