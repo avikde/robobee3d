@@ -230,11 +230,11 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractAr
 			# Regularization, and then we know this is pos def
 			wk.HJ[diagind(wk.HJ)] .+= opt.hessReg
 
-			# # Gradient descent
-			# v .= -∇J
+			# Gradient descent
+			# v .= -wk.∇J
 			# Newton or Gauss-Newton. Use PositiveFactorizations.jl to ensure psd Hessian
-			# v = -(cholesky(Positive, wk.HJ) \ wk.∇J)# #
-			v = -wk.HJ\wk.∇J
+			# v .= -(cholesky(Positive, wk.HJ) \ wk.∇J)# #
+			v .= -wk.HJ\wk.∇J
 
 			J0 = Jx(x)
 			J1 = csBacktrackingLineSearch!(x1, x, wk.∇J, v, J0, Jx; α=0.2, β=0.7)
