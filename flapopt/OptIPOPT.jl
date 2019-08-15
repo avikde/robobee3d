@@ -250,7 +250,7 @@ function DgsparseDirCol!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, 
 end
 
 
-function nloptsetup(m::Model, opt::OptOptions, traj::Vector, params::Vector, εs; kwargs...)
+function ipoptsetup(m::Model, opt::OptOptions, traj::Vector, params::Vector, εs; kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	δt = opt.vart ? traj[end] : opt.fixedδt
 
@@ -308,7 +308,7 @@ function nloptsetup(m::Model, opt::OptOptions, traj::Vector, params::Vector, εs
 	return prob
 end
 
-function nloptsolve(prob)
+function ipoptsolve(prob)
 	status = Ipopt.solveProblem(prob)
 
 	if Ipopt.ApplicationReturnStatus[status] == :Infeasible_Problem_Detected

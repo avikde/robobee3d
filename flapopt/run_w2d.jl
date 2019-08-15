@@ -24,8 +24,8 @@ trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], params0)
 
 # IPOPT
 eps = [0.05, 0.005, 0.001] # IC, dyn, symm
-prob = cu.nloptsetup(m, opt, traj0, params0, eps)
-status = cu.nloptsolve(prob)
+prob = cu.ipoptsetup(m, opt, traj0, params0, eps)
+status = cu.ipoptsolve(prob)
 trajs = [traj0, prob.x]
 
 # # Custom solver
