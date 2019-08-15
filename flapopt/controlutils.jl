@@ -8,6 +8,8 @@ import Ipopt # keep in its namespace
 using Plots
 
 include("Model.jl")
-include("ModelOptimizer.jl")
+include("OptIPOPT.jl")
+include("OptCustom.jl")
+include("OptParams.jl")
 
 end
