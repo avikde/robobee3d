@@ -8,10 +8,14 @@ Param opt
 "Figure out the best δx direction to move the traj"
 function paramδx(m::Model, opt::OptOptions, traj::AbstractArray, param0::AbstractArray, mult_x_L::AbstractArray, mult_x_U::AbstractArray)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
-	# Desired δx: lower u used
-	δx = copy(traj)
-	fill!(δx[1:(N+1)*ny], 0.0)
-	δx[(N+1)*ny+1:(N+1)*ny+N*nu] .= -δx[(N+1)*ny+1:(N+1)*ny+N*nu] # negative of the currently applied force
+	# # Desired δx: lower u used
+	# δx = copy(traj)
+	# fill!(δx[1:(N+1)*ny], 0.0)
+	# δx[(N+1)*ny+1:(N+1)*ny+N*nu] .= -δx[(N+1)*ny+1:(N+1)*ny+N*nu] # negative of the currently applied force
+
+	# step in the direction of the active constraints
+	δx = mult_x_L - mult_x_U
+
 	return δx
 end
 

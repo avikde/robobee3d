@@ -354,7 +354,7 @@ function ipoptsolve(m::Model, opt::OptOptions, traj::Vector, params::Vector, εs
 
 	# Add options using kwargs
 	for (k,v) in pairs(kwargs)
-		println(k, " => ", v)
+		# println(k, " => ", v)
 		Ipopt.addOption(prob, string(k), v)
 	end
 
