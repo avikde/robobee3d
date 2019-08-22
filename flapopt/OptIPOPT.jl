@@ -289,6 +289,13 @@ function DgsparseDirCol!(row::Vector{Int32}, col::Vector{Int32}, value::Vector, 
 end
 
 
+"""
+IPOPT problem struct (output) fields:
+Solution of the constraint multipliers, lambda = prob.mult_g
+Solution of the bound multipliers, z_L and z_U = prob.mult_x_L, prob.mult_x_U
+Objective value f(x*) = prob.obj_val
+Final constraint values = prob.g
+"""
 function ipoptsolve(m::Model, opt::OptOptions, traj::Vector, params::Vector, εs, optWrt::Symbol; kwargs...)
 	optWrt in OptVar || throw(ArgumentError("invalid optWrt: $optWrt"))
 
@@ -360,6 +367,6 @@ function ipoptsolve(m::Model, opt::OptOptions, traj::Vector, params::Vector, εs
 	end
 
 	# return status
-	return prob.x
+	return prob
 end
 

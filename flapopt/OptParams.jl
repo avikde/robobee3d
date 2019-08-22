@@ -5,10 +5,20 @@ include("OptBase.jl") #< including this helps vscode reference the functions in 
 Param opt
 =========================================================================#
 
-function paramopt(m::Model, opt::OptOptions, traj::AbstractArray, params0::AbstractArray, εs; step=0.05)
+"Figure out the best δx direction to move the traj"
+function paramδx(m::Model, opt::OptOptions, traj::AbstractArray, param0::AbstractArray, mult_x_L::AbstractArray, mult_x_U::AbstractArray)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+	# Desired δx: lower u used
+	δx = copy(traj)
+	fill!(δx[1:(N+1)*ny], 0.0)
+	δx[(N+1)*ny+1:(N+1)*ny+N*nu] .= -δx[(N+1)*ny+1:(N+1)*ny+N*nu] # negative of the currently applied force
+	return δx
+end
+
+function paramopt(m::Model, opt::OptOptions, traj::AbstractArray, param0::AbstractArray, δx::AbstractArray, εs; step=0.05)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	
-	# FIXME: this is really more suited to the custom solver where Dg is already computed
+	# NOTE: this is really more suited to the custom solver where Dg is already computed
 	g_L, g_U = gbounds(m, opt, traj, εs...)
 	Nc = length(g_L)
 	Nx = length(traj)
@@ -18,17 +28,12 @@ function paramopt(m::Model, opt::OptOptions, traj::AbstractArray, params0::Abstr
 	row = zeros(Int32, nnz)
 	col = zeros(Int32, nnz)
 	value = zeros(nnz)
-	Dgsparse!(row, col, value, m, opt, traj, params0, :Structure, ny, nu, N, δt)
-	Dgsparse!(row, col, value, m, opt, traj, params0, :Values, ny, nu, N, δt)
+	Dgsparse!(row, col, value, m, opt, traj, param0, :Structure, ny, nu, N, δt)
+	Dgsparse!(row, col, value, m, opt, traj, param0, :Values, ny, nu, N, δt)
 	for i = 1:nnz
 		# DUMB
 		Dg[row[i], col[i]] = value[i]
 	end
-
-	# Desired δx: lower u used
-	δx = copy(traj)
-	fill!(δx[1:(N+1)*ny], 0.0)
-	δx[(N+1)*ny+1:(N+1)*ny+N*nu] .= -δx[(N+1)*ny+1:(N+1)*ny+N*nu] # negative of the currently applied force
 
 	# Gradient wrt params TODO: more insight than autograd?
 	function gofp(pp)
@@ -36,11 +41,11 @@ function paramopt(m::Model, opt::OptOptions, traj::AbstractArray, params0::Abstr
 		gvalues!(gg, m, opt, traj, pp, traj[1:ny])
 		return gg
 	end
-	dg_dp = ForwardDiff.jacobian(gofp, params0)
+	dg_dp = ForwardDiff.jacobian(gofp, param0)
 
 	# Non-QP version first
 	δp = -dg_dp \ Dg * δx
-	return params0 + step * δp
+	return param0 + step * δp
 end
 
 function paramoptJ(m::Model, opt::OptOptions, traj::AbstractArray, params0::AbstractArray, εs; step=0.05)
