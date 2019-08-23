@@ -43,6 +43,14 @@ function cu.dims(m::Wing2DOFModel)::Tuple{Int, Int}
     return 4, 1
 end
 
+function cu.pdims(m::Wing2DOFModel)::Int
+    return 2
+end
+
+function cu.plimits(m::Wing2DOFModel)
+    return [0.1, 1.0], [5.0, 100.0]
+end
+
 function cu.limits(m::Wing2DOFModel)::Tuple{Vector, Vector, Vector, Vector}
     # This is based on observing the OL trajectory. See note on units above.
     umax = @SVector [75.0] # [mN]
@@ -183,45 +191,46 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     return trajt .- trajt[1], traj0
 end
 
-function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params::Vector, args...)
-	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, args[1])
+function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, trajs)
+	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
 	Ny = (N+1)*ny
 	# stroke "angle" = T*y[1] / R
-    cbar, T = params
+    cbar, T = params[1]
     # If plot is given a matrix each column becomes a different line
-    σt = plot(t, hcat([traj[@view liy[1,:]] * T / (R/2) for traj in args]...), marker=:auto, ylabel="stroke ang [r]", title="δt=$(round(args[1][end]; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
+    σt = plot(t, hcat([traj[@view liy[1,:]] * T / (R/2) for traj in trajs]...), marker=:auto, ylabel="stroke ang [r]", title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
     
-    Ψt = plot(t, hcat([traj[@view liy[2,:]] for traj in args]...), marker=:auto, legend=false, ylabel="hinge ang [r]")
+    Ψt = plot(t, hcat([traj[@view liy[2,:]] for traj in trajs]...), marker=:auto, legend=false, ylabel="hinge ang [r]")
     
-    ut = plot(t, hcat([[traj[@view liu[1,:]];NaN] for traj in args]...), marker=:auto, legend=false, ylabel="stroke force [mN]")
+    ut = plot(t, hcat([[traj[@view liu[1,:]];NaN] for traj in trajs]...), marker=:auto, legend=false, ylabel="stroke force [mN]")
+    Nt = length(trajs)
     # Plot of aero forces at each instant
-    function aeroPlotVec(_traj::Vector)
-        Faerok = k -> w2daero(_traj[@view liy[:,k]], _traj[@view liu[:,k]], params)[end]
+    function aeroPlotVec(_traj::Vector, _param)
+        Faerok = k -> w2daero(_traj[@view liy[:,k]], _traj[@view liu[:,k]], _param)[end]
         Faeros = hcat([Faerok(k) for k=1:N]...)
         return [Faeros[2,:]' NaN]'
     end
-    aerot = plot(t, hcat([aeroPlotVec(traj) for traj in args]...), marker=:auto, legend=false, ylabel="lift [mN]")
+    aerot = plot(t, hcat([aeroPlotVec(trajs[i], params[i]) for i=1:Nt]...), marker=:auto, legend=false, ylabel="lift [mN]")
     # Combine the subplots
 	return (σt, Ψt, ut, aerot)
 end
 
-function drawFrame(m::Wing2DOFModel, yk, uk, params; Faeroscale=5.0)
-    cbar, T = params
-    paero, _, Faero = w2daero(yk, uk, params)
+function drawFrame(m::Wing2DOFModel, yk, uk, param; Faeroscale=1.0)
+    cbar, T = param
+    paero, _, Faero = w2daero(yk, uk, param)
     wing1 = [yk[1] * T;0] # wing tip
     wing2 = wing1 + normalize(paero - wing1)*cbar
     # draw wing
-    w = plot([wing1[1]; wing2[1]], [wing1[2]; wing2[2]], marker=:auto, aspect_ratio=:equal, linewidth=4, legend=false, xlims=(-T,T), ylims=(-5,5))
+    w = plot([wing1[1]; wing2[1]], [wing1[2]; wing2[2]], color=:gray, aspect_ratio=:equal, linewidth=5, legend=false, xlims=(-15,15), ylims=(-3,3))
     # Faero
     FaeroEnd = paero + Faeroscale * Faero
     plot!(w, [paero[1], FaeroEnd[1]], [paero[2], FaeroEnd[2]], color=:red, linewidth=2, line=:arrow)
     # stroke plane
-    plot!(w, [-T,T], [0, 0], color="black", linestyle=:dash)
+    plot!(w, [-T,T], [0, 0], color=:black, linestyle=:dash)
     return w
 end
 
-function animateTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params::Vector, args...)
-    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, args[1])
+function animateTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs)
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
 
     # TODO: simulate with a waypoint controller for more steps
     
@@ -229,14 +238,15 @@ function animateTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params::Vector, args
     uk(traj, k) = @view traj[liu[:,k]]
     
     Nanim = opt.boundaryConstraint == :symmetric ? 2*N : N
+    Nt = length(trajs)
 
-    function drawTrajFrame(traj, k)
+    function drawTrajFrame(traj, param, k)
         _yk = opt.boundaryConstraint == :symmetric && k > N ? -yk(traj, k-N) : yk(traj, k)
         _uk = opt.boundaryConstraint == :symmetric && k > N ? -uk(traj, k-N) : uk(traj, k)
-        return drawFrame(m, _yk, _uk, params)
+        return drawFrame(m, _yk, _uk, param)
     end
     @gif for k=1:Nanim
-        plot([drawTrajFrame(tr, k) for tr in args]..., layout=(length(args),1))
+        plot([drawTrajFrame(trajs[i], params[i], k) for i in 1:Nt]..., layout=(Nt,1))
     end
 
     # return wingdraw 

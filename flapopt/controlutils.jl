@@ -1,13 +1,16 @@
 
 module controlutils
 
-using LinearAlgebra
+using LinearAlgebra, SparseArrays
 using ForwardDiff
 import Ipopt # keep in its namespace
 # using PositiveFactorizations
 using Plots
+using OSQP
 
 include("Model.jl")
-include("ModelOptimizer.jl")
+include("OptIPOPT.jl")
+include("OptCustom.jl")
+include("OptParams.jl")
 
 end

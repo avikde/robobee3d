@@ -26,7 +26,7 @@ function dims(m::Model)::Tuple{Int, Int}
 	return 0, 0 # ny, nu
 end
 
-function dydt(m::Model, y::AbstractArray{T}, u::AbstractArray{T}, params::AbstractArray{T})::AbstractArray{T} where {T}
+function dydt(m::Model, y::AbstractArray, u::AbstractArray, params::AbstractArray)::AbstractArray
 	return similar(y)
 end
 
@@ -42,6 +42,15 @@ end
 function robj(m::Model, opt::OptOptions, traj::AbstractArray, params::AbstractArray)::AbstractArray
 	return zeros(0)
 end
+
+function pdims(m::Model)::Int
+	return 0
+end
+
+function plimits(m::Model)
+	return [], []
+end
+
 
 #=========================================================================
 Functions that can be specialized optionally
@@ -60,15 +69,14 @@ function dlin!(Ak::Matrix{T}, Bk::Matrix{T}, m::Model, y::AbstractArray{T}, u::A
 end
 
 "Discrete dynamics step"
-function ddynamics(m::Model, y::AbstractArray{T}, u::AbstractArray{T}, params::AbstractArray{T}, δt::T; useLinearization::Bool=false) where {T}
+function ddynamics(m::Model, y::AbstractArray, u::AbstractArray, params::AbstractArray, δt; useLinearization::Bool=false)
 	return y + δt * dydt(m, y, u, params)
 	# TODO: useLinearization
 end
 
 "Discrete linearization wrt params."
-function dlinp!(Pk::Matrix, m::Model, y::Vector, u::Vector, params::Vector, δt::Float64)
-	ForwardDiff.jacobian!(Pk, pp -> dydt(m, y, u, pp), params)
-	Pk .= δt * Pk
+function dlinp!(Pk::Matrix, m::Model, y::AbstractArray, u::AbstractArray, params::AbstractArray, δt::Float64)
+	ForwardDiff.jacobian!(Pk, pp -> δt * dydt(m, y, u, pp), params)
 end
 
 #=========================================================================
