@@ -1,7 +1,7 @@
 
 module controlutils
 
-using LinearAlgebra
+using LinearAlgebra, SparseArrays
 using ForwardDiff
 import Ipopt # keep in its namespace
 # using PositiveFactorizations

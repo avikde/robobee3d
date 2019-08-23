@@ -26,7 +26,6 @@ function paramopt(m::Model, opt::OptOptions, traj::AbstractArray, param0::Abstra
 	g_L, g_U = gbounds(m, opt, traj, εs...)
 	Nc = length(g_L)
 	Nx = length(traj)
-	Dg = zeros(Nc, Nx)
 	# Get Dg using the IPOPT functions
 	nnz = Dgnnz(m, opt, traj)
 	row = zeros(Int32, nnz)
@@ -34,10 +33,8 @@ function paramopt(m::Model, opt::OptOptions, traj::AbstractArray, param0::Abstra
 	value = zeros(nnz)
 	Dgsparse!(row, col, value, m, opt, traj, param0, :Structure, ny, nu, N, δt)
 	Dgsparse!(row, col, value, m, opt, traj, param0, :Values, ny, nu, N, δt)
-	for i = 1:nnz
-		# DUMB
-		Dg[row[i], col[i]] = value[i]
-	end
+	# use sparse matrix from the COO format (same as used by IPOPT)
+	Dg = sparse(row, col, value)
 
 	# Gradient wrt params TODO: more insight than autograd?
 	function gofp(pp)
