@@ -47,7 +47,7 @@ function paramoptQPSetup(m::Model, opt::OptOptions, traj::AbstractArray; Preg=1e
 	return mo
 end
 
-function paramopt(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, traj::AbstractArray, param0::AbstractArray, δx::AbstractArray, εs; step=0.05)
+function paramopt(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, traj::AbstractArray, param0::AbstractArray, δx::AbstractArray, εs; step=0.05, penalty=1e2)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	
 	# NOTE: this is really more suited to the custom solver where Dg is already computed
@@ -81,7 +81,7 @@ function paramopt(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, tra
 		# QP version
 		# l = -Dg * δx
 
-		P = dg_dp' * dg_dp
+		P = penalty * dg_dp' * dg_dp
 		Px_new = zeros(np*(np+1)÷2)
 		offs = 0
 		for j = 1:np
@@ -90,9 +90,16 @@ function paramopt(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, tra
 				Px_new[offs] = P[i,j]
 			end
 		end
+
+		# Add a term related to the objective
+		function Jo(p)
+			_ro = robj(m, opt, traj, p)
+			return (_ro ⋅ _ro)
+		end
+		dJo_dp = convert(Array{Float64}, ForwardDiff.gradient(Jo, param0))
 		
 		# in the QP solution the "step size" only applies to the δx desired
-		q = dg_dp' * Dg * δx * step
+		q = penalty * dg_dp' * Dg * δx * step + dJo_dp
 
 		# println(Nn, size(Nn))
 		OSQP.update!(mo, Px=Px_new; q=q)

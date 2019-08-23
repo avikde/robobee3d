@@ -46,7 +46,7 @@ traj1 = prob.x
 
 # with my modification to Ha/Coros g-preferred param opt
 δx = cu.paramδx(m, opt, traj0, param0, prob.mult_x_L, prob.mult_x_U)
-param1 = cu.paramopt(mo, m, opt, traj1, param0, δx, εs; step=1e2)
+param1 = cu.paramopt(mo, m, opt, traj1, param0, δx, εs; step=1e2, penalty=1e5)
 # param1 = cu.paramoptJ(m, opt, traj1, param0, εs; step=0.01)
 prob = cu.ipoptsolve(m, opt, traj1, param1, εs, :traj; print_level=1, nlp_scaling_method="none")
 traj2 = prob.x
