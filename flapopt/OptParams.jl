@@ -91,15 +91,15 @@ function paramopt(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, tra
 			end
 		end
 
-		# Add a term related to the objective
-		function Jo(p)
-			_ro = robj(m, opt, traj, p)
-			return (_ro ⋅ _ro)
-		end
-		dJo_dp = convert(Array{Float64}, ForwardDiff.gradient(Jo, param0))
+		# # Add a term related to the objective
+		# function Jo(p)
+		# 	_ro = robj(m, opt, traj, p)
+		# 	return (_ro ⋅ _ro)
+		# end
+		# dJo_dp = convert(Array{Float64}, ForwardDiff.gradient(Jo, param0))
 		
 		# in the QP solution the "step size" only applies to the δx desired
-		q = penalty * dg_dp' * Dg * δx * step + dJo_dp
+		q = penalty * dg_dp' * Dg * δx * step #+ dJo_dp
 
 		# println(Nn, size(Nn))
 		OSQP.update!(mo, Px=Px_new; q=q)
