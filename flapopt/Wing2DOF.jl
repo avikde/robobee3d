@@ -119,7 +119,7 @@ function cu.dydt(model::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _para
     mspar = 0 # [mg]
     mwing = 0.51 # [mg]
     Iwing = mwing * cbar^2 # cbar is in mm
-    kσ = 0 # [mN/mm]
+    kσ = 0 # [mN/mm] TODO: 300 mNmm/rad
     bσ = 0 # [mN/(mm/ms)]
     kΨ = 5 # [mN-mm/rad]
     bΨ = 3 # [mN-mm/(rad/ms)]
