@@ -19,6 +19,32 @@ function paramδx(m::Model, opt::OptOptions, traj::AbstractArray, param0::Abstra
 	return δx
 end
 
+"""
+Set up a QP param step problem.
+	δp is the decision var.
+	P is set as a small regularization.
+	The linear constraint is given by the IFT condition keeping δg = 0.
+
+"""
+function paramoptQPSetup(m::Model, opt::OptOptions, traj::AbstractArray; Preg=1e-3)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+	# Get number of constraints ng
+	gL, gU = gbounds(m, opt, traj)
+	ng = length(gL)
+	np = pdims(m)
+	
+	# P and A are sparse matrices of type SparseMatrixCSC
+	# pick worst case for A = δg/δp. IC or symm constraints have no p; but assume Pk = δt δf/δp are all full
+	row = repeat(ny+1:(N+1)*ny, outer=np)
+	col = repeat(1:np, inner=N*ny)
+	val = ones(length(row))
+
+	# everything will be updated - just need to set the sparsity
+	mo = OSQP.Model()
+	OSQP.setup!(mo; P=spdiagm(0 => ones(np)), q=ones(np), A=sparse(row, col, val, ng, np), l=ones(ng), u=ones(ng), scaling=false)
+	return mo
+end
+
 function paramopt(m::Model, opt::OptOptions, traj::AbstractArray, param0::AbstractArray, δx::AbstractArray, εs; step=0.05)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	

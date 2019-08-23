@@ -29,6 +29,7 @@ trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
 # plot(plot(prob.g), plot(prob.mult_g), size=(900,400))
 
+mo = cu.paramoptQPSetup(m, opt, traj0)
 
 # IPOPT
 εs = [0.05, 0.005, 0.001] # IC, dyn, symm
@@ -43,7 +44,7 @@ traj1 = prob.x
 # trajs = [traj0, traj0]
 # params = [param0, param1]
 
-# with Coros g-preferred param opt
+# with my modification to Ha/Coros g-preferred param opt
 δx = cu.paramδx(m, opt, traj0, param0, prob.mult_x_L, prob.mult_x_U)
 param1 = cu.paramopt(m, opt, traj1, param0, δx, εs; step=1e2)
 # param1 = cu.paramoptJ(m, opt, traj1, param0, εs; step=0.01)
