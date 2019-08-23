@@ -29,7 +29,7 @@ trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
 # plot(plot(prob.g), plot(prob.mult_g), size=(900,400))
 
-mo = cu.paramoptQPSetup(m, opt, traj0; scaling=false)
+mo = cu.paramoptQPSetup(m, opt, traj0; scaling=false, verbose=false)
 
 # IPOPT
 εs = [0.05, 0.005, 0.001] # IC, dyn, symm

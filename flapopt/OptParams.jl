@@ -70,7 +70,7 @@ function paramopt(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, tra
 		gvalues!(gg, m, opt, traj, pp, traj[1:ny])
 		return gg
 	end
-	dg_dp = ForwardDiff.jacobian(gofp, param0)
+	dg_dp = convert(Array{Float64}, ForwardDiff.jacobian(gofp, param0))
 
 	if isnothing(mo)
 		# Non-QP version first
@@ -91,7 +91,8 @@ function paramopt(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, tra
 			end
 		end
 		
-		q = -dg_dp' * Dg * δx
+		# in the QP solution the "step size" only applies to the δx desired
+		q = dg_dp' * Dg * δx * step
 
 		# println(Nn, size(Nn))
 		OSQP.update!(mo, Px=Px_new; q=q)
