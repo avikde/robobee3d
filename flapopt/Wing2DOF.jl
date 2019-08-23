@@ -119,7 +119,10 @@ function cu.dydt(model::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _para
     mspar = 0 # [mg]
     mwing = 0.51 # [mg]
     Iwing = mwing * cbar^2 # cbar is in mm
-    kσ = 0 # [mN/mm] TODO: 300 mNmm/rad
+    # From Patrick 300 mN-mm/rad. 1 rad => R/2 σ-displacement. The torque is applied with a lever arm of R/2 => force = torque / (R/2)
+    # so overall, get 300 / (R/2)^2.
+    # FIXME: If this is due to act stiffness it would be affected by T. Need to confirm with Noah.
+    kσ = 300 / (R/2)^2 # [mN/mm] 
     bσ = 0 # [mN/(mm/ms)]
     kΨ = 5 # [mN-mm/rad]
     bΨ = 3 # [mN-mm/(rad/ms)]
