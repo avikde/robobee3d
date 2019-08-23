@@ -34,14 +34,16 @@ function paramoptQPSetup(m::Model, opt::OptOptions, traj::AbstractArray; Preg=1e
 	np = pdims(m)
 	
 	# P and A are sparse matrices of type SparseMatrixCSC
-	# pick worst case for A = δg/δp. IC or symm constraints have no p; but assume Pk = δt δf/δp are all full
-	row = repeat(ny+1:(N+1)*ny, outer=np)
-	col = repeat(1:np, inner=N*ny)
-	val = ones(length(row))
+	# TODO: A for param box constraints
+	# # pick worst case for A = δg/δp. IC or symm constraints have no p; but assume Pk = δt δf/δp are all full
+	# row = repeat(ny+1:(N+1)*ny, outer=np)
+	# col = repeat(1:np, inner=N*ny)
+	# val = ones(length(row))
 
 	# everything will be updated - just need to set the sparsity
 	mo = OSQP.Model()
-	OSQP.setup!(mo; P=spdiagm(0 => ones(np)), q=ones(np), A=sparse(row, col, val, ng, np), l=ones(ng), u=ones(ng), settings...)
+	# OSQP.setup!(mo; P=sparse(ones(np,np)), q=ones(np), A=sparse(row, col, val, ng, np), l=ones(ng), u=ones(ng), settings...)
+	OSQP.setup!(mo; P=sparse(ones(np,np)), q=ones(np), settings...) # no constraint for now
 	return mo
 end
 
@@ -77,13 +79,27 @@ function paramopt(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, tra
 	else
 		np = pdims(m)
 		# QP version
-		q = zeros(np) # TODO:
-		l = -Dg * δx
+		# l = -Dg * δx
 
-		Nn=nullspace(convert(Array{Float64}, dg_dp))
-		println(Nn, size(Nn))
-		# OSQP.update!(mo, Ax=; q=q, l=l, u=l)
-		error("HIHI")
+		P = dg_dp' * dg_dp
+		Px_new = zeros(np*(np+1)÷2)
+		offs = 0
+		for j = 1:np
+			for i = 1:j
+				offs += 1
+				Px_new[offs] = P[i,j]
+			end
+		end
+		
+		q = -dg_dp' * Dg * δx
+
+		# println(Nn, size(Nn))
+		OSQP.update!(mo, Px=Px_new; q=q)
+		res = OSQP.solve!(mo)
+		# print(fieldnames(typeof(res)))
+		# error("HIHI")
+
+		return param0 + res.x
 	end
 end
 
