@@ -26,7 +26,7 @@ Set up a QP param step problem.
 	The linear constraint is given by the IFT condition keeping δg = 0.
 
 """
-function paramoptQPSetup(m::Model, opt::OptOptions, traj::AbstractArray; Preg=1e-3)
+function paramoptQPSetup(m::Model, opt::OptOptions, traj::AbstractArray; Preg=1e-3, settings...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	# Get number of constraints ng
 	gL, gU = gbounds(m, opt, traj)
@@ -41,11 +41,11 @@ function paramoptQPSetup(m::Model, opt::OptOptions, traj::AbstractArray; Preg=1e
 
 	# everything will be updated - just need to set the sparsity
 	mo = OSQP.Model()
-	OSQP.setup!(mo; P=spdiagm(0 => ones(np)), q=ones(np), A=sparse(row, col, val, ng, np), l=ones(ng), u=ones(ng), scaling=false)
+	OSQP.setup!(mo; P=spdiagm(0 => ones(np)), q=ones(np), A=sparse(row, col, val, ng, np), l=ones(ng), u=ones(ng), settings...)
 	return mo
 end
 
-function paramopt(m::Model, opt::OptOptions, traj::AbstractArray, param0::AbstractArray, δx::AbstractArray, εs; step=0.05)
+function paramopt(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, traj::AbstractArray, param0::AbstractArray, δx::AbstractArray, εs; step=0.05)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	
 	# NOTE: this is really more suited to the custom solver where Dg is already computed
@@ -70,9 +70,21 @@ function paramopt(m::Model, opt::OptOptions, traj::AbstractArray, param0::Abstra
 	end
 	dg_dp = ForwardDiff.jacobian(gofp, param0)
 
-	# Non-QP version first
-	δp = -dg_dp \ Dg * δx
-	return param0 + step * δp
+	if isnothing(mo)
+		# Non-QP version first
+		δp = -dg_dp \ Dg * δx
+		return param0 + step * δp
+	else
+		np = pdims(m)
+		# QP version
+		q = zeros(np) # TODO:
+		l = -Dg * δx
+
+		Nn=nullspace(convert(Array{Float64}, dg_dp))
+		println(Nn, size(Nn))
+		# OSQP.update!(mo, Ax=; q=q, l=l, u=l)
+		error("HIHI")
+	end
 end
 
 function paramoptJ(m::Model, opt::OptOptions, traj::AbstractArray, params0::AbstractArray, εs; step=0.05)
