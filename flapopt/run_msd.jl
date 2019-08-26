@@ -24,16 +24,28 @@ trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 prob = cu.ipoptsolve(m, opt, traj0, param0, εs, :traj; print_level=1, nlp_scaling_method="none")
 traj1 = prob.x
 # with my modification to Ha/Coros g-preferred param opt
-δx = cu.paramδx(m, opt, traj0, param0, prob.mult_x_L, prob.mult_x_U)
+δx = cu.paramδx(m, opt, traj1, param0, prob.mult_x_L, prob.mult_x_U)
 param1 = cu.paramopt(nothing, m, opt, traj1, param0, δx, εs; step=1e2)
 # param1 = cu.paramoptJ(m, opt, traj1, param0, εs; step=0.01)
 prob = cu.ipoptsolve(m, opt, traj1, param1, εs, :traj; print_level=1, nlp_scaling_method="none")
 traj2 = prob.x
+# with my modification to Ha/Coros g-preferred param opt
+δx = cu.paramδx(m, opt, traj2, param1, prob.mult_x_L, prob.mult_x_U)
+param2 = cu.paramopt(nothing, m, opt, traj2, param1, δx, εs; step=1e2)
+# param1 = cu.paramoptJ(m, opt, traj1, param0, εs; step=0.01)
+prob = cu.ipoptsolve(m, opt, traj2, param2, εs, :traj; print_level=1, nlp_scaling_method="none")
+traj3 = prob.x
+# with my modification to Ha/Coros g-preferred param opt
+δx = cu.paramδx(m, opt, traj3, param2, prob.mult_x_L, prob.mult_x_U)
+param3 = cu.paramopt(nothing, m, opt, traj3, param2, δx, εs; step=1e2)
+# param1 = cu.paramoptJ(m, opt, traj1, param0, εs; step=0.01)
+prob = cu.ipoptsolve(m, opt, traj3, param3, εs, :traj; print_level=1, nlp_scaling_method="none")
+traj4 = prob.x
 
 # Results ---
 
-trajs = [traj0, traj1, traj2]
-params = [param0, param0, param1]
+trajs = [traj0, traj1, traj2, traj3, traj4]
+params = [param0, param0, param1, param2, param3]
 
 println("Objectives: ", [(_ro = cu.robj(m, opt, trajs[i], params[i]); _ro'*_ro) for i = 1:length(trajs)])
 println("Params: ", params)

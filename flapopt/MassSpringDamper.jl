@@ -9,7 +9,7 @@ struct MassSpringDamperModel <: controlutils.Model end
 
 # gear ratio
 const G = 1.0
-const mb = 1.0
+const mb = 10.0
 
 function cu.dims(m::MassSpringDamperModel)::Tuple{Int, Int}
     return 2, 1
@@ -25,7 +25,7 @@ end
 
 function cu.limits(m::MassSpringDamperModel)::Tuple{Vector, Vector, Vector, Vector}
     # This is based on observing the OL trajectory. See note on units above.
-    umax = [75.0] # [mN]
+    umax = [50.0] # [mN]
     umin = -umax
     xmax = [10,1000] # [mm, rad, mm/ms, rad/ms]
     xmin = -xmax
