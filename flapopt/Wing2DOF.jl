@@ -159,11 +159,20 @@ function openloopResponse(m::Wing2DOFModel, opt::cu.OptOptions, freq::Real, para
     prob = ODEProblem(vf, [0.2,0.,0.,0.], (teval[1], teval[end]))
     sol = solve(prob, saveat=teval)
     
-    # Plot
-    σt = plot(sol, vars=3, ylabel="act vel [m/s]")
-    Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
-    plot(σt, Ψt, layout=(2,1))
-    gui()
+    # Deduce metrics
+    t = sol.t[end-100:end]
+    y = hcat(sol.u[end-100:end]...)
+    σmag = maximum(y[1,:]) - minimum(y[1,:])
+    Ψmag = maximum(y[2,:]) - minimum(y[2,:])
+    # relative phase? Hilbert transform?
+
+    # # Plot
+    # σt = plot(sol, vars=3, ylabel="act vel [m/s]")
+    # Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
+    # plot(σt, Ψt, layout=(2,1))
+    # gui()
+
+    return [σmag, Ψmag]
 end
 
 """
