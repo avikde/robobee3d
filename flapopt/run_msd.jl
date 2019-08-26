@@ -20,11 +20,14 @@ trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
 
 # IPOPT
-εs = [0.05, 0.005, 0.001] # IC, dyn, symm
+εs = [1, 0.005, 0.001] # IC, dyn, symm
 prob = cu.ipoptsolve(m, opt, traj0, param0, εs, :traj; print_level=1, nlp_scaling_method="none")
 traj1 = prob.x
 
 trajs = [traj0, traj1]
 params = [param0, param0]
 pl1 = plotTrajs(m, opt, trajt, params, trajs)
+pl2 = cu.visualizeConstraintViolations(m, opt, params, trajs)
 
+l = @layout [grid(2,1) a]
+plot(pl1..., pl2, layout=l, size=(900,400))
