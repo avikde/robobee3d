@@ -144,6 +144,28 @@ end
 
 # Create an initial traj --------------
 
+"Simulate with an OL signal at a freq"
+function openloopResponse(m::Wing2DOFModel, opt::cu.OptOptions, freq::Real, params::Vector)
+    # Create a traj
+    σmax = cu.limits(m)[end][1]
+    tend = 100.0 # [ms]
+    function controller(y, t)
+        return 50.0 * sin(2*π*freq*t)
+    end
+    vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
+    # OL traj1
+    simdt = 0.1 # [ms]
+    teval = collect(0:simdt:tend) # [ms]
+    prob = ODEProblem(vf, [0.2,0.,0.,0.], (teval[1], teval[end]))
+    sol = solve(prob, saveat=teval)
+    
+    # Plot
+    σt = plot(sol, vars=3, ylabel="act vel [m/s]")
+    Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
+    plot(σt, Ψt, layout=(2,1))
+    gui()
+end
+
 """
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
@@ -153,13 +175,9 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     σmax = cu.limits(m)[end][1]
     tend = 100.0 # [ms]
     function controller(y, t)
-        # # Stroke pos control
-        # σdes = 0.9 * σmax * sin(freq * 2 * π * t)
-        # return posGains[1] * (σdes - y[1]) - posGains[2] * y[3]
-
-        # openloop
-        freq2 = freq * 2 * t / tend
-        return 50.0 * sin(2*π*freq2*t)
+        # Stroke pos control
+        σdes = 0.9 * σmax * sin(freq * 2 * π * t)
+        return posGains[1] * (σdes - y[1]) - posGains[2] * y[3]
     end
     vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
     # OL traj1
@@ -175,11 +193,11 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     #     uk = [strokePosController(yk, sol.t[k])]
     #     drawFrame(m, yk, uk, params)
     # end
-    # Plot
-    σt = plot(sol, vars=3, ylabel="act vel [m/s]")
-    Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
-    plot(σt, Ψt, layout=(2,1))
-    gui()
+    # # Plot
+    # σt = plot(sol, vars=3, ylabel="act vel [m/s]")
+    # Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
+    # plot(σt, Ψt, layout=(2,1))
+    # gui()
 
     # expectedInterval = opt.boundaryConstraint == cu.SYMMETRIC ? 1/(2*freq) : 1/freq # [ms]
     # expectedPts = expectedInterval / simdt
