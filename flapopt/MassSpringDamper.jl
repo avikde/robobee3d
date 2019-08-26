@@ -54,23 +54,19 @@ function cu.dydt(model::MassSpringDamperModel, y::AbstractArray, u::AbstractArra
 end
 
 
-# "Objective to minimize"
-# function cu.robj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, params::AbstractArray)::AbstractArray
-#     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+"Objective to minimize"
+function cu.robj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, params::AbstractArray)::AbstractArray
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
     
-# 	yk = k -> @view traj[liy[:,k]]
-# 	uk = k -> @view traj[liu[:,k]]
-    
-#     Favg = @SVector zeros(2)
-#     for k = 1:N
-#         paero, _, Faero = w2daero(yk(k), uk(k), params)
-#         Favg += Faero
-#     end
-#     # Divide by the total time
-#     Favg /= (N) # [mN]
-#     # avg lift
-#     return [Favg[2] - 100]
-# end
+	yk = k -> @view traj[liy[:,k]]
+    rr = Array{Any,1}(undef, N)
+    for k = 1:N
+        σdes = -10.0 * sin(π*k/N)
+        rr[k] = yk(k)[1] - σdes
+    end
+    # avg lift
+    return rr
+end
 
 # -------------------------------------------------------------------------------
 
@@ -135,11 +131,7 @@ function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t::Vector, para
 end
 
 # function drawFrame(m::MassSpringDamperModel, yk, uk, param; Faeroscale=1.0)
-#     cbar, T = param
-#     paero, _, Faero = w2daero(yk, uk, param)
-#     wing1 = [yk[1] * T;0] # wing tip
-#     wing2 = wing1 + normalize(paero - wing1)*cbar
-#     # draw wing
+    
 #     w = plot([wing1[1]; wing2[1]], [wing1[2]; wing2[2]], color=:gray, aspect_ratio=:equal, linewidth=5, legend=false, xlims=(-15,15), ylims=(-3,3))
 #     # Faero
 #     FaeroEnd = paero + Faeroscale * Faero
