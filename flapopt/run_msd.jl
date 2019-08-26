@@ -23,9 +23,21 @@ trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 εs = [1, 0.005, 0.001] # IC, dyn, symm
 prob = cu.ipoptsolve(m, opt, traj0, param0, εs, :traj; print_level=1, nlp_scaling_method="none")
 traj1 = prob.x
+# with my modification to Ha/Coros g-preferred param opt
+δx = cu.paramδx(m, opt, traj0, param0, prob.mult_x_L, prob.mult_x_U)
+param1 = cu.paramopt(nothing, m, opt, traj1, param0, δx, εs; step=1e2)
+# param1 = cu.paramoptJ(m, opt, traj1, param0, εs; step=0.01)
+prob = cu.ipoptsolve(m, opt, traj1, param1, εs, :traj; print_level=1, nlp_scaling_method="none")
+traj2 = prob.x
 
-trajs = [traj0, traj1]
-params = [param0, param0]
+# Results ---
+
+trajs = [traj0, traj1, traj2]
+params = [param0, param0, param1]
+
+println("Objectives: ", [(_ro = cu.robj(m, opt, trajs[i], params[i]); _ro'*_ro) for i = 1:length(trajs)])
+println("Params: ", params)
+
 pl1 = plotTrajs(m, opt, trajt, params, trajs)
 pl2 = cu.visualizeConstraintViolations(m, opt, params, trajs)
 
