@@ -17,3 +17,8 @@ N = opt.boundaryConstraint == :symmetric ? 17 : 34
 param0 = [1.0] # k
 
 trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
+
+trajs = [traj0]
+params = [param0]
+pl1 = plotTrajs(m, opt, trajt, params, trajs)
+

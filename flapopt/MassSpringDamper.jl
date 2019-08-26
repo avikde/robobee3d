@@ -54,6 +54,26 @@ function cu.dydt(model::MassSpringDamperModel, y::AbstractArray, u::AbstractArra
 end
 
 
+# "Objective to minimize"
+# function cu.robj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, params::AbstractArray)::AbstractArray
+#     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+    
+# 	yk = k -> @view traj[liy[:,k]]
+# 	uk = k -> @view traj[liu[:,k]]
+    
+#     Favg = @SVector zeros(2)
+#     for k = 1:N
+#         paero, _, Faero = w2daero(yk(k), uk(k), params)
+#         Favg += Faero
+#     end
+#     # Divide by the total time
+#     Favg /= (N) # [mN]
+#     # avg lift
+#     return [Favg[2] - 100]
+# end
+
+# -------------------------------------------------------------------------------
+
 """
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
@@ -79,26 +99,75 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
     #     uk = [strokePosController(yk, sol.t[k])]
     #     drawFrame(m, yk, uk, params)
     # end
-    # Plot
-    σt = plot(sol, vars=1, ylabel="act pos [m/s]")
-    plot(σt)
-    gui()
+    # # Plot
+    # σt = plot(sol, vars=1, ylabel="act pos [m/s]")
+    # plot(σt)
+    # gui()
 
     # expectedInterval = opt.boundaryConstraint == cu.SYMMETRIC ? 1/(2*freq) : 1/freq # [ms]
     # expectedPts = expectedInterval / simdt
 
-    # starti = 170
-    # olRange = starti:2:(starti + 2*N)
-    # trajt = sol.t[olRange]
-    # δt = trajt[2] - trajt[1]
-    # olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)
-    # olTraju = [strokePosController(olTrajaa[i], trajt[i]) for i in 1:N] # get u1,...,uN
-    # traj0 = [vcat(olTrajaa...); olTraju] # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
-    # if opt.vart
-    #     traj0 = [traj0; δt]
-    # else
-    #     println("Initial traj δt=", δt, ", opt.fixedδt=", opt.fixedδt)
-    # end
+    starti = 170
+    olRange = starti:2:(starti + 2*N)
+    trajt = sol.t[olRange]
+    δt = trajt[2] - trajt[1]
+    olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)
+    olTraju = [controller(olTrajaa[i], trajt[i]) for i in 1:N] # get u1,...,uN
+    traj0 = [vcat(olTrajaa...); olTraju] # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
+    if opt.vart
+        traj0 = [traj0; δt]
+    else
+        println("Initial traj δt=", δt, ", opt.fixedδt=", opt.fixedδt)
+    end
 
-    # return trajt .- trajt[1], traj0
+    return trajt .- trajt[1], traj0
 end
+
+function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t::Vector, params, trajs)
+	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
+	Ny = (N+1)*ny
+    # If plot is given a matrix each column becomes a different line
+    σt = plot(t, hcat([traj[@view liy[1,:]] for traj in trajs]...), marker=:auto, ylabel="stroke ang [r]", title="δt=$(round(δt; sigdigits=4))ms")
+    
+    ut = plot(t, hcat([[traj[@view liu[1,:]];NaN] for traj in trajs]...), marker=:auto, legend=false, ylabel="stroke force [mN]")
+    # Combine the subplots
+	return (σt, ut)
+end
+
+# function drawFrame(m::MassSpringDamperModel, yk, uk, param; Faeroscale=1.0)
+#     cbar, T = param
+#     paero, _, Faero = w2daero(yk, uk, param)
+#     wing1 = [yk[1] * T;0] # wing tip
+#     wing2 = wing1 + normalize(paero - wing1)*cbar
+#     # draw wing
+#     w = plot([wing1[1]; wing2[1]], [wing1[2]; wing2[2]], color=:gray, aspect_ratio=:equal, linewidth=5, legend=false, xlims=(-15,15), ylims=(-3,3))
+#     # Faero
+#     FaeroEnd = paero + Faeroscale * Faero
+#     plot!(w, [paero[1], FaeroEnd[1]], [paero[2], FaeroEnd[2]], color=:red, linewidth=2, line=:arrow)
+#     # stroke plane
+#     plot!(w, [-T,T], [0, 0], color=:black, linestyle=:dash)
+#     return w
+# end
+
+# function animateTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, params, trajs)
+#     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
+
+#     # TODO: simulate with a waypoint controller for more steps
+    
+# 	yk(traj, k) = @view traj[liy[:,k]]
+#     uk(traj, k) = @view traj[liu[:,k]]
+    
+#     Nanim = opt.boundaryConstraint == :symmetric ? 2*N : N
+#     Nt = length(trajs)
+
+#     function drawTrajFrame(traj, param, k)
+#         _yk = opt.boundaryConstraint == :symmetric && k > N ? -yk(traj, k-N) : yk(traj, k)
+#         _uk = opt.boundaryConstraint == :symmetric && k > N ? -uk(traj, k-N) : uk(traj, k)
+#         return drawFrame(m, _yk, _uk, param)
+#     end
+#     @gif for k=1:Nanim
+#         plot([drawTrajFrame(trajs[i], params[i], k) for i in 1:Nt]..., layout=(Nt,1))
+#     end
+
+#     # return wingdraw 
+# end
