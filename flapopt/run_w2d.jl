@@ -16,10 +16,15 @@ opt = cu.OptOptions(false, 0.2, 1, :symmetric, 1e-8, false)
 N = opt.boundaryConstraint == :symmetric ? 17 : 34
 param0 = [2.0, 20.0] # cbar, T
 
-olrfun = f -> openloopResponse(m, opt, f, param0)
-freqs = collect(0.05:0.01:0.45)
-mags = hcat(olrfun.(freqs)...)'
-pl1 = plot(freqs, mags)
+function respkσ(kσ)
+	olrfun = f -> openloopResponse(m, opt, f, [param0; kσ])
+	freqs = collect(0.05:0.01:0.45)
+	mags = hcat(olrfun.(freqs)...)'
+	return plot(freqs, mags, ylabel=string(kσ * 100), legend=false)
+end
+kσs = collect(0.0:0.5:5)
+pls = respkσ.(kσs)
+plot(pls...)
 # trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
 # # 

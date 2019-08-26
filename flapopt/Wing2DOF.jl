@@ -73,7 +73,7 @@ function w2daero(y::AbstractArray, u::AbstractArray, _params::Vector)
     ρ = 1.225e-3 # [mg/(mm^3)]
     
     # unpack
-    cbar, T = _params
+    cbar, T, kσ = _params
     σ, Ψ, σ̇, Ψ̇ = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]
     cΨ = cos(Ψ)
     sΨ = sin(Ψ)
@@ -106,7 +106,7 @@ end
 "Continuous dynamics second order model"
 function cu.dydt(model::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _params::Vector)::AbstractArray
     # unpack
-    cbar, T = _params
+    cbar, T, kσ = _params
     σ, Ψ, σ̇, Ψ̇ = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]
     # NOTE: for optimizing transmission ratio
     # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
@@ -122,7 +122,7 @@ function cu.dydt(model::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _para
     # From Patrick 300 mN-mm/rad. 1 rad => R/2 σ-displacement. The torque is applied with a lever arm of R/2 => force = torque / (R/2)
     # so overall, get 300 / (R/2)^2.
     # FIXME: If this is due to act stiffness it would be affected by T. Need to confirm with Noah.
-    kσ = 1.5 # [mN/mm] 
+    # kσ = 1.5 # [mN/mm] 
     bσ = 0 # [mN/(mm/ms)]
     kΨ = 5 # [mN-mm/rad]
     bΨ = 3 # [mN-mm/(rad/ms)]
@@ -162,7 +162,7 @@ function openloopResponse(m::Wing2DOFModel, opt::cu.OptOptions, freq::Real, para
     # Deduce metrics
     t = sol.t[end-100:end]
     y = hcat(sol.u[end-100:end]...)
-    σmag = maximum(y[1,:]) - minimum(y[1,:])
+    σmag = (maximum(y[1,:]) - minimum(y[1,:])) * params[2] / (R/2)
     Ψmag = maximum(y[2,:]) - minimum(y[2,:])
     # relative phase? Hilbert transform?
 
