@@ -46,7 +46,7 @@ function cu.dydt(model::MassSpringDamperModel, y::AbstractArray, u::AbstractArra
     # u = (tau_actuator)
 	# sigma = sigma_actuator * T; tau = tau_actuator / T
 	
-    bσ = 1 # [mN/(mm/ms)]
+    bσ = 0.1 # [mN/(mm/ms)]
 	
     ddq = 1.0/mb * (-kσ*σ - bσ*σ + G*u[1])
     # return ddq

@@ -130,6 +130,6 @@ function optboth(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, traj
 	traj1 = prob.x
 	# with my modification to Ha/Coros g-preferred param opt
 	δx = paramδx(m, opt, traj1, param0, prob.mult_x_L, prob.mult_x_U)
-	param1 = paramopt(nothing, m, opt, traj1, param0, δx, εs; step=1e2)
+	param1 = paramopt(nothing, m, opt, traj1, param0, δx, εs; step=step, penalty=penalty)
 	return traj1, param1
 end

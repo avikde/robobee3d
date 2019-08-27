@@ -23,10 +23,12 @@ trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 εs = [1, 0.005, 0.001] # IC, dyn, symm
 state0 = traj0, param0
 state1 = cu.optboth(nothing, m, opt, state0..., εs; step=1e2)
-state2 = cu.optboth(nothing, m, opt, state1..., εs; step=1e2)
-state3 = cu.optboth(nothing, m, opt, state2..., εs; step=1e2)
+states = [state0, state1]
+push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
+push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
+push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
+push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
 
-states = [state0, state1, state2, state3]
 # Results ---
 
 trajs = first.(states)
