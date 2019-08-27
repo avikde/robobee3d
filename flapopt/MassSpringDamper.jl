@@ -62,12 +62,14 @@ function cu.robj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArr
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
     
 	yk = k -> @view traj[liy[:,k]]
-    rr = Array{Any,1}(undef, N)
-    for k = 1:N
-        rr[k] = yk(k)[1] - σdes(N, k)
-    end
-    # avg lift
-    return rr
+	uk = k -> @view traj[liu[:,k]]
+    kvec = collect(1:N+1)
+    rtrajErr = first.(yk.(kvec)) - σdes.(N, kvec)
+    # only traj cost
+    return rtrajErr
+    # # also add input cost?
+    # ru = 0.1 * uk.(collect(1:N))
+    # return [rtrajErr;ru]
 end
 
 # -------------------------------------------------------------------------------
