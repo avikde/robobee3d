@@ -122,3 +122,14 @@ function paramoptJ(m::Model, opt::OptOptions, traj::AbstractArray, params0::Abst
 
 	return params0 - dJ_dp * step
 end
+
+# -----------------------------
+
+function optboth(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, traj0::AbstractArray, param0::AbstractArray, εs; step=0.05, penalty=1e2)
+	prob = ipoptsolve(m, opt, traj0, param0, εs, :traj; print_level=1, nlp_scaling_method="none")
+	traj1 = prob.x
+	# with my modification to Ha/Coros g-preferred param opt
+	δx = paramδx(m, opt, traj1, param0, prob.mult_x_L, prob.mult_x_U)
+	param1 = paramopt(nothing, m, opt, traj1, param0, δx, εs; step=1e2)
+	return traj1, param1
+end
