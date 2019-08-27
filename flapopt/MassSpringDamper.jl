@@ -74,6 +74,11 @@ end
 
 # -------------------------------------------------------------------------------
 
+function resFreq(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray)
+	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+    return mb * π^2 / (N^2 * δt)
+end
+
 """
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
@@ -121,7 +126,7 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
     end
     # in (1..N+1) intervals, time elapsed = N*δt - this corresponds to tp/2 where tp=period
     # so ω = 2π/tp, and we expect ω^2 = k/mb
-    println("For resonance expect k = ", mb * π^2 / (N^2 * δt))
+    println("For resonance expect k = ", resFreq(m, opt, traj0))
 
     return trajt .- trajt[1], traj0
 end
