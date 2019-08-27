@@ -53,6 +53,9 @@ function cu.dydt(model::MassSpringDamperModel, y::AbstractArray, u::AbstractArra
     return [y[2], G * ddq]
 end
 
+function σdes(N, k)
+    return -10.0 * sin(π*(k-1)/N)
+end
 
 "Objective to minimize"
 function cu.robj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, params::AbstractArray)::AbstractArray
@@ -61,8 +64,7 @@ function cu.robj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArr
 	yk = k -> @view traj[liy[:,k]]
     rr = Array{Any,1}(undef, N)
     for k = 1:N
-        σdes = -10.0 * sin(π*k/N)
-        rr[k] = yk(k)[1] - σdes
+        rr[k] = yk(k)[1] - σdes(N, k)
     end
     # avg lift
     return rr
@@ -115,17 +117,22 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
     else
         println("Initial traj δt=", δt, ", opt.fixedδt=", opt.fixedδt)
     end
+    # in (1..N+1) intervals, time elapsed = N*δt - this corresponds to tp/2 where tp=period
+    # so ω = 2π/tp, and we expect ω^2 = k/mb
+    println("For resonance expect k = ", mb * π^2 / (N^2 * δt))
 
     return trajt .- trajt[1], traj0
 end
 
 function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t::Vector, params, trajs)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
-	Ny = (N+1)*ny
+    Ny = (N+1)*ny
     # If plot is given a matrix each column becomes a different line
     σt = plot(t, hcat([traj[@view liy[1,:]] for traj in trajs]...), marker=:auto, ylabel="stroke ang [r]", title="δt=$(round(δt; sigdigits=4))ms")
     
     ut = plot(t, hcat([[traj[@view liu[1,:]];NaN] for traj in trajs]...), marker=:auto, legend=false, ylabel="stroke force [mN]")
+    
+    plot!(σt, t, σdes.(N, collect(1:N+1)), ylabel="stroke des", color=:black, linestyle=:dash, linewidth=2, legend=false)
     # Combine the subplots
 	return (σt, ut)
 end
