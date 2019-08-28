@@ -18,9 +18,6 @@ param0 = [1.0] # k
 
 trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
-# Numerically try: fix param, test for IC, set controller=0 and look @traj
-trajOL = createOLTraj(m, opt, traj0, param0)
-
 # IPOPT
 εs = [1, 0.005, 0.001] # IC, dyn, symm
 state0 = traj0, param0
@@ -32,9 +29,12 @@ push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
 # push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
 
 # Hand-craft a trajectory+param
-paramHC = [resFreq(m, opt, traj0)]
+paramHC = [4*resFreq(m, opt, traj0)]
 prob = cu.ipoptsolve(m, opt, first(states[end]), paramHC, εs, :traj; print_level=1, nlp_scaling_method="none")
 # push!(states, (prob.x, paramHC))
+
+# Numerically try: fix param, test for IC, set controller=0 and look @traj
+trajOL = createOLTraj(m, opt, traj0, paramHC)
 push!(states, (trajOL, paramHC))
 # Results ---
 
