@@ -76,7 +76,9 @@ end
 
 function resFreq(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-    return mb * π^2 / (N^2 * δt)
+    f = mb * π^2 / (N^2 * δt)
+    # FIXME: why off by factor of between 4-5??
+    return 4.5*f
 end
 
 

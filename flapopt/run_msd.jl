@@ -24,18 +24,18 @@ state0 = traj0, param0
 state1 = cu.optboth(nothing, m, opt, state0..., εs; step=1e2)
 states = [state0, state1]
 push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
-# push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
+push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
 # push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
 # push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
 
 # Hand-craft a trajectory+param
-paramHC = [4*resFreq(m, opt, traj0)]
+paramHC = [resFreq(m, opt, traj0)]
 prob = cu.ipoptsolve(m, opt, first(states[end]), paramHC, εs, :traj; print_level=1, nlp_scaling_method="none")
-# push!(states, (prob.x, paramHC))
+push!(states, (prob.x, paramHC))
 
-# Numerically try: fix param, test for IC, set controller=0 and look @traj
-trajOL = createOLTraj(m, opt, traj0, paramHC)
-push!(states, (trajOL, paramHC))
+# # Numerically try: fix param, test for IC, set controller=0 and look @traj
+# trajOL = createOLTraj(m, opt, traj0, paramHC)
+# push!(states, (trajOL, paramHC))
 # Results ---
 
 trajs = first.(states)
