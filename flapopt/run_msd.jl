@@ -39,13 +39,13 @@ push!(states, (trajOL, paramHC))
 # Results ---
 
 trajs = first.(states)
-params = last.(states)
+paramss = last.(states)
 
-println("Objectives: ", [(_ro = cu.robj(m, opt, trajs[i], params[i]); _ro'*_ro) for i = 1:length(trajs)])
-println("Params: ", params)
+println("Objectives: ", [(_ro = cu.robj(m, opt, trajs[i], paramss[i]); _ro'*_ro) for i = 1:length(trajs)])
+println("Params: ", paramss)
 
-pl1 = plotTrajs(m, opt, trajt, params, trajs)
-pl2 = cu.visualizeConstraintViolations(m, opt, params, trajs)
+pl1 = plotTrajs(m, opt, trajt, paramss, trajs)
+pl2 = cu.visualizeConstraintViolations(m, opt, paramss, trajs)
 
 l = @layout [grid(2,1) a]
 plot(pl1..., pl2, layout=l, size=(900,400))
