@@ -79,6 +79,20 @@ function resFreq(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArr
     return mb * π^2 / (N^2 * δt)
 end
 
+
+function createOLTraj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, params::AbstractArray)::AbstractArray
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+    
+    traj1 = copy(traj)
+    yk = k -> @view traj1[liy[:,k]]
+	uk = k -> @view traj1[liu[:,k]]
+    for k=1:N
+        traj1[liy[:,k+1]] = cu.ddynamics(m, yk(k), [0], params, δt)
+        traj1[liu[:,k]] = [0]
+    end
+    return traj1
+end
+
 """
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
