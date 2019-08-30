@@ -47,7 +47,10 @@ function paramoptQPSetup(m::Model, opt::OptOptions, traj::AbstractArray; Preg=1e
 	return mo
 end
 
-function paramopt(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, traj::AbstractArray, param0::AbstractArray, δx::AbstractArray, εs; step=0.05, penalty=1e2)
+"""
+Q = prioritization matrix of size ? x nc, where nc is the size of g
+"""
+function paramopt(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, traj::AbstractArray, param0::AbstractArray, δx::AbstractArray, εs, Q::Union{Nothing, AbstractArray}; step=0.05, penalty=1e2)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	
 	# NOTE: this is really more suited to the custom solver where Dg is already computed
@@ -74,7 +77,10 @@ function paramopt(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, tra
 
 	if isnothing(mo)
 		# Non-QP version first
-		δp = -dg_dp \ Dg * δx
+		if isnothing(Q)
+			Q = I
+		end
+		δp = -(Q * dg_dp) \ (Q * Dg * δx)
 		return param0 + step * δp
 	else
 		np = pdims(m)
@@ -125,12 +131,12 @@ end
 
 # -----------------------------
 
-function optboth(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, traj0::AbstractArray, param0::AbstractArray, εs; step=0.05, penalty=1e2)
+function optboth(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, traj0::AbstractArray, param0::AbstractArray, εs, Q::Union{Nothing, AbstractMatrix}; step=0.05, penalty=1e2)
 	prob = ipoptsolve(m, opt, traj0, param0, εs, :traj; print_level=1, nlp_scaling_method="none")
 	traj1 = prob.x
 	# with my modification to Ha/Coros g-preferred param opt
 	δx = paramδx(m, opt, traj1, param0, prob.mult_x_L, prob.mult_x_U)
-	param1 = paramopt(nothing, m, opt, traj1, param0, δx, εs; step=step, penalty=penalty)
+	param1 = paramopt(nothing, m, opt, traj1, param0, δx, εs, Q; step=step, penalty=penalty)
 
 	# # Test specific strategy
 	# ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj1)
