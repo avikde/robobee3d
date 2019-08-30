@@ -25,8 +25,8 @@ state1 = cu.optboth(nothing, m, opt, state0..., εs; step=1e2)
 states = [state0, state1]
 push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
 push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
-# push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
-# push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
+push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
+push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
 
 # Hand-craft a trajectory+param
 paramHC = [resFreq(m, opt, traj0)]
