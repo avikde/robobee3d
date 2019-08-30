@@ -5,7 +5,9 @@ using Plots; gr()
 import controlutils
 cu = controlutils
 
-struct MassSpringDamperModel <: controlutils.Model end
+mutable struct MassSpringDamperModel <: controlutils.Model
+    umax::Float64
+end
 
 # gear ratio
 const G = 1.0
@@ -25,7 +27,7 @@ end
 
 function cu.limits(m::MassSpringDamperModel)::Tuple{Vector, Vector, Vector, Vector}
     # This is based on observing the OL trajectory. See note on units above.
-    umax = [50.0] # [mN]
+    umax = [m.umax] # [mN]
     umin = -umax
     xmax = [10,1000] # [mm, rad, mm/ms, rad/ms]
     xmin = -xmax

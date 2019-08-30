@@ -9,7 +9,7 @@ cu = controlutils
 includet("MassSpringDamper.jl")
 
 # create an instance
-m = MassSpringDamperModel()
+m = MassSpringDamperModel(50.0)
 ny, nu = cu.dims(m)
 opt = cu.OptOptions(false, 0.2, 1, :symmetric, 1e-8, false)
 # opt = cu.OptOptions(false, 0.2, 1, cu.SYMMETRIC, 1e-8, false)
@@ -24,7 +24,9 @@ state0 = traj0, param0
 state1 = cu.optboth(nothing, m, opt, state0..., εs; step=1e2)
 states = [state0, state1]
 push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
+m.umax = 25.0
 push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
+# m.umax = 20.0
 push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
 push!(states, cu.optboth(nothing, m, opt, states[end]..., εs; step=1e1))
 
