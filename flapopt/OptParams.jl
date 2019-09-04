@@ -165,3 +165,9 @@ function optnaive(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, tra
 	return ktest, os
 end
 
+# --------------
+
+function optAffine()
+
+end
+

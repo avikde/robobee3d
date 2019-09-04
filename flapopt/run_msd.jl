@@ -4,6 +4,7 @@
 
 using BenchmarkTools
 using Revise # while developing
+using SparseArrays, OSQP # temp
 import controlutils
 cu = controlutils
 includet("MassSpringDamper.jl")
@@ -59,9 +60,19 @@ end
 # l = @layout [grid(2,1) a]
 # plot(pl1..., pl2, layout=l, size=(900,400))
 
-# Traj
-Hh = hcat([Hdes(m, 0.1, t) for t in trajt1]...)
-plot(trajt, Hh', marker=:auto)
+# Optimize params directly for traj
+Hh = [Hdes(m, 0.1, t) for t in trajt1]
+np = 3
+P1 = zeros(np,np)
+for Hk in Hh
+	P1 .= P1 + Hk * Hk'
+end
+mo = OSQP.Model()
+OSQP.setup!(mo; P=sparse(P1), q=zeros(np), A=sparse(1:np, 1:np, ones(np)), l=[0; m.bσ; m.mb], u=[Inf; m.bσ; m.mb])
+res = OSQP.solve!(mo)
+println("Res freq = ", sqrt(res.x[1]/m.mb)/(2*π))
+
+# plot(trajt, Hh', marker=:auto)
 
 # # Test naive
 # ktest, os1 = cu.optnaive(nothing, m, opt, traj0, εs)
