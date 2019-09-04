@@ -145,3 +145,23 @@ function optboth(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, traj
 
 	return traj1, param1
 end
+
+# -------------
+
+"For comparison; a dumb line search for the param"
+function optnaive(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, traj0::AbstractArray, εs)
+
+	ktest = collect(1:20)
+	os = similar(ktest)
+
+	for i = 1:length(ktest)
+		param = [ktest(i)]
+		prob = ipoptsolve(m, opt, traj0, param, εs, :traj; print_level=1, nlp_scaling_method="none")
+		traj1 = prob.x
+		_ro = robj(m, opt, traj1, param)
+		os(i) = _ro'*_ro
+	end
+
+	return ktest, os
+end
+
