@@ -62,8 +62,12 @@ end
 
 # Test naive
 ktest, os1 = cu.optnaive(nothing, m, opt, traj0, εs)
+kr1 = resStiff(m, opt, traj0)
 m.mb = 12
-println("Expect k = ", resStiff(m, opt, traj0))
+kr2 = resStiff(m, opt, traj0)
 ktest, os2 = cu.optnaive(nothing, m, opt, traj0, εs)
-pl1 = plot(ktest, [os1, os2], marker=:auto, xlabel="p", ylabel="obj")
+m.bσ = 1
+ktest, os3 = cu.optnaive(nothing, m, opt, traj0, εs)
+pl1 = plot(ktest, [os1, os2, os3], marker=:auto, xlabel="p", ylabel="obj")
+vline!(pl1, [kr1; kr2])
 plot(pl1)

@@ -77,7 +77,7 @@ function resStiff(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractAr
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
     k = m.mb * π^2 / (N^2 * δt)
     # FIXME: why off by factor of between 4-5??
-    return 4.5*k
+    return 5*k
 end
 
 
