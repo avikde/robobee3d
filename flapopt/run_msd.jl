@@ -4,7 +4,7 @@
 
 using BenchmarkTools
 using Revise # while developing
-using SparseArrays, OSQP # temp
+using SparseArrays, OSQP, LinearAlgebra # temp
 import controlutils
 cu = controlutils
 includet("MassSpringDamper.jl")
@@ -71,6 +71,13 @@ mo = OSQP.Model()
 OSQP.setup!(mo; P=sparse(P1), q=zeros(np), A=sparse(1:np, 1:np, ones(np)), l=[0; m.bσ; m.mb], u=[Inf; m.bσ; m.mb])
 res = OSQP.solve!(mo)
 println("Res freq = ", sqrt(res.x[1]/m.mb)/(2*π))
+
+# Plot the quadratic
+size = 100
+x = range(0, stop=20, length=size)
+y = range(0, stop=10, length=size)
+ff(x,y) = [x;y;m.mb]' * P1 * [x;y;m.mb]
+contourf(x, y, ff)
 
 # plot(trajt, Hh', marker=:auto)
 
