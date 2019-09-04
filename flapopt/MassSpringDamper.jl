@@ -11,7 +11,7 @@ end
 
 # gear ratio
 const G = 1.0
-const mb = 10.0
+const mb = 15.0
 
 function cu.dims(m::MassSpringDamperModel)::Tuple{Int, Int}
     return 2, 1

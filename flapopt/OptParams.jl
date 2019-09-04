@@ -9,9 +9,8 @@ Param opt
 function paramδx(m::Model, opt::OptOptions, traj::AbstractArray, param0::AbstractArray, mult_x_L::AbstractArray, mult_x_U::AbstractArray)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	# # Desired δx: lower u used
-	# δx = copy(traj)
+	# δx = copy(-0.1 * traj)# negative of the currently applied force
 	# fill!(δx[1:(N+1)*ny], 0.0)
-	# δx[(N+1)*ny+1:(N+1)*ny+N*nu] .= -δx[(N+1)*ny+1:(N+1)*ny+N*nu] # negative of the currently applied force
 
 	# step in the direction of the active constraints
 	δx = mult_x_L - mult_x_U
@@ -134,15 +133,15 @@ end
 function optboth(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, traj0::AbstractArray, param0::AbstractArray, εs, Q::Union{Nothing, AbstractMatrix}; step=0.05, penalty=1e2)
 	prob = ipoptsolve(m, opt, traj0, param0, εs, :traj; print_level=1, nlp_scaling_method="none")
 	traj1 = prob.x
-	# with my modification to Ha/Coros g-preferred param opt
-	δx = paramδx(m, opt, traj1, param0, prob.mult_x_L, prob.mult_x_U)
-	param1 = paramopt(nothing, m, opt, traj1, param0, δx, εs, Q; step=step, penalty=penalty)
+	# # with my modification to Ha/Coros g-preferred param opt
+	# δx = paramδx(m, opt, traj1, param0, prob.mult_x_L, prob.mult_x_U)
+	# param1 = paramopt(nothing, m, opt, traj1, param0, δx, εs, Q; step=step, penalty=penalty)
 
-	# # Test specific strategy
-	# ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj1)
-	# intu = sum([traj1[liu[1,k]] for k=1:N])
-	# intx = sum([traj1[liy[1,k]] for k=1:N])
-	# param1 = param0 + [-0.5 * intu / intx]
+	# Test specific strategy
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj1)
+	intu = sum([traj1[liu[1,k]] for k=1:N])
+	intx = sum([traj1[liy[1,k]] for k=1:N])
+	param1 = param0 + [-0.5 * intu / intx]
 
 	return traj1, param1
 end
