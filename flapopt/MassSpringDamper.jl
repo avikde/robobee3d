@@ -136,8 +136,8 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
     # expectedInterval = opt.boundaryConstraint == cu.SYMMETRIC ? 1/(2*freq) : 1/freq # [ms]
     # expectedPts = expectedInterval / simdt
 
-    starti = 170
-    olRange = starti:2:(starti + 2*N)
+    starti = 151#170
+    olRange = starti:3:(starti + 3*N)
     trajt = sol.t[olRange]
     δt = trajt[2] - trajt[1]
     olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)
@@ -151,8 +151,9 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
     # in (1..N+1) intervals, time elapsed = N*δt - this corresponds to tp/2 where tp=period
     # so ω = 2π/tp, and we expect ω^2 = k/mb
     println("For resonance expect k = ", resStiff(m, opt, traj0))
+    trajt1 = copy(trajt)
 
-    return trajt .- trajt[1], traj0, trajt
+    return trajt .- trajt[1], traj0, trajt1
 end
 
 function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t::Vector, params, trajs)
