@@ -94,16 +94,25 @@ function createOLTraj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abstra
     return traj1
 end
 
+function σdes(m::MassSpringDamperModel, freq, t)
+    σmax = cu.limits(m)[end][1]
+    return 0.9 * σmax * sin(freq * 2 * π * t)
+end
+
+function Hdes(m::MassSpringDamperModel, freq, t)
+    σmax = cu.limits(m)[end][1]
+    ω = freq * 2 * π
+    return 0.9 * σmax * [sin(ω * t); ω * cos(ω * t); -ω^2 * sin(ω * t)]
+end
+
 """
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
 function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector)
     # Create a traj
-    σmax = cu.limits(m)[end][1]
     function controller(y, t)
-        σdes = 0.9 * σmax * sin(freq * 2 * π * t)
-        return posGains[1] * (σdes - y[1]) - posGains[2] * y[2]
+        return posGains[1] * (σdes(m, freq, t) - y[1]) - posGains[2] * y[2]
     end
     vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
     # OL traj1
@@ -143,7 +152,7 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
     # so ω = 2π/tp, and we expect ω^2 = k/mb
     println("For resonance expect k = ", resStiff(m, opt, traj0))
 
-    return trajt .- trajt[1], traj0
+    return trajt .- trajt[1], traj0, trajt
 end
 
 function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t::Vector, params, trajs)

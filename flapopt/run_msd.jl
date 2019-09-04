@@ -16,7 +16,7 @@ opt = cu.OptOptions(false, 0.2, 1, :symmetric, 1e-8, false)
 N = opt.boundaryConstraint == :symmetric ? 17 : 34
 param0 = [1.0] # k
 
-trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
+trajt, traj0, trajt1 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
 # Add a priority matrix for weighting the constraints in the param opt step
 nc = ny * (N+2)
@@ -59,15 +59,15 @@ end
 # l = @layout [grid(2,1) a]
 # plot(pl1..., pl2, layout=l, size=(900,400))
 
+# Traj
+Hh = hcat([Hdes(m, 0.1, t) for t in trajt1]...)
+plot(trajt, Hh', marker=:auto)
 
-# Test naive
-ktest, os1 = cu.optnaive(nothing, m, opt, traj0, εs)
-kr1 = resStiff(m, opt, traj0)
-m.mb = 12
-kr2 = resStiff(m, opt, traj0)
-ktest, os2 = cu.optnaive(nothing, m, opt, traj0, εs)
-m.bσ = 1
-ktest, os3 = cu.optnaive(nothing, m, opt, traj0, εs)
-pl1 = plot(ktest, [os1, os2, os3], marker=:auto, xlabel="p", ylabel="obj")
-vline!(pl1, [kr1; kr2])
-plot(pl1)
+# # Test naive
+# ktest, os1 = cu.optnaive(nothing, m, opt, traj0, εs)
+# kr1 = resStiff(m, opt, traj0)
+# m.bσ = 8
+# ktest, os3 = cu.optnaive(nothing, m, opt, traj0, εs)
+# pl1 = plot(ktest, [os1, os3], marker=:auto, xlabel="p", ylabel="obj")
+# vline!(pl1, [kr1])
+# plot(pl1)
