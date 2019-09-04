@@ -6,12 +6,11 @@ import controlutils
 cu = controlutils
 
 mutable struct MassSpringDamperModel <: controlutils.Model
+    mb::Float64
+    bσ::Float64 # [mN/(mm/ms)]
+    G::Float64
     umax::Float64
 end
-
-# gear ratio
-const G = 1.0
-const mb = 15.0
 
 function cu.dims(m::MassSpringDamperModel)::Tuple{Int, Int}
     return 2, 1
@@ -39,20 +38,18 @@ function cu.limitsTimestep(m::MassSpringDamperModel)::Tuple{Float64, Float64}
 end
 
 "Continuous dynamics second order model"
-function cu.dydt(model::MassSpringDamperModel, y::AbstractArray, u::AbstractArray, _params::Vector)::AbstractArray
+function cu.dydt(m::MassSpringDamperModel, y::AbstractArray, u::AbstractArray, _params::Vector)::AbstractArray
     # unpack
     kσ = _params[1]
-    σ, σ̇ = [1/G, 1/G] .* y # [mm, mm/ms]
+    σ, σ̇ = [1/m.G, 1/m.G] .* y # [mm, mm/ms]
     # NOTE: for optimizing transmission ratio
     # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
     # u = (tau_actuator)
 	# sigma = sigma_actuator * T; tau = tau_actuator / T
-	
-    bσ = 0.1 # [mN/(mm/ms)]
-	
-    ddq = 1.0/mb * (-kσ*σ - bσ*σ + G*u[1])
+
+    ddq = 1.0/m.mb * (-kσ*σ - m.bσ*σ + m.G*u[1])
     # return ddq
-    return [y[2], G * ddq]
+    return [y[2], m.G * ddq]
 end
 
 function σdes(N, k)
@@ -76,11 +73,11 @@ end
 
 # -------------------------------------------------------------------------------
 
-function resFreq(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray)
+function resStiff(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-    f = mb * π^2 / (N^2 * δt)
+    k = m.mb * π^2 / (N^2 * δt)
     # FIXME: why off by factor of between 4-5??
-    return 4.5*f
+    return 4.5*k
 end
 
 
@@ -144,7 +141,7 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
     end
     # in (1..N+1) intervals, time elapsed = N*δt - this corresponds to tp/2 where tp=period
     # so ω = 2π/tp, and we expect ω^2 = k/mb
-    println("For resonance expect k = ", resFreq(m, opt, traj0))
+    println("For resonance expect k = ", resStiff(m, opt, traj0))
 
     return trajt .- trajt[1], traj0
 end

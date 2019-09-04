@@ -1,6 +1,6 @@
 
 include("OptBase.jl") #< including this helps vscode reference the functions in there
-
+using ProgressMeter # temp
 #=========================================================================
 Param opt
 =========================================================================#
@@ -150,16 +150,16 @@ end
 
 "For comparison; a dumb line search for the param"
 function optnaive(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, traj0::AbstractArray, εs)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj0)
 
-	ktest = collect(1:20)
+	ktest = collect(1:1.0:20)
 	os = similar(ktest)
 
-	for i = 1:length(ktest)
-		param = [ktest(i)]
+	@showprogress 1 "optnaive " for i = 1:length(ktest)
+		param = [ktest[i]]
 		prob = ipoptsolve(m, opt, traj0, param, εs, :traj; print_level=1, nlp_scaling_method="none")
 		traj1 = prob.x
-		_ro = robj(m, opt, traj1, param)
-		os(i) = _ro'*_ro
+		os[i] = norm(traj1[(N+1)*ny+1:end]) # input force required
 	end
 
 	return ktest, os
