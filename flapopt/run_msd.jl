@@ -68,7 +68,7 @@ for Hk in Hh
 	P1 .= P1 + Hk * Hk'
 end
 mo = OSQP.Model()
-OSQP.setup!(mo; P=sparse(P1), q=zeros(np), A=sparse(1:np, 1:np, ones(np)), l=[0; m.bσ; m.mb], u=[Inf; m.bσ; m.mb])
+OSQP.setup!(mo; P=sparse(P1), q=zeros(np), A=sparse(1:np, 1:np, ones(np)), l=[0; 0; m.mb], u=[Inf; m.bσ; m.mb])
 res = OSQP.solve!(mo)
 println("Res freq = ", sqrt(res.x[1]/m.mb)/(2*π))
 
