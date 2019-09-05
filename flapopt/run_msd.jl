@@ -71,14 +71,16 @@ end
 mo = OSQP.Model()
 OSQP.setup!(mo; P=sparse(P1), q=zeros(np), A=sparse(1:np, 1:np, ones(np)), l=[0; 0; m.mb], u=[Inf; m.bσ; m.mb])
 res = OSQP.solve!(mo)
-println("Res freq = ", sqrt(res.x[1]/m.mb)/(2*π))
+resf = sqrt(res.x[1]/m.mb)/(2*π)
+println("Res freq = ", resf)
 
 # Plot the quadratic
 size = 100
 x = range(0, stop=20, length=size)
 y = range(0, stop=10, length=size)
 ff(x,y) = [x;y;m.mb]' * P1 * [x;y;m.mb]
-contourf(x, y, ff)
+pl1 = contour(x, y, ff)
+vline!(pl1, [res.x[1]])
 
 # plot(trajt, Hh', marker=:auto)
 
