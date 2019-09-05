@@ -17,7 +17,8 @@ opt = cu.OptOptions(false, 0.2, 1, :symmetric, 1e-8, false)
 N = opt.boundaryConstraint == :symmetric ? 17 : 34
 param0 = [1.0] # k
 
-trajt, traj0, trajt1 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
+fdes = 0.15
+trajt, traj0, trajt1 = createInitialTraj(m, opt, N, fdes, [1e3, 1e2], param0)
 
 # Add a priority matrix for weighting the constraints in the param opt step
 nc = ny * (N+2)
@@ -61,7 +62,7 @@ end
 # plot(pl1..., pl2, layout=l, size=(900,400))
 
 # Optimize params directly for traj
-Hh = [Hdes(m, 0.1, t) for t in trajt1]
+Hh = [Hdes(m, fdes, t) for t in trajt1]
 np = 3
 P1 = zeros(np,np)
 for Hk in Hh

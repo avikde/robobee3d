@@ -128,10 +128,10 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
     #     uk = [strokePosController(yk, sol.t[k])]
     #     drawFrame(m, yk, uk, params)
     # end
-    # # Plot
-    # σt = plot(sol, vars=1, ylabel="act pos [m/s]")
-    # plot(σt)
-    # gui()
+    # Plot
+    σt = plot(sol, vars=1, ylabel="act pos [m/s]")
+    plot(σt)
+    gui()
 
     # expectedInterval = opt.boundaryConstraint == cu.SYMMETRIC ? 1/(2*freq) : 1/freq # [ms]
     # expectedPts = expectedInterval / simdt
