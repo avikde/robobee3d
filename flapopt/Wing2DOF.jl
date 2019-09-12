@@ -307,4 +307,24 @@ function cu.robj(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, para
     return [Favg[2] - 100]
 end
 
+# param opt stuff ------------------------
+
+function paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray)
+    cbar, T = param
+    # lumped parameter vector
+    pb = [1, T, cbar, cbar*T, cbar^2]
+    # This multiplies pbar from the left to produce the right side
+
+    # FIXME: these should go in the m struct - need the add-stiffness branch to be merged
+    mspar = 0 # [mg]
+    mwing = 0.51 # [mg]
+    Iwing = mwing * cbar^2 # cbar is in mm
+    kσ = 0 # [mN/mm]
+    bσ = 0 # [mN/(mm/ms)]
+    kΨ = 5 # [mN-mm/rad]
+    bΨ = 3 # [mN-mm/(rad/ms)]
+
+    # Hqdqddq = [0, ddσa*(mspar+mwing)+kσ*σa]
+end
+
 

@@ -167,7 +167,8 @@ end
 
 # --------------
 
-function optAffine()
+function optAffine(m::Model, opt::OptOptions, traj0::AbstractArray)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj0)
 
 end
 
