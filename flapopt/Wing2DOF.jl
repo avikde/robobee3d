@@ -358,7 +358,6 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     # If test is true, it will test the affine relation
     test = true
 
-    # TODO: missing J^T F
     function HMq(y)
         σa, Ψ, σ̇a, Ψ̇ = y
         return [0   σ̇a*(m.mspar+m.mwing)   Ψ̇*m.mwing*cos(Ψ)   0   0;
@@ -367,8 +366,12 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
 
     function HCgJ(y, F)
         σa, Ψ, σ̇a, Ψ̇ = y
-        return [0   -m.kσ*σa-m.bσ*σ̇a   0   0   0;
-        -m.kΨ*Ψ-m.bΨ*Ψ̇   0   0   -σ̇a*Ψ̇*m.mwing*sin(Ψ)   0]
+        # See notes: this F stuff is w2d specific
+        Ftil = F/cbar
+        rcop = 0.25 # TODO: leave like this??
+
+        return [0   -m.kσ*σa-m.bσ*σ̇a   Ftil[1]   0   0;
+        -m.kΨ*Ψ-m.bΨ*Ψ̇   0   0   -σ̇a*Ψ̇*m.mwing*sin(Ψ)   rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))]
     end
 
     # this is OK - see notes
@@ -384,8 +387,9 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     end
 
     for k=1:N
-        # FIXME: add same F as the traj produced
-        Hh = Htil(yk(k), yk(k+1), 0.0)
+        _, Jaero, Faero = w2daero(yk(k), uk(k), param)
+        # Add same F as the traj produced NOTE: this has the assumption that the interaction force is held constant.
+        Hh = Htil(yk(k), yk(k+1), Faero)
         Rp += Hh' * Bdag' * R * Bdag * Hh
         if test
             Hpb[:,k] = Hh * pb
