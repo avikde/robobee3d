@@ -166,9 +166,14 @@ function optnaive(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, tra
 end
 
 # --------------
+"Implement this"
+function paramAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, R::AbstractArray)
 
-function optAffine(m::Model, opt::OptOptions, traj0::AbstractArray)
-	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj0)
+end
 
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, R::AbstractArray)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+
+	paramAffine(m, opt, traj, param, R)
 end
 

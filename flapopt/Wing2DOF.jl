@@ -198,7 +198,7 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     # Nt = length(sol.t)
     # @gif for k = 1:3:Nt
     #     yk = sol.u[k]
-    #     uk = [strokePosController(yk, sol.t[k])]
+    #     uk = [controller(yk, sol.t[k])]
     #     drawFrame(m, yk, uk, params)
     # end
     # # Plot
@@ -344,20 +344,42 @@ end
 
 # param opt stuff ------------------------
 
-function paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray)
+function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::AbstractArray)
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+	yk = k -> @view traj[liy[:,k]]
+	uk = k -> @view traj[liu[:,k]]
     cbar, T = param
     # lumped parameter vector
     pb = [1, T, cbar, cbar*T, cbar^2]
     # This multiplies pbar from the left to produce the right side
+    Iwing = m.mwing * cbar^2 # cbar is in mm
 
-    function H_q_dq_ddq(q, dq, ddq)
-        # unpack
-        σa, Ψ = q
-        dσa, dΨ = dq
-        ddσa, ddΨ = ddq
-        # Copied from mathematica
-        # return [0, ddσa*(m.mspar+m.mwing)+m.kσ*σa, ]
+    # TODO: missing damping and J^T F
+    function HMq(y)
+        σa, Ψ, σ̇a, Ψ̇ = y
+        return [0   σ̇a*(m.mspar+m.mwing)   Ψ̇*m.mwing*cos(Ψ)   0   0;
+        Ψ̇*Iwing   0   0   σ̇a*m.mwing*cos(Ψ)   Ψ̇*m.mwing]
     end
+
+    function HCgJ(y, F)
+        σa, Ψ, σ̇a, Ψ̇ = y
+        return [0   -m.kσ*σa   0   0   0;
+        -m.kΨ*Ψ   0   0   -σ̇a*Ψ̇*m.mwing*sin(Ψ)   0]
+    end
+
+    # this is OK - see notes
+    Htil = (y, ynext, F) -> HMq(ynext) - HMq(y) + δt*HCgJ(y, F)
+
+    # For a traj, H(yk, ykp1, Fk) * pb = B uk
+    B = [1, 0]
+    Bdag = (B' * B) \ B'
+    Rp = zeros(length(pb), length(pb))
+    for k=1:N
+        # FIXME: add same F as the traj produced
+        Hh = Htil(yk(k), yk(k+1), 0)
+        Rp += Hh' * Bdag' * R * Bdag * Hh
+    end
+    return Rp
 end
 
 
