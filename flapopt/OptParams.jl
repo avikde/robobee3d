@@ -1,6 +1,6 @@
 
 include("OptBase.jl") #< including this helps vscode reference the functions in there
-
+using ProgressMeter # temp
 #=========================================================================
 Param opt
 =========================================================================#
@@ -9,9 +9,8 @@ Param opt
 function paramδx(m::Model, opt::OptOptions, traj::AbstractArray, param0::AbstractArray, mult_x_L::AbstractArray, mult_x_U::AbstractArray)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	# # Desired δx: lower u used
-	# δx = copy(traj)
+	# δx = copy(-0.1 * traj)# negative of the currently applied force
 	# fill!(δx[1:(N+1)*ny], 0.0)
-	# δx[(N+1)*ny+1:(N+1)*ny+N*nu] .= -δx[(N+1)*ny+1:(N+1)*ny+N*nu] # negative of the currently applied force
 
 	# step in the direction of the active constraints
 	δx = mult_x_L - mult_x_U
@@ -47,7 +46,10 @@ function paramoptQPSetup(m::Model, opt::OptOptions, traj::AbstractArray; Preg=1e
 	return mo
 end
 
-function paramopt(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, traj::AbstractArray, param0::AbstractArray, δx::AbstractArray, εs; step=0.05, penalty=1e2)
+"""
+Q = prioritization matrix of size ? x nc, where nc is the size of g
+"""
+function paramopt(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, traj::AbstractArray, param0::AbstractArray, δx::AbstractArray, εs, Q::Union{Nothing, AbstractArray}; step=0.05, penalty=1e2)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	
 	# NOTE: this is really more suited to the custom solver where Dg is already computed
@@ -74,7 +76,10 @@ function paramopt(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, tra
 
 	if isnothing(mo)
 		# Non-QP version first
-		δp = -dg_dp \ Dg * δx
+		if isnothing(Q)
+			Q = I
+		end
+		δp = -(Q * dg_dp) \ (Q * Dg * δx)
 		return param0 + step * δp
 	else
 		np = pdims(m)
@@ -122,3 +127,47 @@ function paramoptJ(m::Model, opt::OptOptions, traj::AbstractArray, params0::Abst
 
 	return params0 - dJ_dp * step
 end
+
+# -----------------------------
+
+function optboth(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, traj0::AbstractArray, param0::AbstractArray, εs, Q::Union{Nothing, AbstractMatrix}; step=0.05, penalty=1e2)
+	prob = ipoptsolve(m, opt, traj0, param0, εs, :traj; print_level=1, nlp_scaling_method="none")
+	traj1 = prob.x
+	# # with my modification to Ha/Coros g-preferred param opt
+	# δx = paramδx(m, opt, traj1, param0, prob.mult_x_L, prob.mult_x_U)
+	# param1 = paramopt(nothing, m, opt, traj1, param0, δx, εs, Q; step=step, penalty=penalty)
+
+	# Test specific strategy
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj1)
+	intu = sum([traj1[liu[1,k]] for k=1:N])
+	intx = sum([traj1[liy[1,k]] for k=1:N])
+	param1 = param0 + [-0.5 * intu / intx]
+
+	return traj1, param1
+end
+
+# -------------
+
+"For comparison; a dumb line search for the param"
+function optnaive(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, traj0::AbstractArray, εs)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj0)
+
+	ktest = collect(1:1.0:20)
+	os = similar(ktest)
+
+	@showprogress 1 "optnaive " for i = 1:length(ktest)
+		param = [ktest[i]]
+		prob = ipoptsolve(m, opt, traj0, param, εs, :traj; print_level=1, nlp_scaling_method="none")
+		traj1 = prob.x
+		os[i] = norm(traj1[(N+1)*ny+1:end]) # input force required
+	end
+
+	return ktest, os
+end
+
+# --------------
+
+function optAffine()
+
+end
+
