@@ -350,7 +350,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
 	uk = k -> @view traj[liu[:,k]]
     cbar, T = param
     # lumped parameter vector
-    pb = [T, T^2, cbar*T, cbar*T^2, cbar^2*T]
+    pb = [T, T^2, cbar*T, cbar*T^2, cbar^2*T] # NOTE the actual param values are only needed for the test mode
     npb = length(pb)
     # This multiplies pbar from the left to produce the right side
     Iwing = m.mwing * cbar^2 # cbar is in mm
@@ -368,10 +368,10 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         σa, Ψ, σ̇a, Ψ̇ = y
         # See notes: this F stuff is w2d specific
         Ftil = F/cbar
-        rcop = 0.25 # TODO: leave like this??
+        rcopnondim = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
 
         return [0   -m.kσ*σa-m.bσ*σ̇a   Ftil[1]   0   0;
-        -m.kΨ*Ψ-m.bΨ*Ψ̇   0   0   -σ̇a*Ψ̇*m.mwing*sin(Ψ)   rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))]
+        -m.kΨ*Ψ-m.bΨ*Ψ̇   0   0   -σ̇a*Ψ̇*m.mwing*sin(Ψ)   rcopnondim*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))]
     end
 
     # this is OK - see notes
