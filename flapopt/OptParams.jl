@@ -174,6 +174,6 @@ end
 function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, R::AbstractArray)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 
-	paramAffine(m, opt, traj, param, R)
+	Rp = paramAffine(m, opt, traj, param, R)
 end
 

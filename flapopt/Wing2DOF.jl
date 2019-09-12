@@ -351,8 +351,12 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     cbar, T = param
     # lumped parameter vector
     pb = [1, T, cbar, cbar*T, cbar^2]
+    npb = length(pb)
     # This multiplies pbar from the left to produce the right side
     Iwing = m.mwing * cbar^2 # cbar is in mm
+    
+    # If test is true, it will test the affine relation
+    test = true
 
     # TODO: missing damping and J^T F
     function HMq(y)
@@ -370,16 +374,29 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     # this is OK - see notes
     Htil = (y, ynext, F) -> HMq(ynext) - HMq(y) + δt*HCgJ(y, F)
 
-    # For a traj, H(yk, ykp1, Fk) * pb = B uk
-    B = [1, 0]
+    # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
+    B = [1.0, 0.0]
     Bdag = (B' * B) \ B'
-    Rp = zeros(length(pb), length(pb))
+    Rp = zeros(npb, npb)
+    if test
+        Hpb = zeros(ny÷2, N)
+        Bu = similar(Hpb)
+    end
+
     for k=1:N
         # FIXME: add same F as the traj produced
-        Hh = Htil(yk(k), yk(k+1), 0)
+        Hh = Htil(yk(k), yk(k+1), 0.0)
         Rp += Hh' * Bdag' * R * Bdag * Hh
+        if test
+            Hpb[:,k] = Hh * pb
+            Bu[:,k] = B * uk(k)[1]
+        end
     end
-    return Rp
+    if test
+        return Hpb, Bu
+    else
+        return Rp
+    end
 end
 
 
