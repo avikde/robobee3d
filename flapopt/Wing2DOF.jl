@@ -358,7 +358,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     # If test is true, it will test the affine relation
     test = true
 
-    # TODO: missing damping and J^T F
+    # TODO: missing J^T F
     function HMq(y)
         σa, Ψ, σ̇a, Ψ̇ = y
         return [0   σ̇a*(m.mspar+m.mwing)   Ψ̇*m.mwing*cos(Ψ)   0   0;
@@ -367,8 +367,8 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
 
     function HCgJ(y, F)
         σa, Ψ, σ̇a, Ψ̇ = y
-        return [0   -m.kσ*σa   0   0   0;
-        -m.kΨ*Ψ   0   0   -σ̇a*Ψ̇*m.mwing*sin(Ψ)   0]
+        return [0   -m.kσ*σa-m.bσ*σ̇a   0   0   0;
+        -m.kΨ*Ψ-m.bΨ*Ψ̇   0   0   -σ̇a*Ψ̇*m.mwing*sin(Ψ)   0]
     end
 
     # this is OK - see notes
