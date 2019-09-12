@@ -350,7 +350,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
 	uk = k -> @view traj[liu[:,k]]
     cbar, T = param
     # lumped parameter vector
-    pb = [1, T, cbar, cbar*T, cbar^2]
+    pb = [T, T^2, cbar*T, cbar*T^2, cbar^2*T]
     npb = length(pb)
     # This multiplies pbar from the left to produce the right side
     Iwing = m.mwing * cbar^2 # cbar is in mm
