@@ -33,7 +33,15 @@ NOTE:
 - The "T" above is unitless. You can intuitively think of a wing "stroke angle" ~= T q[1] / (R / 2) (using σ as the arc length and "R/2" as the radius). This is distinct from the Toutput (in rad/m), and they are related as T ~= Toutput ⋅ (R / 2).
 - Reasonable values: Toutput = 2666 rad/m in the current two-wing vehicle; 2150 rad/m in X-Wing; 3333 rad/m in Kevin Ma's older vehicles. With the R above, this suggests T ~= 20-30.
 """
-struct Wing2DOFModel <: controlutils.Model end
+struct Wing2DOFModel <: controlutils.Model
+    # params
+    mspar::Float64 # [mg]
+    mwing::Float64 # [mg]
+    kσ::Float64 # [mN/mm]
+    bσ::Float64 # [mN/(mm/ms)]
+    kΨ::Float64 # [mN-mm/rad]
+    bΨ::Float64 # [mN-mm/(rad/ms)]
+end
 
 # Fixed params -----------------
 const R = 20.0
@@ -73,7 +81,7 @@ function w2daero(y::AbstractArray, u::AbstractArray, _params::Vector)
     ρ = 1.225e-3 # [mg/(mm^3)]
     
     # unpack
-    cbar, T, kσ = _params
+    cbar, T = _params
     σ, Ψ, σ̇, Ψ̇ = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]
     cΨ = cos(Ψ)
     sΨ = sin(Ψ)
@@ -104,9 +112,10 @@ function w2daero(y::AbstractArray, u::AbstractArray, _params::Vector)
 end
 
 "Continuous dynamics second order model"
-function cu.dydt(model::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _params::Vector)::AbstractArray
+function cu.dydt(m::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _params::Vector)::AbstractArray
     # unpack
-    cbar, T, kσ = _params
+    cbar, T = _params
+    # cbar, T, kσ = _params
     σ, Ψ, σ̇, Ψ̇ = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]
     # NOTE: for optimizing transmission ratio
     # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
@@ -115,23 +124,13 @@ function cu.dydt(model::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _para
     cΨ = cos(Ψ)
     sΨ = sin(Ψ)
 
-    # params
-    mspar = 0 # [mg]
-    mwing = 0.51 # [mg]
-    Iwing = mwing * cbar^2 # cbar is in mm
-    # From Patrick 300 mN-mm/rad. 1 rad => R/2 σ-displacement. The torque is applied with a lever arm of R/2 => force = torque / (R/2)
-    # so overall, get 300 / (R/2)^2.
-    # FIXME: If this is due to act stiffness it would be affected by T. Need to confirm with Noah.
-    # kσ = 1.5 # [mN/mm] 
-    bσ = 0 # [mN/(mm/ms)]
-    kΨ = 5 # [mN-mm/rad]
-    bΨ = 3 # [mN-mm/(rad/ms)]
+    Iwing = m.mwing * cbar^2 # cbar is in mm
 
     # inertial terms
-    M = @SMatrix [mspar+mwing   cbar*mwing*cΨ; cbar*mwing*cΨ   Iwing+cbar^2*mwing]
-    corgrav = @SVector [kσ*σ - cbar*mwing*sΨ*Ψ̇^2, kΨ*Ψ]
+    M = @SMatrix [m.mspar+m.mwing   cbar*m.mwing*cΨ; cbar*m.mwing*cΨ   Iwing+cbar^2*m.mwing]
+    corgrav = @SVector [m.kσ*σ - cbar*m.mwing*sΨ*Ψ̇^2, m.kΨ*Ψ]
     # non-lagrangian terms
-    τdamp = @SVector [-bσ * σ̇, -bΨ * Ψ̇]
+    τdamp = @SVector [-m.bσ * σ̇, -m.bΨ * Ψ̇]
     _, Jaero, Faero = w2daero(y, u, _params)
     τaero = Jaero' * Faero # units of [mN, mN-mm]
     # input
@@ -351,16 +350,14 @@ function paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, 
     pb = [1, T, cbar, cbar*T, cbar^2]
     # This multiplies pbar from the left to produce the right side
 
-    # FIXME: these should go in the m struct - need the add-stiffness branch to be merged
-    mspar = 0 # [mg]
-    mwing = 0.51 # [mg]
-    Iwing = mwing * cbar^2 # cbar is in mm
-    kσ = 0 # [mN/mm]
-    bσ = 0 # [mN/(mm/ms)]
-    kΨ = 5 # [mN-mm/rad]
-    bΨ = 3 # [mN-mm/(rad/ms)]
-
-    # Hqdqddq = [0, ddσa*(mspar+mwing)+kσ*σa]
+    function H_q_dq_ddq(q, dq, ddq)
+        # unpack
+        σa, Ψ = q
+        dσa, dΨ = dq
+        ddσa, ddΨ = ddq
+        # Copied from mathematica
+        # return [0, ddσa*(m.mspar+m.mwing)+m.kσ*σa, ]
+    end
 end
 
 

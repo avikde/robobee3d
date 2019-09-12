@@ -9,23 +9,28 @@ cu = controlutils
 includet("Wing2DOF.jl")
 
 # create an instance
-m = Wing2DOFModel()
+# From Patrick 300 mN-mm/rad. 1 rad => R/2 σ-displacement. The torque is applied with a lever arm of R/2 => force = torque / (R/2)
+# so overall, get 300 / (R/2)^2.
+# FIXME: If this is due to act stiffness it would be affected by T. Need to confirm with Noah.
+m = Wing2DOFModel(0, 0.52, 1.5, 0, 5, 3)
 ny, nu = cu.dims(m)
 opt = cu.OptOptions(false, 0.2, 1, :symmetric, 1e-8, false)
 # opt = cu.OptOptions(false, 0.2, 1, cu.SYMMETRIC, 1e-8, false)
 N = opt.boundaryConstraint == :symmetric ? 17 : 34
 param0 = [2.0, 20.0] # cbar, T
 
-function respkσ(kσ)
-	olrfun = f -> openloopResponse(m, opt, f, [param0; kσ])
-	freqs = collect(0.05:0.01:0.45)
-	mags = hcat(olrfun.(freqs)...)'
-	return plot(freqs, mags, ylabel=string(kσ * 100), legend=false)
-end
-kσs = collect(0.0:0.5:5)
-pls = respkσ.(kσs)
-plot(pls...)
-# trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
+# Stiffness sweep ---
+# function respkσ(kσ)
+# 	olrfun = f -> openloopResponse(m, opt, f, [param0; kσ])
+# 	freqs = collect(0.05:0.01:0.45)
+# 	mags = hcat(olrfun.(freqs)...)'
+# 	return plot(freqs, mags, ylabel=string(kσ * 100), legend=false)
+# end
+# kσs = collect(0.0:0.5:5)
+# pls = respkσ.(kσs)
+# plot(pls...)
+
+trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
 cu.optAffine(m, opt, traj0)
 
