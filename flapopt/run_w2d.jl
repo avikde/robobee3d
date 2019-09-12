@@ -16,13 +16,18 @@ opt = cu.OptOptions(false, 0.2, 1, :symmetric, 1e-8, false)
 N = opt.boundaryConstraint == :symmetric ? 17 : 34
 param0 = [2.0, 20.0] # cbar, T
 
-trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
+function respkσ(kσ)
+	olrfun = f -> openloopResponse(m, opt, f, [param0; kσ])
+	freqs = collect(0.05:0.01:0.45)
+	mags = hcat(olrfun.(freqs)...)'
+	return plot(freqs, mags, ylabel=string(kσ * 100), legend=false)
+end
+kσs = collect(0.0:0.5:5)
+pls = respkσ.(kσs)
+plot(pls...)
+# trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
 cu.optAffine(m, opt, traj0)
-
-# # # 
-# # trajei = eulerIntegrate(m, opt, traj0, params0)
-# # pl1 = plotTrajs(m, opt, trajt, params0, traj0, trajei)
 
 # # traj opt ------------------------------------
 

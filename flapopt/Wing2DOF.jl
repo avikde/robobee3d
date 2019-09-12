@@ -73,7 +73,7 @@ function w2daero(y::AbstractArray, u::AbstractArray, _params::Vector)
     ρ = 1.225e-3 # [mg/(mm^3)]
     
     # unpack
-    cbar, T = _params
+    cbar, T, kσ = _params
     σ, Ψ, σ̇, Ψ̇ = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]
     cΨ = cos(Ψ)
     sΨ = sin(Ψ)
@@ -106,7 +106,7 @@ end
 "Continuous dynamics second order model"
 function cu.dydt(model::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _params::Vector)::AbstractArray
     # unpack
-    cbar, T = _params
+    cbar, T, kσ = _params
     σ, Ψ, σ̇, Ψ̇ = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]
     # NOTE: for optimizing transmission ratio
     # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
@@ -119,7 +119,10 @@ function cu.dydt(model::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _para
     mspar = 0 # [mg]
     mwing = 0.51 # [mg]
     Iwing = mwing * cbar^2 # cbar is in mm
-    kσ = 0 # [mN/mm]
+    # From Patrick 300 mN-mm/rad. 1 rad => R/2 σ-displacement. The torque is applied with a lever arm of R/2 => force = torque / (R/2)
+    # so overall, get 300 / (R/2)^2.
+    # FIXME: If this is due to act stiffness it would be affected by T. Need to confirm with Noah.
+    # kσ = 1.5 # [mN/mm] 
     bσ = 0 # [mN/(mm/ms)]
     kΨ = 5 # [mN-mm/rad]
     bΨ = 3 # [mN-mm/(rad/ms)]
@@ -141,6 +144,37 @@ end
 
 # Create an initial traj --------------
 
+"Simulate with an OL signal at a freq"
+function openloopResponse(m::Wing2DOFModel, opt::cu.OptOptions, freq::Real, params::Vector)
+    # Create a traj
+    σmax = cu.limits(m)[end][1]
+    tend = 100.0 # [ms]
+    function controller(y, t)
+        return 50.0 * sin(2*π*freq*t)
+    end
+    vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
+    # OL traj1
+    simdt = 0.1 # [ms]
+    teval = collect(0:simdt:tend) # [ms]
+    prob = ODEProblem(vf, [0.2,0.,0.,0.], (teval[1], teval[end]))
+    sol = solve(prob, saveat=teval)
+    
+    # Deduce metrics
+    t = sol.t[end-100:end]
+    y = hcat(sol.u[end-100:end]...)
+    σmag = (maximum(y[1,:]) - minimum(y[1,:])) * params[2] / (R/2)
+    Ψmag = maximum(y[2,:]) - minimum(y[2,:])
+    # relative phase? Hilbert transform?
+
+    # # Plot
+    # σt = plot(sol, vars=3, ylabel="act vel [m/s]")
+    # Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
+    # plot(σt, Ψt, layout=(2,1))
+    # gui()
+
+    return [σmag, Ψmag]
+end
+
 """
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
@@ -148,15 +182,17 @@ Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector)
     # Create a traj
     σmax = cu.limits(m)[end][1]
-    function strokePosController(y, t)
+    tend = 100.0 # [ms]
+    function controller(y, t)
+        # Stroke pos control
         σdes = 0.9 * σmax * sin(freq * 2 * π * t)
         return posGains[1] * (σdes - y[1]) - posGains[2] * y[3]
     end
-    strokePosControlVF(y, p, t) = cu.dydt(m, y, [strokePosController(y, t)], params)
+    vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
     # OL traj1
     simdt = 0.1 # [ms]
-    teval = collect(0:simdt:100) # [ms]
-    prob = ODEProblem(strokePosControlVF, [0.,1.,0.,0.], (teval[1], teval[end]))
+    teval = collect(0:simdt:tend) # [ms]
+    prob = ODEProblem(vf, [0.2,0.,0.,0.], (teval[1], teval[end]))
     sol = solve(prob, saveat=teval)
 
     # # Animate whole traj
@@ -180,7 +216,7 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     trajt = sol.t[olRange]
     δt = trajt[2] - trajt[1]
     olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)
-    olTraju = [strokePosController(olTrajaa[i], trajt[i]) for i in 1:N] # get u1,...,uN
+    olTraju = [controller(olTrajaa[i], trajt[i]) for i in 1:N] # get u1,...,uN
     traj0 = [vcat(olTrajaa...); olTraju] # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
     if opt.vart
         traj0 = [traj0; δt]
