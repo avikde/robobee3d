@@ -346,8 +346,16 @@ end
 
 function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::AbstractArray)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-	yk = k -> @view traj[liy[:,k]]
-	uk = k -> @view traj[liu[:,k]]
+
+    # Make a new traj where the dynamics constraint is satisfied exactly
+    traj1 = copy(traj)
+	yk = k -> @view traj1[liy[:,k]]
+    uk = k -> @view traj1[liu[:,k]]
+    for k=1:N
+        traj1[liy[:,k+1]] = yk(k) + δt * cu.dydt(m, yk(k), uk(k), param)
+    end
+
+    # Param stuff
     cbar, T = param
     # lumped parameter vector
     pb = [T, T^2, cbar*T, cbar*T^2, cbar^2*T] # NOTE the actual param values are only needed for the test mode
@@ -400,7 +408,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         Hh = Htil(yk(k), yk(k+1), Faero)
         Rp += Hh' * Bdag' * R * Bdag * Hh
         if test
-            errk[:,k] = -yk(k+1) + δt * cu.dydt(m, yk(k), uk(k), param)
+            errk[:,k] = -yk(k+1) + yk(k) + δt * cu.dydt(m, yk(k), uk(k), param)
             Hpb[:,k] = Hh * pb
             Bu[:,k] = B * uk(k)[1]
         end
