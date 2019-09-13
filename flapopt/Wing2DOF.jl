@@ -132,7 +132,7 @@ function cu.dydt(m::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _params::
     # non-lagrangian terms
     τdamp = @SVector [-m.bσ * σ̇, -m.bΨ * Ψ̇]
     _, Jaero, Faero = w2daero(y, u, _params)
-    τaero = Jaero' * Faero # units of [mN, mN-mm]
+    τaero = 0*Jaero' * Faero # units of [mN, mN-mm]
     # input
     τinp = @SVector [u[1]/T, 0]
 
@@ -376,7 +376,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     function HCgJ(y, F)
         σa, Ψ, σ̇a, Ψ̇ = y
         # See notes: this F stuff is w2d specific
-        Ftil = F/cbar
+        Ftil = 0*F/cbar
         rcopnondim = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
 
         # FIXME: this orig version probably has a negative sign error on the dynamics terms
