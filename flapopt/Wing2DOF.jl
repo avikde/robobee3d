@@ -358,8 +358,9 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     # If test is true, it will test the affine relation
     test = true
 
-    function HMq(y)
-        σa, Ψ, σ̇a, Ψ̇ = y
+    function HMq(ypos, yvel)
+        σa, Ψ, σ̇adum, Ψ̇dum = ypos
+        σadum, Ψdum, σ̇a, Ψ̇ = yvel
         return [0   σ̇a*(m.mspar+m.mwing)   Ψ̇*m.mwing*cos(Ψ)   0   0;
         Ψ̇*Iwing   0   0   σ̇a*m.mwing*cos(Ψ)   Ψ̇*m.mwing]
     end
@@ -370,12 +371,18 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         Ftil = F/cbar
         rcopnondim = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
 
-        return [0   -m.kσ*σa-m.bσ*σ̇a   Ftil[1]   0   0;
-        -m.kΨ*Ψ-m.bΨ*Ψ̇   0   0   -σ̇a*Ψ̇*m.mwing*sin(Ψ)   rcopnondim*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))]
+        # FIXME: this orig version probably has a negative sign error on the dynamics terms
+        # return [0   -m.kσ*σa-m.bσ*σ̇a   Ftil[1]   0   0;
+        # -m.kΨ*Ψ-m.bΨ*Ψ̇   0   0   -σ̇a*Ψ̇*m.mwing*sin(Ψ)   rcopnondim*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))]
+        # 1st order version TODO: check the J^T*F
+        return [0   m.kσ*σa+m.bσ*σ̇a   -Ψ̇^2*m.mwing*sin(Ψ)+Ftil[1]   0   0;
+        m.kΨ*Ψ+m.bΨ*Ψ̇   0   0   0   rcopnondim*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))]
     end
 
     # this is OK - see notes
-    Htil = (y, ynext, F) -> HMq(ynext) - HMq(y) + δt*HCgJ(y, F)
+    # Htil = (y, ynext, F) -> HMq(ynext) - HMq(y) + δt*HCgJ(y, F)
+    # 1st order integration mods
+    Htil = (y, ynext, F) -> HMq(y, ynext) - HMq(y, y) + δt*HCgJ(y, F)
 
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
     B = [1.0, 0.0]
