@@ -391,6 +391,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     if test
         Hpb = zeros(ny÷2, N)
         Bu = similar(Hpb)
+        errk = zeros(ny, N)
     end
 
     for k=1:N
@@ -399,12 +400,13 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         Hh = Htil(yk(k), yk(k+1), Faero)
         Rp += Hh' * Bdag' * R * Bdag * Hh
         if test
+            errk[:,k] = -yk(k+1) + δt * cu.dydt(m, yk(k), uk(k), param)
             Hpb[:,k] = Hh * pb
             Bu[:,k] = B * uk(k)[1]
         end
     end
     if test
-        return Hpb, Bu
+        return Hpb, Bu, errk
     else
         return Rp
     end
