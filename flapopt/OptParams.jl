@@ -172,7 +172,7 @@ function paramAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abst
 
 end
 
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, R::AbstractArray)
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, R::AbstractArray; hessreg::Float64=0)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 
 	# Quadratic form matrix
@@ -191,7 +191,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	x1 = similar(x)
 
 	# Gauss-Newton iterations with the feasible space of p
-	for stepi=1:1
+	for stepi=1:4
 		# Cost function for this step
 		Jx = p -> plump(p)' * Rp * plump(p)
 		rx = p -> S * plump(p)
@@ -200,7 +200,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		Dr0 = ForwardDiff.jacobian(rx, x)
 		# Gauss-Newton
 		∇J = Dr0' * r0
-		HJ = Dr0' * Dr0
+		HJ = Dr0' * Dr0 + hessreg * I
 		v = -HJ\∇J #descent direction
 
 		println(v) # FIXME: this is NaN
