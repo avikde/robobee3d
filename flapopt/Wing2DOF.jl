@@ -358,7 +358,8 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     # Param stuff
     cbar, T = param
     # lumped parameter vector
-    pb = [T, T^2, cbar*T, cbar*T^2, cbar^2*T] # NOTE the actual param values are only needed for the test mode
+    # pb = [T, T^2, cbar*T, cbar*T^2, cbar^2*T] # NOTE the actual param values are only needed for the test mode
+    pb = [T^2, cbar*T]
     npb = length(pb)
     # This multiplies pbar from the left to produce the right side
     Iwing = m.mwing * cbar^2 # cbar is in mm
@@ -405,7 +406,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     for k=1:N
         _, Jaero, Faero = w2daero(yk(k), uk(k), param)
         # Add same F as the traj produced NOTE: this has the assumption that the interaction force is held constant.
-        Hh = Htil(yk(k), yk(k+1), Faero)
+        Hh = Htil(yk(k), yk(k+1), Faero)[:,2:3] # FIXME: other cols are zero
         Rp += Hh' * Bdag' * R * Bdag * Hh
         if test
             errk[:,k] = -yk(k+1) + yk(k) + δt * cu.dydt(m, yk(k), uk(k), param)
