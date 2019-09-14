@@ -410,7 +410,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         if test
             errk[:,k] = -yk(k+1) + yk(k) + δt * cu.dydt(m, yk(k), uk(k), param)
             Hpb[:,k] = Hh * pb
-            Bu[:,k] = B * uk(k)[1]
+            Bu[:,k] = δt * B * uk(k)[1]
         end
     end
     if test
