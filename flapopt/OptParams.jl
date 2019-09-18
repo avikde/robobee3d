@@ -209,8 +209,6 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		HJ = Dr0' * Dr0 + hessreg * I
 		v = -HJ\∇J #descent direction
 
-		println(v) # FIXME: this is NaN
-
 		J0 = Jx(x)
 		J1 = csBacktrackingLineSearch!(x1, x, ∇J, v, J0, Jx; α=0.2, β=0.7, isFeasible=pFeasible)
 		x .= x1
