@@ -344,7 +344,7 @@ end
 
 # param opt stuff ------------------------
 
-function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::AbstractArray)
+function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, Ruu::AbstractArray, Ryu::AbstractArray)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 
     # Make a new traj where the dynamics constraint is satisfied exactly
@@ -396,7 +396,8 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
     B = [1.0, 0.0]
     Bdag = (B' * B) \ B'
-    Rp = zeros(npb, npb)
+    P = zeros(npb, npb)
+    q = zeros(npb)
     if test
         Hpb = zeros(ny÷2, N)
         Bu = similar(Hpb)
@@ -407,7 +408,8 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         _, Jaero, Faero = w2daero(yk(k), uk(k), param)
         # Add same F as the traj produced NOTE: this has the assumption that the interaction force is held constant.
         Hh = Htil(yk(k), yk(k+1), Faero)[:,2:3] # FIXME: other cols are zero
-        Rp += Hh' * Bdag' * R * Bdag * Hh
+        P += Hh' * Bdag' * Ruu * Bdag * Hh
+        q += Hh' * Bdag' * Ryu' * yk(k)
         if test
             errk[:,k] = -yk(k+1) + yk(k) + δt * cu.dydt(m, yk(k), uk(k), param)
             Hpb[:,k] = Hh * pb
@@ -417,7 +419,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     if test
         return Hpb, Bu, errk
     else
-        return Symmetric(Rp)
+        return Symmetric(P), q
     end
 end
 

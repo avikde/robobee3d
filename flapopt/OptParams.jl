@@ -168,17 +168,17 @@ end
 
 # --------------
 "Implement this"
-function paramAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, R::AbstractArray)
+function paramAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, Ruu::AbstractArray, Ryu::AbstractArray)
 
 end
 
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, R::AbstractArray; hessreg::Float64=0, kwargs...)
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, Ruu::AbstractArray, Ryu::AbstractArray; hessreg::Float64=0, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 
 	# Quadratic form matrix
-	Rp = paramAffine(m, opt, traj, param, R)
+	P, q = paramAffine(m, opt, traj, param, Ruu, Ryu)
 	# Rp += 1e-1 * I
-	S = sqrt(Rp)
+	S = sqrt(P)
 
 	function pb(p)
 		cbar, T = p
@@ -233,7 +233,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 			col[2] = 2
 		end
 	end
-	eval_f(x::AbstractArray) = pb(x)' * Rp * pb(x)
+	eval_f(x::AbstractArray) = pb(x)' * P * pb(x)
 	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, eval_f, x)
 	
 	# Create IPOPT problem
