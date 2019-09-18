@@ -178,13 +178,13 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# Quadratic form matrix
 	P, q = paramAffine(m, opt, traj, param, Ruu, Ryu)
 	# Rp += 1e-1 * I
-	S = sqrt(P)
+	S = sqrt(Symmetric([P q; q' 0]))
 
-	function pb(p)
+	function pb1(p)
 		cbar, T = p
 		# lumped parameter vector FIXME: this is w2d-specific
 		# return [T, T^2, cbar*T, cbar*T^2, cbar^2*T]
-		return [T^2, cbar*T]
+		return [T^2, cbar*T, 1.0]
 	end
 
 	# GN -------------------------
@@ -233,7 +233,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 			col[2] = 2
 		end
 	end
-	eval_f(x::AbstractArray) = pb(x)' * P * pb(x)
+	eval_f(x::AbstractArray) = sum(abs2, S * pb1(x))
 	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, eval_f, x)
 	
 	# Create IPOPT problem

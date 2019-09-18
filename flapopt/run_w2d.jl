@@ -32,7 +32,7 @@ param0 = [2.0, 20.0] # cbar, T
 
 trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
-cu.optAffine(m, opt, traj0, param0, 0.1*ones(1,1), zeros(4); hessreg=1e-3)
+cu.optAffine(m, opt, traj0, param0, 0.001*ones(1,1), [0,0,1.0,0]; hessreg=1e-3)
 
 # # traj opt ------------------------------------
 
