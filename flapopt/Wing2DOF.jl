@@ -358,24 +358,30 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     # Param stuff
     cbar, T = param
     # lumped parameter vector
-    # pb = [T, T^2, cbar*T, cbar*T^2, cbar^2*T] # NOTE the actual param values are only needed for the test mode
-    pb = [T^2, cbar*T]
+    pb = [1, cbar, cbar^2] # NOTE the actual param values are only needed for the test mode
+    # pb = [T^2, cbar*T]
     npb = length(pb)
     # This multiplies pbar from the left to produce the right side
     Iwing = m.mwing * cbar^2 # cbar is in mm
     
     # If test is true, it will test the affine relation
-    test = false
+    test = true
 
     function HMq(ypos, yvel)
         σa, Ψ, σ̇adum, Ψ̇dum = ypos
         σadum, Ψdum, σ̇a, Ψ̇ = yvel
-        return [0   σ̇a*(m.mspar+m.mwing)   Ψ̇*m.mwing*cos(Ψ)   0   0;
-        Ψ̇*Iwing   0   0   σ̇a*m.mwing*cos(Ψ)   Ψ̇*m.mwing]
+        # Need the original T to use output coords
+        σo = T * σa
+        σ̇o = T * σ̇a
+        return [σ̇o*(m.mspar+m.mwing)   Ψ̇*m.mwing*cos(Ψ)   0;
+        Ψ̇*Iwing   σ̇o*m.mwing*cos(Ψ)   Ψ̇*m.mwing]
     end
 
     function HCgJ(y, F)
         σa, Ψ, σ̇a, Ψ̇ = y
+        # Need the original T to use output coords
+        σo = T * σa
+        σ̇o = T * σ̇a
         # See notes: this F stuff is w2d specific
         Ftil = -F/cbar
         rcop = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
@@ -384,8 +390,8 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         # return [0   -m.kσ*σa-m.bσ*σ̇a   Ftil[1]   0   0;
         # -m.kΨ*Ψ-m.bΨ*Ψ̇   0   0   -σ̇a*Ψ̇*m.mwing*sin(Ψ)   rcopnondim*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))]
         # 1st order version TODO: check the J^T*F
-        return [0   m.kσ*σa+m.bσ*σ̇a   -Ψ̇^2*m.mwing*sin(Ψ)+Ftil[1]   0   0;
-        m.kΨ*Ψ+m.bΨ*Ψ̇   0   0   0   rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))]
+        return [m.kσ*σo+m.bσ*σ̇o   -Ψ̇^2*m.mwing*sin(Ψ)+Ftil[1]   0;
+        m.kΨ*Ψ+m.bΨ*Ψ̇   0   rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))]
     end
 
     # this is OK - see notes
@@ -407,13 +413,13 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     for k=1:N
         _, Jaero, Faero = w2daero(yk(k), uk(k), param)
         # Add same F as the traj produced NOTE: this has the assumption that the interaction force is held constant.
-        Hh = Htil(yk(k), yk(k+1), Faero)[:,2:3] # FIXME: other cols are zero
+        Hh = Htil(yk(k), yk(k+1), Faero)#[:,2:3] # FIXME: other cols are zero
         P += Hh' * Bdag' * Ruu * Bdag * Hh
         q += Hh' * Bdag' * Ryu' * yk(k)
         if test
             errk[:,k] = -yk(k+1) + yk(k) + δt * cu.dydt(m, yk(k), uk(k), param)
             Hpb[:,k] = Hh * pb
-            Bu[:,k] = δt * B * uk(k)[1]
+            Bu[:,k] = δt * B * uk(k)[1] / T
         end
     end
     if test
