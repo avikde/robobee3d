@@ -180,48 +180,52 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# Rp += 1e-1 * I
 	S = sqrt(Rp)
 
-	function plump(p)
-		cbar, T = param
+	function pb(p)
+		cbar, T = p
 		# lumped parameter vector FIXME: this is w2d-specific
 		# return [T, T^2, cbar*T, cbar*T^2, cbar^2*T]
-		return [T, cbar]
+		return [T^2, cbar*T]
+	end
+	function pFeasible(p)
+		cbar, T = p
+		return T >= 0.01 # FIXME: testing
 	end
 	np = 2
 
-	# # variable to update
-	# x = copy(param)
-	# x1 = similar(x)
+	# variable to update
+	x = copy(param)
+	x1 = similar(x)
 
-	# # Gauss-Newton iterations with the feasible space of p
-	# for stepi=1:4
-	# 	# Cost function for this step
-	# 	Jx = p -> plump(p)' * Rp * plump(p)
-	# 	rx = p -> S * plump(p)
-	# 	# Current jacobian
-	# 	r0 = rx(x)
-	# 	Dr0 = ForwardDiff.jacobian(rx, x)
-	# 	# Gauss-Newton
-	# 	∇J = Dr0' * r0
-	# 	HJ = Dr0' * Dr0 + hessreg * I
-	# 	v = -HJ\∇J #descent direction
+	# Gauss-Newton iterations with the feasible space of p
+	for stepi=1:4
+		# Cost function for this step
+		Jx = p -> pb(p)' * Rp * pb(p)
+		rx = p -> S * pb(p)
+		# Current jacobian
+		r0 = rx(x)
+		Dr0 = ForwardDiff.jacobian(rx, x)
+		# Gauss-Newton
+		∇J = Dr0' * r0
+		HJ = Dr0' * Dr0 + hessreg * I
+		v = -HJ\∇J #descent direction
 
-	# 	println(v) # FIXME: this is NaN
+		println(v) # FIXME: this is NaN
 
-	# 	J0 = Jx(x)
-	# 	J1 = csBacktrackingLineSearch!(x1, x, ∇J, v, J0, Jx; α=0.2, β=0.7)
-	# 	x .= x1
-	# end
+		J0 = Jx(x)
+		J1 = csBacktrackingLineSearch!(x1, x, ∇J, v, J0, Jx; α=0.2, β=0.7, isFeasible=pFeasible)
+		x .= x1
+	end
 	
-	# return x
+	return x
 
-	# Without that T, can just use OSQP
-	mo = OSQP.Model()
-	# OSQP.setup!(mo; P=sparse(ones(np,np)), q=ones(np), A=sparse(row, col, val, ng, np), l=ones(ng), u=ones(ng), settings...)
-	OSQP.setup!(mo; P=sparse(Rp), q=zeros(np)) # no constraint for now
+	# # Without that T, can just use OSQP
+	# mo = OSQP.Model()
+	# # OSQP.setup!(mo; P=sparse(ones(np,np)), q=ones(np), A=sparse(row, col, val, ng, np), l=ones(ng), u=ones(ng), settings...)
+	# OSQP.setup!(mo; P=sparse(Rp), q=zeros(np)) # no constraint for now
 
-	# OSQP.update!(mo; q=q)
-	res = OSQP.solve!(mo)
+	# # OSQP.update!(mo; q=q)
+	# res = OSQP.solve!(mo)
 
-	return res.x
+	# return res.x
 end
 
