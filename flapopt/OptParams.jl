@@ -188,7 +188,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	end
 	function pFeasible(p)
 		cbar, T = p
-		return T >= 0.01 # FIXME: testing
+		return T >= 1 # FIXME: testing
 	end
 	np = 2
 
@@ -197,7 +197,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	x1 = similar(x)
 
 	# Gauss-Newton iterations with the feasible space of p
-	for stepi=1:4
+	for stepi=1:10
 		# Cost function for this step
 		Jx = p -> pb(p)' * Rp * pb(p)
 		rx = p -> S * pb(p)
