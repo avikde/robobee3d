@@ -353,7 +353,7 @@ function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
     return [1, cbar, cbar^2], T
 end
 
-function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, Ruu::AbstractArray, Ryu::AbstractArray)
+function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
     nq = ny÷2
 
@@ -413,8 +413,13 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
     B = [1.0, 0.0]
     B2 = kron(Diagonal(ones(2)),B) # map y to yact
-    P = zeros(npt, npt)
-    q = zeros(npt)
+    
+    # Weights
+    Ryy, Ryu, Ruu = R
+
+    Quu = zeros(npt, npt)
+    qyu = zeros(npt)
+    qyy = 0
     if test
         Hpb = zeros(nq, N)
         Bu = similar(Hpb)
@@ -424,10 +429,12 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     for k=1:N
         _, Jaero, Faero = w2daero(yk(k), uk(k), param)
         # Add same F as the traj produced NOTE: this has the assumption that the interaction force is held constant.
-        Hh = Htil(yk(k), yk(k+1), Faero)#[:,2:3] # FIXME: other cols are zero
-        P += Hh' * B * Ruu * B' * Hh
+        Hh = Htil(yk(k), yk(k+1), Faero)
+        Quu += Hh' * B * Ruu * B' * Hh # (T*pt)' * Quu * (T*pt)
         # Need output coords
-        q += Hh' * B * Ryu' * B2' * yk(k)
+        yo = [T, 1.0, T, 1.0] .* yk(k)
+        qyu += Hh' * B * Ryu' * B2' * yo # qyu' * pt
+        qyy += yo' * Ryy * yo # qyy * T^(-2)
         if test
             errk[:,k] = -yk(k+1) + yk(k) + δt * cu.dydt(m, yk(k), uk(k), param)
             Hpb[:,k] = Hh * pt
@@ -437,7 +444,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     if test
         return Hpb, Bu, errk
     else
-        return Symmetric(P), q
+        return Quu, qyu, qyy
     end
 end
 

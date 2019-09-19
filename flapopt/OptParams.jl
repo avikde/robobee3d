@@ -168,18 +168,22 @@ end
 
 # --------------
 "Implement this"
-function paramAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, Ruu::AbstractArray, Ryu::AbstractArray)
-
+function paramAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple)
+	error("Implement this!")
 end
 
 "Implement this"
 paramLumped(m::Model, param::AbstractArray) = (param, 1.0)
 
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, Ruu::AbstractArray, Ryu::AbstractArray; hessreg::Float64=0, kwargs...)
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple; hessreg::Float64=0, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 
 	# Quadratic form matrix
-	P, q = paramAffine(m, opt, traj, param, Ruu, Ryu)
+	Quu, qyu, qyy = paramAffine(m, opt, traj, param, R)
+	display(Quu)
+	display(qyu)
+	display(qyy)
+	# Total cost: 1/2 (T*pt)' * Quu * (T*pt) + 1/2 qyy * T^(-2) + qyu' * pt
 	# Rp += 1e-1 * I
 	S = sqrt(Symmetric([P q; q' 0]))
 
