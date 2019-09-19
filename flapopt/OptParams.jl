@@ -235,13 +235,13 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	end
 	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, eval_f, x)
 
-	# Plot
-	display(Quu)
-	display(qyu)
-	Ts = collect(1.0:1.0:200.0)
-	fs = [eval_f([param[1], T]) for T in Ts]
-    plot(Ts, fs, xlabel="T")
-    gui()
+	# # Plot
+	# display(Quu)
+	# display(qyu)
+	# Ts = collect(1.0:1.0:200.0)
+	# fs = [eval_f([param[1], T]) for T in Ts]
+    # plot(Ts, fs, xlabel="T")
+    # gui()
 	
 	# Create IPOPT problem
 	prob = Ipopt.createProblem(
@@ -270,7 +270,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# TODO: this should be an update only without need to setup. would need to update params.
 	prob.x = copy(param)
 	status = Ipopt.solveProblem(prob)
-	return prob.x
+	return prob.x, eval_f
 
 	# # Without that T, can just use OSQP -------------------------
 	# mo = OSQP.Model()

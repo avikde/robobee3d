@@ -291,26 +291,32 @@ function animateTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs)
     # return wingdraw 
 end
 
-function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, args...; μ::Float64=1e-1)
+function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, paramObj::Function, args...; μ::Float64=1e-1)
     # First plot the param landscape
-    p1 = 0:0.5:5.0
-    p2 = 5:2:40
+    p1 = 0:0.2:5.0
+    p2 = 10.0:1.0:50
 
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-    Ng = opt.boundaryConstraint == cu.SYMMETRIC ? (N+2)*ny : (N+1)*ny
-    g = zeros(Ng)#cu.gbounds(m, opt, traj)[1]
-    f(p1, p2) = begin
-        cu.gvalues!(g, m, opt, traj, [p1,p2], traj[1:4])
-        cu.Jobj(m, opt, traj, [p1,p2]) + μ/2 * g' * g
-    end
 
-    paramLandscape = contour(p1, p2, f, fill=true)
+    # # Old: f defined here
+    # Ng = opt.boundaryConstraint == cu.SYMMETRIC ? (N+2)*ny : (N+1)*ny
+    # g = zeros(Ng)#cu.gbounds(m, opt, traj)[1]
+    # f(p1, p2) = begin
+    #     cu.gvalues!(g, m, opt, traj, [p1,p2], traj[1:4])
+    #     cu.Jobj(m, opt, traj, [p1,p2]) + μ/2 * g' * g
+    # end
+    f(p1, p2) = paramObj([p1, p2])
+    pp = contour(p1, p2, f, fill=true, seriescolor=cgrad(:bluesreds), xlabel="chord", ylabel="T")
 
     # Now plot the path taken
     params = hcat(args...) # Np x Nsteps
-    plot!(paramLandscape, params[1,:], params[2,:], marker=:auto)
+    plot!(pp, params[1,:], params[2,:], marker=:auto, legend=false)
+
+    # just in case
+    xlims!(pp, (p1[1], p1[end]))
+    ylims!(pp, (p2[1], p2[end]))
     
-    return (paramLandscape)
+    return (pp)
 end
 
 # Test applying euler integration to the initial traj
