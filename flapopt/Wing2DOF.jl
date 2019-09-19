@@ -41,6 +41,10 @@ struct Wing2DOFModel <: controlutils.Model
     bσ::Float64 # [mN/(mm/ms)]
     kΨ::Float64 # [mN-mm/rad]
     bΨ::Float64 # [mN-mm/(rad/ms)]
+    # Actuator params
+    ma::Float64 # [mg]; effective
+    ba::Float64 # [mN/(mm/ms)]
+    ka::Float64 # [mN/mm]
 end
 
 # Fixed params -----------------
@@ -364,26 +368,27 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     # Param stuff
     cbar, T = param
     # lumped parameter vector
-    pb, T = cu.paramLumped(param) # NOTE the actual param values are only needed for the test mode
+    pb, T = cu.paramLumped(m, param) # NOTE the actual param values are only needed for the test mode
     # pb = [T^2, cbar*T]
-    npb = length(pb)
+    pt = [pb; T^(-2)]
+    npt = length(pt) # add T^(-2)
     # This multiplies pbar from the left to produce the right side
     Iwing = m.mwing * cbar^2 # cbar is in mm
     
     # If test is true, it will test the affine relation
     test = true
 
-    function HMq(ypos, yvel)
+    function HMqT(ypos, yvel)
         σa, Ψ, σ̇adum, Ψ̇dum = ypos
         σadum, Ψdum, σ̇a, Ψ̇ = yvel
         # Need the original T to use output coords
         σo = T * σa
         σ̇o = T * σ̇a
-        return [σ̇o*(m.mspar+m.mwing)   Ψ̇*m.mwing*cos(Ψ)   0;
-        Ψ̇*Iwing   σ̇o*m.mwing*cos(Ψ)   Ψ̇*m.mwing]
+        return [σ̇o*(m.mspar+m.mwing)   Ψ̇*m.mwing*cos(Ψ)   0   σ̇o*m.ma;
+        Ψ̇*Iwing   σ̇o*m.mwing*cos(Ψ)   Ψ̇*m.mwing    0]
     end
 
-    function HCgJ(y, F)
+    function HCgJT(y, F)
         σa, Ψ, σ̇a, Ψ̇ = y
         # Need the original T to use output coords
         σo = T * σa
@@ -395,20 +400,21 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         # FIXME: this orig version probably has a negative sign error on the dynamics terms
         # return [0   -m.kσ*σa-m.bσ*σ̇a   Ftil[1]   0   0;
         # -m.kΨ*Ψ-m.bΨ*Ψ̇   0   0   -σ̇a*Ψ̇*m.mwing*sin(Ψ)   rcopnondim*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))]
-        # 1st order version TODO: check the J^T*F
-        return [m.kσ*σo+m.bσ*σ̇o   -Ψ̇^2*m.mwing*sin(Ψ)+Ftil[1]   0;
-        m.kΨ*Ψ+m.bΨ*Ψ̇   0   rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))]
+        # 1st order version
+        return [m.kσ*σo+m.bσ*σ̇o   -Ψ̇^2*m.mwing*sin(Ψ)+Ftil[1]   0    m.ba*σ̇o + m.ka*σo;
+        m.kΨ*Ψ+m.bΨ*Ψ̇   0   rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))    0]
     end
 
     # this is OK - see notes
     # Htil = (y, ynext, F) -> HMq(ynext) - HMq(y) + δt*HCgJ(y, F)
     # 1st order integration mods
-    Htil = (y, ynext, F) -> HMq(y, ynext) - HMq(y, y) + δt*HCgJ(y, F)
+    Htil = (y, ynext, F) -> HMqT(y, ynext) - HMqT(y, y) + δt*HCgJT(y, F)
 
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
     B = [1.0, 0.0]
-    P = zeros(npb, npb)
-    q = zeros(npb)
+    B2 = kron(Diagonal(ones(2)),B) # map y to yact
+    P = zeros(npt, npt)
+    q = zeros(npt)
     if test
         Hpb = zeros(nq, N)
         Bu = similar(Hpb)
@@ -421,11 +427,10 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         Hh = Htil(yk(k), yk(k+1), Faero)#[:,2:3] # FIXME: other cols are zero
         P += Hh' * B * Ruu * B' * Hh
         # Need output coords
-        yactuated = B' * yk(k)[]
-        q += Hh' * B * Ryu' * yk(k)
+        q += Hh' * B * Ryu' * B2' * yk(k)
         if test
             errk[:,k] = -yk(k+1) + yk(k) + δt * cu.dydt(m, yk(k), uk(k), param)
-            Hpb[:,k] = Hh * pb
+            Hpb[:,k] = Hh * pt
             Bu[:,k] = δt * B * uk(k)[1] / T
         end
     end

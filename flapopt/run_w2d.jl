@@ -12,7 +12,7 @@ includet("Wing2DOF.jl")
 # From Patrick 300 mN-mm/rad. 1 rad => R/2 σ-displacement. The torque is applied with a lever arm of R/2 => force = torque / (R/2)
 # so overall, get 300 / (R/2)^2.
 # FIXME: If this is due to act stiffness it would be affected by T. Need to confirm with Noah.
-m = Wing2DOFModel(0, 0.52, 1.5, 0, 5, 3)
+m = Wing2DOFModel(0, 0.52, 1.5, 0, 5, 3, 0, 0, 0)
 ny, nu = cu.dims(m)
 opt = cu.OptOptions(false, 0.2, 1, :symmetric, 1e-8, false)
 # opt = cu.OptOptions(false, 0.2, 1, cu.SYMMETRIC, 1e-8, false)
@@ -32,8 +32,8 @@ param0 = [2.0, 20.0] # cbar, T
 
 trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
-# Hpb, Bu, errk = cu.paramAffine(m, opt, traj0, param0, 0.001*ones(1,1), [0,0,1.0,0])
-cu.optAffine(m, opt, traj0, param0, 0.001*ones(1,1), [0,0,1.0,0]; hessreg=1e-3)
+Hpb, Bu, errk = cu.paramAffine(m, opt, traj0, param0, 0.001*ones(1,1), [0,1.0])
+# cu.optAffine(m, opt, traj0, param0, 0.001*ones(1,1), [0,0,1.0,0]; hessreg=1e-3)
 
 # # traj opt ------------------------------------
 
