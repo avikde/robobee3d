@@ -231,7 +231,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	function eval_f(x::AbstractArray)
 		pb, T = paramLumped(m, x)
 		pt = [pb; T^(-2)]
-		return 1/2 * (T*pt)' * Quu * (T*pt)# + qyy * T^(-2)) + qyu' * pt
+		return 1/2 * ((T*pt)' * Quu * (T*pt) + qyy * T^(-2)) + qyu' * pt
 	end
 	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, eval_f, x)
 

@@ -412,10 +412,9 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
 
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
     B = [1.0, 0.0]
-    B2 = kron(Diagonal(ones(2)),B) # map y to yact
     
     # Weights
-    Ryy, Ryu, Ruu = R
+    Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
 
     Quu = zeros(npt, npt)
     qyu = zeros(npt)
@@ -433,7 +432,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         Quu += Hh' * B * Ruu * B' * Hh # (T*pt)' * Quu * (T*pt)
         # Need output coords
         yo = [T, 1.0, T, 1.0] .* yk(k)
-        qyu += Hh' * B * Ryu' * B2' * yo # qyu' * pt
+        qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yo) # qyu' * pt
         qyy += yo' * Ryy * yo # qyy * T^(-2)
         if test
             errk[:,k] = -yk(k+1) + yk(k) + δt * cu.dydt(m, yk(k), uk(k), param)
