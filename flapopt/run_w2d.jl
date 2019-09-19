@@ -11,8 +11,17 @@ includet("Wing2DOF.jl")
 # create an instance
 # From Patrick 300 mN-mm/rad. 1 rad => R/2 σ-displacement. The torque is applied with a lever arm of R/2 => force = torque / (R/2)
 # so overall, get 300 / (R/2)^2.
-# FIXME: If this is due to act stiffness it would be affected by T. Need to confirm with Noah.
-m = Wing2DOFModel(0, 0.52, 1.5, 0, 5, 3, 0, 0, 0)
+# Noah said lumped stiffness is ~60% transmission and 40% actuator => k = 1.5 = ko + ka/T^2.
+# For T=20, get ka = 240.
+# To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
+m = Wing2DOFModel(0, 0.52, 
+0.9#= 1.5 =#, #k output
+0, #b output
+5, # hinge k
+3, # hinge b
+6, # ma
+0, # ba
+240#= 0 =#) # ka
 ny, nu = cu.dims(m)
 opt = cu.OptOptions(false, 0.2, 1, :symmetric, 1e-8, false)
 # opt = cu.OptOptions(false, 0.2, 1, cu.SYMMETRIC, 1e-8, false)

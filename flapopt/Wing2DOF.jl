@@ -131,10 +131,10 @@ function cu.dydt(m::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _params::
     Iwing = m.mwing * cbar^2 # cbar is in mm
 
     # inertial terms
-    M = @SMatrix [m.mspar+m.mwing   cbar*m.mwing*cΨ; cbar*m.mwing*cΨ   Iwing+cbar^2*m.mwing]
-    corgrav = @SVector [m.kσ*σ - cbar*m.mwing*sΨ*Ψ̇^2, m.kΨ*Ψ]
+    M = @SMatrix [m.mspar+m.mwing + m.ma/T^2   cbar*m.mwing*cΨ; cbar*m.mwing*cΨ   Iwing+cbar^2*m.mwing]
+    corgrav = @SVector [(m.kσ + m.ka/T^2)*σ - cbar*m.mwing*sΨ*Ψ̇^2, m.kΨ*Ψ]
     # non-lagrangian terms
-    τdamp = @SVector [-m.bσ * σ̇, -m.bΨ * Ψ̇]
+    τdamp = @SVector [-(m.bσ + m.ba/T^2) * σ̇, -m.bΨ * Ψ̇]
     _, Jaero, Faero = w2daero(y, u, _params)
     τaero = Jaero' * Faero # units of [mN, mN-mm]
     # input
