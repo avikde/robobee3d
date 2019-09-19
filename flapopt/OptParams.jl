@@ -173,14 +173,13 @@ function paramAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abst
 end
 
 "Implement this"
-paramLumped(m::Model, param::AbstractArray) = (param, 1.0)
+paramLumped(m::Model, param::AbstractArray) = error("Implement this")
 
 function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple; hessreg::Float64=0, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 
 	# Quadratic form matrix
 	Quu, qyu, qyy = paramAffine(m, opt, traj, param, R)
-
 	# GN -------------------------
 	# function pFeasible(p)
 	# 	cbar, T = p
@@ -214,7 +213,6 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 
 	# IPOPT ---------------------------
 	
-	x = copy(param)
 	Aconstraint = [1.0  1.0] # testing linear constraint - useless for now
 	eval_g(x::Vector, g::Vector) = (g .= Aconstraint * x)
 	function eval_jac_g(x::Vector{Float64}, mode, row::Vector{Int32}, col::Vector{Int32}, value::Vector)
@@ -233,13 +231,21 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	function eval_f(x::AbstractArray)
 		pb, T = paramLumped(m, x)
 		pt = [pb; T^(-2)]
-		return 1/2 * ((T*pt)' * Quu * (T*pt) + qyy * T^(-2)) + qyu' * pt
+		return 1/2 * (T*pt)' * Quu * (T*pt)# + qyy * T^(-2)) + qyu' * pt
 	end
 	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, eval_f, x)
+
+	# Plot
+	display(Quu)
+	display(qyu)
+	Ts = collect(1.0:1.0:200.0)
+	fs = [eval_f([param[1], T]) for T in Ts]
+    plot(Ts, fs, xlabel="T")
+    gui()
 	
 	# Create IPOPT problem
 	prob = Ipopt.createProblem(
-		length(x), # Number of variables
+		length(param), # Number of variables
 		[0.1, 0.1], # Variable lower bounds
 		[10.0, 1000.0], # Variable upper bounds
 		1, # Number of constraints
@@ -262,7 +268,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	end
 
 	# TODO: this should be an update only without need to setup. would need to update params.
-	prob.x = x
+	prob.x = copy(param)
 	status = Ipopt.solveProblem(prob)
 	return prob.x
 
