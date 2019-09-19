@@ -180,17 +180,6 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 
 	# Quadratic form matrix
 	Quu, qyu, qyy = paramAffine(m, opt, traj, param, R)
-	display(Quu)
-	display(qyu)
-	display(qyy)
-	# Total cost: 1/2 (T*pt)' * Quu * (T*pt) + 1/2 qyy * T^(-2) + qyu' * pt
-	# Rp += 1e-1 * I
-	S = sqrt(Symmetric([P q; q' 0]))
-
-	function pb1(p)
-		pb, T = paramLumped(p)
-		return [1.0/T; T*pb]
-	end
 
 	# GN -------------------------
 	# function pFeasible(p)
@@ -238,7 +227,14 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 			col[2] = 2
 		end
 	end
-	eval_f(x::AbstractArray) = sum(abs2, S * pb1(x))
+
+	# Total cost: 1/2 (T*pt)' * Quu * (T*pt) + 1/2 qyy * T^(-2) + qyu' * pt
+	# TODO: quadratic version. for now just nonlinear
+	function eval_f(x::AbstractArray)
+		pb, T = paramLumped(m, x)
+		pt = [pb; T^(-2)]
+		return 1/2 * ((T*pt)' * Quu * (T*pt) + qyy * T^(-2)) + qyu' * pt
+	end
 	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, eval_f, x)
 	
 	# Create IPOPT problem
