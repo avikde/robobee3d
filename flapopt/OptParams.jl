@@ -172,6 +172,9 @@ function paramAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abst
 
 end
 
+"Implement this"
+paramLumped(m::Model, param::AbstractArray) = (param, 1.0)
+
 function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, Ruu::AbstractArray, Ryu::AbstractArray; hessreg::Float64=0, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 
@@ -181,10 +184,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	S = sqrt(Symmetric([P q; q' 0]))
 
 	function pb1(p)
-		cbar, T = p
-		# lumped parameter vector FIXME: this is w2d-specific
-		# return [T, T^2, cbar*T, cbar*T^2, cbar^2*T]
-		return [T^2, cbar*T, 1.0]
+		pb, T = paramLumped(p)
+		return [1.0/T; T*pb]
 	end
 
 	# GN -------------------------

@@ -344,8 +344,14 @@ end
 
 # param opt stuff ------------------------
 
+function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
+    cbar, T = param
+    return [1, cbar, cbar^2], T
+end
+
 function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, Ruu::AbstractArray, Ryu::AbstractArray)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+    nq = ny÷2
 
     # Make a new traj where the dynamics constraint is satisfied exactly
     traj1 = copy(traj)
@@ -358,7 +364,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     # Param stuff
     cbar, T = param
     # lumped parameter vector
-    pb = [1, cbar, cbar^2] # NOTE the actual param values are only needed for the test mode
+    pb, T = cu.paramLumped(param) # NOTE the actual param values are only needed for the test mode
     # pb = [T^2, cbar*T]
     npb = length(pb)
     # This multiplies pbar from the left to produce the right side
@@ -404,7 +410,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     P = zeros(npb, npb)
     q = zeros(npb)
     if test
-        Hpb = zeros(ny÷2, N)
+        Hpb = zeros(nq, N)
         Bu = similar(Hpb)
         errk = zeros(ny, N)
     end
@@ -414,6 +420,8 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         # Add same F as the traj produced NOTE: this has the assumption that the interaction force is held constant.
         Hh = Htil(yk(k), yk(k+1), Faero)#[:,2:3] # FIXME: other cols are zero
         P += Hh' * B * Ruu * B' * Hh
+        # Need output coords
+        yactuated = B' * yk(k)[]
         q += Hh' * B * Ryu' * yk(k)
         if test
             errk[:,k] = -yk(k+1) + yk(k) + δt * cu.dydt(m, yk(k), uk(k), param)
