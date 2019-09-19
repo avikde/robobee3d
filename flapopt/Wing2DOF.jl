@@ -376,7 +376,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     Iwing = m.mwing * cbar^2 # cbar is in mm
     
     # If test is true, it will test the affine relation
-    test = true
+    test = false
 
     function HMqT(ypos, yvel)
         σa, Ψ, σ̇adum, Ψ̇dum = ypos
