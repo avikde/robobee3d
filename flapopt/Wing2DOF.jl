@@ -401,7 +401,6 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
 
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
     B = [1.0, 0.0]
-    Bdag = (B' * B) \ B'
     P = zeros(npb, npb)
     q = zeros(npb)
     if test
@@ -414,8 +413,8 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         _, Jaero, Faero = w2daero(yk(k), uk(k), param)
         # Add same F as the traj produced NOTE: this has the assumption that the interaction force is held constant.
         Hh = Htil(yk(k), yk(k+1), Faero)#[:,2:3] # FIXME: other cols are zero
-        P += Hh' * Bdag' * Ruu * Bdag * Hh
-        q += Hh' * Bdag' * Ryu' * yk(k)
+        P += Hh' * B * Ruu * B' * Hh
+        q += Hh' * B * Ryu' * yk(k)
         if test
             errk[:,k] = -yk(k+1) + yk(k) + δt * cu.dydt(m, yk(k), uk(k), param)
             Hpb[:,k] = Hh * pb
