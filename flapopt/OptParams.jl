@@ -192,7 +192,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R)
 
     # If test is true, it will test the affine relation
-    test = false
+    test = true
     if test
         Hpb = zeros(nq, N)
         Bu = similar(Hpb)
