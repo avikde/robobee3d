@@ -178,10 +178,52 @@ paramLumped(m::Model, param::AbstractArray) = error("Implement this")
 "Mode=1 => opt, mode=2 ID"
 function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple; hessreg::Float64=0, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+    nq = ny÷2
+    # lumped parameter vector
+    pb, T = paramLumped(m, param) # NOTE the actual param values are only needed for the test mode
+    # pb = [T^2, cbar*T]
+    pt = [pb; T^(-2)]
+    npt = length(pt) # add T^(-2)
+    
+    # Weights
+    Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
 
 	# Quadratic form matrix
-	# TODO: make this return Hk(k), yo(k), umeas(k) functions instead
-	Quu, qyu, qyy, qyumeas = paramAffine(m, opt, traj, param, R)
+	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R)
+
+    # If test is true, it will test the affine relation
+    test = true
+    if test
+        Hpb = zeros(nq, N)
+        Bu = similar(Hpb)
+    end
+    
+    # Quu = zeros(npt, npt)
+    # qyu = zeros(npt)
+    # qyumeas = zeros(npt) # for ID
+    # qyy = 0
+    for k=1:N
+        # Quu += Hh' * B * Ruu * B' * Hh # (T*pt)' * Quu * (T*pt)
+        # # Need output coords
+        # yo = [T, 1.0, T, 1.0] .* yk(k)
+        # qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yo) # qyu' * pt
+        # qyy += yo' * Ryy * yo # qyy * T^(-2)
+        # # For ID, need uk
+        # qyumeas -= Hh' * B * Ruu * (δt * uk(k))
+
+        if test
+            Hpb[:,k] = Hk(k) * pt
+            Bu[:,k] = δt * B * umeas(k)[1] / T
+        end
+    end
+    if test
+        display(Hpb - Bu)
+        error("Tested")
+    # else
+    #     return Quu, qyu, qyy, qyumeas
+    end
+
+	error("HERE")
 
 	# GN -------------------------
 	# function pFeasible(p)

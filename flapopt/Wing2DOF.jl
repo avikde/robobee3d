@@ -361,7 +361,6 @@ end
 
 function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-    nq = ny÷2
 
     # Make a new traj where the dynamics constraint is satisfied exactly
     traj1 = copy(traj)
@@ -373,16 +372,10 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
 
     # Param stuff
     cbar, T = param
-    # lumped parameter vector
-    pb, T = cu.paramLumped(m, param) # NOTE the actual param values are only needed for the test mode
-    # pb = [T^2, cbar*T]
-    pt = [pb; T^(-2)]
-    npt = length(pt) # add T^(-2)
     # This multiplies pbar from the left to produce the right side
     Iwing = m.mwing * cbar^2 # cbar is in mm
-    
-    # If test is true, it will test the affine relation
-    test = false
+    # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
+    B = [1.0, 0.0]
 
     function HMqT(ypos, yvel)
         σa, Ψ, σ̇adum, Ψ̇dum = ypos
@@ -415,47 +408,18 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     # Htil = (y, ynext, F) -> HMq(ynext) - HMq(y) + δt*HCgJ(y, F)
     # 1st order integration mods
     Htil = (y, ynext, F) -> HMqT(y, ynext) - HMqT(y, y) + δt*HCgJT(y, F)
-
-    # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
-    B = [1.0, 0.0]
     
-    # Weights
-    Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
-
-    Quu = zeros(npt, npt)
-    qyu = zeros(npt)
-    qyumeas = zeros(npt) # for ID
-    qyy = 0
-    if test
-        Hpb = zeros(nq, N)
-        Bu = similar(Hpb)
-        errk = zeros(ny, N)
+    # Functions to output
+    function Hk(k)
+        _, _, Faero = w2daero(yk(k), uk(k), param) # This does not actually use uk
+        # NOTE: it uses param *only for Faero*. Add same F as the traj produced
+        # This has the assumption that the interaction force is held constant.
+        return Htil(yk(k), yk(k+1), Faero)
     end
+    yo = k -> [T, 1.0, T, 1.0] .* yk(k)
+    umeas = k -> uk(k)
 
-    for k=1:N
-        _, Jaero, Faero = w2daero(yk(k), uk(k), param) # This does not actually use uk
-        # Add same F as the traj produced NOTE: this has the assumption that the interaction force is held constant.
-        Hh = Htil(yk(k), yk(k+1), Faero)
-        Quu += Hh' * B * Ruu * B' * Hh # (T*pt)' * Quu * (T*pt)
-        # Need output coords
-        yo = [T, 1.0, T, 1.0] .* yk(k)
-        qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yo) # qyu' * pt
-        qyy += yo' * Ryy * yo # qyy * T^(-2)
-        # For ID, need uk
-        qyumeas -= Hh' * B * Ruu * (δt * uk(k))
-
-        if test
-            errk[:,k] = -yk(k+1) + yk(k) + δt * cu.dydt(m, yk(k), uk(k), param)
-            Hpb[:,k] = Hh * pt
-            Bu[:,k] = δt * B * uk(k)[1] / T
-        end
-    end
-    if test
-        display(Hpb - Bu)
-        error("Tested")
-    else
-        return Quu, qyu, qyy, qyumeas
-    end
+    return Hk, yo, umeas, B, N
 end
 
 
