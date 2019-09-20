@@ -180,12 +180,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 
 	# Quadratic form matrix
-	Quu, qyu, qyy = paramAffine(m, opt, traj, param, R)
-
-	if mode == 2
-		# For ID need the inputs
-		umeas = vcat([liu[:,k] for k in range(N)])
-	end
+	# TODO: make this return Hk(k), yo(k), umeas(k) functions instead
+	Quu, qyu, qyy, qyumeas = paramAffine(m, opt, traj, param, R)
 
 	# GN -------------------------
 	# function pFeasible(p)
@@ -241,7 +237,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 			# TODO: quadratic version. for now just nonlinear
 			return 1/2 * ((T*pt)' * Quu * (T*pt) + qyy * T^(-2)) + qyu' * pt
 		elseif mode == 2
-			# TODO:
+			return 1/2 * ((T*pt)' * Quu * (T*pt)) + qyumeas' * (T*pt)
 		end
 	end
 	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, eval_f, x)

@@ -424,6 +424,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
 
     Quu = zeros(npt, npt)
     qyu = zeros(npt)
+    qyumeas = zeros(npt) # for ID
     qyy = 0
     if test
         Hpb = zeros(nq, N)
@@ -432,7 +433,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     end
 
     for k=1:N
-        _, Jaero, Faero = w2daero(yk(k), uk(k), param)
+        _, Jaero, Faero = w2daero(yk(k), uk(k), param) # This does not actually use uk
         # Add same F as the traj produced NOTE: this has the assumption that the interaction force is held constant.
         Hh = Htil(yk(k), yk(k+1), Faero)
         Quu += Hh' * B * Ruu * B' * Hh # (T*pt)' * Quu * (T*pt)
@@ -440,6 +441,9 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         yo = [T, 1.0, T, 1.0] .* yk(k)
         qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yo) # qyu' * pt
         qyy += yo' * Ryy * yo # qyy * T^(-2)
+        # For ID, need uk
+        qyumeas -= Hh' * B * Ruu * uk(k)
+
         if test
             errk[:,k] = -yk(k+1) + yk(k) + δt * cu.dydt(m, yk(k), uk(k), param)
             Hpb[:,k] = Hh * pt
@@ -449,7 +453,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     if test
         return Hpb, Bu, errk
     else
-        return Quu, qyu, qyy
+        return Quu, qyu, qyy, qyumeas
     end
 end
 
