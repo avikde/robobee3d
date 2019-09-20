@@ -175,11 +175,14 @@ end
 "Implement this"
 paramLumped(m::Model, param::AbstractArray) = error("Implement this")
 
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple; hessreg::Float64=0, kwargs...)
+"Mode=1 => opt, mode=2 ID"
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple; hessreg::Float64=0, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 
 	# Quadratic form matrix
-	Quu, qyu, qyy = paramAffine(m, opt, traj, param, R)
+	# TODO: make this return Hk(k), yo(k), umeas(k) functions instead
+	Quu, qyu, qyy, qyumeas = paramAffine(m, opt, traj, param, R)
+
 	# GN -------------------------
 	# function pFeasible(p)
 	# 	cbar, T = p
@@ -226,12 +229,16 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		end
 	end
 
-	# Total cost: 1/2 (T*pt)' * Quu * (T*pt) + 1/2 qyy * T^(-2) + qyu' * pt
-	# TODO: quadratic version. for now just nonlinear
 	function eval_f(x::AbstractArray)
 		pb, T = paramLumped(m, x)
 		pt = [pb; T^(-2)]
-		return 1/2 * ((T*pt)' * Quu * (T*pt) + qyy * T^(-2)) + qyu' * pt
+		if mode == 1
+			# Total cost: 1/2 (T*pt)' * Quu * (T*pt) + 1/2 qyy * T^(-2) + qyu' * pt
+			# TODO: quadratic version. for now just nonlinear
+			return 1/2 * ((T*pt)' * Quu * (T*pt) + qyy * T^(-2)) + qyu' * pt
+		elseif mode == 2
+			return 1/2 * ((T*pt)' * Quu * (T*pt)) + qyumeas' * (T*pt)
+		end
 	end
 	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, eval_f, x)
 
