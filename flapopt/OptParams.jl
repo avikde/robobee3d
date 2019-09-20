@@ -178,10 +178,52 @@ paramLumped(m::Model, param::AbstractArray) = error("Implement this")
 "Mode=1 => opt, mode=2 ID"
 function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple; hessreg::Float64=0, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+    nq = ny÷2
+    # lumped parameter vector
+    pb, T = paramLumped(m, param) # NOTE the actual param values are only needed for the test mode
+    # pb = [T^2, cbar*T]
+    pt = [pb; T^(-2)]
+    npt = length(pt) # add T^(-2)
+    
+    # Weights
+    Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
 
 	# Quadratic form matrix
-	# TODO: make this return Hk(k), yo(k), umeas(k) functions instead
-	Quu, qyu, qyy, qyumeas = paramAffine(m, opt, traj, param, R)
+	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R)
+
+    # If test is true, it will test the affine relation
+    test = false
+    if test
+        Hpb = zeros(nq, N)
+        Bu = similar(Hpb)
+    end
+	
+	# See eval_f for how these are used to form the objective
+    Quu = zeros(npt, npt)
+    qyu = zeros(npt)
+    qyy = 0
+	for k=1:N
+		Hh = Hk(k)
+		yok = yo(k)
+        Quu += Hh' * B * Ruu * B' * Hh
+		if mode == 1
+			# Need output coords
+			qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yok)
+        	qyy += yok' * Ryy * yok # qyy * T^(-2)
+		elseif mode == 2
+			# For ID, need uk
+			qyu -= Hh' * B * Ruu * (δt * umeas(k))
+		end
+
+        if test
+            Hpb[:,k] = Hk(k) * pt
+            Bu[:,k] = δt * B * umeas(k)[1] / T
+        end
+    end
+    if test
+        display(Hpb - Bu)
+        error("Tested")
+    end
 
 	# GN -------------------------
 	# function pFeasible(p)
@@ -237,7 +279,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 			# TODO: quadratic version. for now just nonlinear
 			return 1/2 * ((T*pt)' * Quu * (T*pt) + qyy * T^(-2)) + qyu' * pt
 		elseif mode == 2
-			return 1/2 * ((T*pt)' * Quu * (T*pt)) + qyumeas' * (T*pt)
+			return 1/2 * ((T*pt)' * Quu * (T*pt)) + qyu' * (T*pt)
 		end
 	end
 	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, eval_f, x)
