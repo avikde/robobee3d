@@ -290,11 +290,15 @@ function animateTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs)
 end
 
 function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, paramObj::Function, args...; μ::Float64=1e-1)
-    # First plot the param landscape
-    p1 = 0:0.2:5.0
-    p2 = 10.0:1.0:50
-
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+    # First plot the param landscape
+    cbars = 0:0.2:5.0
+    Ts = 10.0:1.0:50
+    mwings = 0.1:0.05:1.0
+
+    # different param vectors passed in
+    params = hcat(args...) # Np x Nsteps
+    param0 = args[1]
 
     # # Old: f defined here
     # Ng = opt.boundaryConstraint == cu.SYMMETRIC ? (N+2)*ny : (N+1)*ny
@@ -303,20 +307,35 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, paramObj
     #     cu.gvalues!(g, m, opt, traj, [p1,p2], traj[1:4])
     #     cu.Jobj(m, opt, traj, [p1,p2]) + μ/2 * g' * g
     # end
-    println("BLAH BLAH")
-    # FIXME: here
-    f(p1, p2) = paramObj([p1, p2])
-    pp = contour(p1, p2, f, fill=true, seriescolor=cgrad(:bluesreds), xlabel="chord", ylabel="T")
-
-    # Now plot the path taken
-    params = hcat(args...) # Np x Nsteps
-    plot!(pp, params[1,:], params[2,:], marker=:auto, legend=false)
-
-    # just in case
-    xlims!(pp, (p1[1], p1[end]))
-    ylims!(pp, (p2[1], p2[end]))
     
-    return (pp)
+    # cbar, T slice --------------
+    f(p1, p2) = paramObj([p1, p2, param0[3]])
+    p12 = contour(cbars, Ts, f, fill=true, seriescolor=cgrad(:bluesreds), xlabel="chord", ylabel="T")
+    # Now plot the path taken
+    plot!(p12, params[1,:], params[2,:], marker=:auto, legend=false)
+    # just in case
+    xlims!(p12, (cbars[1], cbars[end]))
+    ylims!(p12, (Ts[1], Ts[end]))
+
+    # cbar, mwing slice --------------
+    f13(p1, p3) = paramObj([p1, param0[2], p3])
+    p13 = contour(cbars, mwings, f13, fill=true, seriescolor=cgrad(:bluesreds), xlabel="chord", ylabel="mwing")
+    # Now plot the path taken
+    plot!(p13, params[1,:], params[3,:], marker=:auto, legend=false)
+    # just in case
+    xlims!(p13, (cbars[1], cbars[end]))
+    ylims!(p13, (mwings[1], mwings[end]))
+
+    # T, mwing slice --------------
+    f23(p2, p3) = paramObj([param0[2], p2, p3])
+    p23 = contour(Ts, mwings, f23, fill=true, seriescolor=cgrad(:bluesreds), xlabel="T", ylabel="mwing")
+    # Now plot the path taken
+    plot!(p23, params[2,:], params[3,:], marker=:auto, legend=false)
+    # just in case
+    xlims!(p23, (Ts[1], Ts[end]))
+    ylims!(p23, (mwings[1], mwings[end]))
+    
+    return (p12, p13, p23)
 end
 
 # Test applying euler integration to the initial traj
