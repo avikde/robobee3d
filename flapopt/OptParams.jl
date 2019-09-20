@@ -192,24 +192,28 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R)
 
     # If test is true, it will test the affine relation
-    test = true
+    test = false
     if test
         Hpb = zeros(nq, N)
         Bu = similar(Hpb)
     end
-    
-    # Quu = zeros(npt, npt)
-    # qyu = zeros(npt)
-    # qyumeas = zeros(npt) # for ID
-    # qyy = 0
-    for k=1:N
-        # Quu += Hh' * B * Ruu * B' * Hh # (T*pt)' * Quu * (T*pt)
-        # # Need output coords
-        # yo = [T, 1.0, T, 1.0] .* yk(k)
-        # qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yo) # qyu' * pt
-        # qyy += yo' * Ryy * yo # qyy * T^(-2)
-        # # For ID, need uk
-        # qyumeas -= Hh' * B * Ruu * (δt * uk(k))
+	
+	# See eval_f for how these are used to form the objective
+    Quu = zeros(npt, npt)
+    qyu = zeros(npt)
+    qyy = 0
+	for k=1:N
+		Hh = Hk(k)
+		yok = yo(k)
+        Quu += Hh' * B * Ruu * B' * Hh
+		if mode == 1
+			# Need output coords
+			qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yok)
+        	qyy += yok' * Ryy * yok # qyy * T^(-2)
+		elseif mode == 2
+			# For ID, need uk
+			qyu -= Hh' * B * Ruu * (δt * umeas(k))
+		end
 
         if test
             Hpb[:,k] = Hk(k) * pt
@@ -219,11 +223,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
     if test
         display(Hpb - Bu)
         error("Tested")
-    # else
-    #     return Quu, qyu, qyy, qyumeas
     end
-
-	error("HERE")
 
 	# GN -------------------------
 	# function pFeasible(p)
@@ -279,7 +279,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 			# TODO: quadratic version. for now just nonlinear
 			return 1/2 * ((T*pt)' * Quu * (T*pt) + qyy * T^(-2)) + qyu' * pt
 		elseif mode == 2
-			return 1/2 * ((T*pt)' * Quu * (T*pt)) + qyumeas' * (T*pt)
+			return 1/2 * ((T*pt)' * Quu * (T*pt)) + qyu' * (T*pt)
 		end
 	end
 	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, eval_f, x)
