@@ -156,7 +156,9 @@ function csSolve!(wk::OptWorkspace, m::Model, opt::OptOptions, traj0::AbstractAr
 	return x
 end
 
-function csBacktrackingLineSearch!(x1::Vector, x0::Vector, ∇J0::Vector, v::Vector, J0::Float64, Jcallable; α::Float64=0.45, β::Float64=0.9)
+csAlwaysFeasible(x::Vector) = true
+
+function csBacktrackingLineSearch!(x1::Vector, x0::Vector, ∇J0::Vector, v::Vector, J0::Float64, Jcallable; α::Float64=0.45, β::Float64=0.9, isFeasible::Function=csAlwaysFeasible)
 	σ = 1
 	# search for step size
 	while true
@@ -165,7 +167,7 @@ function csBacktrackingLineSearch!(x1::Vector, x0::Vector, ∇J0::Vector, v::Vec
 		J1 = Jcallable(x1)
 		# debug line search
 		# println("J0=$(round(J0; sigdigits=4)), J1=$(round(J1; sigdigits=4)), σ=$(round(σ; sigdigits=6))")
-		if J1 < J0 + α * σ * ∇J0' * v || σ < 1e-6
+		if (J1 < J0 + α * σ * ∇J0' * v && isFeasible(x1)) || σ < 1e-6
 			return J1
 		end
 	end

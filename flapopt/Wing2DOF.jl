@@ -33,7 +33,19 @@ NOTE:
 - The "T" above is unitless. You can intuitively think of a wing "stroke angle" ~= T q[1] / (R / 2) (using σ as the arc length and "R/2" as the radius). This is distinct from the Toutput (in rad/m), and they are related as T ~= Toutput ⋅ (R / 2).
 - Reasonable values: Toutput = 2666 rad/m in the current two-wing vehicle; 2150 rad/m in X-Wing; 3333 rad/m in Kevin Ma's older vehicles. With the R above, this suggests T ~= 20-30.
 """
-struct Wing2DOFModel <: controlutils.Model end
+struct Wing2DOFModel <: controlutils.Model
+    # params
+    mspar::Float64 # [mg]
+    mwing::Float64 # [mg]
+    kσ::Float64 # [mN/mm]
+    bσ::Float64 # [mN/(mm/ms)]
+    kΨ::Float64 # [mN-mm/rad]
+    bΨ::Float64 # [mN-mm/(rad/ms)]
+    # Actuator params
+    ma::Float64 # [mg]; effective
+    ba::Float64 # [mN/(mm/ms)]
+    ka::Float64 # [mN/mm]
+end
 
 # Fixed params -----------------
 const R = 20.0
@@ -104,9 +116,10 @@ function w2daero(y::AbstractArray, u::AbstractArray, _params::Vector)
 end
 
 "Continuous dynamics second order model"
-function cu.dydt(model::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _params::Vector)::AbstractArray
+function cu.dydt(m::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _params::Vector)::AbstractArray
     # unpack
     cbar, T = _params
+    # cbar, T, kσ = _params
     σ, Ψ, σ̇, Ψ̇ = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]
     # NOTE: for optimizing transmission ratio
     # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
@@ -115,20 +128,13 @@ function cu.dydt(model::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _para
     cΨ = cos(Ψ)
     sΨ = sin(Ψ)
 
-    # params
-    mspar = 0 # [mg]
-    mwing = 0.51 # [mg]
-    Iwing = mwing * cbar^2 # cbar is in mm
-    kσ = 0 # [mN/mm]
-    bσ = 0 # [mN/(mm/ms)]
-    kΨ = 5 # [mN-mm/rad]
-    bΨ = 3 # [mN-mm/(rad/ms)]
+    Iwing = m.mwing * cbar^2 # cbar is in mm
 
     # inertial terms
-    M = @SMatrix [mspar+mwing   cbar*mwing*cΨ; cbar*mwing*cΨ   Iwing+cbar^2*mwing]
-    corgrav = @SVector [kσ*σ - cbar*mwing*sΨ*Ψ̇^2, kΨ*Ψ]
+    M = @SMatrix [m.mspar+m.mwing + m.ma/T^2   cbar*m.mwing*cΨ; cbar*m.mwing*cΨ   Iwing+cbar^2*m.mwing]
+    corgrav = @SVector [(m.kσ + m.ka/T^2)*σ - cbar*m.mwing*sΨ*Ψ̇^2, m.kΨ*Ψ]
     # non-lagrangian terms
-    τdamp = @SVector [-bσ * σ̇, -bΨ * Ψ̇]
+    τdamp = @SVector [-(m.bσ + m.ba/T^2) * σ̇, -m.bΨ * Ψ̇]
     _, Jaero, Faero = w2daero(y, u, _params)
     τaero = Jaero' * Faero # units of [mN, mN-mm]
     # input
@@ -141,6 +147,37 @@ end
 
 # Create an initial traj --------------
 
+"Simulate with an OL signal at a freq"
+function openloopResponse(m::Wing2DOFModel, opt::cu.OptOptions, freq::Real, params::Vector)
+    # Create a traj
+    σmax = cu.limits(m)[end][1]
+    tend = 100.0 # [ms]
+    function controller(y, t)
+        return 50.0 * sin(2*π*freq*t)
+    end
+    vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
+    # OL traj1
+    simdt = 0.1 # [ms]
+    teval = collect(0:simdt:tend) # [ms]
+    prob = ODEProblem(vf, [0.2,0.,0.,0.], (teval[1], teval[end]))
+    sol = solve(prob, saveat=teval)
+    
+    # Deduce metrics
+    t = sol.t[end-100:end]
+    y = hcat(sol.u[end-100:end]...)
+    σmag = (maximum(y[1,:]) - minimum(y[1,:])) * params[2] / (R/2)
+    Ψmag = maximum(y[2,:]) - minimum(y[2,:])
+    # relative phase? Hilbert transform?
+
+    # # Plot
+    # σt = plot(sol, vars=3, ylabel="act vel [m/s]")
+    # Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
+    # plot(σt, Ψt, layout=(2,1))
+    # gui()
+
+    return [σmag, Ψmag]
+end
+
 """
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
@@ -148,22 +185,24 @@ Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector)
     # Create a traj
     σmax = cu.limits(m)[end][1]
-    function strokePosController(y, t)
+    tend = 100.0 # [ms]
+    function controller(y, t)
+        # Stroke pos control
         σdes = 0.9 * σmax * sin(freq * 2 * π * t)
         return posGains[1] * (σdes - y[1]) - posGains[2] * y[3]
     end
-    strokePosControlVF(y, p, t) = cu.dydt(m, y, [strokePosController(y, t)], params)
+    vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
     # OL traj1
     simdt = 0.1 # [ms]
-    teval = collect(0:simdt:100) # [ms]
-    prob = ODEProblem(strokePosControlVF, [0.,1.,0.,0.], (teval[1], teval[end]))
+    teval = collect(0:simdt:tend) # [ms]
+    prob = ODEProblem(vf, [0.2,0.,0.,0.], (teval[1], teval[end]))
     sol = solve(prob, saveat=teval)
 
     # # Animate whole traj
     # Nt = length(sol.t)
     # @gif for k = 1:3:Nt
     #     yk = sol.u[k]
-    #     uk = [strokePosController(yk, sol.t[k])]
+    #     uk = [controller(yk, sol.t[k])]
     #     drawFrame(m, yk, uk, params)
     # end
     # # Plot
@@ -180,7 +219,7 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     trajt = sol.t[olRange]
     δt = trajt[2] - trajt[1]
     olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)
-    olTraju = [strokePosController(olTrajaa[i], trajt[i]) for i in 1:N] # get u1,...,uN
+    olTraju = [controller(olTrajaa[i], trajt[i]) for i in 1:N] # get u1,...,uN
     traj0 = [vcat(olTrajaa...); olTraju] # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
     if opt.vart
         traj0 = [traj0; δt]
@@ -252,26 +291,32 @@ function animateTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs)
     # return wingdraw 
 end
 
-function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, args...; μ::Float64=1e-1)
+function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, paramObj::Function, args...; μ::Float64=1e-1)
     # First plot the param landscape
-    p1 = 0:0.5:5.0
-    p2 = 5:2:40
+    p1 = 0:0.2:5.0
+    p2 = 10.0:1.0:50
 
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-    Ng = opt.boundaryConstraint == cu.SYMMETRIC ? (N+2)*ny : (N+1)*ny
-    g = zeros(Ng)#cu.gbounds(m, opt, traj)[1]
-    f(p1, p2) = begin
-        cu.gvalues!(g, m, opt, traj, [p1,p2], traj[1:4])
-        cu.Jobj(m, opt, traj, [p1,p2]) + μ/2 * g' * g
-    end
 
-    paramLandscape = contour(p1, p2, f, fill=true)
+    # # Old: f defined here
+    # Ng = opt.boundaryConstraint == cu.SYMMETRIC ? (N+2)*ny : (N+1)*ny
+    # g = zeros(Ng)#cu.gbounds(m, opt, traj)[1]
+    # f(p1, p2) = begin
+    #     cu.gvalues!(g, m, opt, traj, [p1,p2], traj[1:4])
+    #     cu.Jobj(m, opt, traj, [p1,p2]) + μ/2 * g' * g
+    # end
+    f(p1, p2) = paramObj([p1, p2])
+    pp = contour(p1, p2, f, fill=true, seriescolor=cgrad(:bluesreds), xlabel="chord", ylabel="T")
 
     # Now plot the path taken
     params = hcat(args...) # Np x Nsteps
-    plot!(paramLandscape, params[1,:], params[2,:], marker=:auto)
+    plot!(pp, params[1,:], params[2,:], marker=:auto, legend=false)
+
+    # just in case
+    xlims!(pp, (p1[1], p1[end]))
+    ylims!(pp, (p2[1], p2[end]))
     
-    return (paramLandscape)
+    return (pp)
 end
 
 # Test applying euler integration to the initial traj
@@ -305,6 +350,107 @@ function cu.robj(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, para
     Favg /= (N) # [mN]
     # avg lift
     return [Favg[2] - 100]
+end
+
+# param opt stuff ------------------------
+
+function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
+    cbar, T = param
+    return [1, cbar, cbar^2], T
+end
+
+function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple)
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+    nq = ny÷2
+
+    # Make a new traj where the dynamics constraint is satisfied exactly
+    traj1 = copy(traj)
+	yk = k -> @view traj1[liy[:,k]]
+    uk = k -> @view traj1[liu[:,k]]
+    for k=1:N
+        traj1[liy[:,k+1]] = yk(k) + δt * cu.dydt(m, yk(k), uk(k), param)
+    end
+
+    # Param stuff
+    cbar, T = param
+    # lumped parameter vector
+    pb, T = cu.paramLumped(m, param) # NOTE the actual param values are only needed for the test mode
+    # pb = [T^2, cbar*T]
+    pt = [pb; T^(-2)]
+    npt = length(pt) # add T^(-2)
+    # This multiplies pbar from the left to produce the right side
+    Iwing = m.mwing * cbar^2 # cbar is in mm
+    
+    # If test is true, it will test the affine relation
+    test = false
+
+    function HMqT(ypos, yvel)
+        σa, Ψ, σ̇adum, Ψ̇dum = ypos
+        σadum, Ψdum, σ̇a, Ψ̇ = yvel
+        # Need the original T to use output coords
+        σo = T * σa
+        σ̇o = T * σ̇a
+        return [σ̇o*(m.mspar+m.mwing)   Ψ̇*m.mwing*cos(Ψ)   0   σ̇o*m.ma;
+        Ψ̇*Iwing   σ̇o*m.mwing*cos(Ψ)   Ψ̇*m.mwing    0]
+    end
+
+    function HCgJT(y, F)
+        σa, Ψ, σ̇a, Ψ̇ = y
+        # Need the original T to use output coords
+        σo = T * σa
+        σ̇o = T * σ̇a
+        # See notes: this F stuff is w2d specific
+        Ftil = -F/cbar
+        rcop = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
+
+        # FIXME: this orig version probably has a negative sign error on the dynamics terms
+        # return [0   -m.kσ*σa-m.bσ*σ̇a   Ftil[1]   0   0;
+        # -m.kΨ*Ψ-m.bΨ*Ψ̇   0   0   -σ̇a*Ψ̇*m.mwing*sin(Ψ)   rcopnondim*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))]
+        # 1st order version
+        return [m.kσ*σo+m.bσ*σ̇o   -Ψ̇^2*m.mwing*sin(Ψ)+Ftil[1]   0    m.ba*σ̇o + m.ka*σo;
+        m.kΨ*Ψ+m.bΨ*Ψ̇   0   rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))    0]
+    end
+
+    # this is OK - see notes
+    # Htil = (y, ynext, F) -> HMq(ynext) - HMq(y) + δt*HCgJ(y, F)
+    # 1st order integration mods
+    Htil = (y, ynext, F) -> HMqT(y, ynext) - HMqT(y, y) + δt*HCgJT(y, F)
+
+    # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
+    B = [1.0, 0.0]
+    
+    # Weights
+    Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
+
+    Quu = zeros(npt, npt)
+    qyu = zeros(npt)
+    qyy = 0
+    if test
+        Hpb = zeros(nq, N)
+        Bu = similar(Hpb)
+        errk = zeros(ny, N)
+    end
+
+    for k=1:N
+        _, Jaero, Faero = w2daero(yk(k), uk(k), param)
+        # Add same F as the traj produced NOTE: this has the assumption that the interaction force is held constant.
+        Hh = Htil(yk(k), yk(k+1), Faero)
+        Quu += Hh' * B * Ruu * B' * Hh # (T*pt)' * Quu * (T*pt)
+        # Need output coords
+        yo = [T, 1.0, T, 1.0] .* yk(k)
+        qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yo) # qyu' * pt
+        qyy += yo' * Ryy * yo # qyy * T^(-2)
+        if test
+            errk[:,k] = -yk(k+1) + yk(k) + δt * cu.dydt(m, yk(k), uk(k), param)
+            Hpb[:,k] = Hh * pt
+            Bu[:,k] = δt * B * uk(k)[1] / T
+        end
+    end
+    if test
+        return Hpb, Bu, errk
+    else
+        return Quu, qyu, qyy
+    end
 end
 
 

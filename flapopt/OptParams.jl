@@ -1,5 +1,6 @@
 
 include("OptBase.jl") #< including this helps vscode reference the functions in there
+include("OptCustom.jl")
 using ProgressMeter # temp
 #=========================================================================
 Param opt
@@ -166,8 +167,119 @@ function optnaive(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, tra
 end
 
 # --------------
+"Implement this"
+function paramAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple)
+	error("Implement this!")
+end
 
-function optAffine()
+"Implement this"
+paramLumped(m::Model, param::AbstractArray) = error("Implement this")
 
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple; hessreg::Float64=0, kwargs...)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+
+	# Quadratic form matrix
+	Quu, qyu, qyy = paramAffine(m, opt, traj, param, R)
+	# GN -------------------------
+	# function pFeasible(p)
+	# 	cbar, T = p
+	# 	return T >= 1 # FIXME: testing
+	# end
+	# np = 2
+
+	# # variable to update
+	# x = copy(param)
+	# x1 = similar(x)
+
+	# # Gauss-Newton iterations with the feasible space of p
+	# for stepi=1:10
+	# 	# Cost function for this step
+	# 	Jx = p -> pb(p)' * Rp * pb(p)
+	# 	rx = p -> S * pb(p)
+	# 	# Current jacobian
+	# 	r0 = rx(x)
+	# 	Dr0 = ForwardDiff.jacobian(rx, x)
+	# 	# Gauss-Newton
+	# 	∇J = Dr0' * r0
+	# 	HJ = Dr0' * Dr0 + hessreg * I
+	# 	v = -HJ\∇J #descent direction
+
+	# 	J0 = Jx(x)
+	# 	J1 = csBacktrackingLineSearch!(x1, x, ∇J, v, J0, Jx; α=0.2, β=0.7, isFeasible=pFeasible)
+	# 	x .= x1
+	# end
+	
+	# return x
+
+	# IPOPT ---------------------------
+	
+	Aconstraint = [1.0  1.0] # testing linear constraint - useless for now
+	eval_g(x::Vector, g::Vector) = (g .= Aconstraint * x)
+	function eval_jac_g(x::Vector{Float64}, mode, row::Vector{Int32}, col::Vector{Int32}, value::Vector)
+		if mode != :Structure
+			value[1] = Aconstraint[1]
+			value[2] = Aconstraint[2]
+		else
+			row[1] = row[2] = 1
+			col[1] = 1
+			col[2] = 2
+		end
+	end
+
+	# Total cost: 1/2 (T*pt)' * Quu * (T*pt) + 1/2 qyy * T^(-2) + qyu' * pt
+	# TODO: quadratic version. for now just nonlinear
+	function eval_f(x::AbstractArray)
+		pb, T = paramLumped(m, x)
+		pt = [pb; T^(-2)]
+		return 1/2 * ((T*pt)' * Quu * (T*pt) + qyy * T^(-2)) + qyu' * pt
+	end
+	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, eval_f, x)
+
+	# # Plot
+	# display(Quu)
+	# display(qyu)
+	# Ts = collect(1.0:1.0:200.0)
+	# fs = [eval_f([param[1], T]) for T in Ts]
+    # plot(Ts, fs, xlabel="T")
+    # gui()
+	
+	# Create IPOPT problem
+	prob = Ipopt.createProblem(
+		length(param), # Number of variables
+		[0.1, 0.1], # Variable lower bounds
+		[10.0, 1000.0], # Variable upper bounds
+		1, # Number of constraints
+		[-1000.0],       # Constraint lower bounds
+		[1000.0],       # Constraint upper bounds
+		2,  # Number of non-zeros in Jacobian
+		0,             # Number of non-zeros in Hessian
+		eval_f,                     # Callback: objective function
+		eval_g,                     # Callback: constraint evaluation
+		eval_grad_f,                # Callback: objective function gradient
+		eval_jac_g,                 # Callback: Jacobian evaluation
+		nothing           # Callback: Hessian evaluation
+	)
+	Ipopt.addOption(prob, "hessian_approximation", "limited-memory")
+
+	# Add options using kwargs
+	for (k,v) in pairs(kwargs)
+		# println(k, " => ", v)
+		Ipopt.addOption(prob, string(k), v)
+	end
+
+	# TODO: this should be an update only without need to setup. would need to update params.
+	prob.x = copy(param)
+	status = Ipopt.solveProblem(prob)
+	return prob.x, eval_f
+
+	# # Without that T, can just use OSQP -------------------------
+	# mo = OSQP.Model()
+	# # OSQP.setup!(mo; P=sparse(ones(np,np)), q=ones(np), A=sparse(row, col, val, ng, np), l=ones(ng), u=ones(ng), settings...)
+	# OSQP.setup!(mo; P=sparse(Rp), q=zeros(np)) # no constraint for now
+
+	# # OSQP.update!(mo; q=q)
+	# res = OSQP.solve!(mo)
+
+	# return res.x
 end
 
