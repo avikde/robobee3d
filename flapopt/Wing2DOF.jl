@@ -442,7 +442,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yo) # qyu' * pt
         qyy += yo' * Ryy * yo # qyy * T^(-2)
         # For ID, need uk
-        qyumeas -= Hh' * B * Ruu * uk(k)
+        qyumeas -= Hh' * B * Ruu * (δt * uk(k))
 
         if test
             errk[:,k] = -yk(k+1) + yk(k) + δt * cu.dydt(m, yk(k), uk(k), param)
@@ -451,7 +451,8 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         end
     end
     if test
-        return Hpb, Bu, errk
+        display(Hpb - Bu)
+        error("Tested")
     else
         return Quu, qyu, qyy, qyumeas
     end
