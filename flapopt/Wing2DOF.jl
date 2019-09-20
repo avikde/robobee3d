@@ -353,6 +353,7 @@ end
 # param opt stuff ------------------------
 
 function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
+    display(param)
     cbar, T, mwing = param
     return [1, mwing, mwing*cbar, mwing*cbar^2], T
 end
