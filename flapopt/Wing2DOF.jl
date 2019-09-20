@@ -303,6 +303,8 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, paramObj
     #     cu.gvalues!(g, m, opt, traj, [p1,p2], traj[1:4])
     #     cu.Jobj(m, opt, traj, [p1,p2]) + μ/2 * g' * g
     # end
+    println("BLAH BLAH")
+    # FIXME: here
     f(p1, p2) = paramObj([p1, p2])
     pp = contour(p1, p2, f, fill=true, seriescolor=cgrad(:bluesreds), xlabel="chord", ylabel="T")
 
@@ -353,7 +355,6 @@ end
 # param opt stuff ------------------------
 
 function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
-    display(param)
     cbar, T, mwing = param
     return [1, mwing, mwing*cbar, mwing*cbar^2], T
 end
