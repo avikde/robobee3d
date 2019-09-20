@@ -180,10 +180,10 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
     nq = ny÷2
     # lumped parameter vector
-    pb, T = paramLumped(m, param) # NOTE the actual param values are only needed for the test mode
+    pbTEST, TTEST = paramLumped(m, param) # NOTE the actual param values are only needed for the test mode
     # pb = [T^2, cbar*T]
-    pt = [pb; T^(-2)]
-    npt = length(pt) # add T^(-2)
+    ptTEST = [pbTEST; TTEST^(-2)]
+    npt = length(pbTEST) + 1 # add T^(-2)
     
     # Weights
     Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
@@ -216,8 +216,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		end
 
         if test
-            Hpb[:,k] = Hk(k) * pt
-            Bu[:,k] = δt * B * umeas(k)[1] / T
+            Hpb[:,k] = Hk(k) * ptTEST
+            Bu[:,k] = δt * B * umeas(k)[1] / TTEST
         end
     end
     if test
