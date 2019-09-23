@@ -294,7 +294,7 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, paramObj
     # First plot the param landscape
     cbars = 0:0.2:5.0
     Ts = 10.0:1.0:50
-    mwings = 0.1:0.05:1.0
+    mwings = 0.1:0.1:3.0
 
     # different param vectors passed in
     params = hcat(args...) # Np x Nsteps
