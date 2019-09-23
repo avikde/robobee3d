@@ -375,7 +375,7 @@ end
 
 function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
     cbar, T, mwing = param
-    return [1, mwing, mwing*cbar, mwing*cbar^2], T
+    return [1, cbar, mwing, mwing*cbar, mwing*cbar^2], T
 end
 
 function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple)
@@ -400,8 +400,8 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         # Need the original T to use output coords
         σo = T * σa
         σ̇o = T * σ̇a
-        return [0   σ̇o   Ψ̇*cos(Ψ)   0   σ̇o*m.ma;
-        0   0   σ̇o*cos(Ψ)   2*Ψ̇    0]
+        return [0   0   σ̇o   Ψ̇*cos(Ψ)   0   σ̇o*m.ma;
+        0   0   0   σ̇o*cos(Ψ)   2*Ψ̇    0]
     end
 
     function HCgJT(y, F)
@@ -417,8 +417,8 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         # return [0   -m.kσ*σa-m.bσ*σ̇a   Ftil[1]   0   0;
         # -m.kΨ*Ψ-m.bΨ*Ψ̇   0   0   -σ̇a*Ψ̇*m.mwing*sin(Ψ)   rcopnondim*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))]
         # 1st order version
-        return [m.kσ*σo+m.bσ*σ̇o+Ftil[1]   0   -Ψ̇^2*sin(Ψ)   0    m.ba*σ̇o + m.ka*σo;
-        m.kΨ*Ψ+m.bΨ*Ψ̇+rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0]
+        return [m.kσ*σo+m.bσ*σ̇o+Ftil[1]   0   0   -Ψ̇^2*sin(Ψ)   0    m.ba*σ̇o + m.ka*σo;
+        m.kΨ*Ψ+m.bΨ*Ψ̇    rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0]
     end
 
     # this is OK - see notes
