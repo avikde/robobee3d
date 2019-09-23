@@ -26,7 +26,7 @@ ny, nu = cu.dims(m)
 opt = cu.OptOptions(false, 0.2, 1, :symmetric, 1e-8, false)
 # opt = cu.OptOptions(false, 0.2, 1, cu.SYMMETRIC, 1e-8, false)
 N = opt.boundaryConstraint == :symmetric ? 17 : 34
-param0 = [2.0, 20.0, 0.52] # cbar[mm], T, mwing[mg]
+param0 = [2.25, 28.33, 0.52] # cbar[mm] (W/2 in Table I [Jafferis (2016)]), T (from 3333 rad/m, R=17, [Jafferis (2016)]), mwing[mg]
 
 # Stiffness sweep ---
 # function respkσ(kσ)
@@ -41,11 +41,14 @@ param0 = [2.0, 20.0, 0.52] # cbar[mm], T, mwing[mg]
 
 trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
-param1, paramObj = cu.optAffine(m, opt, traj0, param0, 1, (zeros(4,4), 1.0, 0.01*ones(1,1)); test=true, hessreg=1e-3, print_level=1)
+param1, paramObj = cu.optAffine(m, opt, traj0, param0, 1, (zeros(4,4), 1.0, 0.01*ones(1,1)); test=false, hessreg=1e-3, print_level=1)
 
-# display(param1')
-# pls = plotParams(m, opt, traj0, paramObj, param0, param1)
-# plot(pls...)
+# mwings = collect(0.1:0.1:2)
+# plot(mwings, paramObj.([[param0[1:2];mwing] for mwing in mwings]))
+
+display(param1')
+pls = plotParams(m, opt, traj0, paramObj, param0, param1)
+plot(pls...)
 
 # # traj opt ------------------------------------
 

@@ -27,7 +27,7 @@ Reasonable limits:
 Params:
 - cbar = wing chord
 - T = transmission ratio. i.e. wing spar displacement σ = T q[1].
-- R = wing length. This is irrelevant for the 2DOF model, but choosing one for now as 20mm. This is used to (a) calculate the aero force, and (b) in the plotting to show the "stroke angle" as a more intuitive version of σ.
+- R = wing length. This is irrelevant for the 2DOF model, but choosing one for now from [Jafferis (2016)]. This is used to (a) calculate the aero force, and (b) in the plotting to show the "stroke angle" as a more intuitive version of σ.
 
 NOTE:
 - The "T" above is unitless. You can intuitively think of a wing "stroke angle" ~= T q[1] / (R / 2) (using σ as the arc length and "R/2" as the radius). This is distinct from the Toutput (in rad/m), and they are related as T ~= Toutput ⋅ (R / 2).
@@ -46,7 +46,7 @@ struct Wing2DOFModel <: controlutils.Model
 end
 
 # Fixed params -----------------
-const R = 20.0
+const R = 17.0 # [Jafferis (2016)]
 # const γ = 5.0 # wing shape fitting
 
 function cu.dims(m::Wing2DOFModel)::Tuple{Int, Int}
