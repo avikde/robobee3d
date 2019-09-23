@@ -176,7 +176,7 @@ end
 paramLumped(m::Model, param::AbstractArray) = error("Implement this")
 
 "Mode=1 => opt, mode=2 ID"
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple; hessreg::Float64=0, kwargs...)
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple; hessreg::Float64=0, test=false, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
     nq = ny÷2
     # lumped parameter vector
@@ -192,7 +192,6 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R)
 
     # If test is true, it will test the affine relation
-    test = false
     if test
         Hpb = zeros(nq, N)
         Bu = similar(Hpb)

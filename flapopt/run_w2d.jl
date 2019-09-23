@@ -41,12 +41,11 @@ param0 = [2.0, 20.0, 0.52] # cbar[mm], T, mwing[mg]
 
 trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
-# Hpb, Bu, errk = cu.paramAffine(m, opt, traj0, param0, 0.001*ones(1,1), [0,1.0])
-param1, paramObj = cu.optAffine(m, opt, traj0, param0, 1, (zeros(4,4), 1.0, 0.01*ones(1,1)); hessreg=1e-3, print_level=1)
+param1, paramObj = cu.optAffine(m, opt, traj0, param0, 1, (zeros(4,4), 1.0, 0.01*ones(1,1)); test=true, hessreg=1e-3, print_level=1)
 
-display(param1')
-pls = plotParams(m, opt, traj0, paramObj, param0, param1)
-plot(pls...)
+# display(param1')
+# pls = plotParams(m, opt, traj0, paramObj, param0, param1)
+# plot(pls...)
 
 # # traj opt ------------------------------------
 
