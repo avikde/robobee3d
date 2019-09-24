@@ -76,8 +76,9 @@ function analyzeData(fname)
 end
 
 "Align the rows at the bottom so the all have the same #rows first.
-Assumes the first 2 rows are text and headers"
-function videoTrack(fname)
+Assumes the first 2 rows are text and headers.
+dC, dD are the distances of those points from the wing spar (this is the only metric information needed)."
+function videoTrack(fname, dC=1.0, dD=1.0, vidX=200, trialFreq=130)
 	dat = readdlm(fname, ',', Float64, skipstart=2)
 	# Should be an Nx12 array, for mass A (t, x, y), ... mass D
 	# Use the first col as the time vector
@@ -118,10 +119,6 @@ function videoTrack(fname)
 	end
 
 	function find_Ψ(pBi, pCi, pDi, p0, Φi)
-		# Need these
-		dC = 1.0
-		dD = 1.0
-
 		# First some helper functions
 		Rot = Φ -> [cos(Φ) -sin(Φ); sin(Φ) cos(Φ)]
 
@@ -140,6 +137,8 @@ function videoTrack(fname)
 		return asin(sΨ)
 	end
 
+	# get time in ms
+	tms = 1000*tq/vidX
 	pA, pB, pC, pD = [xy_at_t(i; k=1) for i=1:4] # Nx2 x 4
 	Np = length(tq)
 	p0 = find_p0(pA, pB)
@@ -157,16 +156,17 @@ function videoTrack(fname)
 		# Stroke line
 		plot!(w, [p0[1], p0[1] + span*cos(Φ[k])], [p0[2], p0[2] + span*sin(Φ[k])], color=:black, label="spar")
 
-		w2 = plot(tq, Φ.-mean(Φ), label="stroke")
-		w2 = plot!(w2, tq, Ψ, label="hinge")
+		w2 = plot(tms, Φ.-mean(Φ), linewidth=2, label="stroke")
+		plot!(w2, tms, Ψ, linewidth=2, label="hinge")
+		vline!(w2, [tms[k]])
 		return plot(w, w2, layout=(2,1))
 	end
 	@gif for k = 1:Np
 		drawFrame(k)
-    end
+	end
 
-	# return tq, pA
+	return tms, Φ.-mean(Φ), Ψ
 end
 
-xy4 = videoTrack("data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv")
+videoTrack("data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv")
 # analyzeData("../../../Desktop/vary_amplitude_no_lateral_wind_data/Test 22, 02-Sep-2016-11-39.mat")
