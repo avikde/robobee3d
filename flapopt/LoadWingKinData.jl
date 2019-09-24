@@ -175,5 +175,5 @@ function videoTrack(fname, dC=1.0, dD=1.0, vidX=200, trialFreq=130)
 	return tms, Φ.-mean(Φ), Ψ
 end
 
-tms, Φ, Ψ = videoTrack("data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv")
+# tms, Φ, Ψ = videoTrack("data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv")
 # analyzeData("../../../Desktop/vary_amplitude_no_lateral_wind_data/Test 22, 02-Sep-2016-11-39.mat")

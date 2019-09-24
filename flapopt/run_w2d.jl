@@ -7,6 +7,7 @@ using Revise # while developing
 import controlutils
 cu = controlutils
 includet("Wing2DOF.jl")
+includet("LoadWingKinData.jl")
 
 # create an instance
 # From Patrick 300 mN-mm/rad. 1 rad => R/2 σ-displacement. The torque is applied with a lever arm of R/2 => force = torque / (R/2)
@@ -39,16 +40,21 @@ param0 = [3.2, 28.33, 0.52] # cbar[mm] (area/R), T (from 3333 rad/m, R=17, [Jaff
 # pls = respkσ.(kσs)
 # plot(pls...)
 
-trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
+# Load data
+tms, Φ, Ψ = videoTrack("data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv")
+# TODO: convert to stroke pos
 
-param1, paramObj = cu.optAffine(m, opt, traj0, param0, 1, (zeros(4,4), 1.0, 0.01*ones(1,1)); test=false, hessreg=1e-3, print_level=1)
+# # Sim data
+# trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
-# mwings = collect(0.1:0.1:2)
-# plot(mwings, paramObj.([[param0[1:2];mwing] for mwing in mwings]))
+# param1, paramObj = cu.optAffine(m, opt, traj0, param0, 1, (zeros(4,4), 1.0, 0.01*ones(1,1)); test=false, hessreg=1e-3, print_level=1)
 
-display(param1')
-pls = plotParams(m, opt, traj0, paramObj, param0, param1)
-plot(pls...)
+# # mwings = collect(0.1:0.1:2)
+# # plot(mwings, paramObj.([[param0[1:2];mwing] for mwing in mwings]))
+
+# display(param1')
+# pls = plotParams(m, opt, traj0, paramObj, param0, param1)
+# plot(pls...)
 
 # # traj opt ------------------------------------
 
