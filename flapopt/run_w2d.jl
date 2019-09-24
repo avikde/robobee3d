@@ -26,7 +26,7 @@ ny, nu = cu.dims(m)
 opt = cu.OptOptions(false, 0.2, 1, :symmetric, 1e-8, false)
 # opt = cu.OptOptions(false, 0.2, 1, cu.SYMMETRIC, 1e-8, false)
 N = opt.boundaryConstraint == :symmetric ? 17 : 34
-param0 = [2.25, 28.33, 0.52] # cbar[mm] (W/2 in Table I [Jafferis (2016)]), T (from 3333 rad/m, R=17, [Jafferis (2016)]), mwing[mg]
+param0 = [3.2, 28.33, 0.52] # cbar[mm] (area/R), T (from 3333 rad/m, R=17, [Jafferis (2016)]), mwing[mg]
 
 # Stiffness sweep ---
 # function respkσ(kσ)

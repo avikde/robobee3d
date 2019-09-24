@@ -296,7 +296,7 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, paramObj
 
     # different param vectors passed in
     params = hcat(args...) # Np x Nsteps
-    param0 = args[1]
+    param0 = args[end] # for the slices use the last param
 
     # # Old: f defined here
     # Ng = opt.boundaryConstraint == cu.SYMMETRIC ? (N+2)*ny : (N+1)*ny
