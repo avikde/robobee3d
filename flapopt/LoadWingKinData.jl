@@ -1,4 +1,4 @@
-using MAT, DSP, Dierckx, DelimitedFiles
+using MAT, DSP, Dierckx, DelimitedFiles, LinearAlgebra
 using Plots; gr()
 
 "Has data for 8 channels, in pairs of (ti,datai) and the columns are stacked"
@@ -89,8 +89,33 @@ function videoTrack(fname)
 		sply = Spline1D(dat[:,3*i-2], dat[:,3*i]; kwargs...)
 		return [splx(tq) sply(tq)]
 	end
-	xy4 = hcat([xy_at_t(i; k=1) for i=1:4]...) # Nx8
-	return tq, xy4
+	pA, pB, pC, pD = [xy_at_t(i; k=1) for i=1:4] # Nx2 x 4
+	Np = length(tq)
+
+	"Find p0, the center of rotation assuming pA, pB in the same plane using linear LS"
+	function find_p0()
+		A = zeros(Np*2,2)
+		b = zeros(Np*2)
+		for i in 1:Np
+			# these are row vectors
+			_pA = pA[i,:]
+			_pB = pB[i,:]
+			pABperp = [0 -1; 1 0] * (_pB - _pA)
+			# Append to the A,b mats for LS
+			A[2*i-1:2*i,:] = [pABperp'; pABperp']
+			b[2*i-1:2*i] = [dot(pABperp, _pA); dot(pABperp, _pB)]
+		end
+
+		# solve A*p0 = b
+		return A\b
+	end
+
+	p0 = find_p0()
+	println("p0 = ", p0)
+
+	plot(tq, pA[:,1])
+
+	return tq, pA
 end
 
 xy4 = videoTrack("data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv")
