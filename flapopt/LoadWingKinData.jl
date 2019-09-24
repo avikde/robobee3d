@@ -55,30 +55,32 @@ function filterDataFull(fname, tstart, tend, cutoff_freq)
 end
 
 
-function analyzeData(fname)
+function loadDAQData(fname)
 	data, currTest = filterDataFull(fname, 2.2, 2.3, 600)
 	# These are the channels
 	drag, lift, opDisp, powerBias, powerSig, camTrig, sig, bias = data
 
-	ld = plot(lift[:,1], lift[:,2], label="lift")
-	plot!(ld, drag[:,1], -drag[:,2], label="drag")
+	# ld = plot(lift[:,1], lift[:,2], label="lift")
+	# plot!(ld, drag[:,1], -drag[:,2], label="drag")
 
-	u = plot(sig[:,1], sig[:,2], label="sig")
-	plot!(u, bias[:,1], bias[:,2], label="bias")
+	# u = plot(sig[:,1], sig[:,2], label="sig")
+	# plot!(u, bias[:,1], bias[:,2], label="bias")
 
-	pow = plot(powerSig[:,1], powerSig[:,2], label="psig")
-	plot!(pow, powerBias[:,1], powerBias[:,2], label="pbias")
+	# pow = plot(powerSig[:,1], powerSig[:,2], label="psig")
+	# plot!(pow, powerBias[:,1], powerBias[:,2], label="pbias")
 
-	p4 = plot(opDisp[:,1], opDisp[:,2], label="opDisp")
+	# p4 = plot(opDisp[:,1], opDisp[:,2], label="opDisp")
 	# plot!(p4, camTrig[:,1], camTrig[:,2], label="camTrig")
 
-	plot(ld, u, pow, p4)
+	# plot(ld, u, pow, p4)
+
+	return sig, currTest
 end
 
 "Align the rows at the bottom so the all have the same #rows first.
 Assumes the first 2 rows are text and headers.
 dC, dD are the distances of those points from the wing spar (this is the only metric information needed)."
-function videoTrack(fname, dC=1.0, dD=1.0, vidX=200, trialFreq=130)
+function loadVideoData(fname; dC=1.0, dD=1.0, vidX=200, trialFreq=130)
 	dat = readdlm(fname, ',', Float64, skipstart=2)
 	# Should be an Nx12 array, for mass A (t, x, y), ... mass D
 	# Use the first col as the time vector
@@ -168,12 +170,38 @@ function videoTrack(fname, dC=1.0, dD=1.0, vidX=200, trialFreq=130)
 		vline!(w2, [tms[k]])
 		return plot(w, w2, layout=(2,1))
 	end
-	@gif for k = 1:Np
-		drawFrame(k)
-	end
+	# @gif for k = 1:Np
+	# 	drawFrame(k)
+	# end
 
 	return tms, Φ.-mean(Φ), Ψ
 end
 
-# tms, Φ, Ψ = videoTrack("data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv")
-# analyzeData("../../../Desktop/vary_amplitude_no_lateral_wind_data/Test 22, 02-Sep-2016-11-39.mat")
+"tstartMat is the first timestamp used from the MAT file, and 1 cycle is used"
+function loadAlignedData(fnameMat, fnameCSV, tstartMat)
+	sig, currTest = loadDAQData(fnameMat)
+	freq = currTest["Actuators"]["Frequency"][1]
+	Vpp = currTest["Actuators"]["Amplitude"][1]
+	tms, Φ, Ψ = loadVideoData(fnameCSV; trialFreq=freq)
+	
+	# Find one cycle of data from the mat
+	ind_tstart = findfirst(x -> x >= tstartMat, sig[:,1])
+	ind_tend = findfirst(x -> x >= tstartMat + 1/freq, sig[:,1])
+
+	function alignDAQToVideo(daqVec)
+		# align voltage to the same times
+		t = daqVec[ind_tstart:ind_tend,1]
+		t .= (t .- t[1]) * 1000 # to ms
+		v = daqVec[ind_tstart:ind_tend,2]
+
+		spl = Spline1D(t, v; k=2)
+		return spl(tms)
+	end
+	# Vpp = max.(sig2)
+	DAQ_To_Volts = 100 # Manually checked for 180V, max was 1.795
+	Volts_To_Force = 0.75 # [mN/V]
+	uact = (alignDAQToVideo(sig) * DAQ_To_Volts .- Vpp/2) * Volts_To_Force
+	return tms, Φ, Ψ, uact
+end
+
+# loadAlignedData("../../../Desktop/vary_amplitude_no_lateral_wind_data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.24)
