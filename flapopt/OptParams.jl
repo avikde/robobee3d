@@ -176,14 +176,14 @@ end
 paramLumped(m::Model, param::AbstractArray) = error("Implement this")
 
 "Mode=1 => opt, mode=2 ID"
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple; hessreg::Float64=0, kwargs...)
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple; hessreg::Float64=0, test=false, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
     nq = ny÷2
     # lumped parameter vector
-    pb, T = paramLumped(m, param) # NOTE the actual param values are only needed for the test mode
+    pbTEST, TTEST = paramLumped(m, param) # NOTE the actual param values are only needed for the test mode
     # pb = [T^2, cbar*T]
-    pt = [pb; T^(-2)]
-    npt = length(pt) # add T^(-2)
+    ptTEST = [pbTEST; TTEST^(-2)]
+    npt = length(pbTEST) + 1 # add T^(-2)
     
     # Weights
     Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
@@ -192,7 +192,6 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R)
 
     # If test is true, it will test the affine relation
-    test = false
     if test
         Hpb = zeros(nq, N)
         Bu = similar(Hpb)
@@ -216,8 +215,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		end
 
         if test
-            Hpb[:,k] = Hk(k) * pt
-            Bu[:,k] = δt * B * umeas(k)[1] / T
+            Hpb[:,k] = Hk(k) * ptTEST
+            Bu[:,k] = δt * B * umeas(k)[1] / TTEST
         end
     end
     if test
@@ -257,17 +256,18 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# return x
 
 	# IPOPT ---------------------------
-	
-	Aconstraint = [1.0  1.0] # testing linear constraint - useless for now
+	Aconstraint = ones(1, length(param)) # testing linear constraint - useless for now
 	eval_g(x::Vector, g::Vector) = (g .= Aconstraint * x)
 	function eval_jac_g(x::Vector{Float64}, mode, row::Vector{Int32}, col::Vector{Int32}, value::Vector)
 		if mode != :Structure
 			value[1] = Aconstraint[1]
 			value[2] = Aconstraint[2]
+			value[3] = Aconstraint[3]
 		else
-			row[1] = row[2] = 1
+			row[1] = row[2] = row[3] = 1
 			col[1] = 1
 			col[2] = 2
+			col[3] = 3
 		end
 	end
 
@@ -295,12 +295,12 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# Create IPOPT problem
 	prob = Ipopt.createProblem(
 		length(param), # Number of variables
-		[0.1, 0.1], # Variable lower bounds
-		[10.0, 1000.0], # Variable upper bounds
+		[0.1, 0.1, 0.1], # Variable lower bounds
+		[10.0, 1000.0, 2], # Variable upper bounds
 		1, # Number of constraints
 		[-1000.0],       # Constraint lower bounds
 		[1000.0],       # Constraint upper bounds
-		2,  # Number of non-zeros in Jacobian
+		3,  # Number of non-zeros in Jacobian
 		0,             # Number of non-zeros in Hessian
 		eval_f,                     # Callback: objective function
 		eval_g,                     # Callback: constraint evaluation
