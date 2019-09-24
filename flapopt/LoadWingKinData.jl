@@ -1,4 +1,4 @@
-using MAT, DSP, Dierckx, DelimitedFiles, LinearAlgebra, Statistics
+using MAT, DSP, Dierckx, DelimitedFiles, LinearAlgebra, Statistics, Interpolations
 using Plots; gr()
 
 "Has data for 8 channels, in pairs of (ti,datai) and the columns are stacked"
@@ -201,6 +201,34 @@ function loadAlignedData(fnameMat, fnameCSV, tstartMat)
 	DAQ_To_Volts = 100 # Manually checked for 180V, max was 1.795
 	Volts_To_Force = 0.75 # [mN/V]
 	uact = (alignDAQToVideo(sig) * DAQ_To_Volts .- Vpp/2) * Volts_To_Force
+	# sample rate
+	fs = 1/mean(diff(tms))
+
+	function numDeriv(v)
+		dv = diff(v) ./ diff(tms)
+		return [dv; dv[1]]
+	end
+
+	"cutoff_freq is in KHz"
+	function lpfilt(v, ord, cutoff_freq)
+		# Design the filter
+		myfilter = digitalfilter(Lowpass(cutoff_freq; fs=fs), Butterworth(ord))
+		return filtfilt(myfilter, v)
+	end
+	
+	Ψ .= lpfilt(Ψ, 2, 1.5)
+	dΦ = lpfilt(numDeriv(Φ), 2, 1.5)
+	dΨ = lpfilt(numDeriv(Ψ), 2, 1.0)
+	# Now convert to dirtran form for compatibilty with prior code
+	
+	# TODO: convert to stroke pos
+
+	aa = plot(tms, Φ)
+	plot!(aa, tms, Ψ)
+	bb = plot(tms, dΦ)
+	plot!(bb, tms, dΨ)
+	plot(aa, bb, layout=(2,1))
+	gui()
 	return tms, Φ, Ψ, uact
 end
 
