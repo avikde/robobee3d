@@ -114,7 +114,7 @@ function videoTrack(fname)
 		F = svd(A)
 		# Last singular value in F.S should be small. Corresponding right nullsp vector is the last col of V
 		cΦ, sΦ = F.Vt[end,:]
-		return atan(sΦ/cΦ)
+		return atan(sΦ/cΦ)-π/2
 	end
 
 	pA, pB, pC, pD = [xy_at_t(i; k=1) for i=1:4] # Nx2 x 4
@@ -123,20 +123,21 @@ function videoTrack(fname)
 	# println("p0 = ", p0)
 	Φ = [find_Φ(pA[i,:], pB[i,:], p0) for i=1:Np]
 
-	plot(tq, Φ)
-	gui()
-	# display
-	# function drawFrame(k)
-	# 	w = plot([p0[1]], [p0[2]], marker=:auto, color=:black, label="p0", xlims=(5,20), ylims=(-5,10), aspect_ratio=1)
-	# 	plot!(w, [pA[k,1]], [pA[k,2]], marker=:auto, color=:red, label="pA")
-	# 	plot!(w, [pB[k,1]], [pB[k,2]], marker=:auto, color=:cyan, label="pB")
-	# 	plot!(w, [pC[k,1]], [pC[k,2]], marker=:auto, color=:magenta, label="pC")
-	# 	plot!(w, [pD[k,1]], [pD[k,2]], marker=:auto, color=:purple, label="pD")
-	# 	return w
-	# end
-	# @gif for k = 1:Np
-	# 	drawFrame(k)
-    # end
+	display
+	function drawFrame(k)
+		span = 12.8
+		w = plot([p0[1]], [p0[2]], marker=:auto, color=:black, label="p0", xlims=(5,20), ylims=(-5,10), aspect_ratio=1)
+		plot!(w, [pA[k,1]], [pA[k,2]], marker=:auto, color=:red, label="pA")
+		plot!(w, [pB[k,1]], [pB[k,2]], marker=:auto, color=:cyan, label="pB")
+		plot!(w, [pC[k,1]], [pC[k,2]], marker=:auto, color=:magenta, label="pC")
+		plot!(w, [pD[k,1]], [pD[k,2]], marker=:auto, color=:purple, label="pD")
+		# Stroke line
+		plot!(w, [p0[1], p0[1] + span*cos(Φ[k])], [p0[2], p0[2] + span*sin(Φ[k])], color=:black, label="spar")
+		return w
+	end
+	@gif for k = 1:Np
+		drawFrame(k)
+    end
 
 	# return tq, pA
 end
