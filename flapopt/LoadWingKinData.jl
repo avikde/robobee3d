@@ -146,6 +146,13 @@ function videoTrack(fname, dC=1.0, dD=1.0, vidX=200, trialFreq=130)
 	Φ = [find_Φ(pA[i,:], pB[i,:], p0) for i=1:Np]
 	Ψ = [find_Ψ(pB[i,:], pC[i,:], pD[i,:], p0, Φ[i]) for i=1:Np]
 	
+	# Trim to tms=1000/trialFreq
+	ind_1cyc = findfirst(x -> x >= 1000/trialFreq, tms)
+	tms = tms[1:ind_1cyc]
+	Φ = Φ[1:ind_1cyc]
+	Ψ = Ψ[1:ind_1cyc]
+	Np = length(tms)
+	
 	function drawFrame(k)
 		span = 12.8
 		w = plot([p0[1]], [p0[2]], marker=:auto, color=:black, label="p0", xlims=(0,30), ylims=(-5,10), aspect_ratio=1)
@@ -168,5 +175,5 @@ function videoTrack(fname, dC=1.0, dD=1.0, vidX=200, trialFreq=130)
 	return tms, Φ.-mean(Φ), Ψ
 end
 
-videoTrack("data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv")
+tms, Φ, Ψ = videoTrack("data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv")
 # analyzeData("../../../Desktop/vary_amplitude_no_lateral_wind_data/Test 22, 02-Sep-2016-11-39.mat")
