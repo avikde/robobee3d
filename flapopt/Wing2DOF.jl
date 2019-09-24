@@ -47,7 +47,7 @@ end
 
 # Fixed params -----------------
 const R = 17.0 # [Jafferis (2016)]
-# const γ = 5.0 # wing shape fitting
+const γ = 0.5 # location of mwing lumped mass is γ*cbar down from the spar
 
 function cu.dims(m::Wing2DOFModel)::Tuple{Int, Int}
     return 4, 1
@@ -126,11 +126,9 @@ function cu.dydt(m::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _params::
     cΨ = cos(Ψ)
     sΨ = sin(Ψ)
 
-    Iwing = mwing * cbar^2 # cbar is in mm
-
     # inertial terms
-    M = @SMatrix [mwing + m.ma/T^2   cbar*mwing*cΨ; cbar*mwing*cΨ   Iwing+cbar^2*mwing]
-    corgrav = @SVector [(m.kσ + m.ka/T^2)*σ - cbar*mwing*sΨ*Ψ̇^2, m.kΨ*Ψ]
+    M = @SMatrix [mwing + m.ma/T^2   γ*cbar*mwing*cΨ;  γ*cbar*mwing*cΨ   2*cbar^2*γ^2*mwing]
+    corgrav = @SVector [(m.kσ + m.ka/T^2)*σ - γ*cbar*mwing*sΨ*Ψ̇^2, m.kΨ*Ψ]
     # non-lagrangian terms
     τdamp = @SVector [-(m.bσ + m.ba/T^2) * σ̇, -m.bΨ * Ψ̇]
     _, Jaero, Faero = w2daero(y, _params)
@@ -400,8 +398,8 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         # Need the original T to use output coords
         σo = T * σa
         σ̇o = T * σ̇a
-        return [0   0   σ̇o   Ψ̇*cos(Ψ)   0   σ̇o*m.ma;
-        0   0   0   σ̇o*cos(Ψ)   2*Ψ̇    0]
+        return [0   0   σ̇o   γ*Ψ̇*cos(Ψ)   0   σ̇o*m.ma;
+        0   0   0   γ*σ̇o*cos(Ψ)   2*Ψ̇*γ^2    0]
     end
 
     function HCgJT(y, F)
