@@ -111,11 +111,22 @@ function videoTrack(fname)
 	end
 
 	p0 = find_p0()
-	println("p0 = ", p0)
+	# println("p0 = ", p0)
 
-	plot(tq, pA[:,1])
+	# display
+	function drawFrame(k)
+		w = plot([p0[1]], [p0[2]], marker=:auto, color=:black, label="p0", xlims=(5,20), ylims=(-5,10), aspect_ratio=1)
+		plot!(w, [pA[k,1]], [pA[k,2]], marker=:auto, color=:red, label="pA")
+		plot!(w, [pB[k,1]], [pB[k,2]], marker=:auto, color=:cyan, label="pB")
+		plot!(w, [pC[k,1]], [pC[k,2]], marker=:auto, color=:magenta, label="pC")
+		plot!(w, [pD[k,1]], [pD[k,2]], marker=:auto, color=:purple, label="pD")
+		return w
+	end
+	@gif for k = 1:Np
+		drawFrame(k)
+    end
 
-	return tq, pA
+	# return tq, pA
 end
 
 xy4 = videoTrack("data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv")
