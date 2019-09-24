@@ -80,9 +80,18 @@ Assumes the first 2 rows are text and headers"
 function videoTrack(fname)
 	dat = readdlm(fname, ',', Float64, skipstart=2)
 	# Should be an Nx12 array, for mass A (t, x, y), ... mass D
-	# return dat
-	
+	# Use the first col as the time vector
+	tq = dat[:,1]
+
+	"i = massid between 1 and 4"
+	function xy_at_t(i; kwargs...)
+		splx = Spline1D(dat[:,3*i-2], dat[:,3*i-1]; kwargs...)
+		sply = Spline1D(dat[:,3*i-2], dat[:,3*i]; kwargs...)
+		return [splx(tq) sply(tq)]
+	end
+	xy4 = hcat([xy_at_t(i; k=1) for i=1:4]...) # Nx8
+	return tq, xy4
 end
 
-videoTrack("data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv")
+xy4 = videoTrack("data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv")
 # analyzeData("../../../Desktop/vary_amplitude_no_lateral_wind_data/Test 22, 02-Sep-2016-11-39.mat")
