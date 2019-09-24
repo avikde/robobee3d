@@ -89,11 +89,9 @@ function videoTrack(fname)
 		sply = Spline1D(dat[:,3*i-2], dat[:,3*i]; kwargs...)
 		return [splx(tq) sply(tq)]
 	end
-	pA, pB, pC, pD = [xy_at_t(i; k=1) for i=1:4] # Nx2 x 4
-	Np = length(tq)
 
 	"Find p0, the center of rotation assuming pA, pB in the same plane using linear LS"
-	function find_p0()
+	function find_p0(pA, pB)
 		A = zeros(Np*2,2)
 		b = zeros(Np*2)
 		for i in 1:Np
@@ -110,21 +108,35 @@ function videoTrack(fname)
 		return A\b
 	end
 
-	p0 = find_p0()
-	# println("p0 = ", p0)
-
-	# display
-	function drawFrame(k)
-		w = plot([p0[1]], [p0[2]], marker=:auto, color=:black, label="p0", xlims=(5,20), ylims=(-5,10), aspect_ratio=1)
-		plot!(w, [pA[k,1]], [pA[k,2]], marker=:auto, color=:red, label="pA")
-		plot!(w, [pB[k,1]], [pB[k,2]], marker=:auto, color=:cyan, label="pB")
-		plot!(w, [pC[k,1]], [pC[k,2]], marker=:auto, color=:magenta, label="pC")
-		plot!(w, [pD[k,1]], [pD[k,2]], marker=:auto, color=:purple, label="pD")
-		return w
+	function find_Φ(pAi, pBi, p0)
+		A = [(pAi - p0)'; (pBi - p0)']
+		# Want a nullspace vector of A https://cseweb.ucsd.edu/classes/wi15/cse252B-a/nullspace.pdf
+		F = svd(A)
+		# Last singular value in F.S should be small. Corresponding right nullsp vector is the last col of V
+		cΦ, sΦ = F.Vt[end,:]
+		return atan(sΦ/cΦ)
 	end
-	@gif for k = 1:Np
-		drawFrame(k)
-    end
+
+	pA, pB, pC, pD = [xy_at_t(i; k=1) for i=1:4] # Nx2 x 4
+	Np = length(tq)
+	p0 = find_p0(pA, pB)
+	# println("p0 = ", p0)
+	Φ = [find_Φ(pA[i,:], pB[i,:], p0) for i=1:Np]
+
+	plot(tq, Φ)
+	gui()
+	# display
+	# function drawFrame(k)
+	# 	w = plot([p0[1]], [p0[2]], marker=:auto, color=:black, label="p0", xlims=(5,20), ylims=(-5,10), aspect_ratio=1)
+	# 	plot!(w, [pA[k,1]], [pA[k,2]], marker=:auto, color=:red, label="pA")
+	# 	plot!(w, [pB[k,1]], [pB[k,2]], marker=:auto, color=:cyan, label="pB")
+	# 	plot!(w, [pC[k,1]], [pC[k,2]], marker=:auto, color=:magenta, label="pC")
+	# 	plot!(w, [pD[k,1]], [pD[k,2]], marker=:auto, color=:purple, label="pD")
+	# 	return w
+	# end
+	# @gif for k = 1:Np
+	# 	drawFrame(k)
+    # end
 
 	# return tq, pA
 end
