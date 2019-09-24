@@ -56,12 +56,23 @@ end
 
 
 function analyzeData(fname)
-	data, currTest = filterDataFull(fname, 2.2, 3.5, 600)
+	data, currTest = filterDataFull(fname, 2.2, 2.3, 600)
 	# These are the channels
 	drag, lift, opDisp, powerBias, powerSig, camTrig, sig, bias = data
 
-	pl1 = plot(lift[:,1], lift[:,2])
-	plot(pl1)
+	ld = plot(lift[:,1], lift[:,2], label="lift")
+	plot!(ld, drag[:,1], -drag[:,2], label="drag")
+
+	u = plot(sig[:,1], sig[:,2], label="sig")
+	plot!(u, bias[:,1], bias[:,2], label="bias")
+
+	pow = plot(powerSig[:,1], powerSig[:,2], label="psig")
+	plot!(pow, powerBias[:,1], powerBias[:,2], label="pbias")
+
+	p4 = plot(opDisp[:,1], opDisp[:,2], label="opDisp")
+	# plot!(p4, camTrig[:,1], camTrig[:,2], label="camTrig")
+
+	plot(ld, u, pow, p4)
 end
 
 analyzeData("../../../Desktop/vary_amplitude_no_lateral_wind_data/Test 22, 02-Sep-2016-11-39.mat")
