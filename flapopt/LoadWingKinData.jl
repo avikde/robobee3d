@@ -1,4 +1,4 @@
-using MAT
+using MAT, DSP, Dierckx
 using Plots; gr()
 
 "Has data for 8 channels, in pairs of (ti,datai) and the columns are stacked"
@@ -8,8 +8,11 @@ function filterDataFull(fname, tstart, tend, cutoff_freq)
 	# display(vars["currTest"])
 	# display(vars["currTest"]["Actuators"])
 	sampleRate = vars["currTest"]["SampleRate"]
-	freq = vars["currTest"]["Actuators"]["Frequency"]
+	freq = vars["currTest"]["Actuators"]["Frequency"][1]
 	data = vars["data"]
+
+	# Design the filter
+	myfilter = digitalfilter(Lowpass(cutoff_freq; fs=sampleRate), Butterworth(10))
 
 	function filterChannel(i)
 		# shorten length of 8 channels to eliminate ramp up/ ramp down 
@@ -32,8 +35,18 @@ function filterDataFull(fname, tstart, tend, cutoff_freq)
 		# %        plot(data(:,2*i-1),data(:,2*i),'g-')
 		# %        p=5
 
+		sig_c_mod = filtfilt(myfilter, sig_c)
+		
+		dt = 1/(freq*30) # 30 points per cycle
+
+		t_start = time_c[1]+5/freq # throw away first five cycles
+		cycles = floor((time_c[end]-time_c[1])*freq) - 5 # throw away last five cycles
+		t_end = t_start + cycles * (1/freq)
+
 		# return Nx2
-		return [time_c sig_c]
+		spl = Spline1D(time_c, sig_c_mod; k=2)
+		tt = t_start:dt:t_end
+		return [tt   spl(tt)]
 	end
 
 	dataOut = [filterChannel(i) for i = 1:8]
@@ -46,29 +59,6 @@ function analyzeData(fname)
 	data, currTest = filterDataFull(fname, 2.2, 3.5, 600)
 	# These are the channels
 	drag, lift, opDisp, powerBias, powerSig, camTrig, sig, bias = data
-
-	# t_lift = data[:,3]
-	# lift = data[:,4]
-
-	# t_drag = data[:,1]
-	# drag = data[:,2]
-
-	# t_opDisp = data[:,5]
-	# opDisp = data[:,6]
-
-	# t_powerBias = data[:,7]
-	# powerBias = data[:,8]
-
-	# t_powerSig = data[:,9]
-	# powerSig = data[:,10]
-	# t_camTrig = data[:,11]
-	# camTrig = data[:,12]
-
-	# t_sig = data[:,13]
-	# sig = data[:,14]
-
-	# t_bias = data[:,15]
-	# bias = data[:,16]
 
 	pl1 = plot(lift[:,1], lift[:,2])
 	plot(pl1)
