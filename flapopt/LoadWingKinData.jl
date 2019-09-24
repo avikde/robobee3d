@@ -1,4 +1,4 @@
-using MAT, DSP, Dierckx
+using MAT, DSP, Dierckx, DelimitedFiles
 using Plots; gr()
 
 "Has data for 8 channels, in pairs of (ti,datai) and the columns are stacked"
@@ -75,4 +75,14 @@ function analyzeData(fname)
 	plot(ld, u, pow, p4)
 end
 
-analyzeData("../../../Desktop/vary_amplitude_no_lateral_wind_data/Test 22, 02-Sep-2016-11-39.mat")
+"Align the rows at the bottom so the all have the same #rows first.
+Assumes the first 2 rows are text and headers"
+function videoTrack(fname)
+	dat = readdlm(fname, ',', Float64, skipstart=2)
+	# Should be an Nx12 array, for mass A (t, x, y), ... mass D
+	# return dat
+	
+end
+
+videoTrack("data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv")
+# analyzeData("../../../Desktop/vary_amplitude_no_lateral_wind_data/Test 22, 02-Sep-2016-11-39.mat")
