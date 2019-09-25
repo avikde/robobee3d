@@ -178,7 +178,7 @@ function loadVideoData(fname; dC=1.0, dD=1.0, vidX=200, trialFreq=130)
 end
 
 "tstartMat is the first timestamp used from the MAT file, and 1 cycle is used"
-function loadAlignedData(fnameMat, fnameCSV, tstartMat)
+function loadAlignedData(fnameMat, fnameCSV, tstartMat; strokeMult=1.0)
 	sig, currTest = loadDAQData(fnameMat)
 	freq = currTest["Actuators"]["Frequency"][1]
 	Vpp = currTest["Actuators"]["Amplitude"][1]
@@ -222,10 +222,8 @@ function loadAlignedData(fnameMat, fnameCSV, tstartMat)
 
 	# Now convert to dirtran form for compatibilty with prior code
 	Ndp1 = length(Φ)
-	Y = [Φ';Ψ';dΦ';dΨ']
+	Y = [strokeMult*Φ';Ψ';strokeMult*dΦ';dΨ']
 	X = [reshape(Y, 4*Ndp1);uact[1:end-1]]
-	
-	# TODO: convert to stroke pos
 
 	# aa = plot(tms, Φ)
 	# plot!(aa, tms, Ψ)
