@@ -219,17 +219,21 @@ function loadAlignedData(fnameMat, fnameCSV, tstartMat)
 	Ψ .= lpfilt(Ψ, 2, 1.5)
 	dΦ = lpfilt(numDeriv(Φ), 2, 1.5)
 	dΨ = lpfilt(numDeriv(Ψ), 2, 1.0)
+
 	# Now convert to dirtran form for compatibilty with prior code
+	Ndp1 = length(Φ)
+	Y = [Φ';Ψ';dΦ';dΨ']
+	X = [reshape(Y, 4*Ndp1);uact[1:end-1]]
 	
 	# TODO: convert to stroke pos
 
-	aa = plot(tms, Φ)
-	plot!(aa, tms, Ψ)
-	bb = plot(tms, dΦ)
-	plot!(bb, tms, dΨ)
-	plot(aa, bb, layout=(2,1))
-	gui()
-	return tms, Φ, Ψ, uact
+	# aa = plot(tms, Φ)
+	# plot!(aa, tms, Ψ)
+	# bb = plot(tms, dΦ)
+	# plot!(bb, tms, dΨ)
+	# plot(aa, bb, layout=(2,1))
+	# gui()
+	return tms, X
 end
 
 # loadAlignedData("../../../Desktop/vary_amplitude_no_lateral_wind_data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.24)
