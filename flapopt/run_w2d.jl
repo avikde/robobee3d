@@ -7,6 +7,7 @@ using Revise # while developing
 import controlutils
 cu = controlutils
 includet("Wing2DOF.jl")
+includet("LoadWingKinData.jl")
 
 # create an instance
 # From Patrick 300 mN-mm/rad. 1 rad => R/2 σ-displacement. The torque is applied with a lever arm of R/2 => force = torque / (R/2)
@@ -39,9 +40,14 @@ param0 = [3.2, 28.33, 0.52] # cbar[mm] (area/R), T (from 3333 rad/m, R=17, [Jaff
 # pls = respkσ.(kσs)
 # plot(pls...)
 
-trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
+# Load data
+# Need to convert the stroke to actuator cooreds from output coords. FIXME: this shouldn't be needed for ID
+trajt, traj0 = loadAlignedData("../../../Desktop/vary_amplitude_no_lateral_wind_data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2405; strokeMult=R/(2*param0[2]), ForcePerVolt=0.75)
 
-param1, paramObj = cu.optAffine(m, opt, traj0, param0, 1, (zeros(4,4), 1.0, 0.01*ones(1,1)); test=false, hessreg=1e-3, print_level=1)
+# # Sim data
+# trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
+
+param1, paramObj = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 1.0, 0.01*ones(1,1)); test=false, hessreg=1e-3, print_level=1)
 
 # mwings = collect(0.1:0.1:2)
 # plot(mwings, paramObj.([[param0[1:2];mwing] for mwing in mwings]))
