@@ -47,20 +47,14 @@ trajt, traj0 = loadAlignedData("../../../Desktop/vary_amplitude_no_lateral_wind_
 # # Sim data
 # trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
-trajs = [traj0]
-paramss = [param0]
-pl1 = plotTrajs(m, opt, trajt, paramss, trajs)
-plot(pl1...)
+param1, paramObj = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 1.0, 0.01*ones(1,1)); test=false, hessreg=1e-3, print_level=1)
 
+# mwings = collect(0.1:0.1:2)
+# plot(mwings, paramObj.([[param0[1:2];mwing] for mwing in mwings]))
 
-# param1, paramObj = cu.optAffine(m, opt, traj0, param0, 1, (zeros(4,4), 1.0, 0.01*ones(1,1)); test=false, hessreg=1e-3, print_level=1)
-
-# # mwings = collect(0.1:0.1:2)
-# # plot(mwings, paramObj.([[param0[1:2];mwing] for mwing in mwings]))
-
-# display(param1')
-# pls = plotParams(m, opt, traj0, paramObj, param0, param1)
-# plot(pls...)
+display(param1')
+pls = plotParams(m, opt, traj0, paramObj, param0, param1)
+plot(pls...)
 
 # # traj opt ------------------------------------
 
