@@ -168,7 +168,7 @@ end
 
 # --------------
 "Implement this"
-function paramAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple)
+function paramAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple; fixTrajWithDynConst::Bool=false)
 	error("Implement this!")
 end
 
@@ -189,7 +189,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
     Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
 
 	# Quadratic form matrix
-	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R)
+	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R; fixTrajWithDynConst=test)
 
     # If test is true, it will test the affine relation
     if test
