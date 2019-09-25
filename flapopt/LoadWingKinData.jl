@@ -80,7 +80,7 @@ end
 "Align the rows at the bottom so the all have the same #rows first.
 Assumes the first 2 rows are text and headers.
 dC, dD are the distances of those points from the wing spar (this is the only metric information needed)."
-function loadVideoData(fname; dC=1.0, dD=1.0, vidX=200, trialFreq=130)
+function loadVideoData(fname; dC=1.04, dD=1.16, vidX=200, trialFreq=130)
 	dat = readdlm(fname, ',', Float64, skipstart=2)
 	# Should be an Nx12 array, for mass A (t, x, y), ... mass D
 	# Use the first col as the time vector
