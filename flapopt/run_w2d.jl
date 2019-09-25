@@ -50,17 +50,17 @@ trajt, traj0, lift, drag = loadAlignedData("../../../Desktop/vary_amplitude_no_l
 # # Sim data
 # trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
-param1, paramObj = cu.optAffine(m, opt, traj0, param0, 1, (zeros(4,4), 1.0, 0.01*ones(1,1)); test=false, hessreg=1e-3, print_level=1)
+param1, paramObj = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 1.0, 0.01*ones(1,1)); test=false, hessreg=1e-3, print_level=1)
 
 # mwings = collect(0.1:0.1:2)
 # plot(mwings, paramObj.([[param0[1:2];mwing] for mwing in mwings]))
 
-pl1 = compareTrajToDAQ(m, opt, trajt, param1, traj0, lift, drag)
-plot(pl1...)
+# pl1 = compareTrajToDAQ(m, opt, trajt, param1, traj0, lift, drag)
+# plot(pl1...)
 
-# display(param1')
-# pls = plotParams(m, opt, traj0, paramObj, param0, param1)
-# plot(pls...)
+display(param1')
+pls = plotParams(m, opt, traj0, paramObj, param0, param1)
+plot(pls...)
 
 # # traj opt ------------------------------------
 
