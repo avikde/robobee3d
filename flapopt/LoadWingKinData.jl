@@ -177,8 +177,8 @@ function loadVideoData(fname; dC=1.0, dD=1.0, vidX=200, trialFreq=130)
 	return tms, Φ.-mean(Φ), Ψ
 end
 
-"tstartMat is the first timestamp used from the MAT file, and 1 cycle is used"
-function loadAlignedData(fnameMat, fnameCSV, tstartMat; strokeMult=1.0)
+"tstartMat is the first timestamp used from the MAT file, and 1 cycle is used. ForcePerVolt is mN/V"
+function loadAlignedData(fnameMat, fnameCSV, tstartMat; strokeMult=1.0, ForcePerVolt=0.75)
 	sig, currTest = loadDAQData(fnameMat)
 	freq = currTest["Actuators"]["Frequency"][1]
 	Vpp = currTest["Actuators"]["Amplitude"][1]
@@ -199,8 +199,7 @@ function loadAlignedData(fnameMat, fnameCSV, tstartMat; strokeMult=1.0)
 	end
 	# Vpp = max.(sig2)
 	DAQ_To_Volts = 100 # Manually checked for 180V, max was 1.795
-	Volts_To_Force = 0.75 # [mN/V]
-	uact = (alignDAQToVideo(sig) * DAQ_To_Volts .- Vpp/2) * Volts_To_Force
+	uact = (alignDAQToVideo(sig) * DAQ_To_Volts .- Vpp/2) * ForcePerVolt
 	# sample rate
 	fs = 1/mean(diff(tms))
 

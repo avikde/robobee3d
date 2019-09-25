@@ -42,7 +42,7 @@ param0 = [3.2, 28.33, 0.52] # cbar[mm] (area/R), T (from 3333 rad/m, R=17, [Jaff
 
 # Load data
 # Need to convert the stroke to actuator cooreds from output coords. FIXME: this shouldn't be needed for ID
-trajt, traj0 = loadAlignedData("../../../Desktop/vary_amplitude_no_lateral_wind_data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2405; strokeMult=R/(2*param0[2]))
+trajt, traj0 = loadAlignedData("../../../Desktop/vary_amplitude_no_lateral_wind_data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2405; strokeMult=R/(2*param0[2]), ForcePerVolt=0.75)
 
 # # Sim data
 # trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
