@@ -74,7 +74,7 @@ function loadDAQData(fname)
 
 	# plot(ld, u, pow, p4)
 
-	return sig, currTest
+	return Dict("drag" => drag, "lift" => lift, "sig" => sig), currTest
 end
 
 "Align the rows at the bottom so the all have the same #rows first.
@@ -179,14 +179,14 @@ end
 
 "tstartMat is the first timestamp used from the MAT file, and 1 cycle is used. ForcePerVolt is mN/V"
 function loadAlignedData(fnameMat, fnameCSV, tstartMat; strokeMult=1.0, ForcePerVolt=0.75)
-	sig, currTest = loadDAQData(fnameMat)
+	daq, currTest = loadDAQData(fnameMat)
 	freq = currTest["Actuators"]["Frequency"][1]
 	Vpp = currTest["Actuators"]["Amplitude"][1]
 	tms, Φ, Ψ = loadVideoData(fnameCSV; trialFreq=freq)
 	
 	# Find one cycle of data from the mat
-	ind_tstart = findfirst(x -> x >= tstartMat, sig[:,1])
-	ind_tend = findfirst(x -> x >= tstartMat + 1/freq, sig[:,1])
+	ind_tstart = findfirst(x -> x >= tstartMat, daq["sig"][:,1])
+	ind_tend = findfirst(x -> x >= tstartMat + 1/freq, daq["sig"][:,1])
 
 	function alignDAQToVideo(daqVec)
 		# align voltage to the same times
@@ -199,7 +199,7 @@ function loadAlignedData(fnameMat, fnameCSV, tstartMat; strokeMult=1.0, ForcePer
 	end
 	# Vpp = max.(sig2)
 	DAQ_To_Volts = 100 # Manually checked for 180V, max was 1.795
-	uact = (alignDAQToVideo(sig) * DAQ_To_Volts .- Vpp/2) * ForcePerVolt
+	uact = (alignDAQToVideo(daq["sig"]) * DAQ_To_Volts .- Vpp/2) * ForcePerVolt
 	# sample rate
 	fs = 1/mean(diff(tms))
 
@@ -230,7 +230,7 @@ function loadAlignedData(fnameMat, fnameCSV, tstartMat; strokeMult=1.0, ForcePer
 	# plot!(bb, tms, dΨ)
 	# plot(aa, bb, layout=(2,1))
 	# gui()
-	return tms, X
+	return tms, X, alignDAQToVideo(daq["lift"]), alignDAQToVideo(daq["drag"])
 end
 
 # loadAlignedData("../../../Desktop/vary_amplitude_no_lateral_wind_data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.24)
