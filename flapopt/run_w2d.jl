@@ -59,7 +59,7 @@ param1, paramObj = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 1.0, 0.01
 # plot(pl1...)
 
 display(param1')
-pls = plotParams(m, opt, traj0, paramObj, param0, param1)
+pls = plotParamImprovement(m, opt, trajt, [param0, param1], [traj0, traj0], paramObj)
 plot(pls...)
 
 # # traj opt ------------------------------------

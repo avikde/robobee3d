@@ -249,6 +249,17 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, traj
 	return (σt, Ψt, ut, aerot)
 end
 
+function plotParamImprovement(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, trajs, paramObj::Function)
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
+
+    # The param space plots
+    pls = plotParams(m, opt, trajs[1], paramObj, params)
+    
+    _, _, ut, liftt = plotTrajs(m, opt, t, params, trajs)
+
+    return pls..., ut, liftt
+end
+
 function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param, traj, lift, drag)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 	Ny = (N+1)*ny
