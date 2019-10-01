@@ -41,18 +41,17 @@ param0 = [3.2, 28.33, 0.52] # cbar[mm] (area/R), T (from 3333 rad/m, R=17, [Jaff
 # plot(pls...)
 
 # Load data
-# Need to convert the stroke to actuator cooreds from output coords. FIXME: this shouldn't be needed for ID
-trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2405; strokeMult=R/(2*param0[2]), ForcePerVolt=0.75)
+N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2405; strokeMult=R/(2*param0[2]), ForcePerVolt=0.75)
+# pl1 = compareTrajToDAQ(m, opt, trajt, param0, traj0, lift, drag)
+# plot(pl1...)
+
 # The actuator data does not correspond to the kinematics in any way (esp. without params)
 # 1. Try to find the best params *assuming* these are the correct inputs. ID mode
-# param1, paramObj, u1 = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 0, 1.0*ones(1,1)); print_level=1)
-# traj0[(N+1)*ny+1:end] = u1
+param1, paramObj, u1 = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 0, 1.0*ones(1,1)); test=false, print_level=1)
+traj0[(N+1)*ny+1:end] = u1
 
 # 2. Try to optimize
-# param2, paramObj, u2 = cu.optAffine(m, opt, traj0, param1, 1, (zeros(4,4), 0, 1.0*ones(1,1)); print_level=1)
-
-pl1 = compareTrajToDAQ(m, opt, trajt, param0, traj0, lift, drag)
-plot(pl1...)
+param2, paramObj, u2 = cu.optAffine(m, opt, traj0, param1, 1, (zeros(4,4), 0, 1.0*ones(1,1)); test=false, print_level=1)
 
 # # Sim data
 # trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
@@ -61,9 +60,9 @@ plot(pl1...)
 # mwings = collect(0.1:0.1:2)
 # plot(mwings, paramObj.([[param0[1:2];mwing] for mwing in mwings]))
 
-# display(param1')
-# pls = plotParamImprovement(m, opt, trajt, [param1, param2], traj0, u2, paramObj)
-# plot(pls...)
+display(param2')
+pls = plotParamImprovement(m, opt, trajt, [param1, param2], traj0, u2, paramObj)
+plot(pls...)
 
 # # traj opt ------------------------------------
 

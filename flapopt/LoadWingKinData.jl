@@ -230,7 +230,7 @@ function loadAlignedData(fnameMat, fnameCSV, tstartMat; strokeMult=1.0, ForcePer
 	# plot!(bb, tms, dΨ)
 	# plot(aa, bb, layout=(2,1))
 	# gui()
-	return tms, X, alignDAQToVideo(daq["lift"]), alignDAQToVideo(daq["drag"])
+	return Ndp1-1, tms, X, alignDAQToVideo(daq["lift"]), alignDAQToVideo(daq["drag"])
 end
 
 # loadAlignedData("../../../Desktop/vary_amplitude_no_lateral_wind_data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.24)

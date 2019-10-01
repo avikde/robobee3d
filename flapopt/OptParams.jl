@@ -176,7 +176,7 @@ end
 paramLumped(m::Model, param::AbstractArray) = error("Implement this")
 
 "Mode=1 => opt, mode=2 ID"
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple; hessreg::Float64=0, test=false, kwargs...)
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple; test=false, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
     nq = ny÷2
 	# lumped parameter vector
