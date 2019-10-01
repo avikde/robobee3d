@@ -179,11 +179,13 @@ paramLumped(m::Model, param::AbstractArray) = error("Implement this")
 function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple; hessreg::Float64=0, test=false, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
     nq = ny÷2
-    # lumped parameter vector
-    pbTEST, TTEST = paramLumped(m, param) # NOTE the actual param values are only needed for the test mode
-    # pb = [T^2, cbar*T]
-    ptTEST = [pbTEST; TTEST^(-2)]
-    npt = length(pbTEST) + 1 # add T^(-2)
+	# lumped parameter vector
+	function getpt(x)
+		pb, T = paramLumped(m, x)
+		return [pb; T^(-2)], T
+	end
+    ptTEST, TTEST = getpt(param) # NOTE the actual param values are only needed for the test mode
+    npt = length(ptTEST)
     
     # Weights
     Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
@@ -272,8 +274,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	end
 
 	function eval_f(x::AbstractArray)
-		pb, T = paramLumped(m, x)
-		pt = [pb; T^(-2)]
+		pt, T = getpt(x)
 		if mode == 1
 			# Total cost: 1/2 (T*pt)' * Quu * (T*pt) + 1/2 qyy * T^(-2) + qyu' * pt
 			# TODO: quadratic version. for now just nonlinear
@@ -322,9 +323,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	pnew = prob.x
 
 	# Calculate the new inputs
-	pbnew, Tnew = paramLumped(m, pnew)
-    # pb = [T^2, cbar*T]
-    ptnew = [pbnew; Tnew^(-2)]
+    ptnew, Tnew = getpt(pnew)
 	unew = [Tnew / δt * B' * Hk(k) * ptnew for k=1:N] # compare to the "test" equation above
 
 	return pnew, eval_f, unew
