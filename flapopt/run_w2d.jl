@@ -50,7 +50,7 @@ trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat"
 # # Sim data
 # trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
-param1, paramObj = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 1.0, 0.01*ones(1,1)); test=false, hessreg=1e-3, print_level=1)
+param1, paramObj, unew = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 1.0, 0.01*ones(1,1)); test=false, hessreg=1e-3, print_level=1)
 
 # mwings = collect(0.1:0.1:2)
 # plot(mwings, paramObj.([[param0[1:2];mwing] for mwing in mwings]))
@@ -59,7 +59,7 @@ param1, paramObj = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 1.0, 0.01
 # plot(pl1...)
 
 display(param1')
-pls = plotParamImprovement(m, opt, trajt, [param0, param1], [traj0, traj0], paramObj)
+pls = plotParamImprovement(m, opt, trajt, [param0, param1], traj0, unew, paramObj)
 plot(pls...)
 
 # # traj opt ------------------------------------

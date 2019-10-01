@@ -316,10 +316,18 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		Ipopt.addOption(prob, string(k), v)
 	end
 
-	# TODO: this should be an update only without need to setup. would need to update params.
+	# Solve
 	prob.x = copy(param)
 	status = Ipopt.solveProblem(prob)
-	return prob.x, eval_f
+	pnew = prob.x
+
+	# Calculate the new inputs
+	pbnew, Tnew = paramLumped(m, pnew)
+    # pb = [T^2, cbar*T]
+    ptnew = [pbnew; Tnew^(-2)]
+	unew = [Tnew / δt * B' * Hk(k) * ptnew for k=1:N] # compare to the "test" equation above
+
+	return pnew, eval_f, unew
 
 	# # Without that T, can just use OSQP -------------------------
 	# mo = OSQP.Model()
