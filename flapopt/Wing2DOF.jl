@@ -258,9 +258,9 @@ function plotParamImprovement(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, p
     # Traj plots
     traj1 = copy(traj0)
     traj1[(N+1)*ny+1:end] = unew
-    _, _, ut, liftt = plotTrajs(m, opt, t, params, [traj0, traj1])
+    σt, Ψt, ut, liftt = plotTrajs(m, opt, t, params, [traj0, traj1])
 
-    return pls..., ut, liftt
+    return pls..., σt, ut, liftt
 end
 
 function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param, traj, lift, drag)
