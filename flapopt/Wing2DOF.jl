@@ -410,11 +410,13 @@ end
 
 function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
     cbar, T, mwing = param
-    return [1, cbar, mwing, mwing*cbar, mwing*cbar^2], T
+    return [1, cbar, cbar^2, mwing, mwing*cbar, mwing*cbar^2], T
 end
 
 function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple; fixTrajWithDynConst::Bool=false)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+    # Fext(p) or hold const
+    Fext_pdep = false
 
     if fixTrajWithDynConst
         # Make a new traj where the dynamics constraint is satisfied exactly
@@ -440,8 +442,8 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         # Need the original T to use output coords
         σo = T * σa
         σ̇o = T * σ̇a
-        return [0   0   σ̇o   γ*Ψ̇*cos(Ψ)   0   σ̇o*m.ma;
-        0   0   0   γ*σ̇o*cos(Ψ)   2*Ψ̇*γ^2    0]
+        return [0   0   0   σ̇o   γ*Ψ̇*cos(Ψ)   0   σ̇o*m.ma;
+        0   0   0   0   γ*σ̇o*cos(Ψ)   2*Ψ̇*γ^2    0]
     end
 
     function HCgJT(y, F)
@@ -450,15 +452,23 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         σo = T * σa
         σ̇o = T * σ̇a
         # See notes: this F stuff is w2d specific
-        Ftil = -F#/cbar
         rcop = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
 
-        # FIXME: this orig version probably has a negative sign error on the dynamics terms
-        # return [0   -m.kσ*σa-m.bσ*σ̇a   Ftil[1]   0   0;
-        # -m.kΨ*Ψ-m.bΨ*Ψ̇   0   0   -σ̇a*Ψ̇*m.mwing*sin(Ψ)   rcopnondim*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))]
-        # 1st order version
-        return [m.kσ*σo+m.bσ*σ̇o+Ftil[1]   0   0   -γ*Ψ̇^2*sin(Ψ)   0    m.ba*σ̇o + m.ka*σo;
-        m.kΨ*Ψ+m.bΨ*Ψ̇    rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0]
+        if Fext_pdep
+            Ftil = -F/cbar
+
+            # FIXME: this orig version probably has a negative sign error on the dynamics terms
+            # return [0   -m.kσ*σa-m.bσ*σ̇a   Ftil[1]   0   0;
+            # -m.kΨ*Ψ-m.bΨ*Ψ̇   0   0   -σ̇a*Ψ̇*m.mwing*sin(Ψ)   rcopnondim*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))]
+            # 1st order version
+            return [m.kσ*σo+m.bσ*σ̇o   Ftil[1]   0   0   -γ*Ψ̇^2*sin(Ψ)   0    m.ba*σ̇o + m.ka*σo;
+            m.kΨ*Ψ+m.bΨ*Ψ̇    0   rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0]
+        else
+            Ftil = -F
+            # 1st order version
+            return [m.kσ*σo+m.bσ*σ̇o+Ftil[1]   0   0   0   -γ*Ψ̇^2*sin(Ψ)   0    m.ba*σ̇o + m.ka*σo;
+            m.kΨ*Ψ+m.bΨ*Ψ̇    rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0   0]
+        end
     end
 
     # this is OK - see notes
