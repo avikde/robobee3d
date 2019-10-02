@@ -40,8 +40,11 @@ param0 = [3.2, 28.33, 0.52] # cbar[mm] (area/R), T (from 3333 rad/m, R=17, [Jaff
 # pls = respkσ.(kσs)
 # plot(pls...)
 
-# Load data
-N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2405; strokeMult=R/(2*param0[2]), ForcePerVolt=0.75)
+# Sim data
+trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
+
+# # Load data
+# N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2405; strokeMult=R/(2*param0[2]), ForcePerVolt=0.75)
 # pl1 = compareTrajToDAQ(m, opt, trajt, param0, traj0, lift, drag)
 # plot(pl1...)
 
@@ -53,14 +56,10 @@ param1, paramObj, u1 = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 0, 1.
 # # 2. Try to optimize
 # param2, paramObj, u2 = cu.optAffine(m, opt, traj0, param1, 1, (zeros(4,4), 0, 1.0*ones(1,1)); test=false, print_level=1)
 
-# # Sim data
-# trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
-
-
 # mwings = collect(0.1:0.1:2)
 # plot(mwings, paramObj.([[param0[1:2];mwing] for mwing in mwings]))
 
-display(param2')
+display(param1')
 pls = plotParamImprovement(m, opt, trajt, [param0, param1], traj0, u1, paramObj)
 plot(pls...)
 
