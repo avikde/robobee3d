@@ -191,7 +191,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
     Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
 
 	# Quadratic form matrix
-	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R; fixTrajWithDynConst=true)
+	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R; fixTrajWithDynConst=test)
 
     # If test is true, it will test the affine relation
     if test
