@@ -239,14 +239,15 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, traj
     ut = plot(t, hcat([[traj[@view liu[1,:]];NaN] for traj in trajs]...), marker=:auto, legend=false, ylabel="stroke force [mN]")
     Nt = length(trajs)
     # Plot of aero forces at each instant
-    function aeroPlotVec(_traj::Vector, _param)
+    function aeroPlotVec(_traj::Vector, _param, ind)
         Faerok = k -> w2daero(_traj[@view liy[:,k]], _param)[end]
         Faeros = hcat([Faerok(k) for k=1:N]...)
-        return [Faeros[2,:]' NaN]'
+        return [Faeros[ind,:]' NaN]'
     end
-    aerot = plot(t, hcat([aeroPlotVec(trajs[i], params[i]) for i=1:Nt]...), marker=:auto, legend=false, ylabel="lift [mN]")
+    liftt = plot(t, hcat([aeroPlotVec(trajs[i], params[i], 2) for i=1:Nt]...), marker=:auto, legend=false, ylabel="lift [mN]")
+    dragt = plot(t, hcat([aeroPlotVec(trajs[i], params[i], 1) for i=1:Nt]...), marker=:auto, legend=false, ylabel="drag [mN]")
     # Combine the subplots
-	return (σt, Ψt, ut, aerot)
+	return (σt, Ψt, ut, liftt, dragt)
 end
 
 function plotParamImprovement(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, traj0, unew, paramObj::Function)
@@ -258,9 +259,9 @@ function plotParamImprovement(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, p
     # Traj plots
     traj1 = copy(traj0)
     traj1[(N+1)*ny+1:end] = unew
-    σt, Ψt, ut, liftt = plotTrajs(m, opt, t, params, [traj0, traj1])
+    σt, Ψt, ut, liftt, dragt = plotTrajs(m, opt, t, params, [traj0, traj1])
 
-    return pls..., σt, ut, liftt
+    return pls..., σt, ut, liftt, dragt
 end
 
 function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param, traj, lift, drag)
