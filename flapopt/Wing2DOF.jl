@@ -457,7 +457,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         # return [0   -m.kσ*σa-m.bσ*σ̇a   Ftil[1]   0   0;
         # -m.kΨ*Ψ-m.bΨ*Ψ̇   0   0   -σ̇a*Ψ̇*m.mwing*sin(Ψ)   rcopnondim*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))]
         # 1st order version
-        return [m.kσ*σo+m.bσ*σ̇o+Ftil[1]   0   0   -Ψ̇^2*sin(Ψ)   0    m.ba*σ̇o + m.ka*σo;
+        return [m.kσ*σo+m.bσ*σ̇o+Ftil[1]   0   0   -γ*Ψ̇^2*sin(Ψ)   0    m.ba*σ̇o + m.ka*σo;
         m.kΨ*Ψ+m.bΨ*Ψ̇    rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0]
     end
 
