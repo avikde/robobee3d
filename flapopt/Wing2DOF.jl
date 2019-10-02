@@ -210,7 +210,7 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     # expectedInterval = opt.boundaryConstraint == cu.SYMMETRIC ? 1/(2*freq) : 1/freq # [ms]
     # expectedPts = expectedInterval / simdt
 
-    starti = 170
+    starti = 187
     olRange = starti:2:(starti + 2*N)
     trajt = sol.t[olRange]
     δt = trajt[2] - trajt[1]

@@ -24,9 +24,9 @@ m = Wing2DOFModel(
 0, # ba
 240#= 0 =#) # ka
 ny, nu = cu.dims(m)
-opt = cu.OptOptions(false, 0.2, 1, :symmetric, 1e-8, false)
+opt = cu.OptOptions(false, 0.2, 1, :none, 1e-8, false)
 # opt = cu.OptOptions(false, 0.2, 1, cu.SYMMETRIC, 1e-8, false)
-N = opt.boundaryConstraint == :symmetric ? 17 : 34
+N = opt.boundaryConstraint == :symmetric ? 17 : 33
 param0 = [3.2, 28.33, 0.52] # cbar[mm] (area/R), T (from 3333 rad/m, R=17, [Jafferis (2016)]), mwing[mg]
 
 # Stiffness sweep ---
