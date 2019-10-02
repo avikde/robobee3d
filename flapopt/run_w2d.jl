@@ -50,8 +50,7 @@ trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
 # The actuator data does not correspond to the kinematics in any way (esp. without params)
 # 1. Try to find the best params *assuming* these are the correct inputs. ID mode
-param1, paramObj, u1 = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 0, 1.0*ones(1,1)); test=false, print_level=1)
-# traj0[(N+1)*ny+1:end] = u1
+param1, paramObj, traj1 = cu.optAffine(m, opt, traj0, param0, 1, (zeros(4,4), 0, 1.0*ones(1,1)); test=false, print_level=1)
 
 # # 2. Try to optimize
 # param2, paramObj, u2 = cu.optAffine(m, opt, traj0, param1, 1, (zeros(4,4), 0, 1.0*ones(1,1)); test=false, print_level=1)
@@ -60,7 +59,7 @@ param1, paramObj, u1 = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 0, 1.
 # plot(mwings, paramObj.([[param0[1:2];mwing] for mwing in mwings]))
 
 display(param1')
-pls = plotParamImprovement(m, opt, trajt, [param0, param1], traj0, u1, paramObj)
+pls = plotParamImprovement(m, opt, trajt, [param0, param1], [traj0, traj1], paramObj)
 plot(pls...)
 
 # # traj opt ------------------------------------

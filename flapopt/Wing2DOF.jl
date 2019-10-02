@@ -229,10 +229,13 @@ end
 function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, trajs)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
 	Ny = (N+1)*ny
-	# stroke "angle" = T*y[1] / R
-    cbar, T, mwing = params[1]
+    # stroke "angle" = T*y[1] / R
+    function strokeAng(traj, param)
+        cbar, T, mwing = param
+        traj[@view liy[1,:]] * T / (R/2)
+    end
     # If plot is given a matrix each column becomes a different line
-    σt = plot(t, hcat([traj[@view liy[1,:]] * T / (R/2) for traj in trajs]...), marker=:auto, ylabel="stroke ang [r]", title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
+    σt = plot(t, hcat([strokeAng(trajs[i], params[i]) for i in 1:length(trajs)]...), marker=:auto, ylabel="stroke ang [r]")# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
     
     Ψt = plot(t, hcat([traj[@view liy[2,:]] for traj in trajs]...), marker=:auto, legend=false, ylabel="hinge ang [r]")
     
@@ -250,16 +253,13 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, traj
 	return (σt, Ψt, ut, liftt, dragt)
 end
 
-function plotParamImprovement(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, traj0, unew, paramObj::Function)
-    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj0)
+function plotParamImprovement(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, trajs, paramObj::Function)
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
 
     # The param space plots
-    pls = plotParams(m, opt, traj0, paramObj, params...)
-
+    pls = plotParams(m, opt, trajs[1], paramObj, params...)
     # Traj plots
-    traj1 = copy(traj0)
-    traj1[(N+1)*ny+1:end] = unew
-    σt, Ψt, ut, liftt, dragt = plotTrajs(m, opt, t, params, [traj0, traj1])
+    σt, Ψt, ut, liftt, dragt = plotTrajs(m, opt, t, params, trajs)
 
     return pls..., σt, ut, liftt, dragt
 end
@@ -417,7 +417,7 @@ end
 function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple; fixTrajWithDynConst::Bool=false)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
     # Fext(p) or hold const
-    Fext_pdep = false
+    Fext_pdep = true
 
     if fixTrajWithDynConst
         # Make a new traj where the dynamics constraint is satisfied exactly

@@ -191,7 +191,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
     Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
 
 	# Quadratic form matrix
-	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R; fixTrajWithDynConst=test)
+	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R; fixTrajWithDynConst=true)
 
     # If test is true, it will test the affine relation
     if test
@@ -322,11 +322,18 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	status = Ipopt.solveProblem(prob)
 	pnew = prob.x
 
+	# Also convert the output traj with the new T, and inputs
+	traj2 = copy(traj)
+	yk = k -> @view traj2[liy[:,k]]
 	# Calculate the new inputs
-    ptnew, Tnew = getpt(pnew)
-	unew = [Tnew / δt * B' * Hk(k) * ptnew for k=1:N] # compare to the "test" equation above
+	ptold, Told = getpt(param)
+	ptnew, Tnew = getpt(pnew)
+	for k=1:N+1
+		traj2[liy[:,k]] = [Told/Tnew, 1, Told/Tnew, 1] .* traj2[liy[:,k]]
+	end
+	traj2[(N+1)*ny+1:end] = [Tnew / δt * B' * Hk(k) * ptnew for k=1:N] # compare to the "test" equation above
 
-	return pnew, eval_f, unew
+	return pnew, eval_f, traj2
 
 	# # Without that T, can just use OSQP -------------------------
 	# mo = OSQP.Model()
