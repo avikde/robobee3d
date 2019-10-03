@@ -24,9 +24,9 @@ m = Wing2DOFModel(
 0, # ba
 240#= 0 =#) # ka
 ny, nu = cu.dims(m)
-opt = cu.OptOptions(false, 0.2, 1, :symmetric, 1e-8, false)
+opt = cu.OptOptions(false, 0.2, 1, :none, 1e-8, false)
 # opt = cu.OptOptions(false, 0.2, 1, cu.SYMMETRIC, 1e-8, false)
-N = opt.boundaryConstraint == :symmetric ? 17 : 34
+N = opt.boundaryConstraint == :symmetric ? 17 : 33
 param0 = [3.2, 28.33, 0.52] # cbar[mm] (area/R), T (from 3333 rad/m, R=17, [Jafferis (2016)]), mwing[mg]
 
 # Stiffness sweep ---
@@ -40,20 +40,26 @@ param0 = [3.2, 28.33, 0.52] # cbar[mm] (area/R), T (from 3333 rad/m, R=17, [Jaff
 # pls = respkσ.(kσs)
 # plot(pls...)
 
-# Load data
-# Need to convert the stroke to actuator cooreds from output coords. FIXME: this shouldn't be needed for ID
-trajt, traj0 = loadAlignedData("../../../Desktop/vary_amplitude_no_lateral_wind_data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2405; strokeMult=R/(2*param0[2]), ForcePerVolt=0.75)
+# Sim data
+trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
-# # Sim data
-# trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
+# # Load data
+# N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2405; strokeMult=R/(2*param0[2]), ForcePerVolt=0.75)
+# pl1 = compareTrajToDAQ(m, opt, trajt, param0, traj0, lift, drag)
+# plot(pl1...)
 
-param1, paramObj = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 1.0, 0.01*ones(1,1)); test=false, hessreg=1e-3, print_level=1)
+# The actuator data does not correspond to the kinematics in any way (esp. without params)
+# 1. Try to find the best params *assuming* these are the correct inputs. ID mode
+param1, paramObj, traj1 = cu.optAffine(m, opt, traj0, param0, 1, (zeros(4,4), 0, 1.0*ones(1,1)); Fext_pdep=false, test=false, print_level=1)
+
+# # 2. Try to optimize
+# param2, paramObj, u2 = cu.optAffine(m, opt, traj0, param1, 1, (zeros(4,4), 0, 1.0*ones(1,1)); test=false, print_level=1)
 
 # mwings = collect(0.1:0.1:2)
 # plot(mwings, paramObj.([[param0[1:2];mwing] for mwing in mwings]))
 
 display(param1')
-pls = plotParams(m, opt, traj0, paramObj, param0, param1)
+pls = plotParamImprovement(m, opt, trajt, [param0, param1], [traj0, traj1], paramObj)
 plot(pls...)
 
 # # traj opt ------------------------------------
