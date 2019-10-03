@@ -16,13 +16,14 @@ includet("LoadWingKinData.jl")
 # For T=20, get ka = 240.
 # To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
-0.9#= 1.5 =#, #k output
-0, #b output
-5, # hinge k
-3, # hinge b
-6, # ma
-0, # ba
-240#= 0 =#) # ka
+	17.0, # R, [Jafferis (2016)]
+	0.9#= 1.5 =#, #k output
+	0, #b output
+	5, # hinge k
+	3, # hinge b
+	6, # ma
+	0, # ba
+	240#= 0 =#) # ka
 ny, nu = cu.dims(m)
 opt = cu.OptOptions(false, 0.2, 1, :none, 1e-8, false)
 # opt = cu.OptOptions(false, 0.2, 1, cu.SYMMETRIC, 1e-8, false)

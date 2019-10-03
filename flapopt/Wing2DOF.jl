@@ -34,6 +34,8 @@ NOTE:
 - Reasonable values: Toutput = 2666 rad/m in the current two-wing vehicle; 2150 rad/m in X-Wing; 3333 rad/m in Kevin Ma's older vehicles. With the R above, this suggests T ~= 20-30.
 """
 struct Wing2DOFModel <: controlutils.Model
+    # overall scaling
+    R::Float64 # [mm]
     # params
     kσ::Float64 # [mN/mm]
     bσ::Float64 # [mN/(mm/ms)]
@@ -46,7 +48,6 @@ struct Wing2DOFModel <: controlutils.Model
 end
 
 # Fixed params -----------------
-const R = 17.0 # [Jafferis (2016)]
 const γ = 0.5 # location of mwing lumped mass is γ*cbar down from the spar
 
 function cu.dims(m::Wing2DOFModel)::Tuple{Int, Int}
