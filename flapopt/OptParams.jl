@@ -175,8 +175,8 @@ end
 "Implement this"
 paramLumped(m::Model, param::AbstractArray) = error("Implement this")
 
-"Mode=1 => opt, mode=2 ID"
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple; test=false, kwargs...)
+"Mode=1 => opt, mode=2 ID. Fext(p) or hold constant"
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple; Fext_pdep::Bool=false, test=false, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
     nq = ny÷2
 	# lumped parameter vector
@@ -191,7 +191,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
     Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
 
 	# Quadratic form matrix
-	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R; fixTrajWithDynConst=true)
+	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R; Fext_pdep=Fext_pdep, fixTrajWithDynConst=true)
 
     # If test is true, it will test the affine relation
     if test

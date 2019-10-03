@@ -235,11 +235,11 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, traj
         traj[@view liy[1,:]] * T / (R/2)
     end
     # If plot is given a matrix each column becomes a different line
-    σt = plot(t, hcat([strokeAng(trajs[i], params[i]) for i in 1:length(trajs)]...), marker=:auto, ylabel="stroke ang [r]")# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
+    σt = plot(t, hcat([strokeAng(trajs[i], params[i]) for i in 1:length(trajs)]...), linewidth=2, ylabel="stroke ang [r]")# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
     
-    Ψt = plot(t, hcat([traj[@view liy[2,:]] for traj in trajs]...), marker=:auto, legend=false, ylabel="hinge ang [r]")
+    Ψt = plot(t, hcat([traj[@view liy[2,:]] for traj in trajs]...), linewidth=2, legend=false, ylabel="hinge ang [r]")
     
-    ut = plot(t, hcat([[traj[@view liu[1,:]];NaN] for traj in trajs]...), marker=:auto, legend=false, ylabel="stroke force [mN]")
+    ut = plot(t, hcat([[traj[@view liu[1,:]];NaN] for traj in trajs]...), linewidth=2, legend=false, ylabel="stroke force [mN]")
     Nt = length(trajs)
     # Plot of aero forces at each instant
     function aeroPlotVec(_traj::Vector, _param, ind)
@@ -247,8 +247,8 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, traj
         Faeros = hcat([Faerok(k) for k=1:N]...)
         return [Faeros[ind,:]' NaN]'
     end
-    liftt = plot(t, hcat([aeroPlotVec(trajs[i], params[i], 2) for i=1:Nt]...), marker=:auto, legend=false, ylabel="lift [mN]")
-    dragt = plot(t, hcat([aeroPlotVec(trajs[i], params[i], 1) for i=1:Nt]...), marker=:auto, legend=false, ylabel="drag [mN]")
+    liftt = plot(t, hcat([aeroPlotVec(trajs[i], params[i], 2) for i=1:Nt]...), linewidth=2, legend=false, ylabel="lift [mN]")
+    dragt = plot(t, hcat([aeroPlotVec(trajs[i], params[i], 1) for i=1:Nt]...), linewidth=2, legend=false, ylabel="drag [mN]")
     # Combine the subplots
 	return (σt, Ψt, ut, liftt, dragt)
 end
@@ -414,10 +414,8 @@ function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
     return [1, cbar, cbar^2, mwing, mwing*cbar, mwing*cbar^2], T
 end
 
-function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple; fixTrajWithDynConst::Bool=false)
+function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple; Fext_pdep::Bool=false, fixTrajWithDynConst::Bool=false)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-    # Fext(p) or hold const
-    Fext_pdep = true
 
     if fixTrajWithDynConst
         # Make a new traj where the dynamics constraint is satisfied exactly
