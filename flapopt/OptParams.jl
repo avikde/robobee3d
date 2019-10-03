@@ -337,6 +337,15 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	end
 	traj2[(N+1)*ny+1:end] = [Tnew / δt * B' * Hk(k) * ptnew for k=1:N] # compare to the "test" equation above
 
+	# Test the second row
+    Hpb = zeros(nq, N)
+	for k=1:N
+		Hh = Hk(k)
+		yok = yo(k)
+        Hpb[:,k] = Hk(k) * ptnew
+	end
+	display([0 1] * Hpb)
+
 	return pnew, eval_f, traj2
 
 	# # Without that T, can just use OSQP -------------------------
