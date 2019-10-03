@@ -178,7 +178,8 @@ paramLumped(m::Model, param::AbstractArray) = error("Implement this")
 "Mode=1 => opt, mode=2 ID. Fext(p) or hold constant"
 function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple; Fext_pdep::Bool=false, test=false, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
-    nq = ny÷2
+	nq = ny÷2
+	np = length(param)
 	# lumped parameter vector
 	function getpt(x)
 		pb, T = paramLumped(m, x)
@@ -258,24 +259,58 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# return x
 
 	# IPOPT ---------------------------
-	eval_g(x::Vector, g::Vector) = (g .= I * x)
-	function eval_jac_g(x::Vector{Float64}, mode, row::Vector{Int32}, col::Vector{Int32}, value::Vector)
-		# FIXME: this is not really general. This is for a box constraint on each
-		if mode != :Structure
-			value[1] = value[2] = value[3] = 1.0
-		else
-			row[1] = col[1] = 1
-			row[2] = col[2] = 2
-			row[3] = col[3] = 3
-		end
-	end
 	# FIXME: this is W2D-specific
 	σomax = norm([yo(k)[1] for k=1:N], Inf)
 	σamax = 0.3 # [mm] constant? for robobee actuators
 	Tmin = σomax/σamax
 	println("Tmin = ", Tmin)
-	plimsL = [0.1, Tmin, 0.1]
-	plimsU = [1000.0, 1000.0, 1000.0]
+	
+	# Need to add unactuated joints to the constraint
+	# nunact = nq - size(B,2)
+	Aconstraint = zeros(N+np, np)
+	Bperp = [0 1] #FIXME: get this automatically. this is s.t. Bperp*B = 0
+	for k=1:N
+		display(Hk(k))
+		display(Bperp)
+		Aconstraint[k,:] = Bperp * Hk(k)
+	end
+	# FIXME: this is not really general. This is for a box constraint on each
+	Aconstraint[N+1:end,:] = I
+	# number of nonzero?
+	Dgnnz = np + N*np
+	gli = LinearIndices((1:N, 1:k))
+	# Constraint
+	eval_g(x::Vector, g::Vector) = (g .= Aconstraint * x)
+	function eval_jac_g(x::Vector{Float64}, mode, row::Vector{Int32}, col::Vector{Int32}, value::Vector)
+		
+		if mode != :Structure
+			for j=1:np
+				for k=1:N
+					value[gli[k,j]] = Aconstraint[k,j]
+				end
+			end
+			for j=1:np
+				value[N*np+j] = 1.0
+			end
+		else
+			for j=1:np
+				for k=1:N
+					row[gli[k,j]] = k
+					col[gli[k,j]] = j
+				end
+			end
+			for j=1:np
+				row[N*np+j] = N+j
+				col[N*np+j] = j
+			end
+		end
+	end
+	# limits on the unactuated constraint FIXME: assuming 1 unactuated
+	glimsL = -0.01 * ones(N+np)
+	glimsU = 0.01 * ones(N+np)
+	# limits on the params
+	glimsL[N+1:end] = [0.1, Tmin, 0.1]
+	glimsU[N+1:end] = [1000.0, 1000.0, 1000.0]
 
 	function eval_f(x::AbstractArray)
 		pt, T = getpt(x)
@@ -302,10 +337,10 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		length(param), # Number of variables
 		[0.1, 0.1, 0.1], # Variable lower bounds
 		[10.0, 1000.0, 2], # Variable upper bounds
-		length(param), # Number of constraints
-		plimsL,       # Constraint lower bounds
-		plimsU,       # Constraint upper bounds
-		3,  # Number of non-zeros in Jacobian
+		length(glimsL), # Number of constraints
+		glimsL,       # Constraint lower bounds
+		glimsU,       # Constraint upper bounds
+		Dgnnz,  # Number of non-zeros in Jacobian
 		0,             # Number of non-zeros in Hessian
 		eval_f,                     # Callback: objective function
 		eval_g,                     # Callback: constraint evaluation
