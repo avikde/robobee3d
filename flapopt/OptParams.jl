@@ -258,20 +258,24 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# return x
 
 	# IPOPT ---------------------------
-	Aconstraint = ones(1, length(param)) # testing linear constraint - useless for now
-	eval_g(x::Vector, g::Vector) = (g .= Aconstraint * x)
+	eval_g(x::Vector, g::Vector) = (g .= I * x)
 	function eval_jac_g(x::Vector{Float64}, mode, row::Vector{Int32}, col::Vector{Int32}, value::Vector)
+		# FIXME: this is not really general. This is for a box constraint on each
 		if mode != :Structure
-			value[1] = Aconstraint[1]
-			value[2] = Aconstraint[2]
-			value[3] = Aconstraint[3]
+			value[1] = value[2] = value[3] = 1.0
 		else
-			row[1] = row[2] = row[3] = 1
-			col[1] = 1
-			col[2] = 2
-			col[3] = 3
+			row[1] = col[1] = 1
+			row[2] = col[2] = 2
+			row[3] = col[3] = 3
 		end
 	end
+	# FIXME: this is W2D-specific
+	σomax = norm([yo(k)[1] for k=1:N], Inf)
+	σamax = 0.3 # [mm] constant? for robobee actuators
+	Tmin = σomax/σamax
+	println("Tmin = ", Tmin)
+	plimsL = [0.1, Tmin, 0.1]
+	plimsU = [1000.0, 1000.0, 1000.0]
 
 	function eval_f(x::AbstractArray)
 		pt, T = getpt(x)
@@ -298,9 +302,9 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		length(param), # Number of variables
 		[0.1, 0.1, 0.1], # Variable lower bounds
 		[10.0, 1000.0, 2], # Variable upper bounds
-		1, # Number of constraints
-		[-1000.0],       # Constraint lower bounds
-		[1000.0],       # Constraint upper bounds
+		length(param), # Number of constraints
+		plimsL,       # Constraint lower bounds
+		plimsU,       # Constraint upper bounds
 		3,  # Number of non-zeros in Jacobian
 		0,             # Number of non-zeros in Hessian
 		eval_f,                     # Callback: objective function
