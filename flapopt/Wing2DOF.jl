@@ -109,7 +109,7 @@ function w2daero(y::AbstractArray, _params::Vector)
     {d\[Sigma], -1, 1}, {\[Psi], -\[Pi]/2, \[Pi]/2}]
     =#
     Caero = @SVector [((CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2α)), CLmax * sin(2α)]
-    Faero = 1/2 * ρ * cbar * R * σ̇^2 * Caero * sign(-σ̇) # [mN]
+    Faero = 1/2 * ρ * cbar * m.R * σ̇^2 * Caero * sign(-σ̇) # [mN]
 
     return paero, Jaero, Faero
 end
@@ -162,7 +162,7 @@ function openloopResponse(m::Wing2DOFModel, opt::cu.OptOptions, freq::Real, para
     # Deduce metrics
     t = sol.t[end-100:end]
     y = hcat(sol.u[end-100:end]...)
-    σmag = (maximum(y[1,:]) - minimum(y[1,:])) * params[2] / (R/2)
+    σmag = (maximum(y[1,:]) - minimum(y[1,:])) * params[2] / (m.R/2)
     Ψmag = maximum(y[2,:]) - minimum(y[2,:])
     # relative phase? Hilbert transform?
 
@@ -233,7 +233,7 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, traj
     # stroke "angle" = T*y[1] / R
     function strokeAng(traj, param)
         cbar, T, mwing = param
-        traj[@view liy[1,:]] * T / (R/2)
+        traj[@view liy[1,:]] * T / (m.R/2)
     end
     # If plot is given a matrix each column becomes a different line
     σt = plot(t, hcat([strokeAng(trajs[i], params[i]) for i in 1:length(trajs)]...), linewidth=2, ylabel="stroke ang [r]")# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
