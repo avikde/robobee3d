@@ -266,21 +266,29 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	println("Tmin = ", Tmin)
 	
 	# Need to add unactuated joints to the constraint
+	Bperp = [0 1] #FIXME: get this automatically. this is s.t. Bperp*B = 0
+	# Constraint
+	function eval_g(x::Vector, g::Vector)
+		pt = getpt(x)[1]
+		# unactuated joints
+		for k=1:N
+			g[k] = (Bperp * Hk(k) * pt)[1]
+		end
+		# box constraints
+		g[N+1:end] = x
+	end
+	# Linearization of the constraint
+	Jt = ForwardDiff.jacobian(p -> getpt(p)[1], param) # even though this constraint is *linear in pt*, it is nonlinear in p. Need Jac for IPOPT.
 	# nunact = nq - size(B,2)
 	Aconstraint = zeros(N+np, np)
-	Bperp = [0 1] #FIXME: get this automatically. this is s.t. Bperp*B = 0
 	for k=1:N
-		display(Hk(k))
-		display(Bperp)
-		Aconstraint[k,:] = Bperp * Hk(k)
+		Aconstraint[k,:] = Bperp * Hk(k) * Jt
 	end
 	# FIXME: this is not really general. This is for a box constraint on each
-	Aconstraint[N+1:end,:] = I
+	Aconstraint[N+1:end,:] = Matrix(1.0*I, np, np)
 	# number of nonzero?
 	Dgnnz = np + N*np
-	gli = LinearIndices((1:N, 1:k))
-	# Constraint
-	eval_g(x::Vector, g::Vector) = (g .= Aconstraint * x)
+	gli = LinearIndices((1:N, 1:np))
 	function eval_jac_g(x::Vector{Float64}, mode, row::Vector{Int32}, col::Vector{Int32}, value::Vector)
 		
 		if mode != :Structure
