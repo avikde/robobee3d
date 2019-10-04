@@ -260,7 +260,7 @@ function plotParamImprovement(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, p
     # Traj plots
     σt, Ψt, ut, liftt, dragt = plotTrajs(m, opt, t, params, trajs)
 
-    return pls..., σt, ut, liftt, dragt
+    return pls..., σt, Ψt, ut, liftt, dragt
 end
 
 function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param, traj, lift, drag)
@@ -473,6 +473,16 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         end
     end
 
+    function Hext(k)
+        σa, Ψ, σ̇a, Ψ̇ = yk(k)
+        _, _, Faero = w2daero(yk(k), param)
+        Ftil = -F/cbar
+        rcop = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
+        # Need Hext either way
+        return [0   0   0   Ftil[1]   0   0   0   0    0;
+            0   0   0    0   rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0]
+    end
+
     # this is OK - see notes
     # Htil = (y, ynext, F) -> HMq(ynext) - HMq(y) + δt*HCgJ(y, F)
     # 1st order integration mods
@@ -487,7 +497,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     end
     yo = k -> [T, 1.0, T, 1.0] .* yk(k)
 
-    return Hk, yo, uk, B, N
+    return Hk, Hext, yo, uk, B, N
 end
 
 
