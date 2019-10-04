@@ -176,7 +176,7 @@ end
 paramLumped(m::Model, param::AbstractArray) = error("Implement this")
 
 "Mode=1 => opt, mode=2 ID. Fext(p) or hold constant"
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple; Fext_pdep::Bool=false, test=false, kwargs...)
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple, εunact; Fext_pdep::Bool=false, test=false, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
 	np = length(param)
@@ -314,8 +314,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		end
 	end
 	# limits on the unactuated constraint FIXME: assuming 1 unactuated
-	glimsL = -0.01 * ones(N+np)
-	glimsU = 0.01 * ones(N+np)
+	glimsL = -εunact * ones(N+np)
+	glimsU = εunact * ones(N+np)
 	# limits on the params
 	glimsL[N+1:end] = [0.1, Tmin, 0.1]
 	glimsU[N+1:end] = [1000.0, 1000.0, 1000.0]
