@@ -188,8 +188,12 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
     ptTEST, TTEST = getpt(param) # NOTE the actual param values are only needed for the test mode
     npt = length(ptTEST)
     
-    # Weights
-    Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
+	# Weights
+	Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
+	if mode == 2
+		# FIXME: need to consider the unactuated row too, so need Ruu of size nq
+		Ruu = I
+	end
 
 	# Quadratic form matrix
 	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R; Fext_pdep=Fext_pdep, fixTrajWithDynConst=true)
@@ -207,14 +211,16 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	for k=1:N
 		Hh = Hk(k)
 		yok = yo(k)
-        Quu += Hh' * B * Ruu * B' * Hh
 		if mode == 1
+        	Quu += Hh' * B * Ruu * B' * Hh
 			# Need output coords
 			qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yok)
         	qyy += yok' * Ryy * yok # qyy * T^(-2)
 		elseif mode == 2
+			# FIXME: need to consider the unactuated rows too
+			Quu += Hh' * Ruu * Hh
 			# For ID, need uk
-			qyu -= Hh' * B * Ruu * (δt * umeas(k))
+			qyu -= Hh' * Ruu * (δt * B * umeas(k))
 		end
 
         if test
@@ -407,7 +413,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	for k=1:N+1
 		traj2[liy[:,k]] = [Told/Tnew, 1, Told/Tnew, 1] .* traj2[liy[:,k]]
 	end
-	traj2[(N+1)*ny+1:end] = [Tnew / δt * B' * Hk(k) * ptnew for k=1:N] # compare to the "test" equation above
+	traj2[(N+1)*ny+1:end] = vcat([Tnew / δt * B' * Hk(k) * ptnew for k=1:N]...) # compare to the "test" equation above
 
 	return pnew, eval_f, traj2
 

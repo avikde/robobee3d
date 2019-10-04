@@ -434,7 +434,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     # Param stuff
     cbar, T, mwing = param
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
-    B = [1.0, 0.0]
+    B = reshape([1.0, 0.0], 2, 1)
 
     function HMqT(ypos, yvel)
         σa, Ψ, σ̇adum, Ψ̇dum = ypos
@@ -484,9 +484,8 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         return Htil(yk(k), yk(k+1), Faero)
     end
     yo = k -> [T, 1.0, T, 1.0] .* yk(k)
-    umeas = k -> uk(k)
 
-    return Hk, yo, umeas, B, N
+    return Hk, yo, uk, B, N
 end
 
 
