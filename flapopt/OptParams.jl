@@ -264,61 +264,90 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	σamax = 0.3 # [mm] constant? for robobee actuators
 	Tmin = σomax/σamax
 	println("Tmin = ", Tmin)
+	plimsL = [0.1, Tmin, 0.1]
+	plimsU = [1000.0, 1000.0, 1000.0]
 	
 	# Need to add unactuated joints to the constraint
 	Bperp = [0 1] #FIXME: get this automatically. this is s.t. Bperp*B = 0
 	# Constraint
 	function eval_g(x::Vector, g::Vector)
-		pt = getpt(x)[1]
-		# unactuated joints
+		if mode == 1
+			pt = getpt(x)[1]
+			# unactuated joints
+			for k=1:N
+				g[k] = (Bperp * Hk(k) * pt)[1]
+			end
+			# box constraints
+			g[N+1:end] = x
+		elseif mode == 2
+			g .= x
+		end
+	end
+
+	if mode == 1
+		# Linearization of the constraint
+		Jt = ForwardDiff.jacobian(p -> getpt(p)[1], param) # even though this constraint is *linear in pt*, it is nonlinear in p. Need Jac for IPOPT.
+		# nunact = nq - size(B,2)
+		Aconstraint = zeros(N+np, np)
 		for k=1:N
-			g[k] = (Bperp * Hk(k) * pt)[1]
+			Aconstraint[k,:] = Bperp * Hk(k) * Jt
 		end
-		# box constraints
-		g[N+1:end] = x
+		# FIXME: this is not really general. This is for a box constraint on each
+		Aconstraint[N+1:end,:] = Matrix(1.0*I, np, np)
+		gli = LinearIndices((1:N, 1:np))
 	end
-	# Linearization of the constraint
-	Jt = ForwardDiff.jacobian(p -> getpt(p)[1], param) # even though this constraint is *linear in pt*, it is nonlinear in p. Need Jac for IPOPT.
-	# nunact = nq - size(B,2)
-	Aconstraint = zeros(N+np, np)
-	for k=1:N
-		Aconstraint[k,:] = Bperp * Hk(k) * Jt
-	end
-	# FIXME: this is not really general. This is for a box constraint on each
-	Aconstraint[N+1:end,:] = Matrix(1.0*I, np, np)
 	# number of nonzero?
-	Dgnnz = np + N*np
-	gli = LinearIndices((1:N, 1:np))
-	function eval_jac_g(x::Vector{Float64}, mode, row::Vector{Int32}, col::Vector{Int32}, value::Vector)
-		
-		if mode != :Structure
-			for j=1:np
-				for k=1:N
-					value[gli[k,j]] = Aconstraint[k,j]
+	Dgnnz = mode == 1 ? np + N*np : np
+
+	# Function for IPOPT
+	function eval_jac_g(x::Vector{Float64}, imode, row::Vector{Int32}, col::Vector{Int32}, value::Vector)
+		if mode == 1
+			if imode != :Structure
+				for j=1:np
+					for k=1:N
+						value[gli[k,j]] = Aconstraint[k,j]
+					end
+				end
+				for j=1:np
+					value[N*np+j] = 1.0
+				end
+			else
+				for j=1:np
+					for k=1:N
+						row[gli[k,j]] = k
+						col[gli[k,j]] = j
+					end
+				end
+				for j=1:np
+					row[N*np+j] = N+j
+					col[N*np+j] = j
 				end
 			end
-			for j=1:np
-				value[N*np+j] = 1.0
-			end
-		else
-			for j=1:np
-				for k=1:N
-					row[gli[k,j]] = k
-					col[gli[k,j]] = j
+		elseif mode == 2
+			if imode != :Structure
+				for j=1:np
+					value[j] = 1.0
 				end
-			end
-			for j=1:np
-				row[N*np+j] = N+j
-				col[N*np+j] = j
+			else
+				for j=1:np
+					row[j] = j
+					col[j] = j
+				end
 			end
 		end
 	end
-	# limits on the unactuated constraint FIXME: assuming 1 unactuated
-	glimsL = -εunact * ones(N+np)
-	glimsU = εunact * ones(N+np)
-	# limits on the params
-	glimsL[N+1:end] = [0.1, Tmin, 0.1]
-	glimsU[N+1:end] = [1000.0, 1000.0, 1000.0]
+
+	if mode == 1
+		# limits on the unactuated constraint FIXME: assuming 1 unactuated
+		glimsL = -εunact * ones(N+np)
+		glimsU = εunact * ones(N+np)
+		# limits on the params
+		glimsL[N+1:end] = plimsL
+		glimsU[N+1:end] = plimsU
+	elseif mode == 2
+		glimsL = plimsL
+		glimsU = plimsU
+	end
 
 	function eval_f(x::AbstractArray)
 		pt, T = getpt(x)
