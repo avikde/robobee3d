@@ -356,7 +356,7 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, paramObj
 
     function plotSlice(i1, i2)
         function f(p1, p2)
-            parg = param0
+            parg = copy(param0)
             parg[i1] = p1
             parg[i2] = p2
             return paramObj(parg)

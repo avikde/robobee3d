@@ -62,7 +62,7 @@ param1, paramObj, traj1 = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 0,
 # mwings = collect(0.1:0.1:2)
 # plot(mwings, paramObj.([[param0[1:2];mwing] for mwing in mwings]))
 
-display(param1')
+display([param0, param1])
 pls = plotParamImprovement(m, opt, trajt, [param0, param1], [traj0, traj1], paramObj)
 plot(pls...)
 
