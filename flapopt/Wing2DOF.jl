@@ -476,7 +476,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     function Hext(k)
         σa, Ψ, σ̇a, Ψ̇ = yk(k)
         _, _, Faero = w2daero(yk(k), param)
-        Ftil = -F/cbar
+        Ftil = -Faero/cbar
         rcop = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
         # Need Hext either way
         return [0   0   0   Ftil[1]   0   0   0   0    0;

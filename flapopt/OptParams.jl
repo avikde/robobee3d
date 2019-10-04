@@ -186,13 +186,17 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		return [pb; T^(-2)], T
 	end
     ptTEST, TTEST = getpt(param) # NOTE the actual param values are only needed for the test mode
-    npt = length(ptTEST)
+	npt = length(ptTEST)
     
 	# Weights
 	Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
 	if mode == 2
 		# FIXME: need to consider the unactuated row too, so need Ruu of size nq
 		Ruu = I
+		
+		# FIXME: test weight external force for "regularization" in ID mode
+		Rext = I
+		Fextdes = [1000, 0]
 	end
 
 	# Quadratic form matrix
@@ -210,6 +214,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
     qyy = 0
 	for k=1:N
 		Hh = Hk(k)
+		Hhext = Hextk(k)
 		yok = yo(k)
 		if mode == 1
         	Quu += Hh' * B * Ruu * B' * Hh
@@ -218,9 +223,9 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
         	qyy += yok' * Ryy * yok # qyy * T^(-2)
 		elseif mode == 2
 			# FIXME: need to consider the unactuated rows too
-			Quu += Hh' * Ruu * Hh
+			Quu += Hh' * Ruu * Hh + Hhext' * Rext * Hhext
 			# For ID, need uk
-			qyu -= Hh' * Ruu * (δt * B * umeas(k))
+			qyu += (-Hh' * Ruu * (δt * B * umeas(k)) - Hhext' * Rext * Fextdes)
 		end
 
         if test

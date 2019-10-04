@@ -21,9 +21,9 @@ m = Wing2DOFModel(
 	0, #b output
 	6, # ma
 	0, # ba
-	240#= 0 =#) # ka
+	150#= 0 =#) # ka
 ny, nu = cu.dims(m)
-opt = cu.OptOptions(false, 0.2, 1, :none, 1e-8, false)
+opt = cu.OptOptions(false, 0.1, 1, :none, 1e-8, false)
 # opt = cu.OptOptions(false, 0.2, 1, cu.SYMMETRIC, 1e-8, false)
 N = opt.boundaryConstraint == :symmetric ? 17 : 33
 param0 = [3.2,  # cbar[mm] (area/R)
@@ -48,7 +48,7 @@ param0 = [3.2,  # cbar[mm] (area/R)
 # trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
 # Load data
-N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2460; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.75)
+N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
 # pl1 = compareTrajToDAQ(m, opt, trajt, param0, traj0, lift, drag)
 # plot(pl1...)
 
