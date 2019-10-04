@@ -475,12 +475,12 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
 
     function Hext(k)
         σa, Ψ, σ̇a, Ψ̇ = yk(k)
+        # FIXME: this is wrong, need Fext(p) not the reaction torque on the joints
         _, _, Faero = w2daero(yk(k), param)
-        Ftil = -Faero/cbar
-        rcop = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
+        Ftil = Faero/cbar
         # Need Hext either way
         return [0   0   0   Ftil[1]   0   0   0   0    0;
-            0   0   0    0   rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0]
+            0   0   0    Ftil[2]   0   0   0   0   0]
     end
 
     # this is OK - see notes

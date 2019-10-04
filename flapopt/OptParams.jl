@@ -195,8 +195,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		Ruu = I
 		
 		# FIXME: test weight external force for "regularization" in ID mode
-		Rext = I
-		Fextdes = [1000, 0]
+		Rext = 2e-2*I
+		Fextdes = [0, 100]
 	end
 
 	# Quadratic form matrix
