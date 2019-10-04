@@ -473,6 +473,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         end
     end
 
+    # TODO: remove this
     function Hext(k)
         σa, Ψ, σ̇a, Ψ̇ = yk(k)
         # FIXME: this is wrong, need Fext(p) not the reaction torque on the joints
@@ -500,4 +501,15 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     return Hk, Hext, yo, uk, B, N
 end
 
+function avgLift(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray)
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+    yk = k -> @view traj[liy[:,k]]
+    uk = k -> @view traj[liu[:,k]]
 
+    aa = 0
+    for k=1:N
+        _, _, Faero = w2daero(yk(k), param)
+        aa += Faero[2] * δt
+    end
+    return aa / (N*δt)
+end
