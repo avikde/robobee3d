@@ -270,8 +270,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	σamax = 0.3 # [mm] constant? for robobee actuators
 	Tmin = σomax/σamax
 	println("Tmin = ", Tmin)
-	plimsL = [0.1, Tmin, 0.1]
-	plimsU = [1000.0, 1000.0, 1000.0]
+	plimsL = [0.1, Tmin, 0.1, 0.1, 0.1]
+	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
 	
 	# Need to add unactuated joints to the constraint
 	Bperp = [0 1] #FIXME: get this automatically. this is s.t. Bperp*B = 0
@@ -378,8 +378,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# Create IPOPT problem
 	prob = Ipopt.createProblem(
 		length(param), # Number of variables
-		[0.1, 0.1, 0.1], # Variable lower bounds
-		[10.0, 1000.0, 2], # Variable upper bounds
+		plimsL, # Variable lower bounds
+		plimsU, # Variable upper bounds
 		length(glimsL), # Number of constraints
 		glimsL,       # Constraint lower bounds
 		glimsU,       # Constraint upper bounds
