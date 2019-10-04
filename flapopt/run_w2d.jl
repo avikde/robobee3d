@@ -57,11 +57,12 @@ const MIN_AVG_LIFT = 0.5
 cbarmin = param0[1] * MIN_AVG_LIFT / avgLift(m, opt, traj0, param0)
 
 # The actuator data does not correspond to the kinematics in any way (esp. without params)
-# 1. Try to find the best params *assuming* these are the correct inputs. ID mode
-param1, paramObj, traj1 = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 0, 1.0*ones(1,1)), 0.3, cbarmin; Fext_pdep=false, test=false, print_level=1)
+# # 1. Try to find the best params *assuming* these are the correct inputs. ID mode
+# param1, paramObj, traj1 = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 0, 1.0*ones(1,1)), 0.3, cbarmin; Fext_pdep=false, test=false, print_level=1)
 
 # # 2. Try to optimize
 # param2, paramObj, u2 = cu.optAffine(m, opt, traj0, param1, 1, (zeros(4,4), 0, 1.0*ones(1,1)); test=false, print_level=1)
+param1, paramObj, traj1 = cu.optAffine(m, opt, traj0, param0, 1, (zeros(4,4), 0, 1.0*I), 0.3, cbarmin; Fext_pdep=false, test=false, print_level=1)
 
 # mwings = collect(0.1:0.1:2)
 # plot(mwings, paramObj.([[param0[1:2];mwing] for mwing in mwings]))

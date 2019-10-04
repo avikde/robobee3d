@@ -190,10 +190,6 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
     
 	# Weights
 	Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
-	if mode == 2
-		# FIXME: need to consider the unactuated row too, so need Ruu of size nq
-		Ruu = I
-	end
 
 	# Quadratic form matrix
 	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R; Fext_pdep=Fext_pdep, fixTrajWithDynConst=test)
@@ -212,12 +208,12 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		Hh = Hk(k)
 		yok = yo(k)
 		if mode == 1
-        	Quu += Hh' * B * Ruu * B' * Hh
+        	Quu += Hh' * Ruu * Hh
 			# Need output coords
 			qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yok)
         	qyy += yok' * Ryy * yok # qyy * T^(-2)
 		elseif mode == 2
-			# FIXME: need to consider the unactuated rows too
+			# Need to consider the unactuated rows too
 			Quu += Hh' * Ruu * Hh
 			# For ID, need uk
 			qyu += (-Hh' * Ruu * (δt * B * umeas(k)))
@@ -277,84 +273,26 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# Need to add unactuated joints to the constraint
 	Bperp = [0 1] #FIXME: get this automatically. this is s.t. Bperp*B = 0
 	# Constraint
-	function eval_g(x::Vector, g::Vector)
-		if mode == 1
-			pt = getpt(x)[1]
-			# unactuated joints
-			for k=1:N
-				g[k] = (Bperp * Hk(k) * pt)[1]
-			end
-			# box constraints
-			g[N+1:end] = x
-		elseif mode == 2
-			g .= x
-		end
-	end
-
-	if mode == 1
-		# Linearization of the constraint
-		Jt = ForwardDiff.jacobian(p -> getpt(p)[1], param) # even though this constraint is *linear in pt*, it is nonlinear in p. Need Jac for IPOPT.
-		# nunact = nq - size(B,2)
-		Aconstraint = zeros(N+np, np)
-		for k=1:N
-			Aconstraint[k,:] = Bperp * Hk(k) * Jt
-		end
-		# FIXME: this is not really general. This is for a box constraint on each
-		Aconstraint[N+1:end,:] = Matrix(1.0*I, np, np)
-		gli = LinearIndices((1:N, 1:np))
-	end
-	# number of nonzero?
-	Dgnnz = mode == 1 ? np + N*np : np
+	eval_g(x::Vector, g::Vector) = g .= x
+	Dgnnz = np
 
 	# Function for IPOPT
 	function eval_jac_g(x::Vector{Float64}, imode, row::Vector{Int32}, col::Vector{Int32}, value::Vector)
-		if mode == 1
-			if imode != :Structure
-				for j=1:np
-					for k=1:N
-						value[gli[k,j]] = Aconstraint[k,j]
-					end
-				end
-				for j=1:np
-					value[N*np+j] = 1.0
-				end
-			else
-				for j=1:np
-					for k=1:N
-						row[gli[k,j]] = k
-						col[gli[k,j]] = j
-					end
-				end
-				for j=1:np
-					row[N*np+j] = N+j
-					col[N*np+j] = j
-				end
+		if imode != :Structure
+			for j=1:np
+				value[j] = 1.0
 			end
-		elseif mode == 2
-			if imode != :Structure
-				for j=1:np
-					value[j] = 1.0
-				end
-			else
-				for j=1:np
-					row[j] = j
-					col[j] = j
-				end
+		else
+			for j=1:np
+				row[j] = j
+				col[j] = j
 			end
 		end
 	end
 
-	if mode == 1
-		# limits on the unactuated constraint FIXME: assuming 1 unactuated
-		glimsL = -εunact * ones(N+np)
-		glimsU = εunact * ones(N+np)
-		# limits on the params
-		glimsL[N+1:end] = plimsL
-		glimsU[N+1:end] = plimsU
-	elseif mode == 2
-		glimsL = plimsL
-		glimsU = plimsU
-	end
+	# TODO: remove this or add more complex constraint
+	glimsL = plimsL
+	glimsU = plimsU
 
 	function eval_f(x::AbstractArray)
 		pt, T = getpt(x)
