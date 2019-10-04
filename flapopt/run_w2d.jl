@@ -19,8 +19,6 @@ m = Wing2DOFModel(
 	17.0, # R, [Jafferis (2016)]
 	0.9#= 1.5 =#, #k output
 	0, #b output
-	5, # hinge k
-	3, # hinge b
 	6, # ma
 	0, # ba
 	240#= 0 =#) # ka
@@ -28,7 +26,12 @@ ny, nu = cu.dims(m)
 opt = cu.OptOptions(false, 0.2, 1, :none, 1e-8, false)
 # opt = cu.OptOptions(false, 0.2, 1, cu.SYMMETRIC, 1e-8, false)
 N = opt.boundaryConstraint == :symmetric ? 17 : 33
-param0 = [3.2, 28.33, 0.52] # cbar[mm] (area/R), T (from 3333 rad/m, R=17, [Jafferis (2016)]), mwing[mg]
+param0 = [3.2,  # cbar[mm] (area/R)
+	28.33, # T (from 3333 rad/m, R=17, [Jafferis (2016)])
+	0.52, # mwing[mg]
+	5, # kΨ [mN-mm/rad]
+	3 # bΨ [mN-mm/(rad/ms)]
+]
 
 # Stiffness sweep ---
 # function respkσ(kσ)
@@ -51,7 +54,7 @@ trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
 # The actuator data does not correspond to the kinematics in any way (esp. without params)
 # 1. Try to find the best params *assuming* these are the correct inputs. ID mode
-param1, paramObj, traj1 = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 0, 1.0*ones(1,1)), 0.3; Fext_pdep=false, test=false, print_level=1)
+param1, paramObj, traj1 = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 0, 1.0*ones(1,1)), 0.3; Fext_pdep=false, test=true, print_level=1)
 
 # # 2. Try to optimize
 # param2, paramObj, u2 = cu.optAffine(m, opt, traj0, param1, 1, (zeros(4,4), 0, 1.0*ones(1,1)); test=false, print_level=1)

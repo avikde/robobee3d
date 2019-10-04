@@ -39,8 +39,6 @@ struct Wing2DOFModel <: controlutils.Model
     # params
     kσ::Float64 # [mN/mm]
     bσ::Float64 # [mN/(mm/ms)]
-    kΨ::Float64 # [mN-mm/rad]
-    bΨ::Float64 # [mN-mm/(rad/ms)]
     # Actuator params
     ma::Float64 # [mg]; effective
     ba::Float64 # [mN/(mm/ms)]
@@ -84,7 +82,7 @@ function w2daero(y::AbstractArray, _params::Vector)
     ρ = 1.225e-3 # [mg/(mm^3)]
     
     # unpack
-    cbar, T, mwing = _params
+    cbar, T, mwing, kΨ, bΨ = _params
     σ, Ψ, σ̇, Ψ̇ = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]
     cΨ = cos(Ψ)
     sΨ = sin(Ψ)
@@ -117,7 +115,7 @@ end
 "Continuous dynamics second order model"
 function cu.dydt(m::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _params::Vector)::AbstractArray
     # unpack
-    cbar, T, mwing = _params
+    cbar, T, mwing, kΨ, bΨ = _params
     # cbar, T, kσ = _params
     σ, Ψ, σ̇, Ψ̇ = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]
     # NOTE: for optimizing transmission ratio
@@ -129,9 +127,9 @@ function cu.dydt(m::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _params::
 
     # inertial terms
     M = @SMatrix [mwing + m.ma/T^2   γ*cbar*mwing*cΨ;  γ*cbar*mwing*cΨ   2*cbar^2*γ^2*mwing]
-    corgrav = @SVector [(m.kσ + m.ka/T^2)*σ - γ*cbar*mwing*sΨ*Ψ̇^2, m.kΨ*Ψ]
+    corgrav = @SVector [(m.kσ + m.ka/T^2)*σ - γ*cbar*mwing*sΨ*Ψ̇^2, kΨ*Ψ]
     # non-lagrangian terms
-    τdamp = @SVector [-(m.bσ + m.ba/T^2) * σ̇, -m.bΨ * Ψ̇]
+    τdamp = @SVector [-(m.bσ + m.ba/T^2) * σ̇, -bΨ * Ψ̇]
     _, Jaero, Faero = w2daero(y, _params)
     τaero = Jaero' * Faero # units of [mN, mN-mm]
     # input
@@ -232,7 +230,7 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, traj
 	Ny = (N+1)*ny
     # stroke "angle" = T*y[1] / R
     function strokeAng(traj, param)
-        cbar, T, mwing = param
+        cbar, T, mwing, kΨ, bΨ = param
         traj[@view liy[1,:]] * T / (m.R/2)
     end
     # If plot is given a matrix each column becomes a different line
@@ -269,7 +267,7 @@ function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 	Ny = (N+1)*ny
 	# stroke "angle" = T*y[1] / R
-    cbar, T, mwing = param
+    cbar, T, mwing, kΨ, bΨ = param
     # Plot of aero forces at each instant
     function aeroPlotVec(_traj::Vector, _param, i)
         Faerok = k -> w2daero(_traj[@view liy[:,k]], _param)[end]
@@ -411,8 +409,8 @@ end
 # param opt stuff ------------------------
 
 function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
-    cbar, T, mwing = param
-    return [1, cbar, cbar^2, mwing, mwing*cbar, mwing*cbar^2], T
+    cbar, T, mwing, kΨ, bΨ = param
+    return [1, kΨ, bΨ, cbar, cbar^2, mwing, mwing*cbar, mwing*cbar^2], T
 end
 
 function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple; Fext_pdep::Bool=false, fixTrajWithDynConst::Bool=false)
@@ -442,8 +440,8 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         # Need the original T to use output coords
         σo = T * σa
         σ̇o = T * σ̇a
-        return [0   0   0   σ̇o   γ*Ψ̇*cos(Ψ)   0   σ̇o*m.ma;
-        0   0   0   0   γ*σ̇o*cos(Ψ)   2*Ψ̇*γ^2    0]
+        return [0   0   0   0   0   σ̇o   γ*Ψ̇*cos(Ψ)   0   σ̇o*m.ma;
+        0   0   0   0   0   0   γ*σ̇o*cos(Ψ)   2*Ψ̇*γ^2    0]
     end
 
     function HCgJT(y, F)
@@ -461,13 +459,13 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
             # return [0   -m.kσ*σa-m.bσ*σ̇a   Ftil[1]   0   0;
             # -m.kΨ*Ψ-m.bΨ*Ψ̇   0   0   -σ̇a*Ψ̇*m.mwing*sin(Ψ)   rcopnondim*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))]
             # 1st order version
-            return [m.kσ*σo+m.bσ*σ̇o   Ftil[1]   0   0   -γ*Ψ̇^2*sin(Ψ)   0    m.ba*σ̇o + m.ka*σo;
-            m.kΨ*Ψ+m.bΨ*Ψ̇    0   rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0]
+            return [m.kσ*σo+m.bσ*σ̇o   0   0   Ftil[1]   0   0   -γ*Ψ̇^2*sin(Ψ)   0    m.ba*σ̇o + m.ka*σo;
+            0   Ψ   Ψ̇    0   rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0]
         else
             Ftil = -F
             # 1st order version
-            return [m.kσ*σo+m.bσ*σ̇o+Ftil[1]   0   0   0   -γ*Ψ̇^2*sin(Ψ)   0    m.ba*σ̇o + m.ka*σo;
-            m.kΨ*Ψ+m.bΨ*Ψ̇    rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0   0]
+            return [m.kσ*σo+m.bσ*σ̇o+Ftil[1]   0   0   0   0   0   -γ*Ψ̇^2*sin(Ψ)   0    m.ba*σ̇o + m.ka*σo;
+            0   Ψ   Ψ̇    rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0   0]
         end
     end
 
