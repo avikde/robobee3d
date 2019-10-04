@@ -473,17 +473,6 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         end
     end
 
-    # TODO: remove this
-    function Hext(k)
-        σa, Ψ, σ̇a, Ψ̇ = yk(k)
-        # FIXME: this is wrong, need Fext(p) not the reaction torque on the joints
-        _, _, Faero = w2daero(yk(k), param)
-        Ftil = Faero/cbar
-        # Need Hext either way
-        return [0   0   0   Ftil[1]   0   0   0   0    0;
-            0   0   0    Ftil[2]   0   0   0   0   0]
-    end
-
     # this is OK - see notes
     # Htil = (y, ynext, F) -> HMq(ynext) - HMq(y) + δt*HCgJ(y, F)
     # 1st order integration mods
@@ -498,7 +487,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     end
     yo = k -> [T, 1.0, T, 1.0] .* yk(k)
 
-    return Hk, Hext, yo, uk, B, N
+    return Hk, yo, uk, B, N
 end
 
 function avgLift(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray)

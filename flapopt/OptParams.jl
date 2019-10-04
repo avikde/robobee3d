@@ -176,7 +176,7 @@ end
 paramLumped(m::Model, param::AbstractArray) = error("Implement this")
 
 "Mode=1 => opt, mode=2 ID. Fext(p) or hold constant"
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple, εunact; Fext_pdep::Bool=false, test=false, kwargs...)
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple, εunact, cbarmin; Fext_pdep::Bool=false, test=false, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
 	np = length(param)
@@ -187,23 +187,16 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	end
     ptTEST, TTEST = getpt(param) # NOTE the actual param values are only needed for the test mode
 	npt = length(ptTEST)
-
-	# FIXME: see https://github.com/avikde/robobee3d/pull/80. Basically removing this param from change if doing this with ID. If the params are not known initially, would not know what to keep it fixed to
-	keepLiftFixed = true
     
 	# Weights
 	Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
 	if mode == 2
 		# FIXME: need to consider the unactuated row too, so need Ruu of size nq
 		Ruu = I
-		
-		# FIXME: test weight external force for "regularization" in ID mode
-		Rext = keepLiftFixed ? 0 : 2e-2*I
-		Fextdes = [0, 100]
 	end
 
 	# Quadratic form matrix
-	Hk, Hextk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R; Fext_pdep=Fext_pdep, fixTrajWithDynConst=test)
+	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R; Fext_pdep=Fext_pdep, fixTrajWithDynConst=test)
 
     # If test is true, it will test the affine relation
     if test
@@ -217,7 +210,6 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
     qyy = 0
 	for k=1:N
 		Hh = Hk(k)
-		Hhext = Hextk(k)
 		yok = yo(k)
 		if mode == 1
         	Quu += Hh' * B * Ruu * B' * Hh
@@ -226,9 +218,9 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
         	qyy += yok' * Ryy * yok # qyy * T^(-2)
 		elseif mode == 2
 			# FIXME: need to consider the unactuated rows too
-			Quu += Hh' * Ruu * Hh + Hhext' * Rext * Hhext
+			Quu += Hh' * Ruu * Hh
 			# For ID, need uk
-			qyu += (-Hh' * Ruu * (δt * B * umeas(k)) - Hhext' * Rext * Fextdes)
+			qyu += (-Hh' * Ruu * (δt * B * umeas(k)))
 		end
 
         if test
@@ -277,14 +269,10 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	σomax = norm([yo(k)[1] for k=1:N], Inf)
 	σamax = 0.3 # [mm] constant? for robobee actuators
 	Tmin = σomax/σamax
-	println("Tmin = ", Tmin)
-	plimsL = [0.1, Tmin, 0.1, 0.1, 0.1]
+
+	println("Tmin = ", Tmin, " cbarmin = ", cbarmin)
+	plimsL = [cbarmin, Tmin, 0.1, 0.1, 0.1]
 	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
-	if keepLiftFixed
-		# FIXME: to keep lift the same, just have to restrict cbar
-		cbarold = param[1]
-		plimsL[1] = plimsU[1] = cbarold
-	end
 	
 	# Need to add unactuated joints to the constraint
 	Bperp = [0 1] #FIXME: get this automatically. this is s.t. Bperp*B = 0
