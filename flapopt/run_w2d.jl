@@ -53,23 +53,49 @@ N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.m
 # plot(pl1...)
 
 # Constraint on cbar placed by minAvgLift. FIXME: this is very specific to W2D, since lift \proptp cbar
-const MIN_AVG_LIFT = 0.5
-cbarmin = param0[1] * MIN_AVG_LIFT / avgLift(m, opt, traj0, param0)
+avgLift0 = avgLift(m, opt, traj0, param0)
+cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
 
-# The actuator data does not correspond to the kinematics in any way (esp. without params)
-# # 1. Try to find the best params *assuming* these are the correct inputs. ID mode
-# param1, paramObj, traj1 = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 0, 1.0*ones(1,1)), 0.3, cbarmin; Fext_pdep=false, test=false, print_level=1)
+R_WTS = (zeros(4,4), 0, 1.0*I)
 
-# # 2. Try to optimize
-# param2, paramObj, u2 = cu.optAffine(m, opt, traj0, param1, 1, (zeros(4,4), 0, 1.0*ones(1,1)); test=false, print_level=1)
-param1, paramObj, traj1 = cu.optAffine(m, opt, traj0, param0, 1, (zeros(4,4), 0, 1.0*I), 0.3, cbarmin; Fext_pdep=false, test=false, print_level=1)
+# # One-off ID or opt ---------
 
-# mwings = collect(0.1:0.1:2)
-# plot(mwings, paramObj.([[param0[1:2];mwing] for mwing in mwings]))
+# # The actuator data does not correspond to the kinematics in any way (esp. without params)
+# # # 1. Try to find the best params *assuming* these are the correct inputs. ID mode
+# # param1, paramObj, traj1 = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 0, 1.0*ones(1,1)), 0.3, cbarmin; Fext_pdep=false, test=false, print_level=1)
 
-display([param0, param1])
-pls = plotParamImprovement(m, opt, trajt, [param0, param1], [traj0, traj1], paramObj)
-plot(pls...)
+# # # 2. Try to optimize
+# param1, paramObj, traj1 = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.3, cbarmin(0.5); Fext_pdep=false, test=false, print_level=1)
+
+# # mwings = collect(0.1:0.1:2)
+# # plot(mwings, paramObj.([[param0[1:2];mwing] for mwing in mwings]))
+
+# display([param0, param1])
+# pls = plotParamImprovement(m, opt, trajt, [param0, param1], [traj0, traj1], paramObj)
+# plot(pls...)
+
+# many sims (scale) --------------
+
+function maxuForMinAvgLift(al)
+	param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.3, cbarmin(al); Fext_pdep=false, test=false, print_level=1)
+	return [param1; norm(traj1[(N+1)*ny:end], Inf); norm(unactErr)]
+end
+
+minlifts = 0.1:0.1:4.0
+llabels = [
+	"chord",
+	"T",
+	"mwing",
+	"hinge k",
+	"hinge b"
+]
+
+res = hcat(maxuForMinAvgLift.(minlifts)...)'
+p1 = plot(minlifts, res[:,1:end-2], xlabel="min avg lift [mN]", label=llabels, ylabel="design params", linewidth=2)
+p2 = plot(minlifts, res[:,end-1], xlabel="min avg lift [mN]", ylabel="umin [mN]", linewidth=2)
+p3 = plot(minlifts, res[:,end], xlabel="min avg lift [mN]", ylabel="unact err", linewidth=2)
+# p3 = 
+plot(p1, p2, p3)
 
 # # traj opt ------------------------------------
 
