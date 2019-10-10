@@ -107,7 +107,6 @@ ptest = res[1:np]
 res0 = maxuForMinAvgLift(avgLift0)
 res0[np+2]
 
-
 # # traj opt ------------------------------------
 
 # # εs = [0.05, 0.005, 0.001] # IC, dyn, symm

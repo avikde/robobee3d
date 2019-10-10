@@ -192,7 +192,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
 
 	# Quadratic form matrix
-	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R; Fext_pdep=Fext_pdep, fixTrajWithDynConst=test)
+	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R; Fext_pdep=Fext_pdep, fixTrajWithDynConst=true)
 
     # If test is true, it will test the affine relation
     if test
@@ -356,9 +356,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 
 	# Get an idea of the error in the unactuated DOF
 	Hpb = zeros(nq, N)
-	Bu = similar(Hpb)
 	for k=1:N
-		Hpb[:,k] = Hk(k) * ptnew
+		Hpb[:,k] = Hk(k) * ptTEST
 	end
 	unactErr = [0 1] * Hpb
 
