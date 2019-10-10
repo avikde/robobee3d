@@ -91,14 +91,22 @@ llabels = [
 	"hinge b"
 ]
 
-res = hcat(maxuForMinAvgLift.(minlifts)...)'
+# res = hcat(maxuForMinAvgLift.(minlifts)...)'
 np = length(param0)
-p1 = plot(minlifts, res[:,1:np], xlabel="min avg lift [mN]", label=llabels, ylabel="design params", linewidth=2)
-p2 = plot(minlifts, res[:,np+1], xlabel="min avg lift [mN]", ylabel="umin [mN]", linewidth=2)
-p3 = plot(minlifts, res[:,np+2], xlabel="min avg lift [mN]", ylabel="unact err", linewidth=2, label="err")
-plot!(p3, minlifts, res[:,np+3], xlabel="min avg lift [mN]", ylabel="kΨ", linewidth=2, linestyle=:dash, label="hinge stiff+damp")
+# p1 = plot(minlifts, res[:,1:np], xlabel="min avg lift [mN]", label=llabels, ylabel="design params", linewidth=2)
+# p2 = plot(minlifts, res[:,np+1], xlabel="min avg lift [mN]", ylabel="umin [mN]", linewidth=2)
+# p3 = plot(minlifts, res[:,np+2], xlabel="min avg lift [mN]", ylabel="unact err", linewidth=2, label="err")
+# plot!(p3, minlifts, res[:,np+3], xlabel="min avg lift [mN]", linewidth=2, linestyle=:dash, label="hinge stiff+damp")
 # p3 = 
-plot(p1, p2, p3)
+# plot(p1, p2, p3)
+
+# ! pick one
+res = maxuForMinAvgLift(3)
+ptest = res[1:np]
+
+res0 = maxuForMinAvgLift(avgLift0)
+res0[np+2]
+
 
 # # traj opt ------------------------------------
 
