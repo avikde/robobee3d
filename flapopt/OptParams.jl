@@ -357,7 +357,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# Get an idea of the error in the unactuated DOF
 	Hpb = zeros(nq, N)
 	for k=1:N
-		Hpb[:,k] = Hk(k) * ptTEST
+		Hpb[:,k] = Hk(k) * ptnew
 	end
 	unactErr = [0 1] * Hpb
 
