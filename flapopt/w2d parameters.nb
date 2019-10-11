@@ -10,10 +10,10 @@
 NotebookFileLineBreakTest
 NotebookFileLineBreakTest
 NotebookDataPosition[       158,          7]
-NotebookDataLength[     54353,       1404]
-NotebookOptionsPosition[     51274,       1340]
-NotebookOutlinePosition[     51648,       1356]
-CellTagsIndexPosition[     51605,       1353]
+NotebookDataLength[     58568,       1519]
+NotebookOptionsPosition[     55128,       1448]
+NotebookOutlinePosition[     55502,       1464]
+CellTagsIndexPosition[     55459,       1461]
 WindowFrame->Normal*)
 
 (* Beginning of Notebook Content *)
@@ -1141,6 +1141,114 @@ $CellContext`\[Sigma]o}, {
 In[60]:=",ExpressionUUID->"b33ab0b5-a2c0-44c7-b79a-c1de34ea6c88"]
 }, Open  ]]
 }, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["H unactuated DOFs", "Subsection",
+ CellChangeTimes->{{3.779815957122964*^9, 
+  3.7798159748559074`*^9}},ExpressionUUID->"16b53a88-6cb4-4838-a4ea-\
+5ae2575a43a6"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"H2", "=", 
+   RowBox[{"{", 
+    RowBox[{"\[Psi]", ",", "d\[Psi]", ",", 
+     RowBox[{"rcop", 
+      RowBox[{"(", 
+       RowBox[{
+        RowBox[{"F1", " ", 
+         RowBox[{"Cos", "[", "\[Psi]", "]"}]}], "+", 
+        RowBox[{"F2", " ", 
+         RowBox[{"Sin", "[", "\[Psi]", "]"}]}]}], ")"}]}], ",", 
+     RowBox[{"\[Gamma]", " ", 
+      RowBox[{"Cos", "[", "\[Psi]", "]"}], 
+      RowBox[{
+       RowBox[{"(", 
+        RowBox[{"d\[Sigma]n", "-", "d\[Sigma]"}], ")"}], "/", "\[Delta]"}]}], 
+     ",", 
+     RowBox[{"2", 
+      RowBox[{"\[Gamma]", "^", "2"}], 
+      RowBox[{
+       RowBox[{"(", 
+        RowBox[{"d\[Psi]n", "-", "d\[Psi]"}], ")"}], "/", "\[Delta]"}]}]}], 
+    "}"}]}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"H2b", "=", 
+   RowBox[{"H2", "/.", 
+    RowBox[{"{", 
+     RowBox[{
+      RowBox[{"\[Psi]", "\[Rule]", 
+       RowBox[{"\[Psi]", "+", 
+        RowBox[{"\[Epsilon]", " ", "\[CapitalDelta]\[Psi]"}]}]}], ",", 
+      RowBox[{"d\[Psi]", "\[Rule]", 
+       RowBox[{"d\[Psi]", "+", 
+        RowBox[{"\[Epsilon]", " ", "\[CapitalDelta]d\[Psi]"}]}]}], ",", 
+      RowBox[{"\[Sigma]", "\[Rule]", 
+       RowBox[{"\[Sigma]", "+", 
+        RowBox[{"\[Epsilon]", " ", "\[CapitalDelta]\[Sigma]"}]}]}], ",", 
+      RowBox[{"d\[Sigma]", "\[Rule]", 
+       RowBox[{"d\[Sigma]", "+", 
+        RowBox[{"\[Epsilon]", " ", "\[CapitalDelta]d\[Sigma]"}]}]}], ",", 
+      RowBox[{"d\[Sigma]n", "\[Rule]", 
+       RowBox[{"d\[Sigma]n", "+", 
+        RowBox[{"\[Epsilon]", " ", "\[CapitalDelta]d\[Sigma]n"}]}]}], ",", 
+      RowBox[{"d\[Psi]n", "\[Rule]", 
+       RowBox[{"d\[Psi]n", "+", 
+        RowBox[{"\[Epsilon]", " ", "\[CapitalDelta]d\[Psi]n"}]}]}]}], 
+     "}"}]}]}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{"Normal", "@", 
+  RowBox[{"Series", "[", 
+   RowBox[{
+    RowBox[{"H2b", "-", "H2"}], ",", 
+    RowBox[{"{", 
+     RowBox[{"\[Epsilon]", ",", "0", ",", "1"}], "}"}]}], "]"}]}]}], "Input",
+ CellChangeTimes->{{3.7798158934206285`*^9, 3.7798159369275846`*^9}, {
+  3.7798159800203905`*^9, 3.7798161601277347`*^9}},
+ CellLabel->"In[10]:=",ExpressionUUID->"c52d0fbc-e305-4a1c-bb66-938ada3877cb"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+   RowBox[{"\[CapitalDelta]\[Psi]", " ", "\[Epsilon]"}], ",", 
+   RowBox[{"\[CapitalDelta]d\[Psi]", " ", "\[Epsilon]"}], ",", 
+   RowBox[{"rcop", " ", "\[Epsilon]", " ", 
+    RowBox[{"(", 
+     RowBox[{
+      RowBox[{"F2", " ", "\[CapitalDelta]\[Psi]", " ", 
+       RowBox[{"Cos", "[", "\[Psi]", "]"}]}], "-", 
+      RowBox[{"F1", " ", "\[CapitalDelta]\[Psi]", " ", 
+       RowBox[{"Sin", "[", "\[Psi]", "]"}]}]}], ")"}]}], ",", 
+   FractionBox[
+    RowBox[{"\[Gamma]", " ", "\[Epsilon]", " ", 
+     RowBox[{"(", 
+      RowBox[{
+       RowBox[{
+        RowBox[{"(", 
+         RowBox[{
+          RowBox[{"-", "\[CapitalDelta]d\[Sigma]"}], "+", 
+          "\[CapitalDelta]d\[Sigma]n"}], ")"}], " ", 
+        RowBox[{"Cos", "[", "\[Psi]", "]"}]}], "-", 
+       RowBox[{
+        RowBox[{"(", 
+         RowBox[{
+          RowBox[{"-", "d\[Sigma]"}], "+", "d\[Sigma]n"}], ")"}], " ", 
+        "\[CapitalDelta]\[Psi]", " ", 
+        RowBox[{"Sin", "[", "\[Psi]", "]"}]}]}], ")"}]}], "\[Delta]"], ",", 
+   FractionBox[
+    RowBox[{"2", " ", 
+     SuperscriptBox["\[Gamma]", "2"], " ", 
+     RowBox[{"(", 
+      RowBox[{
+       RowBox[{"-", "\[CapitalDelta]d\[Psi]"}], "+", 
+       "\[CapitalDelta]d\[Psi]n"}], ")"}], " ", "\[Epsilon]"}], "\[Delta]"]}],
+   "}"}]], "Output",
+ CellChangeTimes->{{3.7798161342372875`*^9, 3.779816168834949*^9}},
+ CellLabel->"Out[12]=",ExpressionUUID->"12178367-b986-49b4-8ccc-252b5ae35053"]
+}, Open  ]]
 }, Open  ]]
 }, Open  ]],
 
@@ -1396,14 +1504,21 @@ Cell[39416, 1045, 1944, 45, 47, "Print",ExpressionUUID->"26a2c1e0-81ad-4632-8901
 Cell[41363, 1092, 2008, 48, 47, "Print",ExpressionUUID->"b33ab0b5-a2c0-44c7-b79a-c1de34ea6c88"]
 }, Open  ]]
 }, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[43432, 1147, 167, 3, 67, "Subsection",ExpressionUUID->"16b53a88-6cb4-4838-a4ea-5ae2575a43a6"],
+Cell[CellGroupData[{
+Cell[43624, 1154, 2158, 56, 84, "Input",ExpressionUUID->"c52d0fbc-e305-4a1c-bb66-938ada3877cb"],
+Cell[45785, 1212, 1452, 37, 61, "Output",ExpressionUUID->"12178367-b986-49b4-8ccc-252b5ae35053"]
+}, Open  ]]
 }, Open  ]]
 }, Open  ]],
 Cell[CellGroupData[{
-Cell[43444, 1148, 161, 3, 83, "Section",ExpressionUUID->"266d956c-d7dc-4dcb-bec8-76f22d115302"],
+Cell[47298, 1256, 161, 3, 83, "Section",ExpressionUUID->"266d956c-d7dc-4dcb-bec8-76f22d115302"],
 Cell[CellGroupData[{
-Cell[43630, 1155, 4382, 109, 348, "Input",ExpressionUUID->"3707860e-6ab3-49d3-a85b-4b356600ba5c"],
-Cell[48015, 1266, 802, 19, 40, "Output",ExpressionUUID->"22a1863e-f4f1-4446-8f75-8581f18c5747"],
-Cell[48820, 1287, 2426, 49, 432, "Output",ExpressionUUID->"7be8e24c-13a1-4ee1-a588-a9ea9d973db4"]
+Cell[47484, 1263, 4382, 109, 348, "Input",ExpressionUUID->"3707860e-6ab3-49d3-a85b-4b356600ba5c"],
+Cell[51869, 1374, 802, 19, 40, "Output",ExpressionUUID->"22a1863e-f4f1-4446-8f75-8581f18c5747"],
+Cell[52674, 1395, 2426, 49, 432, "Output",ExpressionUUID->"7be8e24c-13a1-4ee1-a588-a9ea9d973db4"]
 }, Open  ]]
 }, Open  ]]
 }
