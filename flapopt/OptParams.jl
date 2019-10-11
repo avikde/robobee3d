@@ -367,7 +367,9 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		# else
 		# 	error("mode")
 		# end
-		return x[1]
+
+		# min Δy
+		return dot(x[np+1 : end], x[np+1 : end])
 	end
 	eval_grad_f(x, grad_f) = ForwardDiff.gradient!(grad_f, eval_f, x)
 
@@ -412,10 +414,9 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# Also convert the output traj with the Δy, new T, and inputs
 	traj2 = copy(traj)
 	# Calculate the new traj (which is in act coordinates, so needs scaling by T)
-	ptold, Told = getpt(param)
 	ptnew, Tnew = getpt(pnew)
 	for k=1:N+1
-		traj2[liy[:,k]] = [1/Tnew, 1, 1/Tnew, 1] .* ([Told, 1, Told, 1] .* traj2[liy[:,k]] + Δyk(k))
+		traj2[liy[:,k]] = [1/Tnew, 1, 1/Tnew, 1] .* (yo(k) + Δyk(k))
 	end
 	# Calculate the new inputs
 	traj2[(N+1)*ny+1:end] = vcat([Tnew / δt * B' * Hk(k, Δyk(k), Δyk(k+1)) * ptnew for k=1:N]...) # compare to the "test" equation above
