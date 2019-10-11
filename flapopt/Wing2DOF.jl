@@ -178,7 +178,7 @@ end
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector)
+function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti)
     # Create a traj
     σmax = cu.limits(m)[end][1]
     tend = 100.0 # [ms]
@@ -210,7 +210,6 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     # expectedInterval = opt.boundaryConstraint == cu.SYMMETRIC ? 1/(2*freq) : 1/freq # [ms]
     # expectedPts = expectedInterval / simdt
 
-    starti = 187
     olRange = starti:2:(starti + 2*N)
     trajt = sol.t[olRange]
     δt = trajt[2] - trajt[1]
