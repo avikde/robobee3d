@@ -80,7 +80,7 @@ R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 # many sims (scale) --------------
 
 function maxuForMinAvgLift(al)
-	param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.3, cbarmin(al); Fext_pdep=false, test=false, print_level=1)
+	param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.3, cbarmin(al); Fext_pdep=false, test=false)#, print_level=1)
 	kΨ, bΨ = param1[4:5]
 	return [param1; norm(traj1[(N+1)*ny:end], Inf); norm(unactErr, Inf); 0.1*norm(kΨ*traj1[2:ny:(N+1)*ny] + bΨ*traj1[4:ny:(N+1)*ny], Inf)]
 end
@@ -94,16 +94,16 @@ llabels = [
 	"hinge b"
 ]
 
-res = hcat(maxuForMinAvgLift.(minlifts)...)'
-np = length(param0)
-p1 = plot(minlifts, res[:,1:np], xlabel="min avg lift [mN]", label=llabels, ylabel="design params", linewidth=2)
-p2 = plot(minlifts, res[:,np+1], xlabel="min avg lift [mN]", ylabel="umin [mN]", linewidth=2)
-p3 = plot(minlifts, res[:,np+2], xlabel="min avg lift [mN]", ylabel="unact err", linewidth=2, label="err")
-plot!(p3, minlifts, res[:,np+3], xlabel="min avg lift [mN]", linewidth=2, linestyle=:dash, label="hinge stiff+damp")
-plot(p1, p2, p3)
+# res = hcat(maxuForMinAvgLift.(minlifts)...)'
+# np = length(param0)
+# p1 = plot(minlifts, res[:,1:np], xlabel="min avg lift [mN]", label=llabels, ylabel="design params", linewidth=2)
+# p2 = plot(minlifts, res[:,np+1], xlabel="min avg lift [mN]", ylabel="umin [mN]", linewidth=2)
+# p3 = plot(minlifts, res[:,np+2], xlabel="min avg lift [mN]", ylabel="unact err", linewidth=2, label="err")
+# plot!(p3, minlifts, res[:,np+3], xlabel="min avg lift [mN]", linewidth=2, linestyle=:dash, label="hinge stiff+damp")
+# plot(p1, p2, p3)
 
-# # ! pick one
-# res = maxuForMinAvgLift(3)
+# ! pick one
+res = maxuForMinAvgLift(3)
 # ptest = res[1:np]
 
 # res0 = maxuForMinAvgLift(avgLift0)
