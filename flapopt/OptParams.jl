@@ -335,38 +335,39 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# See eval_f for how these are used to form the objective
 	function eval_f(x)
 		pt, T = getpt(x[1:np])
-		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
+		# Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 		
-		Quu = zeros(npt, npt)
-		qyu = zeros(npt)
-		qyy = 0
+		# Quu = zeros(npt, npt)
+		# qyu = zeros(npt)
+		# qyy = 0
 		
-		# Matrices that contain sum of running actuator cost
-		for k=1:N
-			Hh = Hk(k, Δyk(k), Δyk(k+1))
-			yok = yo(k) + Δyk(k)
-			if mode == 1
-				Quu += Hh' * Ruu * Hh
-				# Need output coords
-				qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yok)
-				qyy += yok' * Ryy * yok # qyy * T^(-2)
-			elseif mode == 2
-				# Need to consider the unactuated rows too
-				Quu += Hh' * Ruu * Hh
-				# For ID, need uk
-				qyu += (-Hh' * Ruu * (δt * B * umeas(k)))
-			end
-		end
+		# # Matrices that contain sum of running actuator cost
+		# for k=1:N
+		# 	Hh = Hk(k, Δyk(k), Δyk(k+1))
+		# 	yok = yo(k) + Δyk(k)
+		# 	if mode == 1
+		# 		Quu += Hh' * Ruu * Hh
+		# 		# Need output coords
+		# 		qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yok)
+		# 		qyy += yok' * Ryy * yok # qyy * T^(-2)
+		# 	elseif mode == 2
+		# 		# Need to consider the unactuated rows too
+		# 		Quu += Hh' * Ruu * Hh
+		# 		# For ID, need uk
+		# 		qyu += (-Hh' * Ruu * (δt * B * umeas(k)))
+		# 	end
+		# end
 
-		if mode == 1
-			# Total cost: 1/2 (T*pt)' * Quu * (T*pt) + 1/2 qyy * T^(-2) + qyu' * pt
-			# TODO: quadratic version. for now just nonlinear
-			return 1/2 * ((T*pt)' * Quu * (T*pt) + qyy * T^(-2)) + qyu' * pt
-		elseif mode == 2
-			return 1/2 * ((T*pt)' * Quu * (T*pt)) + qyu' * (T*pt)
-		else
-			error("mode")
-		end
+		# if mode == 1
+		# 	# Total cost: 1/2 (T*pt)' * Quu * (T*pt) + 1/2 qyy * T^(-2) + qyu' * pt
+		# 	# TODO: quadratic version. for now just nonlinear
+		# 	return 1/2 * ((T*pt)' * Quu * (T*pt) + qyy * T^(-2)) + qyu' * pt
+		# elseif mode == 2
+		# 	return 1/2 * ((T*pt)' * Quu * (T*pt)) + qyu' * (T*pt)
+		# else
+		# 	error("mode")
+		# end
+		return x[1]
 	end
 	eval_grad_f(x, grad_f) = ForwardDiff.gradient!(grad_f, eval_f, x)
 
@@ -406,28 +407,20 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	prob.x = [copy(param); zeros(nx - np)]
 	status = Ipopt.solveProblem(prob)
 	pnew = prob.x[1:np]
+	Δyk = k -> prob.x[np+(k-1)*ny+1 : np+k*ny]
 
-	# Also convert the output traj with the new T, and inputs
+	# Also convert the output traj with the Δy, new T, and inputs
 	traj2 = copy(traj)
-	yk = k -> @view traj2[liy[:,k]]
-	# Calculate the new inputs
+	# Calculate the new traj (which is in act coordinates, so needs scaling by T)
 	ptold, Told = getpt(param)
 	ptnew, Tnew = getpt(pnew)
 	for k=1:N+1
-		traj2[liy[:,k]] = [Told/Tnew, 1, Told/Tnew, 1] .* traj2[liy[:,k]]
+		traj2[liy[:,k]] = [1/Tnew, 1, 1/Tnew, 1] .* ([Told, 1, Told, 1] .* traj2[liy[:,k]] + Δyk(k))
 	end
-	# FIXME: 
-	traj2[(N+1)*ny+1:end] = vcat([Tnew / δt * B' * Hk(k, zeros(ny), zeros(ny)) * ptnew for k=1:N]...) # compare to the "test" equation above
+	# Calculate the new inputs
+	traj2[(N+1)*ny+1:end] = vcat([Tnew / δt * B' * Hk(k, Δyk(k), Δyk(k+1)) * ptnew for k=1:N]...) # compare to the "test" equation above
 
-	# Get an idea of the error in the unactuated DOF
-	Hpb = zeros(nq, N)
-	for k=1:N
-		# FIXME: 
-		Hpb[:,k] = Hk(k, zeros(ny), zeros(ny)) * ptnew
-	end
-	unactErr = Bperp * Hpb
-
-	return pnew, eval_f, traj2, unactErr
+	return pnew, eval_f, traj2, eval_g_ret(prob.x)
 
 	# # Without that T, can just use OSQP -------------------------
 	# mo = OSQP.Model()

@@ -80,7 +80,7 @@ R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 # many sims (scale) --------------
 
 function maxuForMinAvgLift(al)
-	param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.3, cbarmin(al); Fext_pdep=false, test=false)#, print_level=1)
+	param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, cbarmin(al); Fext_pdep=false, test=false)#, print_level=1)
 	kΨ, bΨ = param1[4:5]
 	return [param1; norm(traj1[(N+1)*ny:end], Inf); norm(unactErr, Inf); 0.1*norm(kΨ*traj1[2:ny:(N+1)*ny] + bΨ*traj1[4:ny:(N+1)*ny], Inf)]
 end
@@ -103,7 +103,7 @@ llabels = [
 # plot(p1, p2, p3)
 
 # ! pick one
-res = maxuForMinAvgLift(1.5)
+res = maxuForMinAvgLift(3)
 # ptest = res[1:np]
 
 # res0 = maxuForMinAvgLift(avgLift0)
