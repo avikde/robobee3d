@@ -344,7 +344,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		# Matrices that contain sum of running actuator cost
 		for k=1:N
 			Hh = Hk(k, Δyk(k), Δyk(k+1))
-			yok = yo(k)
+			yok = yo(k) + Δyk(k)
 			if mode == 1
 				Quu += Hh' * Ruu * Hh
 				# Need output coords
@@ -364,6 +364,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 			return 1/2 * ((T*pt)' * Quu * (T*pt) + qyy * T^(-2)) + qyu' * pt
 		elseif mode == 2
 			return 1/2 * ((T*pt)' * Quu * (T*pt)) + qyu' * (T*pt)
+		else
+			error("mode")
 		end
 	end
 	eval_grad_f(x, grad_f) = ForwardDiff.gradient!(grad_f, eval_f, x)
