@@ -405,7 +405,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# Solve
 	prob.x = [copy(param); zeros(nx - np)]
 	status = Ipopt.solveProblem(prob)
-	pnew = prob.x
+	pnew = prob.x[1:np]
 
 	# Also convert the output traj with the new T, and inputs
 	traj2 = copy(traj)

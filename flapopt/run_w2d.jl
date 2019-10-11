@@ -44,11 +44,11 @@ param0 = [3.2,  # cbar[mm] (area/R)
 # pls = respkσ.(kσs)
 # plot(pls...)
 
-# # Sim data
-# trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
+# Sim data
+trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
 
 # Load data
-N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
+# N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
 # pl1 = compareTrajToDAQ(m, opt, trajt, param0, traj0, lift, drag)
 # plot(pl1...)
 
@@ -103,10 +103,10 @@ llabels = [
 # plot(p1, p2, p3)
 
 # ! pick one
-# res = maxuForMinAvgLift(3)
+res = maxuForMinAvgLift(1.5)
 # ptest = res[1:np]
 
-res0 = maxuForMinAvgLift(avgLift0)
+# res0 = maxuForMinAvgLift(avgLift0)
 # res0[np+2]
 
 # # traj opt ------------------------------------
