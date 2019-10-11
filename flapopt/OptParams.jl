@@ -245,10 +245,10 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	nc = N * nck# + np
 
 	function eval_g_ret(x)
-		Δy = x[np+1:end]
+		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 		pt, T = getpt(x[1:np])
 		# g .= x # OLD: 
-		return vcat([Bperp * Hk(k, Δy) * pt for k=1:N]...)
+		return vcat([Bperp * Hk(k, Δyk(k), Δyk(k+1)) * pt for k=1:N]...)
 	end
 	# g1 = Array{Any,1}(undef, nc)
 	eval_g(x::Vector, g::Vector) = g .= eval_g_ret(x)
@@ -286,9 +286,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
     if test
         Hpb = zeros(nq, N)
 		Bu = similar(Hpb)
-		Δy0 = zeros(nc - np)
 		for k=1:N
-            Hpb[:,k] = Hk(k, Δy0) * ptTEST
+            Hpb[:,k] = Hk(k, zeros(ny), zeros(ny)) * ptTEST
 			Bu[:,k] = δt * B * umeas(k)[1] / TTEST
 		end
         display(Hpb - Bu)
@@ -298,7 +297,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# See eval_f for how these are used to form the objective
 	function eval_f(x)
 		pt, T = getpt(x[1:np])
-		Δy = x[np+1:end]
+		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 		
 		Quu = zeros(npt, npt)
 		qyu = zeros(npt)
@@ -306,7 +305,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		
 		# Matrices that contain sum of running actuator cost
 		for k=1:N
-			Hh = Hk(k, Δy)
+			Hh = Hk(k, Δyk(k), Δyk(k+1))
 			yok = yo(k)
 			if mode == 1
 				Quu += Hh' * Ruu * Hh
@@ -377,14 +376,16 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	for k=1:N+1
 		traj2[liy[:,k]] = [Told/Tnew, 1, Told/Tnew, 1] .* traj2[liy[:,k]]
 	end
-	traj2[(N+1)*ny+1:end] = vcat([Tnew / δt * B' * Hk(k, Δy0) * ptnew for k=1:N]...) # compare to the "test" equation above
+	# FIXME: 
+	traj2[(N+1)*ny+1:end] = vcat([Tnew / δt * B' * Hk(k, zeros(ny), zeros(ny)) * ptnew for k=1:N]...) # compare to the "test" equation above
 
 	# Get an idea of the error in the unactuated DOF
 	Hpb = zeros(nq, N)
 	for k=1:N
-		Hpb[:,k] = Hk(k, Δy0) * ptnew
+		# FIXME: 
+		Hpb[:,k] = Hk(k, zeros(ny), zeros(ny)) * ptnew
 	end
-	unactErr = [0 1] * Hpb
+	unactErr = Bperp * Hpb
 
 	return pnew, eval_f, traj2, unactErr
 

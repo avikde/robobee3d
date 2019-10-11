@@ -470,13 +470,12 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     
     # Functions to output
     "Takes in a Δy in output coords"
-    function Hk(k, Δy)
-        Δyk = k -> Δy[(k-1)*ny+1 : k*ny]
+    function Hk(k, Δyk, Δykp1)
         # Same Faero as before?
-        _, _, Faero = w2daero(m, yo(k) + Δyk(k), param)
+        _, _, Faero = w2daero(m, yo(k) + Δyk, param)
         # NOTE: it uses param *only for Faero*. Add same F as the traj produced
         # This has the assumption that the interaction force is held constant.
-        return Htil(yo(k) + Δyk(k), yo(k+1) + Δyk(k+1), Faero)
+        return Htil(yo(k) + Δyk, yo(k+1) + Δykp1, Faero)
     end
     
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
