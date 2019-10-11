@@ -103,10 +103,10 @@ llabels = [
 # plot(p1, p2, p3)
 
 # ! pick one
-res = maxuForMinAvgLift(3)
+# res = maxuForMinAvgLift(3)
 # ptest = res[1:np]
 
-# res0 = maxuForMinAvgLift(avgLift0)
+res0 = maxuForMinAvgLift(avgLift0)
 # res0[np+2]
 
 # # traj opt ------------------------------------

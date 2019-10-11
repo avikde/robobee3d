@@ -244,11 +244,11 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	nck = size(Bperp, 1) # number of constraints for each k = # of unactuated DOFs
 	nc = N * nck# + np
 
+	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1) * (getpt(p)[1])
 	function eval_g_ret(x)
 		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
-		pt, T = getpt(x[1:np])
 		# g .= x # OLD: 
-		return vcat([Bperp * Hk(k, Δyk(k), Δyk(k+1)) * pt for k=1:N]...)
+		return vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), x[1:np]) for k=1:N]...)
 	end
 	# g1 = Array{Any,1}(undef, nc)
 	eval_g(x::Vector, g::Vector) = g .= eval_g_ret(x)
@@ -257,7 +257,6 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# Exploit sparsity in the nc*nx matrix. Each constraint depends on Δyk(k), Δyk(k+1), p
 	Dgnnz = nc * (2*ny + np)
 
-	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1) * (getpt(p)[1])
 	# Function for IPOPT
 	function eval_jac_g(x, imode, row::Vector{Int32}, col::Vector{Int32}, value)
 		offs = 1
