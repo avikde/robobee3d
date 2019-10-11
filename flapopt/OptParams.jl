@@ -198,14 +198,17 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
     if test
         Hpb = zeros(nq, N)
         Bu = similar(Hpb)
-    end
+	end
+	
+	# FIXME:
+	Δy0 = zeros((N+1)*ny)
 	
 	# See eval_f for how these are used to form the objective
     Quu = zeros(npt, npt)
     qyu = zeros(npt)
     qyy = 0
 	for k=1:N
-		Hh = Hk(k)
+		Hh = Hk(k, Δy0)
 		yok = yo(k)
 		if mode == 1
         	Quu += Hh' * Ruu * Hh
@@ -220,7 +223,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		end
 
         if test
-            Hpb[:,k] = Hk(k) * ptTEST
+            Hpb[:,k] = Hk(k, Δy0) * ptTEST
             Bu[:,k] = δt * B * umeas(k)[1] / TTEST
         end
     end
@@ -270,10 +273,18 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	plimsL = [cbarmin, Tmin, 0.1, 0.1, 0.1]
 	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
 	
-	# Need to add unactuated joints to the constraint
+	# Constraint: Bperp' * H(y + Δy) * pt is small enough (unactuated DOFs)
 	Bperp = [0 1] #FIXME: get this automatically. this is s.t. Bperp*B = 0
-	# Constraint
-	eval_g(x::Vector, g::Vector) = g .= x
+	nck = size(Bperp, 1) # number of constraints for each k = # of unactuated DOFs
+	nc = np#N * nck# + np
+	function eval_g(x::Vector, g::Vector)
+		# Δy = x[np+1:end]
+		# pt, T = getpt(x[1:np])
+		g .= x # OLD: 
+		# for k=1:N
+		# 	g[(k-1)*nck + 1 : k*nck] = Bperp' * H(y + Δy) * pt
+		# end
+	end
 	Dgnnz = np
 
 	# Function for IPOPT
@@ -295,7 +306,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	glimsU = plimsU
 
 	function eval_f(x::AbstractArray)
-		pt, T = getpt(x)
+		pt, T = getpt(x[1:np])
 		if mode == 1
 			# Total cost: 1/2 (T*pt)' * Quu * (T*pt) + 1/2 qyy * T^(-2) + qyu' * pt
 			# TODO: quadratic version. for now just nonlinear
@@ -316,10 +327,10 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	
 	# Create IPOPT problem
 	prob = Ipopt.createProblem(
-		length(param), # Number of variables
+		length(param),# + (N+1)*ny, # Number of variables
 		plimsL, # Variable lower bounds
 		plimsU, # Variable upper bounds
-		length(glimsL), # Number of constraints
+		nc, # Number of constraints
 		glimsL,       # Constraint lower bounds
 		glimsU,       # Constraint upper bounds
 		Dgnnz,  # Number of non-zeros in Jacobian
@@ -352,12 +363,12 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	for k=1:N+1
 		traj2[liy[:,k]] = [Told/Tnew, 1, Told/Tnew, 1] .* traj2[liy[:,k]]
 	end
-	traj2[(N+1)*ny+1:end] = vcat([Tnew / δt * B' * Hk(k) * ptnew for k=1:N]...) # compare to the "test" equation above
+	traj2[(N+1)*ny+1:end] = vcat([Tnew / δt * B' * Hk(k, Δy0) * ptnew for k=1:N]...) # compare to the "test" equation above
 
 	# Get an idea of the error in the unactuated DOF
 	Hpb = zeros(nq, N)
 	for k=1:N
-		Hpb[:,k] = Hk(k) * ptnew
+		Hpb[:,k] = Hk(k, Δy0) * ptnew
 	end
 	unactErr = [0 1] * Hpb
 
