@@ -52,6 +52,9 @@ N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.m
 # pl1 = compareTrajToDAQ(m, opt, trajt, param0, traj0, lift, drag)
 # plot(pl1...)
 
+# Make traj satisfy dyn constraint with these params?
+traj0 = cu.fixTrajWithDynConst(m, opt, traj0, param0)
+
 # Constraint on cbar placed by minAvgLift. FIXME: this is very specific to W2D, since lift \proptp cbar
 avgLift0 = avgLift(m, opt, traj0, param0)
 cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0

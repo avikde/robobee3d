@@ -417,21 +417,11 @@ function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
     return [1, kΨ, bΨ, cbar, cbar^2, mwing, mwing*cbar, mwing*cbar^2], T
 end
 
-function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple; Fext_pdep::Bool=false, fixTrajWithDynConst::Bool=false)
+function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple; Fext_pdep::Bool=false)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 
-    if fixTrajWithDynConst
-        # Make a new traj where the dynamics constraint is satisfied exactly
-        traj1 = copy(traj)
-        yk = k -> @view traj1[liy[:,k]]
-        uk = k -> @view traj1[liu[:,k]]
-        for k=1:N
-            traj1[liy[:,k+1]] = yk(k) + δt * cu.dydt(m, yk(k), uk(k), param)
-        end
-    else
-        yk = k -> @view traj[liy[:,k]]
-        uk = k -> @view traj[liu[:,k]]
-    end
+    yk = k -> @view traj[liy[:,k]]
+    uk = k -> @view traj[liu[:,k]]
 
     # Param stuff
     cbar, T, mwing = param
