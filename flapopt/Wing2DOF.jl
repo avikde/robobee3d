@@ -427,22 +427,20 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     cbar, T, mwing = param
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
     B = reshape([1.0, 0.0], 2, 1)
+    
+    # Need the original T to use output coords
+    yo = k -> [T, 1.0, T, 1.0] .* yk(k)
 
+    # THESE FUNCTIONS USE OUTPUT COORDS -------------
     function HMqT(ypos, yvel)
-        σa, Ψ, σ̇adum, Ψ̇dum = ypos
-        σadum, Ψdum, σ̇a, Ψ̇ = yvel
-        # Need the original T to use output coords
-        σo = T * σa
-        σ̇o = T * σ̇a
+        σo, Ψ, σ̇odum, Ψ̇dum = ypos
+        σodum, Ψdum, σ̇o, Ψ̇ = yvel
         return [0   0   0   0   0   σ̇o   γ*Ψ̇*cos(Ψ)   0   σ̇o*m.ma;
         0   0   0   0   0   0   γ*σ̇o*cos(Ψ)   2*Ψ̇*γ^2    0]
     end
 
     function HCgJT(y, F)
-        σa, Ψ, σ̇a, Ψ̇ = y
-        # Need the original T to use output coords
-        σo = T * σa
-        σ̇o = T * σ̇a
+        σo, Ψ, σ̇o, Ψ̇ = y
         # See notes: this F stuff is w2d specific
         rcop = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
 
@@ -462,6 +460,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
             0   Ψ   Ψ̇    rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0   0]
         end
     end
+    # ----------------
 
     # this is OK - see notes
     # Htil = (y, ynext, F) -> HMq(ynext) - HMq(y) + δt*HCgJ(y, F)
@@ -473,9 +472,8 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         _, _, Faero = w2daero(yk(k), param)
         # NOTE: it uses param *only for Faero*. Add same F as the traj produced
         # This has the assumption that the interaction force is held constant.
-        return Htil(yk(k), yk(k+1), Faero)
+        return Htil(yo(k), yo(k+1), Faero)
     end
-    yo = k -> [T, 1.0, T, 1.0] .* yk(k)
 
     return Hk, yo, uk, B, N
 end
