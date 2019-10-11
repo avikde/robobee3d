@@ -254,25 +254,64 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	eval_g(x::Vector, g::Vector) = g .= eval_g_ret(x)
 
 	# ----------- Constraint Jac ----------------------------
-	# TODO: exploit sparsity. For now dumb.
-	Dgnnz = nc * nx
+	# Exploit sparsity in the nc*nx matrix. Each constraint depends on Δyk(k), Δyk(k+1), p
+	Dgnnz = nc * (2*ny + np)
 
+	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1) * (getpt(p)[1])
 	# Function for IPOPT
 	function eval_jac_g(x, imode, row::Vector{Int32}, col::Vector{Int32}, value)
+		offs = 1
+			
 		if imode != :Structure
-			# TODO: better than autograd
-			Dg1 = ForwardDiff.jacobian(eval_g_ret, x)
+			Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
+			p = x[1:np]
 
-			for j=1:nx
-				for i=1:nc
-					value[i + (j-1)*nc] = Dg1[i, j]
+			for k=1:N
+				# Now assemble the pieces
+				dyk = ForwardDiff.jacobian(yy -> eval_g_pieces(k, yy, Δyk(k+1), p), Δyk(k))
+				for i=1:nck
+					for j=1:ny
+						value[offs] = dyk[i,j]
+						offs += 1
+					end
+				end
+				dykp1 = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(k), yy, p), Δyk(k+1))
+				for i=1:nck
+					for j=1:ny
+						value[offs] = dykp1[i,j]
+						offs += 1
+					end
+				end
+				dp = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(k), Δyk(k+1), yy), p)
+				for i=1:nck
+					for j=1:np
+						value[offs] = dp[i,j]
+						offs += 1
+					end
 				end
 			end
 		else
-			for j=1:nx
-				for i=1:nc
-					row[i + (j-1)*nc] = i
-					col[i + (j-1)*nc] = j
+			for k=1:N
+				for i=1:nck
+					for j=1:ny
+						row[offs] = (k-1)*nck + i
+						col[offs] = np + (k-1)*ny + j
+						offs += 1
+					end
+				end
+				for i=1:nck
+					for j=1:ny
+						row[offs] = (k-1)*nck + i
+						col[offs] = np + (k)*ny + j
+						offs += 1
+					end
+				end
+				for i=1:nck
+					for j=1:np
+						row[offs] = (k-1)*nck + i
+						col[offs] = j
+						offs += 1
+					end
 				end
 			end
 		end
