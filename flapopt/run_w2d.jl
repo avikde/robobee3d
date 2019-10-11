@@ -63,8 +63,10 @@ R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 
 # # One-off ID or opt ---------
 
-param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=false)
-pl1 = plotTrajs(m, opt, trajt, [param0, param1], [traj0, traj1])
+param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=false, print_level=2)
+display(param1)
+traj2 = cu.fixTrajWithDynConst(m, opt, traj1, param1)
+pl1 = plotTrajs(m, opt, trajt, [param0, param1, param1], [traj0, traj1, traj2])
 plot(pl1...)
 
 # # The actuator data does not correspond to the kinematics in any way (esp. without params)
