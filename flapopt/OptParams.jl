@@ -194,44 +194,6 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# Quadratic form matrix
 	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R; Fext_pdep=Fext_pdep)
 
-    # If test is true, it will test the affine relation
-    if test
-        Hpb = zeros(nq, N)
-        Bu = similar(Hpb)
-	end
-	
-	# FIXME:
-	Δy0 = zeros((N+1)*ny)
-	
-	# See eval_f for how these are used to form the objective
-    Quu = zeros(npt, npt)
-    qyu = zeros(npt)
-    qyy = 0
-	for k=1:N
-		Hh = Hk(k, Δy0)
-		yok = yo(k)
-		if mode == 1
-        	Quu += Hh' * Ruu * Hh
-			# Need output coords
-			qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yok)
-        	qyy += yok' * Ryy * yok # qyy * T^(-2)
-		elseif mode == 2
-			# Need to consider the unactuated rows too
-			Quu += Hh' * Ruu * Hh
-			# For ID, need uk
-			qyu += (-Hh' * Ruu * (δt * B * umeas(k)))
-		end
-
-        if test
-            Hpb[:,k] = Hk(k, Δy0) * ptTEST
-            Bu[:,k] = δt * B * umeas(k)[1] / TTEST
-        end
-    end
-    if test
-        display(Hpb - Bu)
-        error("Tested")
-    end
-
 	# GN -------------------------
 	# function pFeasible(p)
 	# 	cbar, T = p
@@ -264,49 +226,101 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# return x
 
 	# IPOPT ---------------------------
+	nx = np + (N+1)*ny # p,Δy
+
 	# FIXME: this is W2D-specific
 	σomax = norm([yo(k)[1] for k=1:N], Inf)
 	σamax = 0.3 # [mm] constant? for robobee actuators
 	Tmin = σomax/σamax
 
 	println("Tmin = ", Tmin, " cbarmin = ", cbarmin)
-	plimsL = [cbarmin, Tmin, 0.1, 0.1, 0.1]
-	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
+	xlimsL = -1000 * ones(nx)
+	xlimsU = 1000 * ones(nx)
+	xlimsL[1:np] = [cbarmin, Tmin, 0.1, 0.1, 0.1]
+	xlimsU[1:np] = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
 	
-	# Constraint: Bperp' * H(y + Δy) * pt is small enough (unactuated DOFs)
+	# ------------ Constraint: Bperp' * H(y + Δy) * pt is small enough (unactuated DOFs) -----------------
 	Bperp = [0 1] #FIXME: get this automatically. this is s.t. Bperp*B = 0
 	nck = size(Bperp, 1) # number of constraints for each k = # of unactuated DOFs
-	nc = np#N * nck# + np
-	function eval_g(x::Vector, g::Vector)
-		# Δy = x[np+1:end]
-		# pt, T = getpt(x[1:np])
-		g .= x # OLD: 
-		# for k=1:N
-		# 	g[(k-1)*nck + 1 : k*nck] = Bperp' * H(y + Δy) * pt
-		# end
+	nc = N * nck# + np
+
+	function eval_g_ret(x)
+		Δy = x[np+1:end]
+		pt, T = getpt(x[1:np])
+		# g .= x # OLD: 
+		return vcat([Bperp * Hk(k, Δy) * pt for k=1:N]...)
 	end
-	Dgnnz = np
+	# g1 = Array{Any,1}(undef, nc)
+	eval_g(x::Vector, g::Vector) = g .= eval_g_ret(x)
+
+	# ----------- Constraint Jac ----------------------------
+	# TODO: exploit sparsity. For now dumb.
+	Dgnnz = nc * nx
 
 	# Function for IPOPT
-	function eval_jac_g(x::Vector{Float64}, imode, row::Vector{Int32}, col::Vector{Int32}, value::Vector)
+	function eval_jac_g(x, imode, row::Vector{Int32}, col::Vector{Int32}, value)
 		if imode != :Structure
-			for j=1:np
-				value[j] = 1.0
+			# TODO: better than autograd
+			Dg1 = ForwardDiff.jacobian(eval_g_ret, x)
+
+			for j=1:nx
+				for i=1:nc
+					value[i + (j-1)*nc] = Dg1[i, j]
+				end
 			end
 		else
-			for j=1:np
-				row[j] = j
-				col[j] = j
+			for j=1:nx
+				for i=1:nc
+					row[i + (j-1)*nc] = i
+					col[i + (j-1)*nc] = j
+				end
 			end
 		end
 	end
 
-	# TODO: remove this or add more complex constraint
-	glimsL = plimsL
-	glimsU = plimsU
+	glimsL = -εunact*ones(nc)
+	glimsU = εunact*ones(nc)
 
-	function eval_f(x::AbstractArray)
+	# ----------------------- Objective --------------------------------
+    # If test is true, it will test the affine relation
+    if test
+        Hpb = zeros(nq, N)
+		Bu = similar(Hpb)
+		Δy0 = zeros(nc - np)
+		for k=1:N
+            Hpb[:,k] = Hk(k, Δy0) * ptTEST
+			Bu[:,k] = δt * B * umeas(k)[1] / TTEST
+		end
+        display(Hpb - Bu)
+        error("Tested")
+	end
+	
+	# See eval_f for how these are used to form the objective
+	function eval_f(x)
 		pt, T = getpt(x[1:np])
+		Δy = x[np+1:end]
+		
+		Quu = zeros(npt, npt)
+		qyu = zeros(npt)
+		qyy = 0
+		
+		# Matrices that contain sum of running actuator cost
+		for k=1:N
+			Hh = Hk(k, Δy)
+			yok = yo(k)
+			if mode == 1
+				Quu += Hh' * Ruu * Hh
+				# Need output coords
+				qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yok)
+				qyy += yok' * Ryy * yok # qyy * T^(-2)
+			elseif mode == 2
+				# Need to consider the unactuated rows too
+				Quu += Hh' * Ruu * Hh
+				# For ID, need uk
+				qyu += (-Hh' * Ruu * (δt * B * umeas(k)))
+			end
+		end
+
 		if mode == 1
 			# Total cost: 1/2 (T*pt)' * Quu * (T*pt) + 1/2 qyy * T^(-2) + qyu' * pt
 			# TODO: quadratic version. for now just nonlinear
@@ -315,7 +329,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 			return 1/2 * ((T*pt)' * Quu * (T*pt)) + qyu' * (T*pt)
 		end
 	end
-	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, eval_f, x)
+	eval_grad_f(x, grad_f) = ForwardDiff.gradient!(grad_f, eval_f, x)
 
 	# # Plot
 	# display(Quu)
@@ -327,9 +341,9 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	
 	# Create IPOPT problem
 	prob = Ipopt.createProblem(
-		length(param),# + (N+1)*ny, # Number of variables
-		plimsL, # Variable lower bounds
-		plimsU, # Variable upper bounds
+		nx, # Number of variables
+		xlimsL, # Variable lower bounds
+		xlimsU, # Variable upper bounds
 		nc, # Number of constraints
 		glimsL,       # Constraint lower bounds
 		glimsU,       # Constraint upper bounds
@@ -350,7 +364,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	end
 
 	# Solve
-	prob.x = copy(param)
+	prob.x = [copy(param); zeros(nx - np)]
 	status = Ipopt.solveProblem(prob)
 	pnew = prob.x
 
