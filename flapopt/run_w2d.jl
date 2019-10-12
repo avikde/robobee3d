@@ -63,11 +63,11 @@ R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 
 # # One-off ID or opt ---------
 
-param1, _, traj1, unactErr, sol = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=false, print_level=2)
+param1, _, traj1, unactErr, sol = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=true, test=false, print_level=2)
 display(param1')
 
 # Test traj reconstruction:
-Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, param0, R_WTS; Fext_pdep=false)
+Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, param1, R_WTS; Fext_pdep=true)
 eval_g_pieces(k, p) = [0 1] * Hk(k, zeros(4), zeros(4)) * (cu.getpt(m, p)[1])
 eval_g_ret(x) = vcat([eval_g_pieces(k, x[1:length(param0)]) for k=1:N]...)
 display(unactErr')
