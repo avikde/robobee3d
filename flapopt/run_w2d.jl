@@ -67,13 +67,11 @@ param1, _, traj1, unactErr, sol = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 
 display(param1')
 
 # Test traj reconstruction:
-np = length(param0)
-Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj0, param0, R_WTS; Fext_pdep=false)
-Δyk = k -> sol[np+(k-1)*ny+1 : np+k*ny]
-eval_g_pieces(k, p) = [0 1] * Hk(k, Δyk(k), Δyk(k+1)) * (cu.getpt(m, p)[1])
-eval_g_ret(x) = vcat([eval_g_pieces(k, x[1:np]) for k=1:N]...)
+Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, param0, R_WTS; Fext_pdep=false)
+eval_g_pieces(k, p) = [0 1] * Hk(k, zeros(4), zeros(4)) * (cu.getpt(m, p)[1])
+eval_g_ret(x) = vcat([eval_g_pieces(k, x[1:length(param0)]) for k=1:N]...)
 display(unactErr')
-display(eval_g_ret(sol)')
+display(eval_g_ret([param1; zeros((N+1)*ny)])')
 
 # traj2 = cu.fixTrajWithDynConst(m, opt, traj1, param1)
 # cu.optAffine(m, opt, traj1, param1, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=true, print_level=2)
