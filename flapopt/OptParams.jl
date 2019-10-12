@@ -175,17 +175,18 @@ end
 "Implement this"
 paramLumped(m::Model, param::AbstractArray) = error("Implement this")
 
+# lumped parameter vector
+function getpt(m::Model, p)
+	pb, T = paramLumped(m, p)
+	return [pb; T^(-2)], T
+end
+
 "Mode=1 => opt, mode=2 ID. Fext(p) or hold constant"
 function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple, εunact, cbarmin; Fext_pdep::Bool=false, test=false, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
 	np = length(param)
-	# lumped parameter vector
-	function getpt(x)
-		pb, T = paramLumped(m, x)
-		return [pb; T^(-2)], T
-	end
-    ptTEST, TTEST = getpt(param) # NOTE the actual param values are only needed for the test mode
+    ptTEST, TTEST = getpt(m, param) # NOTE the actual param values are only needed for the test mode
 	npt = length(ptTEST)
     
 	# Weights
@@ -244,7 +245,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	nck = size(Bperp, 1) # number of constraints for each k = # of unactuated DOFs
 	nc = N * nck# + np
 
-	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1) * (getpt(p)[1])
+	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1) * (getpt(m, p)[1])
 	function eval_g_ret(x)
 		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 		# g .= x # OLD: 
@@ -334,7 +335,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	
 	# See eval_f for how these are used to form the objective
 	function eval_f(x)
-		pt, T = getpt(x[1:np])
+		pt, T = getpt(m, x[1:np])
 		# Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 		
 		# Quu = zeros(npt, npt)
@@ -414,7 +415,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# Also convert the output traj with the Δy, new T, and inputs
 	traj2 = copy(traj)
 	# Calculate the new traj (which is in act coordinates, so needs scaling by T)
-	ptnew, Tnew = getpt(pnew)
+	ptnew, Tnew = getpt(m, pnew)
 	for k=1:N+1
 		traj2[liy[:,k]] = [1/Tnew, 1, 1/Tnew, 1] .* (yo(k) + Δyk(k))
 	end
