@@ -200,17 +200,11 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, 
 
 	# println("Test that the lower rows dyn constraint worked ", vcat([Bperp * Hk(k, Δyk(k), Δyk(k+1)) * ptnew for k=1:N]...) - eval_g_ret(prob.x))
 
-	# # Test traj reconstruction:
-	# Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, param1, R_WTS; Fext_pdep=true)
-	# eval_g_pieces(k, p) = [0 1] * Hk(k, zeros(4), zeros(4)) * (cu.getpt(m, p)[1])
-	# eval_g_ret(x) = vcat([eval_g_pieces(k, x[1:length(param0)]) for k=1:N]...)
-	# display(unactErr')
-	# display(eval_g_ret([param1; zeros((N+1)*ny)])')
 	return traj2
 end
 
 "Mode=1 => opt, mode=2 ID. Fext(p) or hold constant"
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple, εunact, cbarmin; Fext_pdep::Bool=false, test=false, kwargs...)
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple, εunact, cbarmin; Fext_pdep::Bool=false, test=false, testTrajReconstruction=false, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
 	np = length(param)
@@ -438,8 +432,19 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	prob.x = [copy(param); zeros(nx - np)]
 	status = Ipopt.solveProblem(prob)
 	pnew = prob.x[1:np]
+	trajnew = reconstructTrajFromΔy(m, opt, traj, yo, Hk, B, prob.x[np+1:end], pnew)
+	unactErr = eval_g_ret(prob.x)
 
-	return pnew, eval_f, reconstructTrajFromΔy(m, opt, traj, yo, Hk, B, prob.x[np+1:end], pnew), eval_g_ret(prob.x), prob.x
+	if testTrajReconstruction
+		# Test traj reconstruction:
+		Hk, yo, umeas, B, N = paramAffine(m, opt, trajnew, pnew, R; Fext_pdep=Fext_pdep)
+		eval_g_ret2(p) = vcat([Bperp * Hk(k, zeros(ny), zeros(ny)) * (getpt(m, p)[1]) for k=1:N]...)
+		display(unactErr')
+		display(eval_g_ret2(pnew)')
+		error("Tested")
+	end
+
+	return pnew, eval_f, trajnew, unactErr
 
 	# # Without that T, can just use OSQP -------------------------
 	# mo = OSQP.Model()
