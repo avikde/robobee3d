@@ -8,6 +8,8 @@ import controlutils
 cu = controlutils
 includet("Wing2DOF.jl")
 includet("LoadWingKinData.jl")
+using Plots
+Plots.scalefontsizes(0.7)
 
 # create an instance
 # From Patrick 300 mN-mm/rad. 1 rad => R/2 σ-displacement. The torque is applied with a lever arm of R/2 => force = torque / (R/2)
@@ -16,18 +18,19 @@ includet("LoadWingKinData.jl")
 # For T=20, get ka = 240.
 # To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
-0.9#= 1.5 =#, #k output
-0, #b output
-5, # hinge k
-3, # hinge b
-6, # ma
-0, # ba
-240#= 0 =#) # ka
+	17.0, # R, [Jafferis (2016)]
+	0.9#= 1.5 =#, #k output
+	0, #b output
+	6, # ma
+	0, # ba
+	150#= 0 =#) # ka
 ny, nu = cu.dims(m)
-opt = cu.OptOptions(false, 0.2, 1, :none, 1e-8, false)
-# opt = cu.OptOptions(false, 0.2, 1, cu.SYMMETRIC, 1e-8, false)
-N = opt.boundaryConstraint == :symmetric ? 17 : 33
-param0 = [3.2, 28.33, 0.52] # cbar[mm] (area/R), T (from 3333 rad/m, R=17, [Jafferis (2016)]), mwing[mg]
+param0 = [3.2,  # cbar[mm] (area/R)
+	28.33, # T (from 3333 rad/m, R=17, [Jafferis (2016)])
+	0.52, # mwing[mg]
+	5, # kΨ [mN-mm/rad]
+	3 # bΨ [mN-mm/(rad/ms)]
+]
 
 # Stiffness sweep ---
 # function respkσ(kσ)
@@ -41,26 +44,79 @@ param0 = [3.2, 28.33, 0.52] # cbar[mm] (area/R), T (from 3333 rad/m, R=17, [Jaff
 # plot(pls...)
 
 # Sim data
-trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0)
+opt = cu.OptOptions(false, 0.2, 1, :none, 1e-8, false) # sim
+N = opt.boundaryConstraint == :symmetric ? 17 : 33
+trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0, 187)
 
-# # Load data
-# N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2405; strokeMult=R/(2*param0[2]), ForcePerVolt=0.75)
+# Load data
+# opt = cu.OptOptions(false, 0.1, 1, :none, 1e-8, false) # real
+# N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
 # pl1 = compareTrajToDAQ(m, opt, trajt, param0, traj0, lift, drag)
 # plot(pl1...)
 
-# The actuator data does not correspond to the kinematics in any way (esp. without params)
-# 1. Try to find the best params *assuming* these are the correct inputs. ID mode
-param1, paramObj, traj1 = cu.optAffine(m, opt, traj0, param0, 1, (zeros(4,4), 0, 1.0*ones(1,1)); Fext_pdep=false, test=false, print_level=1)
+# Make traj satisfy dyn constraint with these params?
+traj0 = cu.fixTrajWithDynConst(m, opt, traj0, param0)
 
-# # 2. Try to optimize
-# param2, paramObj, u2 = cu.optAffine(m, opt, traj0, param1, 1, (zeros(4,4), 0, 1.0*ones(1,1)); test=false, print_level=1)
+# Constraint on cbar placed by minAvgLift. FIXME: this is very specific to W2D, since lift \proptp cbar
+avgLift0 = avgLift(m, opt, traj0, param0)
+cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
 
-# mwings = collect(0.1:0.1:2)
-# plot(mwings, paramObj.([[param0[1:2];mwing] for mwing in mwings]))
+R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 
-display(param1')
-pls = plotParamImprovement(m, opt, trajt, [param0, param1], [traj0, traj1], paramObj)
-plot(pls...)
+# # One-off ID or opt ---------
+
+# param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=100)
+# display(param1')
+
+# traj2 = cu.fixTrajWithDynConst(m, opt, traj1, param1)
+# # cu.optAffine(m, opt, traj1, param1, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=true, print_level=2)
+# pl1 = plotTrajs(m, opt, trajt, [param0, param1, param1], [traj0, traj1, traj2])
+# plot(pl1...)
+
+# # The actuator data does not correspond to the kinematics in any way (esp. without params)
+# # # 1. Try to find the best params *assuming* these are the correct inputs. ID mode
+# # param1, paramObj, traj1 = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 0, 1.0*ones(1,1)), 0.3, cbarmin; Fext_pdep=false, test=false, print_level=1)
+
+# # # 2. Try to optimize
+# param1, paramObj, traj1 = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.3, cbarmin(0.5); Fext_pdep=false, test=false, print_level=1)
+
+# # mwings = collect(0.1:0.1:2)
+# # plot(mwings, paramObj.([[param0[1:2];mwing] for mwing in mwings]))
+
+# display([param0, param1])
+# pls = plotParamImprovement(m, opt, trajt, [param0, param1], [traj0, traj1], paramObj)
+# plot(pls...)
+
+# many sims (scale) --------------
+
+function maxuForMinAvgLift(al)
+	param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, cbarmin(al); Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
+	kΨ, bΨ = param1[4:5]
+	return [param1; norm(traj1[(N+1)*ny:end], Inf); norm(unactErr, Inf)]
+end
+
+minlifts = 0.1:0.2:2.0
+llabels = [
+	"chord",
+	"T",
+	"mwing",
+	"hinge k",
+	"hinge b"
+]
+
+res = hcat(maxuForMinAvgLift.(minlifts)...)'
+np = length(param0)
+p1 = plot(minlifts, res[:,1:np], xlabel="min avg lift [mN]", label=llabels, ylabel="design params", linewidth=2, legend=:topleft)
+p2 = plot(minlifts, res[:,np+1], xlabel="min avg lift [mN]", ylabel="umin [mN]", linewidth=2, legend=false)
+p3 = plot(minlifts, res[:,np+2], xlabel="min avg lift [mN]", ylabel="unact err", linewidth=2, label="err", legend=false)
+plot(p1, p2, p3)
+
+# ! pick one
+# res = maxuForMinAvgLift(3)
+# ptest = res[1:np]
+
+# res0 = maxuForMinAvgLift(avgLift0)
+# res0[np+2]
 
 # # traj opt ------------------------------------
 

@@ -1,4 +1,4 @@
-using MAT, DSP, Dierckx, DelimitedFiles, LinearAlgebra, Statistics, Interpolations
+using MAT, DSP, Dierckx, DelimitedFiles, LinearAlgebra, Statistics
 using Plots; gr()
 
 "Has data for 8 channels, in pairs of (ti,datai) and the columns are stacked"

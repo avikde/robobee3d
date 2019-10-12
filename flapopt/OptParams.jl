@@ -168,63 +168,54 @@ end
 
 # --------------
 "Implement this"
-function paramAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple; fixTrajWithDynConst::Bool=false)
+function paramAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple)
 	error("Implement this!")
 end
 
 "Implement this"
 paramLumped(m::Model, param::AbstractArray) = error("Implement this")
 
-"Mode=1 => opt, mode=2 ID. Fext(p) or hold constant"
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple; Fext_pdep::Bool=false, test=false, kwargs...)
+# lumped parameter vector
+function getpt(m::Model, p)
+	pb, T = paramLumped(m, p)
+	return [pb; T^(-2)], T
+end
+
+"Helper function to reconstruct the traj (also test it)"
+function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, yo, Hk, B, Δy, pnew; test::Bool=false)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
-    nq = ny÷2
-	# lumped parameter vector
-	function getpt(x)
-		pb, T = paramLumped(m, x)
-		return [pb; T^(-2)], T
+	np = length(pnew)
+	Δyk = k -> Δy[(k-1)*ny+1 : k*ny]
+
+	# Also convert the output traj with the Δy, new T, and inputs
+	traj2 = copy(traj)
+	# Calculate the new traj (which is in act coordinates, so needs scaling by T)
+	ptnew, Tnew = getpt(m, pnew)
+	for k=1:N+1
+		# FIXME: this part of going from output to act coords is W2D-specific
+		traj2[liy[:,k]] = [1/Tnew, 1, 1/Tnew, 1] .* (yo(k) + Δyk(k))
 	end
-    ptTEST, TTEST = getpt(param) # NOTE the actual param values are only needed for the test mode
-    npt = length(ptTEST)
+	# Calculate the new inputs
+	traj2[(N+1)*ny+1:end] = vcat([Tnew / δt * B' * Hk(k, Δyk(k), Δyk(k+1)) * ptnew for k=1:N]...) # compare to the "test" equation above
+
+	# println("Test that the lower rows dyn constraint worked ", vcat([Bperp * Hk(k, Δyk(k), Δyk(k+1)) * ptnew for k=1:N]...) - eval_g_ret(prob.x))
+
+	return traj2
+end
+
+"Mode=1 => opt, mode=2 ID. Fext(p) or hold constant"
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple, εunact, cbarmin; Fext_pdep::Bool=false, test=false, testTrajReconstruction=false, kwargs...)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+	nq = ny÷2
+	np = length(param)
+    ptTEST, TTEST = getpt(m, param) # NOTE the actual param values are only needed for the test mode
+	npt = length(ptTEST)
     
-    # Weights
-    Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
+	# Weights
+	Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
 
 	# Quadratic form matrix
-	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R; Fext_pdep=Fext_pdep, fixTrajWithDynConst=true)
-
-    # If test is true, it will test the affine relation
-    if test
-        Hpb = zeros(nq, N)
-        Bu = similar(Hpb)
-    end
-	
-	# See eval_f for how these are used to form the objective
-    Quu = zeros(npt, npt)
-    qyu = zeros(npt)
-    qyy = 0
-	for k=1:N
-		Hh = Hk(k)
-		yok = yo(k)
-        Quu += Hh' * B * Ruu * B' * Hh
-		if mode == 1
-			# Need output coords
-			qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yok)
-        	qyy += yok' * Ryy * yok # qyy * T^(-2)
-		elseif mode == 2
-			# For ID, need uk
-			qyu -= Hh' * B * Ruu * (δt * umeas(k))
-		end
-
-        if test
-            Hpb[:,k] = Hk(k) * ptTEST
-            Bu[:,k] = δt * B * umeas(k)[1] / TTEST
-        end
-    end
-    if test
-        display(Hpb - Bu)
-        error("Tested")
-    end
+	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R; Fext_pdep=Fext_pdep)
 
 	# GN -------------------------
 	# function pFeasible(p)
@@ -258,36 +249,153 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# return x
 
 	# IPOPT ---------------------------
-	eval_g(x::Vector, g::Vector) = (g .= I * x)
-	function eval_jac_g(x::Vector{Float64}, mode, row::Vector{Int32}, col::Vector{Int32}, value::Vector)
-		# FIXME: this is not really general. This is for a box constraint on each
-		if mode != :Structure
-			value[1] = value[2] = value[3] = 1.0
-		else
-			row[1] = col[1] = 1
-			row[2] = col[2] = 2
-			row[3] = col[3] = 3
-		end
-	end
+	nx = np + (N+1)*ny # p,Δy
+
 	# FIXME: this is W2D-specific
 	σomax = norm([yo(k)[1] for k=1:N], Inf)
 	σamax = 0.3 # [mm] constant? for robobee actuators
 	Tmin = σomax/σamax
-	println("Tmin = ", Tmin)
-	plimsL = [0.1, Tmin, 0.1]
-	plimsU = [1000.0, 1000.0, 1000.0]
 
-	function eval_f(x::AbstractArray)
-		pt, T = getpt(x)
+	println("Tmin = ", Tmin, " cbarmin = ", cbarmin)
+	xlimsL = -1000 * ones(nx)
+	xlimsU = 1000 * ones(nx)
+	xlimsL[1:np] = [cbarmin, Tmin, 0.1, 0.1, 0.1]
+	xlimsU[1:np] = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
+	
+	# ------------ Constraint: Bperp' * H(y + Δy) * pt is small enough (unactuated DOFs) -----------------
+	Bperp = [0 1] #FIXME: get this automatically. this is s.t. Bperp*B = 0
+	nck = size(Bperp, 1) # number of constraints for each k = # of unactuated DOFs
+	nc = N * nck# + np
+
+	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1) * (getpt(m, p)[1])
+	function eval_g_ret(x)
+		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
+		# g .= x # OLD: 
+		return vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), x[1:np]) for k=1:N]...)
+	end
+	# g1 = Array{Any,1}(undef, nc)
+	eval_g(x::Vector, g::Vector) = g .= eval_g_ret(x)
+
+	# ----------- Constraint Jac ----------------------------
+	# Exploit sparsity in the nc*nx matrix. Each constraint depends on Δyk(k), Δyk(k+1), p
+	Dgnnz = nc * (2*ny + np)
+
+	# Function for IPOPT
+	function eval_jac_g(x, imode, row::Vector{Int32}, col::Vector{Int32}, value)
+		offs = 1
+			
+		if imode != :Structure
+			Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
+			p = x[1:np]
+
+			for k=1:N
+				# Now assemble the pieces
+				dyk = ForwardDiff.jacobian(yy -> eval_g_pieces(k, yy, Δyk(k+1), p), Δyk(k))
+				for i=1:nck
+					for j=1:ny
+						value[offs] = dyk[i,j]
+						offs += 1
+					end
+				end
+				dykp1 = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(k), yy, p), Δyk(k+1))
+				for i=1:nck
+					for j=1:ny
+						value[offs] = dykp1[i,j]
+						offs += 1
+					end
+				end
+				dp = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(k), Δyk(k+1), yy), p)
+				for i=1:nck
+					for j=1:np
+						value[offs] = dp[i,j]
+						offs += 1
+					end
+				end
+			end
+		else
+			for k=1:N
+				for i=1:nck
+					for j=1:ny
+						row[offs] = (k-1)*nck + i
+						col[offs] = np + (k-1)*ny + j
+						offs += 1
+					end
+				end
+				for i=1:nck
+					for j=1:ny
+						row[offs] = (k-1)*nck + i
+						col[offs] = np + (k)*ny + j
+						offs += 1
+					end
+				end
+				for i=1:nck
+					for j=1:np
+						row[offs] = (k-1)*nck + i
+						col[offs] = j
+						offs += 1
+					end
+				end
+			end
+		end
+	end
+
+	glimsL = -εunact*ones(nc)
+	glimsU = εunact*ones(nc)
+
+	# ----------------------- Objective --------------------------------
+    # If test is true, it will test the affine relation
+    if test
+        Hpb = zeros(nq, N)
+		Bu = similar(Hpb)
+		for k=1:N
+            Hpb[:,k] = Hk(k, zeros(ny), zeros(ny)) * ptTEST
+			Bu[:,k] = δt * B * umeas(k)[1] / TTEST
+		end
+        display(Hpb - Bu)
+        error("Tested")
+	end
+	
+	# TODO: this is NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179
+	Quu = zeros(npt, npt)
+	qyu = zeros(npt)
+	qyy = 0
+	
+	# Matrices that contain sum of running actuator cost
+	for k=1:N
+		Hh = Hk(k, zeros(ny), zeros(ny)) #Hk(k, Δyk(k), Δyk(k+1))
+		yok = yo(k)# + Δyk(k)
+		if mode == 1
+			Quu += Hh' * Ruu * Hh
+			# Need output coords
+			qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yok)
+			qyy += yok' * Ryy * yok # qyy * T^(-2)
+		elseif mode == 2
+			# Need to consider the unactuated rows too
+			Quu += Hh' * Ruu * Hh
+			# For ID, need uk
+			qyu += (-Hh' * Ruu * (δt * B * umeas(k)))
+		end
+	end
+	
+	# See eval_f for how these are used to form the objective
+	function eval_f(x)
+		pt, T = getpt(m, x[1:np])
+		# Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
+
+		# min Δy
+		J = dot(x[np+1 : end], x[np+1 : end])
+
 		if mode == 1
 			# Total cost: 1/2 (T*pt)' * Quu * (T*pt) + 1/2 qyy * T^(-2) + qyu' * pt
 			# TODO: quadratic version. for now just nonlinear
-			return 1/2 * ((T*pt)' * Quu * (T*pt) + qyy * T^(-2)) + qyu' * pt
+			J += 1/2 * ((T*pt)' * Quu * (T*pt) + qyy * T^(-2)) + qyu' * pt
 		elseif mode == 2
-			return 1/2 * ((T*pt)' * Quu * (T*pt)) + qyu' * (T*pt)
+			J += 1/2 * ((T*pt)' * Quu * (T*pt)) + qyu' * (T*pt)
 		end
+
+		return J
 	end
-	eval_grad_f(x::Vector{Float64}, grad_f::Vector{Float64}) = ForwardDiff.gradient!(grad_f, eval_f, x)
+	eval_grad_f(x, grad_f) = ForwardDiff.gradient!(grad_f, eval_f, x)
 
 	# # Plot
 	# display(Quu)
@@ -299,13 +407,13 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	
 	# Create IPOPT problem
 	prob = Ipopt.createProblem(
-		length(param), # Number of variables
-		[0.1, 0.1, 0.1], # Variable lower bounds
-		[10.0, 1000.0, 2], # Variable upper bounds
-		length(param), # Number of constraints
-		plimsL,       # Constraint lower bounds
-		plimsU,       # Constraint upper bounds
-		3,  # Number of non-zeros in Jacobian
+		nx, # Number of variables
+		xlimsL, # Variable lower bounds
+		xlimsU, # Variable upper bounds
+		nc, # Number of constraints
+		glimsL,       # Constraint lower bounds
+		glimsU,       # Constraint upper bounds
+		Dgnnz,  # Number of non-zeros in Jacobian
 		0,             # Number of non-zeros in Hessian
 		eval_f,                     # Callback: objective function
 		eval_g,                     # Callback: constraint evaluation
@@ -322,22 +430,22 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	end
 
 	# Solve
-	prob.x = copy(param)
+	prob.x = [copy(param); zeros(nx - np)]
 	status = Ipopt.solveProblem(prob)
-	pnew = prob.x
+	pnew = prob.x[1:np]
+	trajnew = reconstructTrajFromΔy(m, opt, traj, yo, Hk, B, prob.x[np+1:end], pnew)
+	unactErr = eval_g_ret(prob.x)
 
-	# Also convert the output traj with the new T, and inputs
-	traj2 = copy(traj)
-	yk = k -> @view traj2[liy[:,k]]
-	# Calculate the new inputs
-	ptold, Told = getpt(param)
-	ptnew, Tnew = getpt(pnew)
-	for k=1:N+1
-		traj2[liy[:,k]] = [Told/Tnew, 1, Told/Tnew, 1] .* traj2[liy[:,k]]
+	if testTrajReconstruction
+		# Test traj reconstruction:
+		Hk, yo, umeas, B, N = paramAffine(m, opt, trajnew, pnew, R; Fext_pdep=Fext_pdep)
+		eval_g_ret2(p) = vcat([Bperp * Hk(k, zeros(ny), zeros(ny)) * (getpt(m, p)[1]) for k=1:N]...)
+		display(unactErr')
+		display(eval_g_ret2(pnew)')
+		error("Tested")
 	end
-	traj2[(N+1)*ny+1:end] = [Tnew / δt * B' * Hk(k) * ptnew for k=1:N] # compare to the "test" equation above
 
-	return pnew, eval_f, traj2
+	return pnew, eval_f, trajnew, unactErr
 
 	# # Without that T, can just use OSQP -------------------------
 	# mo = OSQP.Model()
