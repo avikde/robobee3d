@@ -8,6 +8,8 @@ import controlutils
 cu = controlutils
 includet("Wing2DOF.jl")
 includet("LoadWingKinData.jl")
+using Plots
+Plots.scalefontsizes(0.7)
 
 # create an instance
 # From Patrick 300 mN-mm/rad. 1 rad => R/2 σ-displacement. The torque is applied with a lever arm of R/2 => force = torque / (R/2)
@@ -61,15 +63,15 @@ cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
 
 R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 
-# One-off ID or opt ---------
+# # One-off ID or opt ---------
 
-param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=100)
-display(param1')
+# param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=100)
+# display(param1')
 
-traj2 = cu.fixTrajWithDynConst(m, opt, traj1, param1)
-# cu.optAffine(m, opt, traj1, param1, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=true, print_level=2)
-pl1 = plotTrajs(m, opt, trajt, [param0, param1, param1], [traj0, traj1, traj2])
-plot(pl1...)
+# traj2 = cu.fixTrajWithDynConst(m, opt, traj1, param1)
+# # cu.optAffine(m, opt, traj1, param1, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=true, print_level=2)
+# pl1 = plotTrajs(m, opt, trajt, [param0, param1, param1], [traj0, traj1, traj2])
+# plot(pl1...)
 
 # # The actuator data does not correspond to the kinematics in any way (esp. without params)
 # # # 1. Try to find the best params *assuming* these are the correct inputs. ID mode
@@ -87,28 +89,27 @@ plot(pl1...)
 
 # many sims (scale) --------------
 
-# function maxuForMinAvgLift(al)
-# 	param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, cbarmin(al); Fext_pdep=false, test=false)#, print_level=1)
-# 	kΨ, bΨ = param1[4:5]
-# 	return [param1; norm(traj1[(N+1)*ny:end], Inf); norm(unactErr, Inf); 0.1*norm(kΨ*traj1[2:ny:(N+1)*ny] + bΨ*traj1[4:ny:(N+1)*ny], Inf)]
-# end
+function maxuForMinAvgLift(al)
+	param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, cbarmin(al); Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
+	kΨ, bΨ = param1[4:5]
+	return [param1; norm(traj1[(N+1)*ny:end], Inf); norm(unactErr, Inf)]
+end
 
-# minlifts = 0.1:0.1:5.0
-# llabels = [
-# 	"chord",
-# 	"T",
-# 	"mwing",
-# 	"hinge k",
-# 	"hinge b"
-# ]
+minlifts = 0.1:0.2:2.0
+llabels = [
+	"chord",
+	"T",
+	"mwing",
+	"hinge k",
+	"hinge b"
+]
 
-# res = hcat(maxuForMinAvgLift.(minlifts)...)'
-# np = length(param0)
-# p1 = plot(minlifts, res[:,1:np], xlabel="min avg lift [mN]", label=llabels, ylabel="design params", linewidth=2)
-# p2 = plot(minlifts, res[:,np+1], xlabel="min avg lift [mN]", ylabel="umin [mN]", linewidth=2)
-# p3 = plot(minlifts, res[:,np+2], xlabel="min avg lift [mN]", ylabel="unact err", linewidth=2, label="err")
-# plot!(p3, minlifts, res[:,np+3], xlabel="min avg lift [mN]", linewidth=2, linestyle=:dash, label="hinge stiff+damp")
-# plot(p1, p2, p3)
+res = hcat(maxuForMinAvgLift.(minlifts)...)'
+np = length(param0)
+p1 = plot(minlifts, res[:,1:np], xlabel="min avg lift [mN]", label=llabels, ylabel="design params", linewidth=2, legend=:topleft)
+p2 = plot(minlifts, res[:,np+1], xlabel="min avg lift [mN]", ylabel="umin [mN]", linewidth=2, legend=false)
+p3 = plot(minlifts, res[:,np+2], xlabel="min avg lift [mN]", ylabel="unact err", linewidth=2, label="err", legend=false)
+plot(p1, p2, p3)
 
 # ! pick one
 # res = maxuForMinAvgLift(3)
