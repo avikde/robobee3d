@@ -355,44 +355,45 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
         error("Tested")
 	end
 	
+	# TODO: this is NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179
+	Quu = zeros(npt, npt)
+	qyu = zeros(npt)
+	qyy = 0
+	
+	# Matrices that contain sum of running actuator cost
+	for k=1:N
+		Hh = Hk(k, zeros(ny), zeros(ny)) #Hk(k, Δyk(k), Δyk(k+1))
+		yok = yo(k)# + Δyk(k)
+		if mode == 1
+			Quu += Hh' * Ruu * Hh
+			# Need output coords
+			qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yok)
+			qyy += yok' * Ryy * yok # qyy * T^(-2)
+		elseif mode == 2
+			# Need to consider the unactuated rows too
+			Quu += Hh' * Ruu * Hh
+			# For ID, need uk
+			qyu += (-Hh' * Ruu * (δt * B * umeas(k)))
+		end
+	end
+	
 	# See eval_f for how these are used to form the objective
 	function eval_f(x)
 		pt, T = getpt(m, x[1:np])
 		# Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
-		
-		# Quu = zeros(npt, npt)
-		# qyu = zeros(npt)
-		# qyy = 0
-		
-		# # Matrices that contain sum of running actuator cost
-		# for k=1:N
-		# 	Hh = Hk(k, Δyk(k), Δyk(k+1))
-		# 	yok = yo(k) + Δyk(k)
-		# 	if mode == 1
-		# 		Quu += Hh' * Ruu * Hh
-		# 		# Need output coords
-		# 		qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yok)
-		# 		qyy += yok' * Ryy * yok # qyy * T^(-2)
-		# 	elseif mode == 2
-		# 		# Need to consider the unactuated rows too
-		# 		Quu += Hh' * Ruu * Hh
-		# 		# For ID, need uk
-		# 		qyu += (-Hh' * Ruu * (δt * B * umeas(k)))
-		# 	end
-		# end
-
-		# if mode == 1
-		# 	# Total cost: 1/2 (T*pt)' * Quu * (T*pt) + 1/2 qyy * T^(-2) + qyu' * pt
-		# 	# TODO: quadratic version. for now just nonlinear
-		# 	return 1/2 * ((T*pt)' * Quu * (T*pt) + qyy * T^(-2)) + qyu' * pt
-		# elseif mode == 2
-		# 	return 1/2 * ((T*pt)' * Quu * (T*pt)) + qyu' * (T*pt)
-		# else
-		# 	error("mode")
-		# end
 
 		# min Δy
-		return dot(x[np+1 : end], x[np+1 : end])
+		J = dot(x[np+1 : end], x[np+1 : end])
+
+		if mode == 1
+			# Total cost: 1/2 (T*pt)' * Quu * (T*pt) + 1/2 qyy * T^(-2) + qyu' * pt
+			# TODO: quadratic version. for now just nonlinear
+			J += 1/2 * ((T*pt)' * Quu * (T*pt) + qyy * T^(-2)) + qyu' * pt
+		elseif mode == 2
+			J += 1/2 * ((T*pt)' * Quu * (T*pt)) + qyu' * (T*pt)
+		end
+
+		return J
 	end
 	eval_grad_f(x, grad_f) = ForwardDiff.gradient!(grad_f, eval_f, x)
 
