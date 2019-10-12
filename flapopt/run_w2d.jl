@@ -63,15 +63,17 @@ R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 
 # # One-off ID or opt ---------
 
-param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=false, print_level=2)
+param1, _, traj1, unactErr, sol = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=false, print_level=2)
 display(param1')
 
-# Test trj reconstruction:
-Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, param1, R_WTS; Fext_pdep=false)
-eval_g_pieces(k, p) = [0 1] * Hk(k, zeros(4), zeros(4)) * (cu.getpt(m, p)[1])
-eval_g_ret(x) = vcat([eval_g_pieces(k, x[1:length(param0)]) for k=1:N]...)
+# Test traj reconstruction:
+np = length(param0)
+Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj0, param0, R_WTS; Fext_pdep=false)
+Δyk = k -> sol[np+(k-1)*ny+1 : np+k*ny]
+eval_g_pieces(k, p) = [0 1] * Hk(k, Δyk(k), Δyk(k+1)) * (cu.getpt(m, p)[1])
+eval_g_ret(x) = vcat([eval_g_pieces(k, x[1:np]) for k=1:N]...)
 display(unactErr')
-display(eval_g_ret([param1; zeros((N+1)*ny)])')
+display(eval_g_ret(sol)')
 
 # traj2 = cu.fixTrajWithDynConst(m, opt, traj1, param1)
 # cu.optAffine(m, opt, traj1, param1, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=true, print_level=2)
