@@ -61,13 +61,13 @@ cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
 
 R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 
-# # One-off ID or opt ---------
+# One-off ID or opt ---------
 
-param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=5)
+param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=100)
 display(param1')
 
 traj2 = cu.fixTrajWithDynConst(m, opt, traj1, param1)
-# cu.optAffine(m, opt, traj1, param1, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=false, print_level=2)
+# cu.optAffine(m, opt, traj1, param1, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=true, print_level=2)
 pl1 = plotTrajs(m, opt, trajt, [param0, param1, param1], [traj0, traj1, traj2])
 plot(pl1...)
 
