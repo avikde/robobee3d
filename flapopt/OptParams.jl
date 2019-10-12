@@ -181,6 +181,34 @@ function getpt(m::Model, p)
 	return [pb; T^(-2)], T
 end
 
+"Helper function to reconstruct the traj (also test it)"
+function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, yo, Hk, B, Δy, pnew; test::Bool=false)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+	np = length(pnew)
+	Δyk = k -> Δy[(k-1)*ny+1 : k*ny]
+
+	# Also convert the output traj with the Δy, new T, and inputs
+	traj2 = copy(traj)
+	# Calculate the new traj (which is in act coordinates, so needs scaling by T)
+	ptnew, Tnew = getpt(m, pnew)
+	for k=1:N+1
+		# FIXME: this part of going from output to act coords is W2D-specific
+		traj2[liy[:,k]] = [1/Tnew, 1, 1/Tnew, 1] .* (yo(k) + Δyk(k))
+	end
+	# Calculate the new inputs
+	traj2[(N+1)*ny+1:end] = vcat([Tnew / δt * B' * Hk(k, Δyk(k), Δyk(k+1)) * ptnew for k=1:N]...) # compare to the "test" equation above
+
+	# println("Test that the lower rows dyn constraint worked ", vcat([Bperp * Hk(k, Δyk(k), Δyk(k+1)) * ptnew for k=1:N]...) - eval_g_ret(prob.x))
+
+	# # Test traj reconstruction:
+	# Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, param1, R_WTS; Fext_pdep=true)
+	# eval_g_pieces(k, p) = [0 1] * Hk(k, zeros(4), zeros(4)) * (cu.getpt(m, p)[1])
+	# eval_g_ret(x) = vcat([eval_g_pieces(k, x[1:length(param0)]) for k=1:N]...)
+	# display(unactErr')
+	# display(eval_g_ret([param1; zeros((N+1)*ny)])')
+	return traj2
+end
+
 "Mode=1 => opt, mode=2 ID. Fext(p) or hold constant"
 function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple, εunact, cbarmin; Fext_pdep::Bool=false, test=false, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
@@ -410,21 +438,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	prob.x = [copy(param); zeros(nx - np)]
 	status = Ipopt.solveProblem(prob)
 	pnew = prob.x[1:np]
-	Δyk = k -> prob.x[np+(k-1)*ny+1 : np+k*ny]
 
-	# Also convert the output traj with the Δy, new T, and inputs
-	traj2 = copy(traj)
-	# Calculate the new traj (which is in act coordinates, so needs scaling by T)
-	ptnew, Tnew = getpt(m, pnew)
-	for k=1:N+1
-		traj2[liy[:,k]] = [1/Tnew, 1, 1/Tnew, 1] .* (yo(k) + Δyk(k))
-	end
-	# Calculate the new inputs
-	traj2[(N+1)*ny+1:end] = vcat([Tnew / δt * B' * Hk(k, Δyk(k), Δyk(k+1)) * ptnew for k=1:N]...) # compare to the "test" equation above
-
-	# println("Test that the lower rows dyn constraint worked ", vcat([Bperp * Hk(k, Δyk(k), Δyk(k+1)) * ptnew for k=1:N]...) - eval_g_ret(prob.x))
-
-	return pnew, eval_f, traj2, eval_g_ret(prob.x), prob.x
+	return pnew, eval_f, reconstructTrajFromΔy(m, opt, traj, yo, Hk, B, prob.x[np+1:end], pnew), eval_g_ret(prob.x), prob.x
 
 	# # Without that T, can just use OSQP -------------------------
 	# mo = OSQP.Model()
