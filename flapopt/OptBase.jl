@@ -96,6 +96,7 @@ function gvalues!(gout::AbstractArray, m::Model, opt::OptOptions, traj::Abstract
 	return
 end
 
+# TODO: improve this https://github.com/avikde/robobee3d/issues/81
 function fixTrajWithDynConst(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	
