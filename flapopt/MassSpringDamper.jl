@@ -10,6 +10,7 @@ mutable struct MassSpringDamperModel <: controlutils.Model
     ma::Float64 # [mg]; effective
     ka::Float64 # [mN/mm]
     mo::Float64 # [mg]
+    umax::Float64
 end
 
 function cu.dims(m::MassSpringDamperModel)::Tuple{Int, Int}
