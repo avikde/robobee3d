@@ -25,6 +25,9 @@ fdes = 0.15
 # FIXME: template
 trajt, traj0, trajt = createInitialTraj(m, opt, N, fdes, [1e3, 1e2], param0)
 
+# Make traj satisfy dyn constraint with these params?
+traj0 = cu.fixTrajWithDynConst(m, opt, traj0, param0)
+
 
 R_WTS = (zeros(2,2), 0, 1.0*I)#diagm(0=>[0.1,100]))
 Tmin = 10.0 # FIXME: calculate
