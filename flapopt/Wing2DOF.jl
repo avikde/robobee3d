@@ -420,6 +420,10 @@ function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
     return [1, kΨ, bΨ, cbar, cbar^2, mwing, mwing*cbar, mwing*cbar^2], T
 end
 
+function cu.TmapAtoO(m::Wing2DOFModel, T)
+	return [T, 1, T, 1]
+end
+
 function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple; Fext_pdep::Bool=false)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 

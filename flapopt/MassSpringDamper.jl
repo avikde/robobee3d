@@ -198,6 +198,10 @@ function cu.paramLumped(m::MassSpringDamperModel, param::AbstractArray)
     return [1, bo, ko], T
 end
 
+function cu.TmapAtoO(m::MassSpringDamperModel, T)
+	return [T, T]
+end
+
 function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple; Fext_pdep::Bool=false)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 

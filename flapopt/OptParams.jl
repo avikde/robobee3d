@@ -175,6 +175,11 @@ end
 "Implement this"
 paramLumped(m::Model, param::AbstractArray) = error("Implement this")
 
+"Return the transmission matrix that should multiply the state to go from OUTPUT to ACTUATOR"
+function TmapAtoO(m::Model, T)
+	error("Not implemented")
+end
+
 # lumped parameter vector
 function getpt(m::Model, p)
 	pb, T = paramLumped(m, p)
@@ -192,8 +197,8 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, 
 	# Calculate the new traj (which is in act coordinates, so needs scaling by T)
 	ptnew, Tnew = getpt(m, pnew)
 	for k=1:N+1
-		# FIXME: this part of going from output to act coords is W2D-specific
-		traj2[liy[:,k]] = [1/Tnew, 1, 1/Tnew, 1] .* (yo(k) + Δyk(k))
+		# Go from output to act coords
+		traj2[liy[:,k]] = (1.0 ./ TmapAtoO(m, Tnew)) .* (yo(k) + Δyk(k))
 	end
 	# Calculate the new inputs
 	traj2[(N+1)*ny+1:end] = vcat([Tnew / δt * B' * Hk(k, Δyk(k), Δyk(k+1)) * ptnew for k=1:N]...) # compare to the "test" equation above

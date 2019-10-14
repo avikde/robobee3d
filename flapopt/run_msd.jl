@@ -34,8 +34,15 @@ Tmin = 10.0 # FIXME: calculate
 plimsL = [Tmin, 0.1, 0.1]
 plimsU = [100.0, 100.0, 100.0]
 
-param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL, plimsU; Fext_pdep=true, test=true, testTrajReconstruction=false, print_level=1, max_iter=100)
-# display(param1')
+# # One-off ID or opt ---------
+
+param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL, plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=100)
+display(param1')
+
+traj2 = cu.fixTrajWithDynConst(m, opt, traj1, param1)
+# cu.optAffine(m, opt, traj1, param1, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=true, print_level=2)
+pl1 = plotTrajs(m, opt, trajt, [param0, param1, param1], [traj0, traj1, traj2])
+plot(pl1...)
 
 
 # # Optimize params directly for traj
