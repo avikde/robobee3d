@@ -23,7 +23,14 @@ param0 = [10.0, # T
 
 fdes = 0.15
 # FIXME: template
-trajt, traj0, trajt1 = createInitialTraj(m, opt, N, fdes, [1e3, 1e2], param0)
+trajt, traj0, trajt = createInitialTraj(m, opt, N, fdes, [1e3, 1e2], param0)
+
+
+R_WTS = (zeros(2,2), 0, 1.0*I)#diagm(0=>[0.1,100]))
+
+
+param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, 0; Fext_pdep=true, test=true, testTrajReconstruction=false, print_level=1, max_iter=100)
+# display(param1')
 
 
 # # Optimize params directly for traj

@@ -139,10 +139,9 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
     end
     # in (1..N+1) intervals, time elapsed = N*δt - this corresponds to tp/2 where tp=period
     # so ω = 2π/tp, and we expect ω^2 = k/mb
-    println("For resonance expect k = ", resStiff(m, opt, traj0))
-    trajt1 = copy(trajt)
+    # println("For resonance expect k = ", resStiff(m, opt, traj0))
 
-    return trajt .- trajt[1], traj0, trajt1
+    return trajt .- trajt[1], traj0, trajt
 end
 
 function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t::Vector, params, trajs)
