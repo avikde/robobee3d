@@ -38,9 +38,9 @@ function cu.limitsTimestep(m::MassSpringDamperModel)::Tuple{Float64, Float64}
 end
 
 "Continuous dynamics second order model"
-function cu.dydt(m::MassSpringDamperModel, y::AbstractArray, u::AbstractArray, _params::Vector)::AbstractArray
+function cu.dydt(m::MassSpringDamperModel, y::AbstractArray, u::AbstractArray, param::Vector)::AbstractArray
     # unpack
-    T, ko, bo = _params[1]
+    T, ko, bo = param
 
     ddy = 1.0/(m.mo + m.ma/T^2) * (-(ko + m.ka/T^2)*y[1] - (bo)*y[2] + u[1]/T)
     # return ddq
@@ -190,3 +190,50 @@ end
 
 #     # return wingdraw 
 # end
+
+# ---------------------- Param opt -----------------------------
+
+function cu.paramLumped(m::MassSpringDamperModel, param::AbstractArray)
+    T, ko, bo = param
+    return [1, bo, ko], T
+end
+
+function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple; Fext_pdep::Bool=false)
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+
+    yk = k -> @view traj[liy[:,k]]
+    uk = k -> @view traj[liu[:,k]]
+
+    # Param stuff
+    T, ko, bo = param
+
+    # THESE FUNCTIONS USE OUTPUT COORDS -------------
+    function HMqT(ypos, yvel)
+        σo, σ̇odum = ypos
+        σodum, σ̇o = yvel
+        return [σ̇o*m.mo   0   0   σ̇o*m.ma]
+    end
+
+    function HCgJT(y, F)
+        σo, σ̇o = y
+        return [0   σ̇o   σo   m.ba*σ̇o + m.ka*σo]
+    end
+    # ----------------
+
+    # this is OK - see notes
+    # Htil = (y, ynext, F) -> HMq(ynext) - HMq(y) + δt*HCgJ(y, F)
+    # 1st order integration mods
+    Htil = (y, ynext, F) -> HMqT(y, ynext) - HMqT(y, y) + δt*HCgJT(y, F)
+    
+    # Functions to output
+    "Takes in a Δy in output coords"
+    function Hk(k, Δyk, Δykp1)
+        return Htil(yk(k) + Δyk, yk(k+1) + Δykp1, 0)
+    end
+    
+    # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
+    B = I
+
+    return Hk, yk, uk, B, N
+end
+
