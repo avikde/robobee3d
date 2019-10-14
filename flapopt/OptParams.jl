@@ -204,7 +204,7 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, 
 end
 
 "Mode=1 => opt, mode=2 ID. Fext(p) or hold constant"
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple, εunact, cbarmin; Fext_pdep::Bool=false, test=false, testTrajReconstruction=false, kwargs...)
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple, εunact, plimsL, plimsU; Fext_pdep::Bool=false, test=false, testTrajReconstruction=false, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
 	np = length(param)
@@ -251,16 +251,13 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# IPOPT ---------------------------
 	nx = np + (N+1)*ny # p,Δy
 
-	# FIXME: this is W2D-specific
-	σomax = norm([yo(k)[1] for k=1:N], Inf)
-	σamax = 0.3 # [mm] constant? for robobee actuators
-	Tmin = σomax/σamax
+	# FIXME: print this out for now
+	println("yomax = ", norm([yo(k)[1] for k=1:N], Inf))
 
-	println("Tmin = ", Tmin, " cbarmin = ", cbarmin)
 	xlimsL = -1000 * ones(nx)
 	xlimsU = 1000 * ones(nx)
-	xlimsL[1:np] = [cbarmin, Tmin, 0.1, 0.1, 0.1]
-	xlimsU[1:np] = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
+	xlimsL[1:np] = plimsL
+	xlimsU[1:np] = plimsU
 	
 	# ------------ Constraint: Bperp' * H(y + Δy) * pt is small enough (unactuated DOFs) -----------------
 	Bperp = [0 1] #FIXME: get this automatically. this is s.t. Bperp*B = 0

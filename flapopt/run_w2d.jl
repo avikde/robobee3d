@@ -63,6 +63,15 @@ cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
 
 R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 
+# FIXME: σomax is printed by optAffine
+# σamax = 0.3 # [mm] constant? for robobee actuators
+Tmin = 17.0 # σomax/σamax
+
+println("Tmin = ", Tmin, " cbarmin = ", cbarmin)
+
+plimsL = al -> [cbarmin(al), Tmin, 0.1, 0.1, 0.1]
+plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
+
 # # One-off ID or opt ---------
 
 # param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=100)
@@ -90,7 +99,7 @@ R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 # many sims (scale) --------------
 
 function maxuForMinAvgLift(al)
-	param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, cbarmin(al); Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
+	param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL(al), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
 	kΨ, bΨ = param1[4:5]
 	return [param1; norm(traj1[(N+1)*ny:end], Inf); norm(unactErr, Inf)]
 end
