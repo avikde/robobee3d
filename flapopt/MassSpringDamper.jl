@@ -6,10 +6,10 @@ import controlutils
 cu = controlutils
 
 mutable struct MassSpringDamperModel <: controlutils.Model
-    mb::Float64
-    bσ::Float64 # [mN/(mm/ms)]
-    G::Float64
-    umax::Float64
+    # Actuator params
+    ma::Float64 # [mg]; effective
+    ka::Float64 # [mN/mm]
+    mo::Float64 # [mg]
 end
 
 function cu.dims(m::MassSpringDamperModel)::Tuple{Int, Int}
@@ -40,16 +40,11 @@ end
 "Continuous dynamics second order model"
 function cu.dydt(m::MassSpringDamperModel, y::AbstractArray, u::AbstractArray, _params::Vector)::AbstractArray
     # unpack
-    kσ = _params[1]
-    σ, σ̇ = [1/m.G, 1/m.G] .* y # [mm, mm/ms]
-    # NOTE: for optimizing transmission ratio
-    # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
-    # u = (tau_actuator)
-	# sigma = sigma_actuator * T; tau = tau_actuator / T
+    T, ko, bo = _params[1]
 
-    ddq = 1.0/m.mb * (-kσ*σ - m.bσ*σ + m.G*u[1])
+    ddy = 1.0/(m.mo + m.ma/T^2) * (-(ko + m.ka/T^2)*y[1] - (bo)*y[2] + u[1]/T)
     # return ddq
-    return [y[2], m.G * ddq]
+    return [y[2], ddy]
 end
 
 function σdes(N, k)
@@ -72,13 +67,6 @@ function cu.robj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArr
 end
 
 # -------------------------------------------------------------------------------
-
-function resStiff(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray)
-	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-    k = m.mb * π^2 / (N^2 * δt)
-    # FIXME: why off by factor of between 4-5??
-    return 5*k
-end
 
 
 function createOLTraj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, params::AbstractArray)::AbstractArray
