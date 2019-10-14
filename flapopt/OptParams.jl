@@ -260,8 +260,9 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	xlimsU[1:np] = plimsU
 	
 	# ------------ Constraint: Bperp' * H(y + Δy) * pt is small enough (unactuated DOFs) -----------------
-	Bperp = [0 1] #FIXME: get this automatically. this is s.t. Bperp*B = 0
-	nck = size(Bperp, 1) # number of constraints for each k = # of unactuated DOFs
+	nact = size(B, 2)
+	nck = nq - nact # number of constraints for each k = # of unactuated DOFs ( = nunact)
+	Bperp = (I - B*B')[nact+1:end,:] # s.t. Bperp*B = 0
 	nc = N * nck# + np
 
 	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1) * (getpt(m, p)[1])
@@ -364,7 +365,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		if mode == 1
 			Quu += Hh' * Ruu * Hh
 			# Need output coords
-			qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yok)
+			qyu += Ryu * (Hh' * [B * B'  zeros(ny-nq, ny-nq)] * yok)
 			qyy += yok' * Ryy * yok # qyy * T^(-2)
 		elseif mode == 2
 			# Need to consider the unactuated rows too
