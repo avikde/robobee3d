@@ -117,10 +117,10 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
     #     uk = [strokePosController(yk, sol.t[k])]
     #     drawFrame(m, yk, uk, params)
     # end
-    # Plot
-    σt = plot(sol, vars=1, ylabel="act pos [m/s]")
-    plot(σt)
-    gui()
+    # # Plot
+    # σt = plot(sol, vars=1, ylabel="act pos [m/s]")
+    # plot(σt)
+    # gui()
 
     # expectedInterval = opt.boundaryConstraint == cu.SYMMETRIC ? 1/(2*freq) : 1/freq # [ms]
     # expectedPts = expectedInterval / simdt
@@ -216,7 +216,7 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
 
     function HCgJT(y, F)
         σo, σ̇o = y
-        return [0   σ̇o   σo   m.ba*σ̇o + m.ka*σo]
+        return [0   σ̇o   σo   m.ka*σo]
     end
     # ----------------
 
@@ -232,7 +232,7 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     end
     
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
-    B = I
+    B = reshape([1.0], 1, 1)
 
     return Hk, yk, uk, B, N
 end
