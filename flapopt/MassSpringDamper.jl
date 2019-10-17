@@ -224,7 +224,7 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
 
     function HCgJT(y, F)
         σo, σ̇o = y
-        return [0   σ̇o   σo   m.ka*σo]
+        return [0   σo   σ̇o   m.ka*σo]
     end
     # ----------------
 
