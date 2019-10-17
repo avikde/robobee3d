@@ -28,14 +28,9 @@ trajt, traj0orig, trajt = createInitialTraj(m, opt, N, fdes, [1e6, 1e5], param0,
 # Make traj satisfy dyn constraint with these params?
 traj0 = cu.fixTrajWithDynConst(m, opt, traj0orig, param0)
 
-pl1 = plotTrajs(m, opt, trajt, [param0, param0], [traj0orig, traj0])
-plot(pl1...)
-gui()
-error("HI")
-
 R_WTS = (zeros(2,2), 0, 1.0*I)#diagm(0=>[0.1,100]))
-# σamax = 0.3 # [mm] constant? for robobee actuators
-σamax = 100 # [mm] constant? test EM
+σamax = 0.3 # [mm] constant? for robobee actuators
+# σamax = 100 # [mm] constant? test EM
 Tmin = 11.861911596913371/σamax
 plimsL = [Tmin, 0.1, 0.1]
 plimsU = [1000.0, 1000.0, 1000.0]
@@ -47,8 +42,8 @@ display(param1')
 
 traj2 = cu.fixTrajWithDynConst(m, opt, traj1, param1)
 # cu.optAffine(m, opt, traj1, param1, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=true, print_level=2)
-# pl1 = plotTrajs(m, opt, trajt, [param0, param1, param1], [traj0, traj1, traj2])
-# plot(pl1...)
+pl1 = plotTrajs(m, opt, trajt, [param0, param1, param1], [traj0, traj1, traj2]; ulim=1e4)
+plot(pl1...)
 
 
 # # Optimize params directly for traj

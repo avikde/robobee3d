@@ -150,7 +150,7 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
     return trajt .- trajt[1], traj0, trajt
 end
 
-function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t::Vector, params, trajs)
+function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t::Vector, params, trajs; ulim=nothing)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
     Ny = (N+1)*ny
     # If plot is given a matrix each column becomes a different line
@@ -158,6 +158,9 @@ function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t::Vector, para
     dσt = plot(t, hcat([traj[@view liy[2,:]] for traj in trajs]...), linewidth=2, ylabel="stroke vel [mm/ms]", legend=false)
     
     ut = plot(t, hcat([[traj[@view liu[1,:]];NaN] for traj in trajs]...), linewidth=2, legend=false, ylabel="stroke force [mN]")
+    if !isnothing(ulim)
+        ylims!(ut, (-ulim, ulim))
+    end
     
     # Combine the subplots
 	return (σt, dσt, ut)
