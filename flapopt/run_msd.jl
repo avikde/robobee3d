@@ -30,9 +30,9 @@ traj0 = cu.fixTrajWithDynConst(m, opt, traj0, param0)
 
 
 R_WTS = (zeros(2,2), 0, 1.0*I)#diagm(0=>[0.1,100]))
-Tmin = 10.0 # FIXME: calculate
+Tmin = 0.1 # FIXME: calculate
 plimsL = [Tmin, 0.1, 0.1]
-plimsU = [100.0, 100.0, 100.0]
+plimsU = [1000.0, 1000.0, 1000.0]
 
 # # One-off ID or opt ---------
 
