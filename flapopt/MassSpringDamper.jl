@@ -199,7 +199,7 @@ end
 
 function cu.paramLumped(m::MassSpringDamperModel, param::AbstractArray)
     T, ko, bo = param
-    return [1, bo, ko], T
+    return [1, ko, bo], T
 end
 
 function cu.TmapAtoO(m::MassSpringDamperModel, T)
