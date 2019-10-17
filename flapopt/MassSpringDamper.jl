@@ -142,8 +142,8 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
     # println("For resonance expect k = ", resStiff(m, opt, traj0))
 
     # Plot the decimated one
-    plot(trajt, [traj0[1:2:(N+1)*2] traj0[2:2:(N+1)*2]], linewidth=2)
-    gui()
+    # plot(trajt, [traj0[1:2:(N+1)*2] traj0[2:2:(N+1)*2]], linewidth=2)
+    # gui()
 
     return trajt .- trajt[1], traj0, trajt
 end
@@ -152,13 +152,13 @@ function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t::Vector, para
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
     Ny = (N+1)*ny
     # If plot is given a matrix each column becomes a different line
-    σt = plot(t, hcat([traj[@view liy[1,:]] for traj in trajs]...), linewidth=2, ylabel="stroke ang [r]", title="δt=$(round(δt; sigdigits=4))ms")
+    σt = plot(t, hcat([traj[@view liy[1,:]] for traj in trajs]...), linewidth=2, ylabel="stroke [mm]", title="δt=$(round(δt; sigdigits=4))ms")
+    dσt = plot(t, hcat([traj[@view liy[2,:]] for traj in trajs]...), linewidth=2, ylabel="stroke vel [mm/ms]", legend=false)
     
     ut = plot(t, hcat([[traj[@view liu[1,:]];NaN] for traj in trajs]...), linewidth=2, legend=false, ylabel="stroke force [mN]")
     
-    plot!(σt, t, σdes.(N, collect(1:N+1)), ylabel="stroke des", color=:black, linestyle=:dash, linewidth=2, legend=false)
     # Combine the subplots
-	return (σt, ut)
+	return (σt, dσt, ut)
 end
 
 # function drawFrame(m::MassSpringDamperModel, yk, uk, param; Faeroscale=1.0)

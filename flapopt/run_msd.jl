@@ -23,7 +23,7 @@ param0 = [10.0, # T
 
 fdes = 0.15
 # FIXME: template
-trajt, traj0, trajt = createInitialTraj(m, opt, N, fdes, [1e6, 1e5], param0, 152)
+trajt, traj0, trajt = createInitialTraj(m, opt, N, fdes, [1e6, 1e5], param0, 154)
 
 # Make traj satisfy dyn constraint with these params?
 traj0 = cu.fixTrajWithDynConst(m, opt, traj0, param0)
@@ -41,8 +41,8 @@ display(param1')
 
 traj2 = cu.fixTrajWithDynConst(m, opt, traj1, param1)
 # cu.optAffine(m, opt, traj1, param1, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=true, print_level=2)
-# pl1 = plotTrajs(m, opt, trajt, [param0, param1, param1], [traj0, traj1, traj2])
-# plot(pl1...)
+pl1 = plotTrajs(m, opt, trajt, [param0, param1, param1], [traj0, traj1, traj2])
+plot(pl1...)
 
 
 # # Optimize params directly for traj
