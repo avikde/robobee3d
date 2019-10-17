@@ -98,12 +98,12 @@ end
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti)
+function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, param::Vector, starti; showPlot=false)
     # Create a traj
     function controller(y, t)
         return posGains[1] * (σdes(m, freq, t) - y[1]) - posGains[2] * y[2]
     end
-    vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
+    vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], param)
     # OL traj1
     simdt = 0.1 # [ms]
     teval = collect(0:simdt:100) # [ms]
@@ -117,16 +117,11 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
     #     uk = [strokePosController(yk, sol.t[k])]
     #     drawFrame(m, yk, uk, params)
     # end
-    # # Plot
-    # σdest = t -> σdes(m, freq, t)
-    # σactt = [sol.u[i][1] for i = 1:length(sol.t)]
-    # σt = plot(sol.t, [σactt  σdest.(sol.t)], ylabel="act pos [m]")
-    # gui()
 
     # expectedInterval = opt.boundaryConstraint == cu.SYMMETRIC ? 1/(2*freq) : 1/freq # [ms]
     # expectedPts = expectedInterval / simdt
 
-    olRange = starti:2:(starti + 2*N)
+    olRange = starti:(starti + N)
     trajt = sol.t[olRange]
     δt = trajt[2] - trajt[1]
     olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)
@@ -141,9 +136,16 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
     # so ω = 2π/tp, and we expect ω^2 = k/mb
     # println("For resonance expect k = ", resStiff(m, opt, traj0))
 
-    # Plot the decimated one
-    # plot(trajt, [traj0[1:2:(N+1)*2] traj0[2:2:(N+1)*2]], linewidth=2)
-    # gui()
+    if showPlot
+        # Plot
+        σdest = t -> σdes(m, freq, t)
+        σactt = [sol.u[i][1] for i = 1:length(sol.t)]
+        σt = plot(sol.t, [σactt  σdest.(sol.t)], ylabel="act pos [m]")
+        σtdec = plot(trajt, [traj0[1:2:(N+1)*2] traj0[2:2:(N+1)*2]], linewidth=2)
+        plot(σt, σtdec)
+        gui()
+        error("Initial traj plotted")
+    end
 
     return trajt .- trajt[1], traj0, trajt
 end
