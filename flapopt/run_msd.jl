@@ -17,7 +17,7 @@ m = MassSpringDamperModel(6, # ma
 ny, nu = cu.dims(m)
 opt = cu.OptOptions(false, 0.2, 1, :none, 1e-8, false)
 N = 33
-param0 = [10.0, # T
+param0 = [100.0, # T
 100.0, # ko
 10.0] # bo
 
@@ -30,7 +30,8 @@ traj0 = cu.fixTrajWithDynConst(m, opt, traj0, param0)
 
 
 R_WTS = (zeros(2,2), 0, 1.0*I)#diagm(0=>[0.1,100]))
-Tmin = 0.1 # FIXME: calculate
+σamax = 0.3 # [mm] constant? for robobee actuators
+Tmin = 11.861911596913371/σamax
 plimsL = [Tmin, 0.1, 0.1]
 plimsU = [1000.0, 1000.0, 1000.0]
 
