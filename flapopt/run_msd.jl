@@ -16,14 +16,14 @@ m = MassSpringDamperModel(6, # ma
 	100) # umax
 ny, nu = cu.dims(m)
 opt = cu.OptOptions(false, 0.2, 1, :none, 1e-8, false)
-N = 34
+N = 33
 param0 = [10.0, # T
 100.0, # ko
 10.0] # bo
 
 fdes = 0.15
 # FIXME: template
-trajt, traj0, trajt = createInitialTraj(m, opt, N, fdes, [1e6, 1e5], param0, 151)
+trajt, traj0, trajt = createInitialTraj(m, opt, N, fdes, [1e6, 1e5], param0, 152)
 
 # Make traj satisfy dyn constraint with these params?
 traj0 = cu.fixTrajWithDynConst(m, opt, traj0, param0)
