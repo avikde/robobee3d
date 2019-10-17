@@ -98,7 +98,7 @@ end
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector)
+function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti)
     # Create a traj
     function controller(y, t)
         return posGains[1] * (σdes(m, freq, t) - y[1]) - posGains[2] * y[2]
@@ -118,14 +118,14 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
     #     drawFrame(m, yk, uk, params)
     # end
     # # Plot
-    # σt = plot(sol, vars=1, ylabel="act pos [m/s]")
-    # plot(σt)
-    # gui()
+    σdest = t -> σdes(m, freq, t)
+    σactt = [sol.u[i][1] for i = 1:length(sol.t)]
+    σt = plot(sol.t, [σactt  σdest.(sol.t)], ylabel="act pos [m/s]")
+    gui()
 
     # expectedInterval = opt.boundaryConstraint == cu.SYMMETRIC ? 1/(2*freq) : 1/freq # [ms]
     # expectedPts = expectedInterval / simdt
 
-    starti = 151#170
     olRange = starti:3:(starti + 3*N)
     trajt = sol.t[olRange]
     δt = trajt[2] - trajt[1]
