@@ -224,12 +224,12 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     function HMqT(ypos, yvel)
         σo, σ̇odum = ypos
         σodum, σ̇o = yvel
-        return [σ̇o*m.mo   0   0   σ̇o*m.ma]
+        return [σ̇o*m.mo   0   0   σ̇o*m.ma] * scaleTraj
     end
 
     function HCgJT(y, F)
         σo, σ̇o = y
-        return [0   σo   σ̇o   m.ka*σo]
+        return [0   σo   σ̇o   m.ka*σo] * scaleTraj
     end
     # ----------------
 
