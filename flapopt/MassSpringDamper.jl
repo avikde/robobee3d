@@ -211,7 +211,7 @@ function cu.TmapAtoO(m::MassSpringDamperModel, T)
 	return [1, 1] # y part of traj is in output coords
 end
 
-function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple; Fext_pdep::Bool=false)
+function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple, scaleTraj=1.0; Fext_pdep::Bool=false)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 
     yk = k -> @view traj[liy[:,k]]
