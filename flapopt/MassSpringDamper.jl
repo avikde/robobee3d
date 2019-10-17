@@ -6,9 +6,10 @@ import controlutils
 cu = controlutils
 
 mutable struct MassSpringDamperModel <: controlutils.Model
-    mb::Float64
-    bσ::Float64 # [mN/(mm/ms)]
-    G::Float64
+    # Actuator params
+    ma::Float64 # [mg]; effective
+    ka::Float64 # [mN/mm]
+    mo::Float64 # [mg]
     umax::Float64
 end
 
@@ -38,18 +39,13 @@ function cu.limitsTimestep(m::MassSpringDamperModel)::Tuple{Float64, Float64}
 end
 
 "Continuous dynamics second order model"
-function cu.dydt(m::MassSpringDamperModel, y::AbstractArray, u::AbstractArray, _params::Vector)::AbstractArray
+function cu.dydt(m::MassSpringDamperModel, y::AbstractArray, u::AbstractArray, param::Vector)::AbstractArray
     # unpack
-    kσ = _params[1]
-    σ, σ̇ = [1/m.G, 1/m.G] .* y # [mm, mm/ms]
-    # NOTE: for optimizing transmission ratio
-    # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
-    # u = (tau_actuator)
-	# sigma = sigma_actuator * T; tau = tau_actuator / T
+    T, ko, bo = param
 
-    ddq = 1.0/m.mb * (-kσ*σ - m.bσ*σ + m.G*u[1])
+    ddy = 1.0/(m.mo + m.ma/T^2) * (-(ko + m.ka/T^2)*y[1] - (bo)*y[2] + u[1]/T)
     # return ddq
-    return [y[2], m.G * ddq]
+    return [y[2], ddy]
 end
 
 function σdes(N, k)
@@ -72,13 +68,6 @@ function cu.robj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArr
 end
 
 # -------------------------------------------------------------------------------
-
-function resStiff(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray)
-	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-    k = m.mb * π^2 / (N^2 * δt)
-    # FIXME: why off by factor of between 4-5??
-    return 5*k
-end
 
 
 function createOLTraj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, params::AbstractArray)::AbstractArray
@@ -109,12 +98,12 @@ end
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector)
+function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, param::Vector, starti; showPlot=false)
     # Create a traj
     function controller(y, t)
         return posGains[1] * (σdes(m, freq, t) - y[1]) - posGains[2] * y[2]
     end
-    vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
+    vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], param)
     # OL traj1
     simdt = 0.1 # [ms]
     teval = collect(0:simdt:100) # [ms]
@@ -128,16 +117,11 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
     #     uk = [strokePosController(yk, sol.t[k])]
     #     drawFrame(m, yk, uk, params)
     # end
-    # Plot
-    σt = plot(sol, vars=1, ylabel="act pos [m/s]")
-    plot(σt)
-    gui()
 
     # expectedInterval = opt.boundaryConstraint == cu.SYMMETRIC ? 1/(2*freq) : 1/freq # [ms]
     # expectedPts = expectedInterval / simdt
 
-    starti = 151#170
-    olRange = starti:3:(starti + 3*N)
+    olRange = starti:(starti + N)
     trajt = sol.t[olRange]
     δt = trajt[2] - trajt[1]
     olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)
@@ -150,23 +134,36 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
     end
     # in (1..N+1) intervals, time elapsed = N*δt - this corresponds to tp/2 where tp=period
     # so ω = 2π/tp, and we expect ω^2 = k/mb
-    println("For resonance expect k = ", resStiff(m, opt, traj0))
-    trajt1 = copy(trajt)
+    # println("For resonance expect k = ", resStiff(m, opt, traj0))
 
-    return trajt .- trajt[1], traj0, trajt1
+    if showPlot
+        # Plot
+        σdest = t -> σdes(m, freq, t)
+        σactt = [sol.u[i][1] for i = 1:length(sol.t)]
+        σt = plot(sol.t, [σactt  σdest.(sol.t)], ylabel="act pos [m]")
+        σtdec = plot(trajt, [traj0[1:2:(N+1)*2] traj0[2:2:(N+1)*2]], linewidth=2)
+        plot(σt, σtdec)
+        gui()
+        error("Initial traj plotted")
+    end
+
+    return trajt .- trajt[1], traj0, trajt
 end
 
-function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t::Vector, params, trajs)
+function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t::Vector, params, trajs; ulim=nothing)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
     Ny = (N+1)*ny
     # If plot is given a matrix each column becomes a different line
-    σt = plot(t, hcat([traj[@view liy[1,:]] for traj in trajs]...), marker=:auto, ylabel="stroke ang [r]", title="δt=$(round(δt; sigdigits=4))ms")
+    σt = plot(t, hcat([traj[@view liy[1,:]] for traj in trajs]...), linewidth=2, ylabel="stroke [mm]", title="δt=$(round(δt; sigdigits=4))ms")
+    dσt = plot(t, hcat([traj[@view liy[2,:]] for traj in trajs]...), linewidth=2, ylabel="stroke vel [mm/ms]", legend=false)
     
-    ut = plot(t, hcat([[traj[@view liu[1,:]];NaN] for traj in trajs]...), marker=:auto, legend=false, ylabel="stroke force [mN]")
+    ut = plot(t, hcat([[traj[@view liu[1,:]];NaN] for traj in trajs]...), linewidth=2, legend=false, ylabel="stroke force [mN]")
+    if !isnothing(ulim)
+        ylims!(ut, (-ulim, ulim))
+    end
     
-    plot!(σt, t, σdes.(N, collect(1:N+1)), ylabel="stroke des", color=:black, linestyle=:dash, linewidth=2, legend=false)
     # Combine the subplots
-	return (σt, ut)
+	return (σt, dσt, ut)
 end
 
 # function drawFrame(m::MassSpringDamperModel, yk, uk, param; Faeroscale=1.0)
@@ -202,3 +199,54 @@ end
 
 #     # return wingdraw 
 # end
+
+# ---------------------- Param opt -----------------------------
+
+function cu.paramLumped(m::MassSpringDamperModel, param::AbstractArray)
+    T, ko, bo = param
+    return [1, ko, bo], T
+end
+
+function cu.TmapAtoO(m::MassSpringDamperModel, T)
+	return [1, 1] # y part of traj is in output coords
+end
+
+function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple, scaleTraj=1.0; Fext_pdep::Bool=false)
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+
+    yk = k -> @view traj[liy[:,k]]
+    uk = k -> @view traj[liu[:,k]]
+
+    # Param stuff
+    T, ko, bo = param
+
+    # THESE FUNCTIONS USE OUTPUT COORDS -------------
+    function HMqT(ypos, yvel)
+        σo, σ̇odum = ypos
+        σodum, σ̇o = yvel
+        return [σ̇o*m.mo   0   0   σ̇o*m.ma] * scaleTraj
+    end
+
+    function HCgJT(y, F)
+        σo, σ̇o = y
+        return [0   σo   σ̇o   m.ka*σo] * scaleTraj
+    end
+    # ----------------
+
+    # this is OK - see notes
+    # Htil = (y, ynext, F) -> HMq(ynext) - HMq(y) + δt*HCgJ(y, F)
+    # 1st order integration mods
+    Htil = (y, ynext, F) -> HMqT(y, ynext) - HMqT(y, y) + δt*HCgJT(y, F)
+    
+    # Functions to output
+    "Takes in a Δy in output coords"
+    function Hk(k, Δyk, Δykp1)
+        return Htil(yk(k) + Δyk, yk(k+1) + Δykp1, 0)
+    end
+    
+    # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
+    B = reshape([1.0], 1, 1)
+
+    return Hk, yk, uk, B, N
+end
+

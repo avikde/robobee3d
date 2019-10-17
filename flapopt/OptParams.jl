@@ -168,12 +168,17 @@ end
 
 # --------------
 "Implement this"
-function paramAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple)
+function paramAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple, scaleTraj=1.0)
 	error("Implement this!")
 end
 
 "Implement this"
 paramLumped(m::Model, param::AbstractArray) = error("Implement this")
+
+"Return the transmission matrix that should multiply the state to go from OUTPUT to ACTUATOR"
+function TmapAtoO(m::Model, T)
+	error("Not implemented")
+end
 
 # lumped parameter vector
 function getpt(m::Model, p)
@@ -192,8 +197,8 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, 
 	# Calculate the new traj (which is in act coordinates, so needs scaling by T)
 	ptnew, Tnew = getpt(m, pnew)
 	for k=1:N+1
-		# FIXME: this part of going from output to act coords is W2D-specific
-		traj2[liy[:,k]] = [1/Tnew, 1, 1/Tnew, 1] .* (yo(k) + Δyk(k))
+		# Go from output to act coords
+		traj2[liy[:,k]] = (1.0 ./ TmapAtoO(m, Tnew)) .* (yo(k) + Δyk(k))
 	end
 	# Calculate the new inputs
 	traj2[(N+1)*ny+1:end] = vcat([Tnew / δt * B' * Hk(k, Δyk(k), Δyk(k+1)) * ptnew for k=1:N]...) # compare to the "test" equation above
@@ -204,7 +209,7 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, 
 end
 
 "Mode=1 => opt, mode=2 ID. Fext(p) or hold constant"
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple, εunact, cbarmin; Fext_pdep::Bool=false, test=false, testTrajReconstruction=false, kwargs...)
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple, εunact, plimsL, plimsU, scaleTraj=1.0; Fext_pdep::Bool=false, test=false, testTrajReconstruction=false, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
 	np = length(param)
@@ -215,7 +220,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
 
 	# Quadratic form matrix
-	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R; Fext_pdep=Fext_pdep)
+	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R, scaleTraj; Fext_pdep=Fext_pdep)
 
 	# GN -------------------------
 	# function pFeasible(p)
@@ -251,20 +256,18 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# IPOPT ---------------------------
 	nx = np + (N+1)*ny # p,Δy
 
-	# FIXME: this is W2D-specific
-	σomax = norm([yo(k)[1] for k=1:N], Inf)
-	σamax = 0.3 # [mm] constant? for robobee actuators
-	Tmin = σomax/σamax
+	# FIXME: print this out for now
+	println("yomax = ", norm([yo(k)[1] for k=1:N], Inf))
 
-	println("Tmin = ", Tmin, " cbarmin = ", cbarmin)
 	xlimsL = -1000 * ones(nx)
 	xlimsU = 1000 * ones(nx)
-	xlimsL[1:np] = [cbarmin, Tmin, 0.1, 0.1, 0.1]
-	xlimsU[1:np] = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
+	xlimsL[1:np] = plimsL
+	xlimsU[1:np] = plimsU
 	
 	# ------------ Constraint: Bperp' * H(y + Δy) * pt is small enough (unactuated DOFs) -----------------
-	Bperp = [0 1] #FIXME: get this automatically. this is s.t. Bperp*B = 0
-	nck = size(Bperp, 1) # number of constraints for each k = # of unactuated DOFs
+	nact = size(B, 2)
+	nck = nq - nact # number of constraints for each k = # of unactuated DOFs ( = nunact)
+	Bperp = (I - B*B')[nact+1:end,:] # s.t. Bperp*B = 0
 	nc = N * nck# + np
 
 	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1) * (getpt(m, p)[1])
@@ -367,7 +370,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		if mode == 1
 			Quu += Hh' * Ruu * Hh
 			# Need output coords
-			qyu += Ryu * (Hh' * [B * B'  zeros(2, 2)] * yok)
+			qyu += Ryu * (Hh' * [B * B'  zeros(ny-nq, ny-nq)] * yok)
 			qyy += yok' * Ryy * yok # qyy * T^(-2)
 		elseif mode == 2
 			# Need to consider the unactuated rows too
