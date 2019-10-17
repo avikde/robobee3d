@@ -48,6 +48,7 @@ SPI_HandleTypeDef hspi1;
 UART_HandleTypeDef huart2;
 
 osThreadId_t blinkTaskHandle;
+osThreadId_t bosTaskHandle;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -58,6 +59,7 @@ static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_SPI1_Init(void);
 void startBlinkTask(void *argument);
+extern void startBosTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -129,6 +131,14 @@ int main(void)
     .stack_size = 128
   };
   blinkTaskHandle = osThreadNew(startBlinkTask, NULL, &blinkTask_attributes);
+
+  /* definition and creation of bosTask */
+  const osThreadAttr_t bosTask_attributes = {
+    .name = "bosTask",
+    .priority = (osPriority_t) osPriorityAboveNormal,
+    .stack_size = 512
+  };
+  bosTaskHandle = osThreadNew(startBosTask, NULL, &bosTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -338,6 +348,7 @@ static void MX_GPIO_Init(void)
 /* USER CODE END Header_startBlinkTask */
 __weak void startBlinkTask(void *argument)
 {
+    
     
     
     

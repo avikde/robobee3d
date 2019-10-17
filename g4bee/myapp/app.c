@@ -17,3 +17,11 @@ void startBlinkTask(void *argument)
 		osDelay(100);
 	}
 }
+
+void startBosTask(void *argument)
+{
+	for (;;)
+	{
+		osDelay(100);
+	}
+}

@@ -1,7 +1,7 @@
 #MicroXplorer Configuration settings - do not modify
 FREERTOS.FootprintOK=true
 FREERTOS.IPParameters=Tasks01,FootprintOK
-FREERTOS.Tasks01=blinkTask,24,128,startBlinkTask,As weak,NULL,Dynamic,NULL,NULL
+FREERTOS.Tasks01=blinkTask,24,128,startBlinkTask,As weak,NULL,Dynamic,NULL,NULL;bosTask,32,512,startBosTask,As external,NULL,Dynamic,NULL,NULL
 File.Version=6
 KeepUserPlacement=true
 Mcu.Family=STM32G4
