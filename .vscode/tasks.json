@@ -59,6 +59,22 @@
 			"problemMatcher": []
 		},
 		{
+			"label": "build g4bee",
+			"type": "shell",
+			"group": "build",
+			"options": {
+				"cwd": "${workspaceFolder}/g4bee"
+			},
+			"command": "make -j4",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"panel": "shared",
+				"clear": true
+			},
+			"problemMatcher": []
+		},
+		{
 			"label": "build h7bee",
 			"type": "shell",
 			"group": "build",
