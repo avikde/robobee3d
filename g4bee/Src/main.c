@@ -293,6 +293,7 @@ __weak void startBlinkTask(void *argument)
   for(;;)
   {
     HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+    volatile uint32_t millis = HAL_GetTick();
     osDelay(100);
   }
   /* USER CODE END 5 */ 
