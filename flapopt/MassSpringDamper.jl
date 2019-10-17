@@ -203,7 +203,7 @@ function cu.paramLumped(m::MassSpringDamperModel, param::AbstractArray)
 end
 
 function cu.TmapAtoO(m::MassSpringDamperModel, T)
-	return [T, T]
+	return [1, 1] # y part of traj is in output coords
 end
 
 function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple; Fext_pdep::Bool=false)
