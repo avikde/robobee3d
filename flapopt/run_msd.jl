@@ -31,38 +31,43 @@ traj0 = cu.fixTrajWithDynConst(m, opt, traj0orig, param0)
 R_WTS = (zeros(2,2), 0, 1.0*I)#diagm(0=>[0.1,100]))
 σamax = 0.3 # [mm] constant? for robobee actuators
 # σamax = 100 # [mm] constant? test EM
-Tmin = 11.861911596913371/σamax
+Tmin = 10.08799170499444/σamax
 plimsL = [Tmin, 0.1, 0.1]
 plimsU = [1000.0, 1000.0, 1000.0]
 
 # # One-off ID or opt ---------
 
-param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL, plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=100)
-display(param1')
+# param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL, plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=100)
+# display(param1')
 
-traj2 = cu.fixTrajWithDynConst(m, opt, traj1, param1)
-# cu.optAffine(m, opt, traj1, param1, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=true, print_level=2)
-pl1 = plotTrajs(m, opt, trajt, [param0, param1, param1], [traj0, traj1, traj2]; ulim=1e4)
-plot(pl1...)
+# traj2 = cu.fixTrajWithDynConst(m, opt, traj1, param1)
+# # cu.optAffine(m, opt, traj1, param1, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=true, print_level=2)
+# pl1 = plotTrajs(m, opt, trajt, [param0, param1, param1], [traj0, traj1, traj2]; ulim=1e4)
+# plot(pl1...)
 
+# many sims (scale) --------------
 
-# # Optimize params directly for traj
-# Hh = [Hdes(m, fdes, t) for t in trajt1]
-# np = 3
-# P1 = zeros(np,np)
-# for Hk in Hh
-# 	P1 .= P1 + Hk * Hk'
-# end
-# mo = OSQP.Model()
-# OSQP.setup!(mo; P=sparse(P1), q=zeros(np), A=sparse(1:np, 1:np, ones(np)), l=[0; 0; m.mb], u=[Inf; m.bσ; m.mb])
-# res = OSQP.solve!(mo)
-# resf = sqrt(res.x[1]/m.mb)/(2*π)
-# println("Res freq = ", resf)
+function paramsFor(σamax, scaleTraj)
+	Tmin = 10.08799170499444*scaleTraj/σamax
+	plimsL = [Tmin, 0.1, 0.1]
+	plimsU = [1000.0, 1000.0, 1000.0]
+	param1, _, traj1, _ = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL, plimsU, scaleTraj; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=100)
+	return [param1; norm(traj1[(N+1)*ny:end], Inf)]
+end
 
-# # Plot the quadratic
-# size = 100
-# x = range(0, stop=20, length=size)
-# y = range(0, stop=10, length=size)
-# ff(x,y) = [x;y;m.mb]' * P1 * [x;y;m.mb]
-# pl1 = contour(x, y, ff)
-# vline!(pl1, [res.x[1]])
+scales = 0.1:0.2:2.0
+σamaxs = 0.1:1:20
+llabels = [
+	"T",
+	"k",
+	"b"
+]
+
+res = hcat(paramsFor.(0.3, scales)...)'
+np = length(param0)
+p1 = plot(scales, res[:,1:np], xlabel="traj scale", label=llabels, ylabel="design params", linewidth=2, legend=:topleft)
+p2 = plot(scales, res[:,np+1], xlabel="traj scale", ylabel="umin [mN]", linewidth=2, legend=false)
+res2 = hcat(paramsFor.(σamaxs, 1.0)...)'
+p3 = plot(σamaxs, res2[:,1:np], xlabel="max stroke [mm]", label=llabels, ylabel="design params", linewidth=2, legend=:topleft)
+p4 = plot(σamaxs, res2[:,np+1], xlabel="max stroke [mm]", ylabel="umin [mN]", linewidth=2, legend=false)
+plot(p1, p2, p3, p4)
