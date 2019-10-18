@@ -30,7 +30,7 @@ void bos1901Init(BOS1901 *bos, SPI_HandleTypeDef *spi, GPIO_TypeDef *GPIOx, uint
  * @param OE Enable waveform playback
  * @param PLAY Waveform playback speed
  */
-void bos1901Config(BOS1901 *bos, uint8_t BC, uint8_t OE, uint8_t PLAY);
+uint16_t bos1901Config(BOS1901 *bos, uint8_t BC, uint8_t OE, uint8_t PLAY);
 
 uint16_t bos1901rw(BOS1901 *bos, uint8_t addr, uint16_t data);
 

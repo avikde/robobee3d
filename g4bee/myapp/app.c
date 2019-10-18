@@ -26,17 +26,17 @@ void startBosTask(void *argument)
 {
 	BOS1901 bos;
 	bos1901Init(&bos, &hspi1, SS1_GPIO_Port, SS1_Pin);
-	bos1901Config(&bos, 0x1a, 0, 0); // read 0x1a
+	bos1901Config(&bos, 0x0C, 0, 0); // read status
 
 	for (;;)
 	{
 		// Test fill in the FIFO
 		for (int i = 0; i < 64; ++i)
 		{
-			bos1901rw(&bos, 0, 100*i);
+			bos1901rw(&bos, 0, 10*i);
 		}
 		// Play
-		bos1901Config(&bos, 0x1a, 1, 0);
+		volatile uint16_t status = bos1901Config(&bos, 0x0C, 1, 0);
 		// osDelay(10);
 
 		// check if FIFO empty again?
