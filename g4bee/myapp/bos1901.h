@@ -17,18 +17,20 @@ typedef struct {
 	uint8_t rxBuf[2];
 	uint8_t txBuf[2];
 	// which reg is being broadcast
-	uint8_t sdoReg;
+	uint8_t BC;
 } BOS1901;
 
 void bos1901Init(BOS1901 *bos, SPI_HandleTypeDef *spi, GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin);
 
 /**
- * @brief See datasheet 6.4.2
+ * @brief Set config register 0x5
  * 
  * @param bos 
- * @param reg 
+ * @param BC Address of internal register whose content is shifted out on SPI port (SDO pin).
+ * @param OE Enable waveform playback
+ * @param PLAY Waveform playback speed
  */
-void bos1901SetSDOBroadcast(BOS1901 *bos, uint8_t reg);
+void bos1901Config(BOS1901 *bos, uint8_t BC, uint8_t OE, uint8_t PLAY);
 
 uint16_t bos1901rw(BOS1901 *bos, uint8_t addr, uint16_t data);
 

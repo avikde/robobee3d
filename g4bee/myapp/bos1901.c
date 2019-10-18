@@ -21,14 +21,14 @@ void bos1901Init(BOS1901 *bos, SPI_HandleTypeDef *spi, GPIO_TypeDef *GPIOx, uint
 	// HAL_Delay(100);
 }
 
-void bos1901SetSDOBroadcast(BOS1901 *bos, uint8_t reg)
+void bos1901Config(BOS1901 *bos, uint8_t BC, uint8_t OE, uint8_t PLAY)
 {
 	// first 4 bits are address
 	bos->txBuf[0] = (0x5) << 4;
-	// BC[4:0] come next
-	bos->txBuf[0] |= (reg >> 1);
-	bos->txBuf[1] = (reg & 0b1) << 7;
-	bos->sdoReg = reg;
+	// See datasheet table 16
+	bos->BC = BC;
+	bos->txBuf[0] |= (BC >> 1);
+	bos->txBuf[1] = ((BC & 0b1) << 7) | ((OE & 0b1) << 4) | (PLAY & 0b111);
 	_bos1901transfer(bos);
 }
 
@@ -40,13 +40,15 @@ uint16_t bos1901rw(BOS1901 *bos, uint8_t addr, uint16_t data)
 	_bos1901transfer(bos);
 
 	// Interpret the SDO data according to sec 6.4.2
-	if (bos->sdoReg == 0 || (bos->sdoReg >= 0x02 && bos->sdoReg <= 0x04) || (bos->sdoReg >= 0x06 && bos->sdoReg <= 0x09))
+	if (bos->BC == 0 || (bos->BC >= 0x02 && bos->BC <= 0x04) || (bos->BC >= 0x06 && bos->BC <= 0x09))
 	{
 		bos->rxBuf[0] &= 0x0f;
 	}
-	else if (bos->sdoReg == 0x10)
+	else if (bos->BC == 0x10)
 	{
 		memset(bos->rxBuf, 0, sizeof(bos->rxBuf));
 	}
-	return *((uint16_t *)bos->rxBuf);
+	// Swap for endianness
+	uint16_t ret = (bos->rxBuf[0] << 8) | bos->rxBuf[1];
+	return ret;
 }

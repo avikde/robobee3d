@@ -3,6 +3,7 @@
 #include "cmsis_os.h"
 #include <stdio.h>
 #include "bos1901.h"
+#include <stdbool.h>
 
 extern UART_HandleTypeDef huart2;
 extern SPI_HandleTypeDef hspi1;
@@ -25,11 +26,12 @@ void startBosTask(void *argument)
 {
 	BOS1901 bos;
 	bos1901Init(&bos, &hspi1, SS1_GPIO_Port, SS1_Pin);
-	bos1901SetSDOBroadcast(&bos, 0x2);
+	bos1901Config(&bos, 0x1a, 0, 0);
 
 	for (;;)
 	{
-		volatile uint16_t dat = bos1901rw(&bos, 0, 0);
+		volatile uint16_t dat1a = bos1901rw(&bos, 0, 0);
+		volatile bool full = dat1a & (0b1 << 14);
 		osDelay(100);
 	}
 }
