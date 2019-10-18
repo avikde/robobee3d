@@ -33,7 +33,7 @@ void startBosTask(void *argument)
 		// Test fill in the FIFO
 		for (int i = 0; i < 64; ++i)
 		{
-			bos1901rw(&bos, 0, 10*i);
+			bos1901rw(&bos, 0, 50*i);
 		}
 		// Play
 		volatile uint16_t status = bos1901Config(&bos, 0x0C, 1, 0);
