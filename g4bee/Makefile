@@ -38,6 +38,7 @@ BUILD_DIR = build
 C_SOURCES =  \
 myapp/app.c \
 myapp/ConnectStdlib.c \
+myapp/bos1901.c \
 Src/main.c \
 Src/app_freertos.c \
 Src/stm32g4xx_it.c \

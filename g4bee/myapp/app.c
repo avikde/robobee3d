@@ -25,13 +25,11 @@ void startBosTask(void *argument)
 {
 	BOS1901 bos;
 	bos1901Init(&bos, &hspi1, SS1_GPIO_Port, SS1_Pin);
+	bos1901SetSDOBroadcast(&bos, 0x2);
 
 	for (;;)
 	{
-		// first 4 bits are address
-		bos.txBuf[0] = 0; // set SDO to have 0x5
-		bos1901rw(&bos);
-
+		volatile uint16_t dat = bos1901rw(&bos, 0, 0);
 		osDelay(100);
 	}
 }
