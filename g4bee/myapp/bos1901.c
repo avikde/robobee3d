@@ -58,3 +58,20 @@ uint16_t bos1901rw(BOS1901 *bos, uint8_t addr, uint16_t data)
 	_bos1901transfer(bos);
 	return _bos1901ParseSDO(bos);
 }
+
+#define V_TO_CT(x) (100*x)
+#define NFIFO (64)
+#define DPHASE (1/((float)NFIFO))
+void bos1901AddWave(BOS1901 *bos, WaveFunc f)
+{
+	// float ct = V_TO_CT(V);
+	for (int i = 0; i < NFIFO; ++i)
+	{
+		float ct = V_TO_CT(f(DPHASE * i)); // get the wave function at this phase
+		if (ct < 0)
+		{
+			// 2's complement 12-bit TODO:
+		}
+		bos1901rw(bos, 0, (uint16_t)ct);
+	}
+}

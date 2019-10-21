@@ -34,6 +34,10 @@ uint16_t bos1901Config(BOS1901 *bos, uint8_t BC, uint8_t OE, uint8_t PLAY);
 
 uint16_t bos1901rw(BOS1901 *bos, uint8_t addr, uint16_t data);
 
+typedef float (*WaveFunc)(float phase);
+
+void bos1901AddWave(BOS1901 *bos, WaveFunc f);
+
 #ifdef __cplusplus
 }
 #endif
