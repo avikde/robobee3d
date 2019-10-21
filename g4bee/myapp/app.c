@@ -25,7 +25,7 @@ void startBlinkTask(void *argument)
 
 float rampWave(float phase)
 {
-	return 30 * sinf(M_PI * phase);
+	return 30 * sinf(2 * M_PI * phase);
 	// return phase > 0.5 ? 0.0 : 20 * sinf(M_PI * phase);
 }
 
