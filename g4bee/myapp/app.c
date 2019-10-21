@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "bos1901.h"
 #include <stdbool.h>
+#include <math.h>
 
 extern UART_HandleTypeDef huart2;
 extern SPI_HandleTypeDef hspi1;
@@ -24,7 +25,8 @@ void startBlinkTask(void *argument)
 
 float rampWave(float phase)
 {
-	return 50*phase;
+	return 32 * phase;
+	// return phase > 0.5 ? 0.0 : 20 * sinf(M_PI * phase);
 }
 
 void startBosTask(void *argument)

@@ -68,10 +68,15 @@ void bos1901AddWave(BOS1901 *bos, WaveFunc f)
 	for (int i = 0; i < NFIFO; ++i)
 	{
 		float ct = V_TO_CT(f(DPHASE * i)); // get the wave function at this phase
+		uint16_t uct = 0;
 		if (ct < 0)
 		{
-			// 2's complement 12-bit TODO:
+			// 2's complement 12-bit
+			uct = (uint16_t)fabsf(ct);
+			uct = (~uct);
 		}
-		bos1901rw(bos, 0, (uint16_t)ct);
+		else
+			uct = (uint16_t)ct;
+		bos1901rw(bos, 0, uct);
 	}
 }
