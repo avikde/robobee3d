@@ -25,7 +25,7 @@ void startBlinkTask(void *argument)
 
 float rampWave(float phase)
 {
-	return 32 * phase;
+	return 30 * sinf(M_PI * phase);
 	// return phase > 0.5 ? 0.0 : 20 * sinf(M_PI * phase);
 }
 
@@ -39,7 +39,7 @@ void startBosTask(void *argument)
 	{
 		bos1901AddWave(&bos, rampWave);
 		// Play
-		volatile uint16_t status = bos1901Config(&bos, 0x0C, 1, 0);
+		volatile uint16_t status = bos1901Config(&bos, 0x0C, 1, 0x8);
 		// osDelay(10);
 
 		// check if FIFO empty again?
