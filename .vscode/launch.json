@@ -5,6 +5,21 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
+			"cwd": "${workspaceRoot}/g4bee",
+			"executable": "build/g4bee.elf",
+			"name": "debug g4bee",
+			"request": "launch",
+			"type": "cortex-debug",
+			"servertype": "openocd",
+			"device": "STM32G431KB",
+			"interface": "swd",
+			"runToMain": true,
+			"preLaunchTask": "build g4bee",
+			"configFiles": [
+				"${workspaceRoot}/g4bee/g4bee.cfg"
+			],
+		},
+		{
 			"cwd": "${workspaceRoot}/h7bee",
 			"executable": "build/h7bee.elf",
 			"name": "debug h7bee",
