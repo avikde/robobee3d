@@ -72,7 +72,7 @@ plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
 
 # One-off ID or opt ---------
 
-param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL(1.0), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
+param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL(1.6), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
 display(param1')
 
 # traj2 = cu.fixTrajWithDynConst(m, opt, traj1, param1)
@@ -116,14 +116,19 @@ function debugComponentsPlot(traj, param)
 		plot!(pl, stiffdamp[i,:], linewidth=2, label="g")
 		plot!(pl, stiffdampa[i,:], linewidth=2, label="ga")
 		plot!(pl, aero[i,:], linewidth=2, label="a")
-		plot!(pl, inertial[i,:]+stiffdamp[i,:]+stiffdampa[i,:]+aero[i,:], linewidth=2, linestyle=:dash, label="tot")
-		return pl
+		tot = inertial[i,:]+stiffdamp[i,:]+stiffdampa[i,:]+aero[i,:]
+		plot!(pl, tot, linewidth=2, linestyle=:dash, label="tot")
+
+		pl2 = plot(aero[i,:], linewidth=2, label="drag", legend=:outertopright)
+		plot!(pl2, tot, linewidth=2, label="act")
+		return pl, pl2
 	end
 
 	pl1 = plotTrajs(m, opt, trajt, [param], [traj])
-	pls = plotComponents(1, "stroke")
-	plh = plotComponents(2, "hinge")
-	return pl1..., pls, plh
+	pls, plcomp = plotComponents(1, "stroke")
+	plh, _ = plotComponents(2, "hinge")
+
+	return pl1..., pls, plh, plcomp
 end
 # pls = debugComponentsPlot(traj0, param0)
 pls = debugComponentsPlot(traj1, param1)
