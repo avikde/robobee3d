@@ -97,24 +97,26 @@ plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
 # Debug components ----------------
 
 function debugComponentsPlot(traj, param; optal=nothing)
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 	if !isnothing(optal)
 		param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL(optal), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
 	else
 		param1 = param
 		traj1 = traj
 	end
-	yo, HMqT, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj, param, R_WTS; Fext_pdep=true, debugComponents=true)
-	pt0, T0 = cu.getpt(m, param)
+
+	yo, HMqT, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj1, param1, R_WTS; Fext_pdep=true, debugComponents=true)
+	pt0, Tnew = cu.getpt(m, param1)
 	inertial = zeros(2,N)
 	stiffdamp = similar(inertial)
 	stiffdampa = similar(inertial)
 	aero = similar(inertial)
 
 	for k=1:N
-		inertial[:,k] = (HMqT(yo(k), yo(k+1)) - HMqT(yo(k), yo(k)) + opt.fixedδt * HC(yo(k))) * pt0
-		stiffdamp[:,k] = (opt.fixedδt * Hg(yo(k))) * pt0
-		stiffdampa[:,k] = (opt.fixedδt * Hgact(yo(k))) * pt0
-		aero[:,k] = (opt.fixedδt * HF(yo(k))) * pt0
+		inertial[:,k] = (HMqT(yo(k), yo(k+1)) - HMqT(yo(k), yo(k)) + δt * HC(yo(k))) * pt0
+		stiffdamp[:,k] = (δt * Hg(yo(k))) * pt0
+		stiffdampa[:,k] = (δt * Hgact(yo(k))) * pt0
+		aero[:,k] = (δt * HF(yo(k))) * pt0
 	end
 
 	function plotComponents(i, ylbl)
@@ -125,8 +127,8 @@ function debugComponentsPlot(traj, param; optal=nothing)
 		tot = inertial[i,:]+stiffdamp[i,:]+stiffdampa[i,:]+aero[i,:]
 		plot!(pl, tot, linewidth=2, linestyle=:dash, label="tot")
 
-		pl2 = plot(aero[i,:], linewidth=2, label="drag", legend=:outertopright)
-		plot!(pl2, tot, linewidth=2, label="act")
+		pl2 = plot(aero[i,:] * Tnew / δt, linewidth=2, label="drag(actf)", legend=:outertopright)
+		plot!(pl2, traj1[(N+1)*4+1:end], linewidth=2, label="act")
 		return pl, pl2
 	end
 
