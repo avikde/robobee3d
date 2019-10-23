@@ -1,6 +1,8 @@
 
 # This is a "script" to test/run the functions from
 # push!(LOAD_PATH, pwd()) # Only needs to be run once
+# using Plots
+# Plots.scalefontsizes(0.7) # Only needs to be run once
 
 using BenchmarkTools
 using Revise # while developing
@@ -8,8 +10,6 @@ import controlutils
 cu = controlutils
 includet("Wing2DOF.jl")
 includet("LoadWingKinData.jl")
-# using Plots
-# Plots.scalefontsizes(0.7)
 
 # create an instance
 # From Patrick 300 mN-mm/rad. 1 rad => R/2 σ-displacement. The torque is applied with a lever arm of R/2 => force = torque / (R/2)
