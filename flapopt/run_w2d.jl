@@ -96,33 +96,37 @@ plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
 
 # Debug components ----------------
 
-yo, HMqT, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj0, param0, R_WTS; Fext_pdep=true, debugComponents=true)
-pt0, T0 = cu.getpt(m, param0)
-inertial = zeros(2,N)
-stiffdamp = similar(inertial)
-stiffdampa = similar(inertial)
-aero = similar(inertial)
+function debugComponentsPlot(traj, param)
+	yo, HMqT, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj, param, R_WTS; Fext_pdep=true, debugComponents=true)
+	pt0, T0 = cu.getpt(m, param)
+	inertial = zeros(2,N)
+	stiffdamp = similar(inertial)
+	stiffdampa = similar(inertial)
+	aero = similar(inertial)
 
-for k=1:N
-	inertial[:,k] = (HMqT(yo(k), yo(k+1)) - HMqT(yo(k), yo(k)) + opt.fixedδt * HC(yo(k))) * pt0
-	stiffdamp[:,k] = (opt.fixedδt * Hg(yo(k))) * pt0
-	stiffdampa[:,k] = (opt.fixedδt * Hgact(yo(k))) * pt0
-	aero[:,k] = (opt.fixedδt * HF(yo(k))) * pt0
+	for k=1:N
+		inertial[:,k] = (HMqT(yo(k), yo(k+1)) - HMqT(yo(k), yo(k)) + opt.fixedδt * HC(yo(k))) * pt0
+		stiffdamp[:,k] = (opt.fixedδt * Hg(yo(k))) * pt0
+		stiffdampa[:,k] = (opt.fixedδt * Hgact(yo(k))) * pt0
+		aero[:,k] = (opt.fixedδt * HF(yo(k))) * pt0
+	end
+
+	function plotComponents(i, ylbl)
+		pl = plot(inertial[i,:], linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
+		plot!(pl, stiffdamp[i,:], linewidth=2, label="g")
+		plot!(pl, stiffdampa[i,:], linewidth=2, label="ga")
+		plot!(pl, aero[i,:], linewidth=2, label="a")
+		plot!(pl, inertial[i,:]+stiffdamp[i,:]+stiffdampa[i,:]+aero[i,:], linewidth=2, linestyle=:dash, label="tot")
+		return pl
+	end
+
+	pl1 = plotTrajs(m, opt, trajt, [param], [traj])
+	pls = plotComponents(1, "stroke")
+	plh = plotComponents(2, "hinge")
+	return pl1[1:2]..., pls, plh
 end
-
-function plotComponents(i, ylbl)
-	pl = plot(inertial[i,:], linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
-	plot!(pl, stiffdamp[i,:], linewidth=2, label="g")
-	plot!(pl, stiffdampa[i,:], linewidth=2, label="ga")
-	plot!(pl, aero[i,:], linewidth=2, label="a")
-	plot!(pl, inertial[i,:]+stiffdamp[i,:]+stiffdampa[i,:]+aero[i,:], linewidth=2, linestyle=:dash, label="tot")
-	return pl
-end
-
-pl1 = plotTrajs(m, opt, trajt, [param0], [traj0])
-pls = plotComponents(1, "stroke")
-plh = plotComponents(2, "hinge")
-plot(pl1[1:2]..., pls, plh)
+pls = debugComponentsPlot(traj0, param0)
+plot(pls...)
 gui()
 
 error("TEST")
