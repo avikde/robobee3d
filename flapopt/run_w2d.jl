@@ -70,10 +70,10 @@ Tmin = 19.011058431792932 # σomax/σamax
 plimsL = al -> [cbarmin(al), Tmin, 0.1, 0.1, 0.1]
 plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
 
-# One-off ID or opt ---------
+# # One-off ID or opt ---------
 
-param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL(1.6), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
-display(param1')
+# param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL(1.6), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
+# display(param1')
 
 # traj2 = cu.fixTrajWithDynConst(m, opt, traj1, param1)
 # # cu.optAffine(m, opt, traj1, param1, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=true, print_level=2)
