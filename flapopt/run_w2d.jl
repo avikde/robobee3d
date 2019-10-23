@@ -67,8 +67,6 @@ R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 # σamax = 0.3 # [mm] constant? for robobee actuators
 Tmin = 19.011058431792932 # σomax/σamax
 
-println("Tmin = ", Tmin, " cbarmin = ", cbarmin)
-
 plimsL = al -> [cbarmin(al), Tmin, 0.1, 0.1, 0.1]
 plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
 
