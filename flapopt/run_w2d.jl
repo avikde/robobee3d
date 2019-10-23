@@ -96,7 +96,13 @@ display(param1')
 
 # Debug components ----------------
 
-function debugComponentsPlot(traj, param)
+function debugComponentsPlot(traj, param; optal=nothing)
+	if !isnothing(optal)
+		param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL(optal), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
+	else
+		param1 = param
+		traj1 = traj
+	end
 	yo, HMqT, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj, param, R_WTS; Fext_pdep=true, debugComponents=true)
 	pt0, T0 = cu.getpt(m, param)
 	inertial = zeros(2,N)
@@ -128,10 +134,12 @@ function debugComponentsPlot(traj, param)
 	pls, plcomp = plotComponents(1, "stroke")
 	plh, _ = plotComponents(2, "hinge")
 
+	# Note that gamma is here
+	println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2, ", optal = ", optal)
+
 	return pl1..., pls, plh, plcomp
 end
-# pls = debugComponentsPlot(traj0, param0)
-pls = debugComponentsPlot(traj1, param1)
+pls = debugComponentsPlot(traj0, param0; optal=0.8)
 plot(pls..., size=(800,600))
 gui()
 
