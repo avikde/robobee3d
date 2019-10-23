@@ -484,9 +484,13 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
             0   0   0    rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0   0]
         end
     end
+    function HF2(y)
+        _, _, Faero = w2daero(m, y, param)
+        return HF(y, Faero)
+    end
 
     if debugComponents
-        return yo, HMqT, HC, Hg, Hgact, HF
+        return yo, HMqT, HC, Hg, Hgact, HF2
     end
 
     HCgJT(y, F) = HC(y) + Hg(y) + Hgact(y) + HF(y, F)
