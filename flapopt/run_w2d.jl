@@ -140,8 +140,7 @@ function debugComponentsPlot(traj, param; optal=nothing)
 	plh, _ = plotComponents(2, "hinge")
 
 	# Note that gamma is here
-	println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2, ", optal = ", optal)
-
+	println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2, ", optal = ", (!isnothing(optal) ? optal : "-"))
 	return pl1[[1,2,4,5]]..., pls, plh, plcomp
 end
 pls = debugComponentsPlot(traj0, param0; optal=1.6)
