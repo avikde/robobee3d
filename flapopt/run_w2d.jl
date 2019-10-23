@@ -1,6 +1,8 @@
 
 # This is a "script" to test/run the functions from
 # push!(LOAD_PATH, pwd()) # Only needs to be run once
+# using Plots
+# Plots.scalefontsizes(0.7) # Only needs to be run once
 
 using BenchmarkTools
 using Revise # while developing
@@ -8,8 +10,6 @@ import controlutils
 cu = controlutils
 includet("Wing2DOF.jl")
 includet("LoadWingKinData.jl")
-using Plots
-Plots.scalefontsizes(0.7)
 
 # create an instance
 # From Patrick 300 mN-mm/rad. 1 rad => R/2 σ-displacement. The torque is applied with a lever arm of R/2 => force = torque / (R/2)
@@ -65,9 +65,7 @@ R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 
 # FIXME: σomax is printed by optAffine
 # σamax = 0.3 # [mm] constant? for robobee actuators
-Tmin = 17.0 # σomax/σamax
-
-println("Tmin = ", Tmin, " cbarmin = ", cbarmin)
+Tmin = 19.011058431792932 # σomax/σamax
 
 plimsL = al -> [cbarmin(al), Tmin, 0.1, 0.1, 0.1]
 plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
@@ -99,6 +97,7 @@ plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
 # many sims (scale) --------------
 
 function maxuForMinAvgLift(al)
+	print("plimsL[1:2] = ", plimsL(al)[1:2])
 	param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL(al), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
 	kΨ, bΨ = param1[4:5]
 	return [param1; norm(traj1[(N+1)*ny:end], Inf); norm(unactErr, Inf)]
