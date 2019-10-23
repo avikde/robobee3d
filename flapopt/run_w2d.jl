@@ -127,8 +127,8 @@ function debugComponentsPlot(traj, param; optal=nothing)
 		tot = inertial[i,:]+stiffdamp[i,:]+stiffdampa[i,:]+aero[i,:]
 		plot!(pl, tot, linewidth=2, linestyle=:dash, label="tot")
 
-		pl2 = plot(aero[i,:] * Tnew / δt, linewidth=2, label="drag(actf)", legend=:outertopright)
-		plot!(pl2, traj1[(N+1)*4+1:end], linewidth=2, label="act")
+		pl2 = plot(aero[i,:] * Tnew / δt, linewidth=2, label="dr(af)", legend=:outertopright)
+		plot!(pl2, traj1[(N+1)*4+1:end], linewidth=2, label="actf")
 		return pl, pl2
 	end
 
@@ -141,7 +141,7 @@ function debugComponentsPlot(traj, param; optal=nothing)
 
 	return pl1..., pls, plh, plcomp
 end
-pls = debugComponentsPlot(traj0, param0; optal=0.8)
+pls = debugComponentsPlot(traj0, param0; optal=1.6)
 plot(pls..., size=(800,600))
 gui()
 
