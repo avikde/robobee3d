@@ -105,15 +105,17 @@ function debugComponentsPlot(traj, param; optal=nothing)
 		traj1 = traj
 	end
 
-	yo, HMqT, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj1, param1, R_WTS; Fext_pdep=true, debugComponents=true)
+	yo, HMnc, HMc, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj1, param1, R_WTS; Fext_pdep=true, debugComponents=true)
 	pt0, Tnew = cu.getpt(m, param1)
 	inertial = zeros(2,N)
+	inertialc = similar(inertial)
 	stiffdamp = similar(inertial)
 	stiffdampa = similar(inertial)
 	aero = similar(inertial)
 
 	for k=1:N
-		inertial[:,k] = (HMqT(yo(k), yo(k+1)) - HMqT(yo(k), yo(k)) + δt * HC(yo(k))) * pt0
+		inertial[:,k] = (HMnc(yo(k), yo(k+1)) - HMnc(yo(k), yo(k))) * pt0
+		inertialc[:,k] = (HMc(yo(k), yo(k+1)) - HMc(yo(k), yo(k)) + δt * HC(yo(k))) * pt0
 		stiffdamp[:,k] = (δt * Hg(yo(k))) * pt0
 		stiffdampa[:,k] = (δt * Hgact(yo(k))) * pt0
 		aero[:,k] = (δt * HF(yo(k))) * pt0
@@ -121,10 +123,11 @@ function debugComponentsPlot(traj, param; optal=nothing)
 
 	function plotComponents(i, ylbl)
 		pl = plot(inertial[i,:], linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
+		plot!(pl, inertialc[i,:], linewidth=2, label="ic")
 		plot!(pl, stiffdamp[i,:], linewidth=2, label="g")
 		plot!(pl, stiffdampa[i,:], linewidth=2, label="ga")
 		plot!(pl, aero[i,:], linewidth=2, label="a")
-		tot = inertial[i,:]+stiffdamp[i,:]+stiffdampa[i,:]+aero[i,:]
+		tot = inertial[i,:]+inertialc[i,:]+stiffdamp[i,:]+stiffdampa[i,:]+aero[i,:]
 		plot!(pl, tot, linewidth=2, linestyle=:dash, label="tot")
 
 		pl2 = plot(aero[i,:] * Tnew / δt, linewidth=2, label="dr(af)", legend=:outertopright)
@@ -139,10 +142,10 @@ function debugComponentsPlot(traj, param; optal=nothing)
 	# Note that gamma is here
 	println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2, ", optal = ", optal)
 
-	return pl1..., pls, plh, plcomp
+	return pl1[[1,2,4,5]]..., pls, plh, plcomp
 end
 pls = debugComponentsPlot(traj0, param0; optal=1.6)
-plot(pls..., size=(800,600))
+plot(pls..., size=(1200,600))
 gui()
 
 error("TEST")

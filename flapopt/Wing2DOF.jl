@@ -437,12 +437,19 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
 
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
     """Inertial"""
-    function HMqT(ypos, yvel)
+    function HMqTWithoutCoupling(ypos, yvel)
         σo, Ψ, σ̇odum, Ψ̇dum = ypos
         σodum, Ψdum, σ̇o, Ψ̇ = yvel
-        return [0   0   0   0   0   σ̇o   γ*Ψ̇*cos(Ψ)   0   σ̇o*m.ma;
-        0   0   0   0   0   0   γ*σ̇o*cos(Ψ)   2*Ψ̇*γ^2    0]
+        return [0   0   0   0   0   σ̇o   0   0   σ̇o*m.ma;
+        0   0   0   0   0   0   0   2*Ψ̇*γ^2    0]
     end
+    function HMqTCoupling(ypos, yvel)
+        σo, Ψ, σ̇odum, Ψ̇dum = ypos
+        σodum, Ψdum, σ̇o, Ψ̇ = yvel
+        return [0   0   0   0   0   0   γ*Ψ̇*cos(Ψ)   0   0;
+        0   0   0   0   0   0   γ*σ̇o*cos(Ψ)   0    0]
+    end
+    HMqT(ypos, yvel) = HMqTWithoutCoupling(ypos, yvel) + HMqTCoupling(ypos, yvel)
 
     """Coriolis"""
     function HC(y)
@@ -490,7 +497,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     end
 
     if debugComponents
-        return yo, HMqT, HC, Hg, Hgact, HF2
+        return yo, HMqTWithoutCoupling, HMqTCoupling, HC, Hg, Hgact, HF2
     end
 
     HCgJT(y, F) = HC(y) + Hg(y) + Hgact(y) + HF(y, F)
