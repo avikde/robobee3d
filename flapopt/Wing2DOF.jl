@@ -424,7 +424,7 @@ function cu.TmapAtoO(m::Wing2DOFModel, T)
 	return [T, 1, T, 1]
 end
 
-function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple, scaleTraj=1.0; Fext_pdep::Bool=false)
+function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple, scaleTraj=1.0; Fext_pdep::Bool=false, debugComponents::Bool=false)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 
     yk = k -> @view traj[liy[:,k]]
@@ -483,6 +483,10 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
             return [Ftil[1]   0   0   0   0   0   0   0    0;
             0   0   0    rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0   0]
         end
+    end
+
+    if debugComponents
+        return yo, HMqT, HC, Hg, Hgact, HF
     end
 
     HCgJT(y, F) = HC(y) + Hg(y) + Hgact(y) + HF(y, F)

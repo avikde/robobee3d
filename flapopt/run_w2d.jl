@@ -94,6 +94,21 @@ plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
 # pls = plotParamImprovement(m, opt, trajt, [param0, param1], [traj0, traj1], paramObj)
 # plot(pls...)
 
+# Debug components ----------------
+
+yo, HMqT, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj0, param0, R_WTS; Fext_pdep=true, debugComponents=true)
+pt0, T0 = cu.getpt(m, param0)
+inertial = zeros(2,N)
+for k=1:N
+	Hh = HMqT(yo(k), yo(k+1)) - HMqT(yo(k), yo(k))
+	inertial[:,k] = Hh * pt0
+end
+
+plot(inertial[1,:])
+gui()
+
+error("TEST")
+
 # many sims (scale) --------------
 
 function maxuForMinAvgLift(al)
