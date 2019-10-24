@@ -53,20 +53,16 @@ param0 = [3.2,  # cbar[mm] (area/R)
 # Load data
 opt = cu.OptOptions(false, 0.1, 1, :none, 1e-8, false) # real
 # N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
+N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; strokeMult=m.R/(2*param0[2]), ForcePerVolt=75/100, vidSF=7320) # 75mN unidirectional at 200Vpp (from Noah)
+# pl1 = plotTrajs(m, opt, trajt, [param0], [traj0])
 # pl1 = compareTrajToDAQ(m, opt, trajt, param0, traj0, lift, drag)
 # plot(pl1...)
-
-# Load 2
-N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; strokeMult=m.R/(2*param0[2]), ForcePerVolt=75/100, vidSF=7320) # 75mN unidirectional at 200Vpp (from Noah)
-pl1 = plotTrajs(m, opt, trajt, [param0], [traj0])
-plot(pl1...)
-gui()
-error("LOAD")
+# gui()
 
 # -------------------------------------------------------------
 
 # Make traj satisfy dyn constraint with these params?
-traj0 = cu.fixTrajWithDynConst(m, opt, traj0, param0)
+# traj0 = cu.fixTrajWithDynConst(m, opt, traj0, param0)
 
 # Constraint on cbar placed by minAvgLift. FIXME: this is very specific to W2D, since lift \proptp cbar
 avgLift0 = avgLift(m, opt, traj0, param0)
@@ -83,6 +79,10 @@ plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
 
 # # One-off ID or opt ---------
 
+# ID
+param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 2, R_WTS, 0.1, plimsL(0.1), plimsU; Fext_pdep=true, test=true, testTrajReconstruction=false, print_level=1, max_iter=200)
+display(param1')
+error("hi")
 # param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL(1.6), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
 # display(param1')
 
