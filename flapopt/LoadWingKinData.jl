@@ -92,10 +92,14 @@ function loadDAQData(fname)
 	return Dict("drag" => drag, "lift" => lift, "sig" => sig), currTest
 end
 
-"Align the rows at the bottom so the all have the same #rows first.
+"""Align the rows at the bottom so the all have the same #rows first.
 Assumes the first 2 rows are text and headers.
-dC, dD are the distances of those points from the wing spar (this is the only metric information needed)."
-function loadVideoData(fname; dC=1.04, dD=1.16, vidX=200, trialFreq=130)
+Points A, B should be 2 distinct points on the spar. Points C, D can be different points not on the spar.
+dC, dD = (perp) distances of those points from the wing spar (this is the only metric information needed).
+vidX = vid sample rate / 30 (or whatever was chosen when exporting avi). e.g. 7500fps -> 30 => vidX = 250
+trialFreq = freq of flapping (used *only* to trim to 1 flap)
+"""
+function loadVideoData(fname; dC=5.345, dD=4.047, vidX=250, trialFreq=165, makegif=false)
 	dat = readdlm(fname, ',', Float64, skipstart=2)
 	# Should be an Nx12 array, for mass A (t, x, y), ... mass D
 	# Use the first col as the time vector
@@ -132,7 +136,9 @@ function loadVideoData(fname; dC=1.04, dD=1.16, vidX=200, trialFreq=130)
 		F = svd(A)
 		# Last singular value in F.S should be small. Corresponding right nullsp vector is the last col of V
 		cΦ, sΦ = F.Vt[end,:]
-		return atan(sΦ/cΦ)-π/2
+		# This option likely depends on whether a coordinate frame was introduced in Tracker.
+		# return atan(sΦ/cΦ)-π/2
+		return atan(-cΦ/sΦ) + π # no coord frame in tracker (pixel coords)
 	end
 
 	function find_Ψ(pBi, pCi, pDi, p0, Φi)
@@ -161,7 +167,8 @@ function loadVideoData(fname; dC=1.04, dD=1.16, vidX=200, trialFreq=130)
 	p0 = find_p0(pA, pB)
 	# println("p0 = ", p0)
 	Φ = [find_Φ(pA[i,:], pB[i,:], p0) for i=1:Np]
-	Ψ = [find_Ψ(pB[i,:], pC[i,:], pD[i,:], p0, Φ[i]) for i=1:Np]
+	# Ψ = [find_Ψ(pB[i,:], pC[i,:], pD[i,:], p0, Φ[i]) for i=1:Np]
+	Ψ = [0 for i=1:Np]
 	
 	# Trim to tms=1000/trialFreq
 	ind_1cyc = findfirst(x -> x >= 1000/trialFreq, tms)
@@ -170,24 +177,26 @@ function loadVideoData(fname; dC=1.04, dD=1.16, vidX=200, trialFreq=130)
 	Ψ = Ψ[1:ind_1cyc]
 	Np = length(tms)
 	
-	function drawFrame(k)
-		span = 12.8
-		w = plot([p0[1]], [p0[2]], marker=:auto, color=:black, label="p0", xlims=(0,30), ylims=(-5,10), aspect_ratio=1)
-		plot!(w, [pA[k,1]], [pA[k,2]], marker=:auto, color=:red, label="pA")
-		plot!(w, [pB[k,1]], [pB[k,2]], marker=:auto, color=:cyan, label="pB")
-		plot!(w, [pC[k,1]], [pC[k,2]], marker=:auto, color=:magenta, label="pC")
-		plot!(w, [pD[k,1]], [pD[k,2]], marker=:auto, color=:purple, label="pD")
-		# Stroke line
-		plot!(w, [p0[1], p0[1] + span*cos(Φ[k])], [p0[2], p0[2] + span*sin(Φ[k])], color=:black, label="spar")
+	if makegif
+		function drawFrame(k)
+			span = norm(pB[1,:] - p0)
+			w = plot([p0[1]], [p0[2]], marker=:auto, color=:black, label="p0", xlims=(0,600), ylims=(-300,300), aspect_ratio=1, legend=false) # unfortunately the legend screws up the aspect ratio if it is outer
+			plot!(w, [pA[k,1]], [pA[k,2]], marker=:auto, color=:red, label="pA")
+			plot!(w, [pB[k,1]], [pB[k,2]], marker=:auto, color=:cyan, label="pB")
+			plot!(w, [pC[k,1]], [pC[k,2]], marker=:auto, color=:magenta, label="pC")
+			plot!(w, [pD[k,1]], [pD[k,2]], marker=:auto, color=:purple, label="pD")
+			# Stroke line
+			plot!(w, [p0[1], p0[1] + span*cos(Φ[k])], [p0[2], p0[2] + span*sin(Φ[k])], color=:black, label="spar")
 
-		w2 = plot(tms, Φ.-mean(Φ), linewidth=2, label="stroke")
-		plot!(w2, tms, Ψ, linewidth=2, label="hinge")
-		vline!(w2, [tms[k]])
-		return plot(w, w2, layout=(2,1))
+			w2 = plot(tms, Φ.-mean(Φ), linewidth=2, label="stroke")
+			plot!(w2, tms, Ψ, linewidth=2, label="hinge")
+			vline!(w2, [tms[k]])
+			return plot(w, w2, layout=(2,1))
+		end
+		@gif for k = 1:Np
+			drawFrame(k)
+		end
 	end
-	# @gif for k = 1:Np
-	# 	drawFrame(k)
-	# end
 
 	return tms, Φ.-mean(Φ), Ψ
 end

@@ -57,7 +57,7 @@ param0 = [3.2,  # cbar[mm] (area/R)
 # plot(pl1...)
 
 # Load 2
-yout = loadyout("data/yout 180v 170hz.mat")
+yout = loadyout("data/Bee1_Static_165Hz_180V_10KSF.mat")
 sigs = plot(yout[:,1], yout[:,2], label="b")
 plot!(sigs, yout[:,1], yout[:,3], label="s1")
 plot!(sigs, yout[:,1], yout[:,4], label="s2")
@@ -65,6 +65,9 @@ others = plot(yout[:,1], yout[:,5], label="freq")
 plot!(others, yout[:,1], yout[:,6], label="col6")
 plot(sigs)
 gui()
+
+res = loadVideoData("data/Bee1_Static_165Hz_180V_7500sf.csv"; vidX=250, trialFreq=165, makegif=true)
+
 error("LOAD")
 
 # -------------------------------------------------------------
