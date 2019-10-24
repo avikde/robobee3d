@@ -424,7 +424,7 @@ function cu.TmapAtoO(m::Wing2DOFModel, T)
 	return [T, 1, T, 1]
 end
 
-function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple, scaleTraj=1.0; Fext_pdep::Bool=false)
+function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple, scaleTraj=1.0; Fext_pdep::Bool=false, debugComponents::Bool=false)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 
     yk = k -> @view traj[liy[:,k]]
@@ -436,14 +436,41 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     yo = k -> [T, 1.0, T, 1.0] .* yk(k)
 
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
-    function HMqT(ypos, yvel)
+    """Inertial"""
+    function HMqTWithoutCoupling(ypos, yvel)
         σo, Ψ, σ̇odum, Ψ̇dum = ypos
         σodum, Ψdum, σ̇o, Ψ̇ = yvel
-        return [0   0   0   0   0   σ̇o   γ*Ψ̇*cos(Ψ)   0   σ̇o*m.ma;
-        0   0   0   0   0   0   γ*σ̇o*cos(Ψ)   2*Ψ̇*γ^2    0]
+        return [0   0   0   0   0   σ̇o   0   0   σ̇o*m.ma;
+        0   0   0   0   0   0   0   2*Ψ̇*γ^2    0]
     end
+    function HMqTCoupling(ypos, yvel)
+        σo, Ψ, σ̇odum, Ψ̇dum = ypos
+        σodum, Ψdum, σ̇o, Ψ̇ = yvel
+        return [0   0   0   0   0   0   γ*Ψ̇*cos(Ψ)   0   0;
+        0   0   0   0   0   0   γ*σ̇o*cos(Ψ)   0    0]
+    end
+    HMqT(ypos, yvel) = HMqTWithoutCoupling(ypos, yvel) + HMqTCoupling(ypos, yvel)
 
-    function HCgJT(y, F)
+    """Coriolis"""
+    function HC(y)
+        σo, Ψ, σ̇o, Ψ̇ = y
+        return [0   0   0   0   0   0   -γ*Ψ̇^2*sin(Ψ)   0    0;
+        0   0   0    0   0   0   0   0   0]
+    end
+    """Stiffness/damping output"""
+    function Hg(y)
+        σo, Ψ, σ̇o, Ψ̇ = y
+        return [m.kσ*σo+m.bσ*σ̇o   0   0   0   0   0   0   0    0;
+        0   Ψ   Ψ̇    0   0   0   0   0   0]
+    end
+    """Stiffness/damping actuator"""
+    function Hgact(y)
+        σo, Ψ, σ̇o, Ψ̇ = y
+        return [0   0   0   0   0   0   0   0    m.ba*σ̇o + m.ka*σo;
+        0   0   0    0   0   0   0   0   0]
+    end
+    """Ext force (aero)"""
+    function HF(y, F)
         σo, Ψ, σ̇o, Ψ̇ = y
         # See notes: this F stuff is w2d specific
         rcop = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
@@ -455,15 +482,25 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
             # return [0   -m.kσ*σa-m.bσ*σ̇a   Ftil[1]   0   0;
             # -m.kΨ*Ψ-m.bΨ*Ψ̇   0   0   -σ̇a*Ψ̇*m.mwing*sin(Ψ)   rcopnondim*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))]
             # 1st order version
-            return [m.kσ*σo+m.bσ*σ̇o   0   0   Ftil[1]   0   0   -γ*Ψ̇^2*sin(Ψ)   0    m.ba*σ̇o + m.ka*σo;
-            0   Ψ   Ψ̇    0   rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0]
+            return [0   0   0   Ftil[1]   0   0   0   0   0;
+            0   0   0    0   rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0]
         else
             Ftil = -F
             # 1st order version
-            return [m.kσ*σo+m.bσ*σ̇o+Ftil[1]   0   0   0   0   0   -γ*Ψ̇^2*sin(Ψ)   0    m.ba*σ̇o + m.ka*σo;
-            0   Ψ   Ψ̇    rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0   0]
+            return [Ftil[1]   0   0   0   0   0   0   0    0;
+            0   0   0    rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0   0]
         end
     end
+    function HF2(y)
+        _, _, Faero = w2daero(m, y, param)
+        return HF(y, Faero)
+    end
+
+    if debugComponents
+        return yo, HMqTWithoutCoupling, HMqTCoupling, HC, Hg, Hgact, HF2
+    end
+
+    HCgJT(y, F) = HC(y) + Hg(y) + Hgact(y) + HF(y, F)
     # ----------------
 
     # this is OK - see notes

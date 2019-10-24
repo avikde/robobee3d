@@ -72,7 +72,7 @@ plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
 
 # # One-off ID or opt ---------
 
-# param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=100)
+# param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL(1.6), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
 # display(param1')
 
 # traj2 = cu.fixTrajWithDynConst(m, opt, traj1, param1)
@@ -93,6 +93,61 @@ plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
 # display([param0, param1])
 # pls = plotParamImprovement(m, opt, trajt, [param0, param1], [traj0, traj1], paramObj)
 # plot(pls...)
+
+# Debug components ----------------
+
+function debugComponentsPlot(traj, param; optal=nothing)
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+	if !isnothing(optal)
+		param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL(optal), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
+	else
+		param1 = param
+		traj1 = traj
+	end
+
+	yo, HMnc, HMc, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj1, param1, R_WTS; Fext_pdep=true, debugComponents=true)
+	pt0, Tnew = cu.getpt(m, param1)
+	inertial = zeros(2,N)
+	inertialc = similar(inertial)
+	stiffdamp = similar(inertial)
+	stiffdampa = similar(inertial)
+	aero = similar(inertial)
+
+	for k=1:N
+		inertial[:,k] = (HMnc(yo(k), yo(k+1)) - HMnc(yo(k), yo(k))) * pt0
+		inertialc[:,k] = (HMc(yo(k), yo(k+1)) - HMc(yo(k), yo(k)) + δt * HC(yo(k))) * pt0
+		stiffdamp[:,k] = (δt * Hg(yo(k))) * pt0
+		stiffdampa[:,k] = (δt * Hgact(yo(k))) * pt0
+		aero[:,k] = (δt * HF(yo(k))) * pt0
+	end
+
+	function plotComponents(i, ylbl)
+		pl = plot(inertial[i,:], linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
+		plot!(pl, inertialc[i,:], linewidth=2, label="ic")
+		plot!(pl, stiffdamp[i,:], linewidth=2, label="g")
+		plot!(pl, stiffdampa[i,:], linewidth=2, label="ga")
+		plot!(pl, aero[i,:], linewidth=2, label="a")
+		tot = inertial[i,:]+inertialc[i,:]+stiffdamp[i,:]+stiffdampa[i,:]+aero[i,:]
+		plot!(pl, tot, linewidth=2, linestyle=:dash, label="tot")
+
+		pl2 = plot(aero[i,:] * Tnew / δt, linewidth=2, label="dr(af)", legend=:outertopright)
+		plot!(pl2, traj1[(N+1)*4+1:end], linewidth=2, label="actf")
+		return pl, pl2
+	end
+
+	pl1 = plotTrajs(m, opt, trajt, [param], [traj])
+	pls, plcomp = plotComponents(1, "stroke")
+	plh, _ = plotComponents(2, "hinge")
+
+	# Note that gamma is here
+	println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2, ", optal = ", (!isnothing(optal) ? optal : "-"))
+	return pl1[[1,2,4,5]]..., pls, plh, plcomp
+end
+pls = debugComponentsPlot(traj0, param0; optal=1.6)
+plot(pls..., size=(1200,600))
+gui()
+
+error("TEST")
 
 # many sims (scale) --------------
 
