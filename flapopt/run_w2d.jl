@@ -57,10 +57,10 @@ opt = cu.OptOptions(false, 0.1, 1, :none, 1e-8, false) # real
 # plot(pl1...)
 
 # Load 2
-N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
+N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8, vidSF=7320)
 pl1 = plotTrajs(m, opt, trajt, [param0], [traj0])
 plot(pl1...)
-
+gui()
 error("LOAD")
 
 # -------------------------------------------------------------

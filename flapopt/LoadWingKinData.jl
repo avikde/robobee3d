@@ -197,7 +197,7 @@ For sigYout = true:
 For sigYout = false:
 - startOffs -- the first timestamp used from the MAT file
 """
-function loadAlignedData(fnameMat, fnameCSV, startOffs; strokeMult=1.0, ForcePerVolt=0.75, sigYout=true, vidSF=7500, sigi=1)
+function loadAlignedData(fnameMat, fnameCSV, startOffs; strokeMult=1.0, ForcePerVolt=0.75, sigYout=true, vidSF=7500, sigi=1, sigsign=1.0)
 	if sigYout
 		# New yout created on the target computer. Assuming sample rate is 10KHz.
 		# Column index
@@ -253,7 +253,7 @@ function loadAlignedData(fnameMat, fnameCSV, startOffs; strokeMult=1.0, ForcePer
 	end
 	# Vpp = max.(sig2)
 	DAQ_To_Volts = 100 # Manually checked for 180V, max was 1.795
-	uact = _alignDAQToVideo() * DAQ_To_Volts * ForcePerVolt
+	uact = sigsign * _alignDAQToVideo() * DAQ_To_Volts * ForcePerVolt
 
 	# Filter and take derivative of the video data -----------------------
 	# sample rate
