@@ -54,6 +54,21 @@ function filterDataFull(fname, tstart, tend, cutoff_freq)
 	return dataOut, vars["currTest"]
 end
 
+"""Load the yout variable saved from the target model. Assumes
+Column index
+1		Time
+2		Bias (ramp up ~ flat ~ ramp down)
+3 		Voltage_left
+4		Voltage_right
+5		Input voltage frequency
+6		dt (?)
+"""
+function loadyout(fname)
+	file = matopen(fname)
+	vars = read(file)
+	return vars["yout"]
+end
+
 
 function loadDAQData(fname)
 	data, currTest = filterDataFull(fname, 2.2, 2.3, 600)
