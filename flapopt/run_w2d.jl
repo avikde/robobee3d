@@ -51,22 +51,15 @@ param0 = [3.2,  # cbar[mm] (area/R)
 # trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0, 187)
 
 # Load data
-# opt = cu.OptOptions(false, 0.1, 1, :none, 1e-8, false) # real
+opt = cu.OptOptions(false, 0.1, 1, :none, 1e-8, false) # real
 # N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
 # pl1 = compareTrajToDAQ(m, opt, trajt, param0, traj0, lift, drag)
 # plot(pl1...)
 
 # Load 2
-yout = loadyout("data/Bee1_Static_165Hz_180V_10KSF.mat")
-sigs = plot(yout[:,1], yout[:,2], label="b")
-plot!(sigs, yout[:,1], yout[:,3], label="s1")
-plot!(sigs, yout[:,1], yout[:,4], label="s2")
-others = plot(yout[:,1], yout[:,5], label="freq")
-plot!(others, yout[:,1], yout[:,6], label="col6")
-plot(sigs)
-gui()
-
-res = loadVideoData("data/Bee1_Static_165Hz_180V_7500sf.csv"; vidX=250, trialFreq=165, makegif=true)
+N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
+pl1 = plotTrajs(m, opt, trajt, [param0], [traj0])
+plot(pl1...)
 
 error("LOAD")
 
