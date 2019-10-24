@@ -167,8 +167,7 @@ function loadVideoData(fname; dC=5.345, dD=4.047, vidX=250, trialFreq=165, makeg
 	p0 = find_p0(pA, pB)
 	# println("p0 = ", p0)
 	Φ = [find_Φ(pA[i,:], pB[i,:], p0) for i=1:Np]
-	# Ψ = [find_Ψ(pB[i,:], pC[i,:], pD[i,:], p0, Φ[i]) for i=1:Np]
-	Ψ = [0 for i=1:Np]
+	Ψ = [find_Ψ(pB[i,:], pC[i,:], pD[i,:], p0, Φ[i]) for i=1:Np]
 	
 	# Trim to tms=1000/trialFreq
 	ind_1cyc = findfirst(x -> x >= 1000/trialFreq, tms)
@@ -179,8 +178,8 @@ function loadVideoData(fname; dC=5.345, dD=4.047, vidX=250, trialFreq=165, makeg
 	
 	if makegif
 		function drawFrame(k)
-			span = norm(pB[1,:] - p0)
-			w = plot([p0[1]], [p0[2]], marker=:auto, color=:black, label="p0", xlims=(0,600), ylims=(-300,300), aspect_ratio=1, legend=false) # unfortunately the legend screws up the aspect ratio if it is outer
+			span = norm(pB[1,:] - p0) * 1.5
+			w = plot([p0[1]], [p0[2]], marker=:auto, color=:black, label="p0", xlims=(p0[1]-1.5*span, p0[1]+1.5*span), ylims=(p0[2]-1.5*span, p0[2]+1.5*span), aspect_ratio=1, legend=false) # unfortunately the legend screws up the aspect ratio if it is outer
 			plot!(w, [pA[k,1]], [pA[k,2]], marker=:auto, color=:red, label="pA")
 			plot!(w, [pB[k,1]], [pB[k,2]], marker=:auto, color=:cyan, label="pB")
 			plot!(w, [pC[k,1]], [pC[k,2]], marker=:auto, color=:magenta, label="pC")
