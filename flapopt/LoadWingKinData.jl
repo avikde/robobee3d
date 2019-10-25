@@ -273,7 +273,7 @@ function loadAlignedData(fnameMat, fnameCSV, startOffs; strokeMult=1.0, ForcePer
 	
 	Ψ .= lpfilt(Ψ, 2, 1.5)
 	dΦ = lpfilt(numDeriv(Φ), 2, 1.5)
-	dΨ = lpfilt(numDeriv(Ψ), 2, 1.0)
+	dΨ = lpfilt(numDeriv(Ψ), 2, 0.5)
 	# ---------------------------------------------------------------------
 
 	# Now convert to dirtran form for compatibilty with prior code
