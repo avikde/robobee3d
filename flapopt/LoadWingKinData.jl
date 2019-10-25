@@ -77,10 +77,14 @@ function loadDAQData(fname)
 	return Dict("drag" => drag, "lift" => lift, "sig" => sig), currTest
 end
 
-"Align the rows at the bottom so the all have the same #rows first.
+"""Align the rows at the bottom so the all have the same #rows first.
 Assumes the first 2 rows are text and headers.
-dC, dD are the distances of those points from the wing spar (this is the only metric information needed)."
-function loadVideoData(fname; dC=1.04, dD=1.16, vidX=200, trialFreq=130)
+Points A, B should be 2 distinct points on the spar. Points C, D can be different points not on the spar.
+dC, dD = (perp) distances of those points from the wing spar (this is the only metric information needed).
+vidX = vid sample rate / 30 (or whatever was chosen when exporting avi). e.g. 7500fps -> 30 => vidX = 250
+trialFreq = freq of flapping (used *only* to trim to 1 flap)
+"""
+function loadVideoData(fname; dC=5.345, dD=4.047, vidX=250, trialFreq=165, makegif=false)
 	dat = readdlm(fname, ',', Float64, skipstart=2)
 	# Should be an Nx12 array, for mass A (t, x, y), ... mass D
 	# Use the first col as the time vector
@@ -117,7 +121,9 @@ function loadVideoData(fname; dC=1.04, dD=1.16, vidX=200, trialFreq=130)
 		F = svd(A)
 		# Last singular value in F.S should be small. Corresponding right nullsp vector is the last col of V
 		cΦ, sΦ = F.Vt[end,:]
-		return atan(sΦ/cΦ)-π/2
+		# This option likely depends on whether a coordinate frame was introduced in Tracker.
+		# return atan(sΦ/cΦ)-π/2
+		return atan(-cΦ/sΦ) + π # no coord frame in tracker (pixel coords)
 	end
 
 	function find_Ψ(pBi, pCi, pDi, p0, Φi)
@@ -155,51 +161,101 @@ function loadVideoData(fname; dC=1.04, dD=1.16, vidX=200, trialFreq=130)
 	Ψ = Ψ[1:ind_1cyc]
 	Np = length(tms)
 	
-	function drawFrame(k)
-		span = 12.8
-		w = plot([p0[1]], [p0[2]], marker=:auto, color=:black, label="p0", xlims=(0,30), ylims=(-5,10), aspect_ratio=1)
-		plot!(w, [pA[k,1]], [pA[k,2]], marker=:auto, color=:red, label="pA")
-		plot!(w, [pB[k,1]], [pB[k,2]], marker=:auto, color=:cyan, label="pB")
-		plot!(w, [pC[k,1]], [pC[k,2]], marker=:auto, color=:magenta, label="pC")
-		plot!(w, [pD[k,1]], [pD[k,2]], marker=:auto, color=:purple, label="pD")
-		# Stroke line
-		plot!(w, [p0[1], p0[1] + span*cos(Φ[k])], [p0[2], p0[2] + span*sin(Φ[k])], color=:black, label="spar")
+	if makegif
+		function drawFrame(k)
+			span = norm(pB[1,:] - p0) * 1.5
+			w = plot([p0[1]], [p0[2]], marker=:auto, color=:black, label="p0", xlims=(p0[1]-1.5*span, p0[1]+1.5*span), ylims=(p0[2]-1.5*span, p0[2]+1.5*span), aspect_ratio=1, legend=false) # unfortunately the legend screws up the aspect ratio if it is outer
+			plot!(w, [pA[k,1]], [pA[k,2]], marker=:auto, color=:red, label="pA")
+			plot!(w, [pB[k,1]], [pB[k,2]], marker=:auto, color=:cyan, label="pB")
+			plot!(w, [pC[k,1]], [pC[k,2]], marker=:auto, color=:magenta, label="pC")
+			plot!(w, [pD[k,1]], [pD[k,2]], marker=:auto, color=:purple, label="pD")
+			# Stroke line
+			plot!(w, [p0[1], p0[1] + span*cos(Φ[k])], [p0[2], p0[2] + span*sin(Φ[k])], color=:black, label="spar")
 
-		w2 = plot(tms, Φ.-mean(Φ), linewidth=2, label="stroke")
-		plot!(w2, tms, Ψ, linewidth=2, label="hinge")
-		vline!(w2, [tms[k]])
-		return plot(w, w2, layout=(2,1))
+			w2 = plot(tms, Φ.-mean(Φ), linewidth=2, label="stroke")
+			plot!(w2, tms, Ψ, linewidth=2, label="hinge")
+			vline!(w2, [tms[k]])
+			return plot(w, w2, layout=(2,1))
+		end
+		@gif for k = 1:Np
+			drawFrame(k)
+		end
 	end
-	# @gif for k = 1:Np
-	# 	drawFrame(k)
-	# end
 
 	return tms, Φ.-mean(Φ), Ψ
 end
 
-"tstartMat is the first timestamp used from the MAT file, and 1 cycle is used. ForcePerVolt is mN/V"
-function loadAlignedData(fnameMat, fnameCSV, tstartMat; strokeMult=1.0, ForcePerVolt=0.75)
-	daq, currTest = loadDAQData(fnameMat)
-	freq = currTest["Actuators"]["Frequency"][1]
-	Vpp = currTest["Actuators"]["Amplitude"][1]
-	tms, Φ, Ψ = loadVideoData(fnameCSV; trialFreq=freq)
+"""
+vidX -- see loadAlignedData()
+sigYout -- if true, assume yout from the target PC (assume 10KHz sample rate); if false, assume old Kevin data
+ForcePerVolt -- actuator force mN/V
+
+For sigYout = true:
+- startOffs -- the first video frame in the CSV relative to the trigger (in PCC what you set as `[`)
+- sigi -- which signal S1 or S2 (pass in 1 or 2)
+
+For sigYout = false:
+- startOffs -- the first timestamp used from the MAT file
+"""
+function loadAlignedData(fnameMat, fnameCSV, startOffs; strokeMult=1.0, ForcePerVolt=0.75, sigYout=true, vidSF=7500, sigi=1, sigsign=1.0)
+	if sigYout
+		# New yout created on the target computer. Assuming sample rate is 10KHz.
+		# Column index
+		# 1		Time
+		# 2		Bias (ramp up ~ flat ~ ramp down)
+		# 3 	Voltage_left
+		# 4		Voltage_right
+		# 5		Input voltage frequency
+		# 6		dt (?)
+		file = matopen(fnameMat)
+		vars = read(file)
+		yout = vars["yout"]
+		freq = yout[1,5]
+
+		# assuming t=0 coincides for both due to the trigger
+		tstartMat = startOffs/vidSF # [s]
+		sigt = yout[:,1]
+		sig = yout[:,sigi+2] - 0.5 * yout[:,2] # subtract half bias
+
+		# # Test plot
+		# sigs = plot(yout[:,1], yout[:,2], label="b")
+		# plot!(sigs, yout[:,1], yout[:,3], label="s1")
+		# plot!(sigs, yout[:,1], yout[:,4], label="s2")
+		# # others = plot(yout[:,1], yout[:,5], label="freq")
+		# # plot!(others, yout[:,1], yout[:,6], label="col6")
+		# plot(sigs)
+		# gui()
+	else
+		# Old Kevin data
+		daq, currTest = loadDAQData(fnameMat)
+		freq = currTest["Actuators"]["Frequency"][1]
+		Vpp = currTest["Actuators"]["Amplitude"][1]
+		tstartMat = startOffs
+		sigt = daq["sig"][:,1]
+		sig = daq["sig"][:,2] .- Vpp * DAQ_To_Volts/2
+	end
+	tms, Φ, Ψ = loadVideoData(fnameCSV; trialFreq=freq, vidX=vidSF/30)
+
+	# Align to get input --------------------------------------------
 	
 	# Find one cycle of data from the mat
-	ind_tstart = findfirst(x -> x >= tstartMat, daq["sig"][:,1])
-	ind_tend = findfirst(x -> x >= tstartMat + 1/freq, daq["sig"][:,1])
+	ind_tstart = findfirst(x -> x >= tstartMat, sigt)
+	ind_tend = findfirst(x -> x >= tstartMat + 1/freq, sigt)
 
-	function alignDAQToVideo(daqVec)
+	function _alignDAQToVideo()
 		# align voltage to the same times
-		t = daqVec[ind_tstart:ind_tend,1]
+		t = sigt[ind_tstart:ind_tend]
 		t .= (t .- t[1]) * 1000 # to ms
-		v = daqVec[ind_tstart:ind_tend,2]
+		v = sig[ind_tstart:ind_tend]
 
 		spl = Spline1D(t, v; k=2)
 		return spl(tms)
 	end
 	# Vpp = max.(sig2)
 	DAQ_To_Volts = 100 # Manually checked for 180V, max was 1.795
-	uact = (alignDAQToVideo(daq["sig"]) * DAQ_To_Volts .- Vpp/2) * ForcePerVolt
+	uact = sigsign * _alignDAQToVideo() * DAQ_To_Volts * ForcePerVolt
+
+	# Filter and take derivative of the video data -----------------------
 	# sample rate
 	fs = 1/mean(diff(tms))
 
@@ -217,20 +273,22 @@ function loadAlignedData(fnameMat, fnameCSV, tstartMat; strokeMult=1.0, ForcePer
 	
 	Ψ .= lpfilt(Ψ, 2, 1.5)
 	dΦ = lpfilt(numDeriv(Φ), 2, 1.5)
-	dΨ = lpfilt(numDeriv(Ψ), 2, 1.0)
+	dΨ = lpfilt(numDeriv(Ψ), 2, 0.5)
+	# ---------------------------------------------------------------------
 
 	# Now convert to dirtran form for compatibilty with prior code
 	Ndp1 = length(Φ)
 	Y = [strokeMult*Φ';Ψ';strokeMult*dΦ';dΨ']
 	X = [reshape(Y, 4*Ndp1);uact[1:end-1]]
 
+	println("dt = ", mean(diff(tms)))
 	# aa = plot(tms, Φ)
 	# plot!(aa, tms, Ψ)
 	# bb = plot(tms, dΦ)
 	# plot!(bb, tms, dΨ)
 	# plot(aa, bb, layout=(2,1))
 	# gui()
-	return Ndp1-1, tms, X, alignDAQToVideo(daq["lift"]), alignDAQToVideo(daq["drag"])
+	return Ndp1-1, tms, X#, alignDAQToVideo(daq["lift"]), alignDAQToVideo(daq["drag"])
 end
 
 # loadAlignedData("../../../Desktop/vary_amplitude_no_lateral_wind_data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.24)

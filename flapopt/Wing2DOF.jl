@@ -243,12 +243,12 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, traj
     # Plot of aero forces at each instant
     function aeroPlotVec(_traj::Vector, _param, ind)
         cbar, T, mwing, kΨ, bΨ = _param
-        Faerok = k -> w2daero(m, [T,1,T,1].*_traj[@view liy[:,k]], _param)[end]
+        Faerok = k -> w2daero(m, [T,1,T,1].*_traj[@view liy[:,k]], _param)[end] * 1000 / 9.81 # to mg
         Faeros = hcat([Faerok(k) for k=1:N]...)
         return [Faeros[ind,:]' NaN]'
     end
-    liftt = plot(t, hcat([aeroPlotVec(trajs[i], params[i], 2) for i=1:Nt]...), linewidth=2, legend=false, ylabel="lift [mN]")
-    dragt = plot(t, hcat([aeroPlotVec(trajs[i], params[i], 1) for i=1:Nt]...), linewidth=2, legend=false, ylabel="drag [mN]")
+    liftt = plot(t, hcat([aeroPlotVec(trajs[i], params[i], 2) for i=1:Nt]...), linewidth=2, legend=false, ylabel="lift [mg]")
+    dragt = plot(t, hcat([aeroPlotVec(trajs[i], params[i], 1) for i=1:Nt]...), linewidth=2, legend=false, ylabel="drag [mg]")
     # Combine the subplots
 	return (σt, Ψt, ut, liftt, dragt)
 end
