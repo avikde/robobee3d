@@ -82,26 +82,12 @@ plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
 # ID
 param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 2, R_WTS, 0.1, plimsL(0.1), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
 # cu.optAffine(m, opt, traj1, param1, 2, R_WTS, 0.1, plimsL(0.1), plimsU; Fext_pdep=true, test=true, testTrajReconstruction=false, print_level=1, max_iter=200) # TEST
-display(param1')
-pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
-plot(pl1...)
-gui()
-error("ID")
-
-# param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL(1.6), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
 # display(param1')
-
-# traj2 = cu.fixTrajWithDynConst(m, opt, traj1, param1)
-# # cu.optAffine(m, opt, traj1, param1, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=true, print_level=2)
-# pl1 = plotTrajs(m, opt, trajt, [param0, param1, param1], [traj0, traj1, traj2])
+# pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
 # plot(pl1...)
 
-# # The actuator data does not correspond to the kinematics in any way (esp. without params)
-# # # 1. Try to find the best params *assuming* these are the correct inputs. ID mode
-# # param1, paramObj, traj1 = cu.optAffine(m, opt, traj0, param0, 2, (zeros(4,4), 0, 1.0*ones(1,1)), 0.3, cbarmin; Fext_pdep=false, test=false, print_level=1)
-
-# # # 2. Try to optimize
-# param1, paramObj, traj1 = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.3, cbarmin(0.5); Fext_pdep=false, test=false, print_level=1)
+# 2. Try to optimize
+param2, paramObj, traj2 = cu.optAffine(m, opt, traj1, param1, 1, R_WTS, 0.1, plimsL(0.6), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
 
 # # mwings = collect(0.1:0.1:2)
 # # plot(mwings, paramObj.([[param0[1:2];mwing] for mwing in mwings]))
@@ -109,6 +95,11 @@ error("ID")
 # display([param0, param1])
 # pls = plotParamImprovement(m, opt, trajt, [param0, param1], [traj0, traj1], paramObj)
 # plot(pls...)
+display(param2')
+pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2], [traj0, traj1, traj2])
+plot(pl1...)
+gui()
+error("opt")
 
 # Debug components ----------------
 
@@ -162,7 +153,7 @@ function debugComponentsPlot(traj, param; optal=nothing)
 	println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2, ", optal = ", (!isnothing(optal) ? optal : "-"))
 	return pl1[[1,2,4,5]]..., pls, plh, plcomp, plis, plih
 end
-pls = debugComponentsPlot(traj1, param1; optal=nothing)
+pls = debugComponentsPlot(traj1, param1; optal=1.2)
 plot(pls..., size=(800,600))
 gui()
 
