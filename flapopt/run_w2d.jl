@@ -32,37 +32,43 @@ param0 = [3.2,  # cbar[mm] (area/R)
 	3 # bΨ [mN-mm/(rad/ms)]
 ]
 
-# Stiffness sweep ---
-# function respkσ(kσ)
-# 	olrfun = f -> openloopResponse(m, opt, f, [param0; kσ])
-# 	freqs = collect(0.05:0.01:0.45)
-# 	mags = hcat(olrfun.(freqs)...)'
-# 	return plot(freqs, mags, ylabel=string(kσ * 100), legend=false)
-# end
-# kσs = collect(0.0:0.5:5)
-# pls = respkσ.(kσs)
-# plot(pls...)
+# FUNCTIONS GO HERE -------------------------------------------------------------
 
-# Produce initial traj -------------------------------------------
+"""Produce initial traj
+fix -- Make traj satisfy dyn constraint with these params?
+"""
+function initTraj(sim=false; fix=false, makeplot=false)
+	# FIXME: σomax is printed by optAffine
+	σamax = 0.3 # [mm] constant? for robobee actuators
+	if sim
+		opt = cu.OptOptions(false, 0.2, 1, :none, 1e-8, false) # sim
+		N = opt.boundaryConstraint == :symmetric ? 17 : 33
+		trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0, 187)
+		Tmin = 4.182/σamax
+	else
+		# Load data
+		opt = cu.OptOptions(false, 0.135, 1, :none, 1e-8, false) # real
+		# N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
+		N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; strokeMult=m.R/(2*param0[2]), ForcePerVolt=75/100, vidSF=7320) # 75mN unidirectional at 200Vpp (from Noah)
+		Tmin = 19.011058431792932 # σomax/σamax
+	end
 
-# # Sim data
-# opt = cu.OptOptions(false, 0.2, 1, :none, 1e-8, false) # sim
-# N = opt.boundaryConstraint == :symmetric ? 17 : 33
-# trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0, 187)
+	if fix
+		traj0 = cu.fixTrajWithDynConst(m, opt, traj0, param0)
+	end
 
-# Load data
-opt = cu.OptOptions(false, 0.135, 1, :none, 1e-8, false) # real
-# N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
-N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; strokeMult=m.R/(2*param0[2]), ForcePerVolt=75/100, vidSF=7320) # 75mN unidirectional at 200Vpp (from Noah)
-# pl1 = plotTrajs(m, opt, trajt, [param0], [traj0])
-# pl1 = compareTrajToDAQ(m, opt, trajt, param0, traj0, lift, drag)
-# plot(pl1...)
-# gui()
+	if makeplot
+		pl1 = plotTrajs(m, opt, trajt, [param0], [traj0])
+		# pl1 = compareTrajToDAQ(m, opt, trajt, param0, traj0, lift, drag)
+		plot(pl1...)
+		gui()
+	end
 
-# -------------------------------------------------------------
+	return N, trajt, traj0, opt, Tmin
+end
 
-# Make traj satisfy dyn constraint with these params?
-# traj0 = cu.fixTrajWithDynConst(m, opt, traj0, param0)
+# IMPORTANT - load which traj here!!!
+N, trajt, traj0, opt, Tmin = initTraj()
 
 # Constraint on cbar placed by minAvgLift. FIXME: this is very specific to W2D, since lift \proptp cbar
 avgLift0 = avgLift(m, opt, traj0, param0)
@@ -70,45 +76,34 @@ cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
 
 R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 
-# FIXME: σomax is printed by optAffine
-# σamax = 0.3 # [mm] constant? for robobee actuators
-Tmin = 4.182/0.3 #19.011058431792932 # σomax/σamax
-
-plimsL = al -> [cbarmin(al), Tmin, 0.1, 0.1, 0.1]
+plimsL(al, Tmin) = [isnothing(al) ? 0.1 : cbarmin(al), Tmin, 0.1, 0.1, 0.1]
 plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
+# Taken by optAffine
+oaOpts(al, Tmin) = (R_WTS, 0.1, plimsL(al, Tmin), plimsU)
 
-# # One-off ID or opt ---------
+"""One-off ID or opt"""
+function opt1(traj, param, mode, minal, Tmin; testAfter=false)
+	optoptions = oaOpts(minal, Tmin)
+	param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj, param, mode, optoptions...; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
+	if testAfter
+		cu.optAffine(m, opt, traj1, param1, 2, optoptions...; Fext_pdep=true, test=true, testTrajReconstruction=false, print_level=1, max_iter=200) # TEST
+	end
+	return traj1, param1, paramObj, unactErr
+end
 
-# # ID
-# param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 2, R_WTS, 0.1, plimsL(0.1), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
-# # cu.optAffine(m, opt, traj1, param1, 2, R_WTS, 0.1, plimsL(0.1), plimsU; Fext_pdep=true, test=true, testTrajReconstruction=false, print_level=1, max_iter=200) # TEST
-# # display(param1')
-# # pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
-# # plot(pl1...)
-
-# # 2. Try to optimize
-# param2, paramObj, traj2 = cu.optAffine(m, opt, traj1, param1, 1, R_WTS, 0.1, plimsL(0.6), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
-
-# # display([param0, param1])
-# # pls = plotParamImprovement(m, opt, trajt, [param0, param1], [traj0, traj1], paramObj)
-# # plot(pls...)
-# display(param2')
-# pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2], [traj0, traj1, traj2])
-# plot(pl1...)
-# gui()
-# error("opt")
-
-# Debug components ----------------
-
+"""Debug components in a traj"""
 function debugComponentsPlot(traj, param; optal=nothing)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+	optoptions = oaOpts(optal, Tmin)
+
 	if !isnothing(optal)
-		param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL(optal), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
+		traj1, param1, _, _ = opt1(traj, param, 1, optal, Tmin)
 	else
 		param1 = param
 		traj1 = traj
 	end
 
+	# Get the components
 	yo, HMnc, HMc, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj1, param1, R_WTS; Fext_pdep=true, debugComponents=true)
 	pt0, Tnew = cu.getpt(m, param1)
 	inertial = zeros(2,N)
@@ -150,45 +145,77 @@ function debugComponentsPlot(traj, param; optal=nothing)
 	println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2, ", optal = ", (!isnothing(optal) ? optal : "-"))
 	return pl1[[1,2,4,5]]..., pls, plh, plcomp, plis, plih
 end
+
+"""Run many opts to get the best params for a desired min lift"""
+function scaleParamsForlift(traj, param, minlifts)
+	function maxuForMinAvgLift(al)
+		print("plimsL[1:2] = ", plimsL(al, Tmin)[1:2])
+		traj1, param1, _, unactErr = opt1(traj, param, 1, al, Tmin)
+		kΨ, bΨ = param1[4:5]
+		return [param1; norm(traj1[(N+1)*ny:end], Inf); norm(unactErr, Inf)]
+	end
+	llabels = [
+		"chord",
+		"T",
+		"mwing",
+		"hinge k",
+		"hinge b"
+	]
+	minliftsmg = minlifts .* 1000/9.81
+
+	res = hcat(maxuForMinAvgLift.(minlifts)...)'
+	np = length(param0)
+	p1 = plot(minliftsmg, res[:,1:np], xlabel="min avg lift [mg]", label=llabels, ylabel="design params", linewidth=2, legend=:topleft)
+	p2 = plot(minliftsmg, res[:,np+1], xlabel="min avg lift [mg]", ylabel="umin [mN]", linewidth=2, legend=false)
+	p3 = plot(minliftsmg, res[:,np+2], xlabel="min avg lift [mg]", ylabel="unact err", linewidth=2, label="err", legend=false)
+
+	return p1, p2, p3
+end
+
+# Stiffness sweep ---
+# function respkσ(kσ)
+# 	olrfun = f -> openloopResponse(m, opt, f, [param0; kσ])
+# 	freqs = collect(0.05:0.01:0.45)
+# 	mags = hcat(olrfun.(freqs)...)'
+# 	return plot(freqs, mags, ylabel=string(kσ * 100), legend=false)
+# end
+# kσs = collect(0.0:0.5:5)
+# pls = respkσ.(kσs)
+# plot(pls...)
+
+# SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
+
+
+
+# # ID
+# traj1, param1, _, _ = opt1(traj0, param0, 2, 0.1, Tmin)
+# # display(param1')
+# # pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
+# # plot(pl1...)
+# # 2. Try to optimize
+# traj2, param2, _, _ = opt1(traj1, param1, 1, 0.6, Tmin)
+# display(param2')
+# pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2], [traj0, traj1, traj2])
+# plot(pl1...)
+# # display([param0, param1])
+# # pls = plotParamImprovement(m, opt, trajt, [param0, param1], [traj0, traj1], paramObj)
+# # plot(pls...)
+# gui()
+# error("opt")
+
+# ---------
+
 # pls = debugComponentsPlot(traj1, param1; optal=1.2)
 # plot(pls..., size=(800,600))
 # gui()
 
 # error("TEST")
 
-# many sims (scale) --------------
+# ----------------
 
-function maxuForMinAvgLift(al)
-	print("plimsL[1:2] = ", plimsL(al)[1:2])
-	param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL(al), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
-	kΨ, bΨ = param1[4:5]
-	return [param1; norm(traj1[(N+1)*ny:end], Inf); norm(unactErr, Inf)]
-end
-
-minlifts = 0.5:0.1:2.0
-llabels = [
-	"chord",
-	"T",
-	"mwing",
-	"hinge k",
-	"hinge b"
-]
-minliftsmg = minlifts .* 1000/9.81
-
-res = hcat(maxuForMinAvgLift.(minlifts)...)'
-np = length(param0)
-p1 = plot(minliftsmg, res[:,1:np], xlabel="min avg lift [mg]", label=llabels, ylabel="design params", linewidth=2, legend=:topleft)
-p2 = plot(minliftsmg, res[:,np+1], xlabel="min avg lift [mg]", ylabel="umin [mN]", linewidth=2, legend=false)
-p3 = plot(minliftsmg, res[:,np+2], xlabel="min avg lift [mg]", ylabel="unact err", linewidth=2, label="err", legend=false)
-plot(p1, p2, p3)
+pls = scaleParamsForlift(traj0, param0, 0.5:0.1:2.0)
+plot(pls...)
 gui()
-
-# ! pick one
-# res = maxuForMinAvgLift(3)
-# ptest = res[1:np]
-
-# res0 = maxuForMinAvgLift(avgLift0)
-# res0[np+2]
 
 # # traj opt ------------------------------------
 
