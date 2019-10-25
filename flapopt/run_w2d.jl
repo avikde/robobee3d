@@ -80,13 +80,13 @@ plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
 # # One-off ID or opt ---------
 
 # ID
-param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 2, R_WTS, 0.1, plimsL(0.1), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
+param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 2, R_WTS, 0.1, plimsL(0.1), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
 # cu.optAffine(m, opt, traj1, param1, 2, R_WTS, 0.1, plimsL(0.1), plimsU; Fext_pdep=true, test=true, testTrajReconstruction=false, print_level=1, max_iter=200) # TEST
 display(param1')
 pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
 plot(pl1...)
 gui()
-# error("ID")
+error("ID")
 
 # param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL(1.6), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
 # display(param1')
