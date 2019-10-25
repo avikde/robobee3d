@@ -72,34 +72,31 @@ R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 
 # FIXME: σomax is printed by optAffine
 # σamax = 0.3 # [mm] constant? for robobee actuators
-Tmin = 4.182/0.35 #19.011058431792932 # σomax/σamax
+Tmin = 4.182/0.3 #19.011058431792932 # σomax/σamax
 
 plimsL = al -> [cbarmin(al), Tmin, 0.1, 0.1, 0.1]
 plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
 
 # # One-off ID or opt ---------
 
-# ID
-param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 2, R_WTS, 0.1, plimsL(0.1), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
-# cu.optAffine(m, opt, traj1, param1, 2, R_WTS, 0.1, plimsL(0.1), plimsU; Fext_pdep=true, test=true, testTrajReconstruction=false, print_level=1, max_iter=200) # TEST
-# display(param1')
-# pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
+# # ID
+# param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 2, R_WTS, 0.1, plimsL(0.1), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
+# # cu.optAffine(m, opt, traj1, param1, 2, R_WTS, 0.1, plimsL(0.1), plimsU; Fext_pdep=true, test=true, testTrajReconstruction=false, print_level=1, max_iter=200) # TEST
+# # display(param1')
+# # pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
+# # plot(pl1...)
+
+# # 2. Try to optimize
+# param2, paramObj, traj2 = cu.optAffine(m, opt, traj1, param1, 1, R_WTS, 0.1, plimsL(0.6), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
+
+# # display([param0, param1])
+# # pls = plotParamImprovement(m, opt, trajt, [param0, param1], [traj0, traj1], paramObj)
+# # plot(pls...)
+# display(param2')
+# pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2], [traj0, traj1, traj2])
 # plot(pl1...)
-
-# 2. Try to optimize
-param2, paramObj, traj2 = cu.optAffine(m, opt, traj1, param1, 1, R_WTS, 0.1, plimsL(0.6), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
-
-# # mwings = collect(0.1:0.1:2)
-# # plot(mwings, paramObj.([[param0[1:2];mwing] for mwing in mwings]))
-
-# display([param0, param1])
-# pls = plotParamImprovement(m, opt, trajt, [param0, param1], [traj0, traj1], paramObj)
-# plot(pls...)
-display(param2')
-pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2], [traj0, traj1, traj2])
-plot(pl1...)
-gui()
-error("opt")
+# gui()
+# error("opt")
 
 # Debug components ----------------
 
@@ -153,11 +150,11 @@ function debugComponentsPlot(traj, param; optal=nothing)
 	println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2, ", optal = ", (!isnothing(optal) ? optal : "-"))
 	return pl1[[1,2,4,5]]..., pls, plh, plcomp, plis, plih
 end
-pls = debugComponentsPlot(traj1, param1; optal=1.2)
-plot(pls..., size=(800,600))
-gui()
+# pls = debugComponentsPlot(traj1, param1; optal=1.2)
+# plot(pls..., size=(800,600))
+# gui()
 
-error("TEST")
+# error("TEST")
 
 # many sims (scale) --------------
 
@@ -168,7 +165,7 @@ function maxuForMinAvgLift(al)
 	return [param1; norm(traj1[(N+1)*ny:end], Inf); norm(unactErr, Inf)]
 end
 
-minlifts = 0.1:0.2:2.0
+minlifts = 0.5:0.1:2.0
 llabels = [
 	"chord",
 	"T",
@@ -176,13 +173,15 @@ llabels = [
 	"hinge k",
 	"hinge b"
 ]
+minliftsmg = minlifts .* 1000/9.81
 
 res = hcat(maxuForMinAvgLift.(minlifts)...)'
 np = length(param0)
-p1 = plot(minlifts, res[:,1:np], xlabel="min avg lift [mN]", label=llabels, ylabel="design params", linewidth=2, legend=:topleft)
-p2 = plot(minlifts, res[:,np+1], xlabel="min avg lift [mN]", ylabel="umin [mN]", linewidth=2, legend=false)
-p3 = plot(minlifts, res[:,np+2], xlabel="min avg lift [mN]", ylabel="unact err", linewidth=2, label="err", legend=false)
+p1 = plot(minliftsmg, res[:,1:np], xlabel="min avg lift [mg]", label=llabels, ylabel="design params", linewidth=2, legend=:topleft)
+p2 = plot(minliftsmg, res[:,np+1], xlabel="min avg lift [mg]", ylabel="umin [mN]", linewidth=2, legend=false)
+p3 = plot(minliftsmg, res[:,np+2], xlabel="min avg lift [mg]", ylabel="unact err", linewidth=2, label="err", legend=false)
 plot(p1, p2, p3)
+gui()
 
 # ! pick one
 # res = maxuForMinAvgLift(3)
