@@ -281,6 +281,7 @@ function loadAlignedData(fnameMat, fnameCSV, startOffs; strokeMult=1.0, ForcePer
 	Y = [strokeMult*Φ';Ψ';strokeMult*dΦ';dΨ']
 	X = [reshape(Y, 4*Ndp1);uact[1:end-1]]
 
+	println("dt = ", mean(diff(tms)))
 	# aa = plot(tms, Φ)
 	# plot!(aa, tms, Ψ)
 	# bb = plot(tms, dΦ)

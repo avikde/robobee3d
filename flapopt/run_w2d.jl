@@ -51,7 +51,7 @@ param0 = [3.2,  # cbar[mm] (area/R)
 # trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0, 187)
 
 # Load data
-opt = cu.OptOptions(false, 0.1, 1, :none, 1e-8, false) # real
+opt = cu.OptOptions(false, 0.135, 1, :none, 1e-8, false) # real
 # N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
 N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; strokeMult=m.R/(2*param0[2]), ForcePerVolt=75/100, vidSF=7320) # 75mN unidirectional at 200Vpp (from Noah)
 # pl1 = plotTrajs(m, opt, trajt, [param0], [traj0])
@@ -72,7 +72,7 @@ R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 
 # FIXME: σomax is printed by optAffine
 # σamax = 0.3 # [mm] constant? for robobee actuators
-Tmin = 19.011058431792932 # σomax/σamax
+Tmin = 4.182/0.35 #19.011058431792932 # σomax/σamax
 
 plimsL = al -> [cbarmin(al), Tmin, 0.1, 0.1, 0.1]
 plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
@@ -80,9 +80,13 @@ plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
 # # One-off ID or opt ---------
 
 # ID
-param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 2, R_WTS, 0.1, plimsL(0.1), plimsU; Fext_pdep=true, test=true, testTrajReconstruction=false, print_level=1, max_iter=200)
+param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 2, R_WTS, 0.1, plimsL(0.1), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
 display(param1')
-error("hi")
+pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
+plot(pl1...)
+gui()
+error("ID")
+
 # param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL(1.6), plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
 # display(param1')
 
