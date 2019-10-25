@@ -19,11 +19,11 @@ includet("LoadWingKinData.jl")
 # To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
 	17.0, # R, [Jafferis (2016)]
-	0.9#= 1.5 =#, #k output
+	0.7#= 1.5 =#, #k output
 	0, #b output
 	6, # ma
 	0, # ba
-	150#= 0 =#) # ka
+	250#= 0 =#) # ka
 ny, nu = cu.dims(m)
 param0 = [3.2,  # cbar[mm] (area/R)
 	28.33, # T (from 3333 rad/m, R=17, [Jafferis (2016)])
@@ -53,7 +53,7 @@ param0 = [3.2,  # cbar[mm] (area/R)
 # Load data
 opt = cu.OptOptions(false, 0.135, 1, :none, 1e-8, false) # real
 # N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
-N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; strokeMult=m.R/(2*param0[2]), ForcePerVolt=75/100, vidSF=7320) # 75mN unidirectional at 200Vpp (from Noah)
+N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; strokeMult=m.R/(2*param0[2]), ForcePerVolt=75/100, vidSF=7330) # 75mN unidirectional at 200Vpp (from Noah)
 # pl1 = plotTrajs(m, opt, trajt, [param0], [traj0])
 # pl1 = compareTrajToDAQ(m, opt, trajt, param0, traj0, lift, drag)
 # plot(pl1...)
@@ -137,29 +137,32 @@ function debugComponentsPlot(traj, param; optal=nothing)
 	end
 
 	function plotComponents(i, ylbl)
-		pl = plot(inertial[i,:], linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
-		plot!(pl, inertialc[i,:], linewidth=2, label="ic")
+		pl = plot(inertial[i,:] + inertialc[i,:], linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
 		plot!(pl, stiffdamp[i,:], linewidth=2, label="g")
 		plot!(pl, stiffdampa[i,:], linewidth=2, label="ga")
 		plot!(pl, aero[i,:], linewidth=2, label="a")
 		tot = inertial[i,:]+inertialc[i,:]+stiffdamp[i,:]+stiffdampa[i,:]+aero[i,:]
 		plot!(pl, tot, linewidth=2, linestyle=:dash, label="tot")
 
-		pl2 = plot(aero[i,:] * Tnew / δt, linewidth=2, label="dr(af)", legend=:outertopright)
+		pl2 = plot(aero[i,:] * Tnew / δt, linewidth=2, label="-dr(af)", legend=:outertopright)
 		plot!(pl2, traj1[(N+1)*4+1:end], linewidth=2, label="actf")
-		return pl, pl2
+		
+		pl3 = plot(inertial[i,:], linewidth=2, label="inc", legend=:outertopright)
+		plot!(pl3, inertialc[i,:], linewidth=2, label="ic")
+		plot!(pl3, inertial[i,:] + inertialc[i,:], linewidth=2, linestyle=:dash, label="itot")
+		return pl, pl2, pl3
 	end
 
 	pl1 = plotTrajs(m, opt, trajt, [param], [traj])
-	pls, plcomp = plotComponents(1, "stroke")
-	plh, _ = plotComponents(2, "hinge")
+	pls, plcomp, plis = plotComponents(1, "stroke")
+	plh, _, plih = plotComponents(2, "hinge")
 
 	# Note that gamma is here
 	println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2, ", optal = ", (!isnothing(optal) ? optal : "-"))
-	return pl1[[1,2,4,5]]..., pls, plh, plcomp
+	return pl1[[1,2,4,5]]..., pls, plh, plcomp, plis, plih
 end
-pls = debugComponentsPlot(traj0, param0; optal=1.6)
-plot(pls..., size=(1200,600))
+pls = debugComponentsPlot(traj0, param0; optal=nothing)
+plot(pls..., size=(800,600))
 gui()
 
 error("TEST")
