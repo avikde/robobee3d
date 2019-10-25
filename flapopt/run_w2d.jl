@@ -44,13 +44,13 @@ function initTraj(sim=false; fix=false, makeplot=false)
 		opt = cu.OptOptions(false, 0.2, 1, :none, 1e-8, false) # sim
 		N = opt.boundaryConstraint == :symmetric ? 17 : 33
 		trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0, 187)
-		Tmin = 4.182/σamax
+		Tmin = 19.011058431792932 # σomax/σamax
 	else
 		# Load data
 		opt = cu.OptOptions(false, 0.135, 1, :none, 1e-8, false) # real
 		# N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
 		N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; strokeMult=m.R/(2*param0[2]), ForcePerVolt=75/100, vidSF=7320) # 75mN unidirectional at 200Vpp (from Noah)
-		Tmin = 19.011058431792932 # σomax/σamax
+		Tmin = 4.182/σamax
 	end
 
 	if fix
