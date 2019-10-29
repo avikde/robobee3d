@@ -19,7 +19,7 @@ includet("LoadWingKinData.jl")
 # To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
 	17.0, # R, [Jafferis (2016)]
-	0.5#= 1.5 =#, #k output
+	0.55#= 1.5 =#, #k output
 	0, #b output
 	6, # ma
 	0, # ba
@@ -49,7 +49,8 @@ function initTraj(sim=false; fix=false, makeplot=false)
 		# Load data
 		opt = cu.OptOptions(false, 0.135, 1, :none, 1e-8, false) # real
 		# N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
-		N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; strokeMult=m.R/(2*param0[2]), ForcePerVolt=75/100, vidSF=7320) # 75mN unidirectional at 200Vpp (from Noah)
+		N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; sigi=1, strokeSign=1, strokeMult=m.R/(2*param0[2]), ForcePerVolt=75/100, vidSF=7320) # 75mN unidirectional at 200Vpp (from Noah)
+		# Tmin = 5.073510129481743/σamax
 		Tmin = 4.182/σamax
 	end
 
@@ -189,17 +190,17 @@ end
 
 # ID
 traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1, Tmin)
-# display(param1')
-# pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
-# plot(pl1...)
-# 2. Try to optimize
-traj2, param2, paramObj, _ = opt1(traj1, param1, 1, 0.8, Tmin)
-# display(param2')
-traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 0.9, Tmin)
-# pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
-# plot(pl1...)
-pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj)
-plot(pls...)
+display(param1')
+pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
+plot(pl1...)
+# # 2. Try to optimize
+# traj2, param2, paramObj, _ = opt1(traj1, param1, 1, 0.8, Tmin)
+# # display(param2')
+# traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 0.9, Tmin)
+# # pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
+# # plot(pl1...)
+# pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj)
+# plot(pls...)
 
 # ---------
 
