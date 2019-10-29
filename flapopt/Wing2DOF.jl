@@ -329,11 +329,11 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, paramObj
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
     # First plot the param landscape
     pranges = [
-        0:0.2:5.0, # cbars
+        0:0.25:6.0, # cbars
         10.0:1.0:50, # Ts
         0.1:0.1:3.0, # mwings
-        0.1:0.5:10.0, # kΨs
-        0.1:0.5:10.0 # bΨs
+        0.1:1.0:20.0, # kΨs
+        0.1:1.0:20.0 # bΨs
     ]
     labels = [
         "chord",
