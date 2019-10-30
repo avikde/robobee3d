@@ -182,8 +182,18 @@ end
 
 # lumped parameter vector
 function getpt(m::Model, p)
-	pb, T = paramLumped(m, p)
-	return [pb; T^(-2)], T
+	pb, Tarr = paramLumped(m, p)
+	τ1, τ2 = Tarr
+	return [pb; 1/τ1^2; τ2^2/τ1^5], Tarr
+end
+
+"Override this"
+function transmission(m::Model, y::AbstractArray, _param::Vector)
+	yo = y
+	T = 1.0
+	τfun = x -> x
+	τifun = x -> x
+    return yo, T, τfun, τifun
 end
 
 "Helper function to reconstruct the traj (also test it)"
@@ -351,8 +361,10 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
         Hpb = zeros(nq, N)
 		Bu = similar(Hpb)
 		for k=1:N
-            Hpb[:,k] = Hk(k, zeros(ny), zeros(ny)) * ptTEST
-			Bu[:,k] = δt * B * umeas(k)[1] / TTEST
+			Hpb[:,k] = Hk(k, zeros(ny), zeros(ny)) * ptTEST
+			# Need actuator coords here to call transmission()
+			T1TEST = transmission(m, traj[liy[:,k]], param)[2]
+			Bu[:,k] = δt * B * umeas(k)[1] / T1TEST
 		end
         display(Hpb - Bu)
         error("Tested")
