@@ -26,10 +26,11 @@ m = Wing2DOFModel(
 	250#= 0 =#) # ka
 ny, nu = cu.dims(m)
 param0 = [3.2,  # cbar[mm] (area/R)
-	28.33, # T (from 3333 rad/m, R=17, [Jafferis (2016)])
+	28.33, # tau1 (from 3333 rad/m, R=17, [Jafferis (2016)])
 	0.52, # mwing[mg]
 	5, # kΨ [mN-mm/rad]
-	3 # bΨ [mN-mm/(rad/ms)]
+	3, # bΨ [mN-mm/(rad/ms)]
+	10 # tau2 quadratic term https://github.com/avikde/robobee3d/pull/92
 ]
 
 # FUNCTIONS GO HERE -------------------------------------------------------------
@@ -68,7 +69,8 @@ function initTraj(sim=false; fix=false, makeplot=false)
 end
 
 # IMPORTANT - load which traj here!!!
-N, trajt, traj0, opt, Tmin = initTraj(true; fix=true)
+N, trajt, traj0, opt, Tmin = initTraj(true; fix=true, makeplot=true)
+error("dydt")
 
 # Constraint on cbar placed by minAvgLift. FIXME: this is very specific to W2D, since lift \proptp cbar
 avgLift0 = avgLift(m, opt, traj0, param0)
