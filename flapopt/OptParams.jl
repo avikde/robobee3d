@@ -184,7 +184,7 @@ end
 function getpt(m::Model, p)
 	pb, Tarr = paramLumped(m, p)
 	τ1, τ2 = Tarr
-	return [pb; 1/τ1^2; τ2^2/τ1^5], Tarr
+	return [pb; 1/τ1^2; τ2/τ1^5], Tarr
 end
 
 "Override this"
