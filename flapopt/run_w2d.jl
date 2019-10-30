@@ -68,7 +68,7 @@ function initTraj(sim=false; fix=false, makeplot=false)
 end
 
 # IMPORTANT - load which traj here!!!
-N, trajt, traj0, opt, Tmin = initTraj()
+N, trajt, traj0, opt, Tmin = initTraj(true; fix=true)
 
 # Constraint on cbar placed by minAvgLift. FIXME: this is very specific to W2D, since lift \proptp cbar
 avgLift0 = avgLift(m, opt, traj0, param0)
@@ -82,9 +82,9 @@ plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
 oaOpts(al, Tmin) = (R_WTS, 0.1, plimsL(al, Tmin), plimsU)
 
 """One-off ID or opt"""
-function opt1(traj, param, mode, minal, Tmin; testAfter=false)
+function opt1(traj, param, mode, minal, Tmin; testAffine=false, testAfter=false)
 	optoptions = oaOpts(minal, Tmin)
-	param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj, param, mode, optoptions...; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=200)
+	param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj, param, mode, optoptions...; Fext_pdep=true, test=testAffine, testTrajReconstruction=false, print_level=1, max_iter=200)
 	if testAfter
 		cu.optAffine(m, opt, traj1, param1, 2, optoptions...; Fext_pdep=true, test=true, testTrajReconstruction=false, print_level=1, max_iter=200) # TEST
 	end
@@ -185,7 +185,7 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-
+traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1, Tmin; testAffine=true)
 
 # ID
 traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1, Tmin)
