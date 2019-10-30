@@ -394,7 +394,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	
 	# See eval_f for how these are used to form the objective
 	function eval_f(x)
-		pt, T = getpt(m, x[1:np])
+		pt, Tarr = getpt(m, x[1:np])
+		T = Tarr[1] # FIXME:
 		# Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 
 		# min Δy
