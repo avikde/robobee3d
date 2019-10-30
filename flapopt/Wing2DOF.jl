@@ -430,7 +430,9 @@ end
 function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
     cbar, τ1, mwing, kΨ, bΨ, τ2 = param
     # FIXME: transmission
-    return [1, kΨ, bΨ, cbar, cbar^2, mwing, mwing*cbar, mwing*cbar^2], T
+    # Tarr = [τ1, τ2]
+    Tarr = τ1
+    return [1, kΨ, bΨ, cbar, cbar^2, mwing, mwing*cbar, mwing*cbar^2], Tarr
 end
 
 function cu.TmapAtoO(m::Wing2DOFModel, T)

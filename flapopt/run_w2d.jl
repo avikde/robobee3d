@@ -45,13 +45,13 @@ function initTraj(sim=false; fix=false, makeplot=false)
 		opt = cu.OptOptions(false, 0.2, 1, :none, 1e-8, false) # sim
 		N = opt.boundaryConstraint == :symmetric ? 17 : 33
 		trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0, 187)
-		Tmin = 19.011058431792932 # σomax/σamax
+		τ1min = 19.011058431792932 # σomax/σamax
 	else
 		# Load data
 		opt = cu.OptOptions(false, 0.135, 1, :none, 1e-8, false) # real
 		# N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
 		N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; strokeMult=m.R/(2*param0[2]), ForcePerVolt=75/100, vidSF=7320) # 75mN unidirectional at 200Vpp (from Noah)
-		Tmin = 4.182/σamax
+		τ1min = 4.182/σamax
 	end
 
 	if fix
@@ -69,8 +69,7 @@ function initTraj(sim=false; fix=false, makeplot=false)
 end
 
 # IMPORTANT - load which traj here!!!
-N, trajt, traj0, opt, Tmin = initTraj(true; fix=true, makeplot=true)
-error("dydt")
+N, trajt, traj0, opt, Tmin = initTraj(true; fix=true)
 
 # Constraint on cbar placed by minAvgLift. FIXME: this is very specific to W2D, since lift \proptp cbar
 avgLift0 = avgLift(m, opt, traj0, param0)
@@ -78,10 +77,10 @@ cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
 
 R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 
-plimsL(al, Tmin) = [isnothing(al) ? 0.1 : cbarmin(al), Tmin, 0.1, 0.1, 0.1]
-plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0]
+plimsL(al, τ1min) = [isnothing(al) ? 0.1 : cbarmin(al), τ1min, 0.1, 0.1, 0.1, 0]
+plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0]
 # Taken by optAffine
-oaOpts(al, Tmin) = (R_WTS, 0.1, plimsL(al, Tmin), plimsU)
+oaOpts(al, τ1min) = (R_WTS, 0.1, plimsL(al, τ1min), plimsU)
 
 """One-off ID or opt"""
 function opt1(traj, param, mode, minal, Tmin; testAffine=false, testAfter=false)
