@@ -279,20 +279,24 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	nact = size(B, 2)
 	nck = nq - nact # number of constraints for each k = # of unactuated DOFs ( = nunact)
 	Bperp = (I - B*B')[nact+1:end,:] # s.t. Bperp*B = 0
-	nc = N * nck# + np
+	nc = N * nck + 1 # add a transmission constraint
 
 	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1) * (getpt(m, p)[1])
 	function eval_g_ret(x)
 		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
-		# g .= x # OLD: 
-		return vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), x[1:np]) for k=1:N]...)
+		gunact = vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), x[1:np]) for k=1:N]...)
+		# Get both transmission coeffs
+		# pbb, Tarrr = paramLumped(m, x[1:np])
+		gtransmission = 0#x[2]#σomax#/Tarrr[1] # - σomax^3/3 * Tarrr[1]/Tarrr[2]^4
+		return [gunact; gtransmission]
 	end
 	# g1 = Array{Any,1}(undef, nc)
 	eval_g(x::Vector, g::Vector) = g .= eval_g_ret(x)
 
 	# ----------- Constraint Jac ----------------------------
 	# Exploit sparsity in the nc*nx matrix. Each constraint depends on Δyk(k), Δyk(k+1), p
-	Dgnnz = nc * (2*ny + np)
+	# The +2 at the end is for the transmission constraint
+	Dgnnz = (nc-1) * (2*ny + np) + 2
 
 	# Function for IPOPT
 	function eval_jac_g(x, imode, row::Vector{Int32}, col::Vector{Int32}, value)
@@ -301,6 +305,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		if imode != :Structure
 			Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 			p = x[1:np]
+			# pbb, Tarrr = paramLumped(m, x[1:np])
 
 			for k=1:N
 				# Now assemble the pieces
@@ -326,6 +331,11 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 					end
 				end
 			end
+			# transmission
+			value[offs] = 0#-σomax/Tarrr[1]^2 # d/dτ1
+			offs += 1
+			value[offs] = 0 # d/dτ2
+			offs += 1
 		else
 			for k=1:N
 				for i=1:nck
@@ -350,11 +360,18 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 					end
 				end
 			end
+			# transmission FIXME: how to get col inds
+			row[offs] = nc
+			col[offs] = 2
+			offs += 1
+			row[offs] = nc
+			col[offs] = 6
+			offs += 1
 		end
 	end
 
-	glimsL = -εunact*ones(nc)
-	glimsU = εunact*ones(nc)
+	glimsL = [-εunact*ones(nc-1); -10000]
+	glimsU = [εunact*ones(nc-1); 10000]
 
 	# ----------------------- Objective --------------------------------
     # If test is true, it will test the affine relation

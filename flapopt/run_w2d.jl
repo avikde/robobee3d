@@ -74,7 +74,7 @@ cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
 
 R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 
-plimsL(al) = [isnothing(al) ? 0.1 : cbarmin(al), 0.0, 0.1, 0.1, 0.1, 0] # FIXME: Tmin is filled out by optAffine
+plimsL(al) = [isnothing(al) ? 0.1 : cbarmin(al), 0.1, 0.1, 0.1, 0.1, 0] # FIXME: Tmin is filled out by optAffine
 plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 0.0]
 # Taken by optAffine
 oaOpts(al) = (R_WTS, 0.1, plimsL(al), plimsU, σamax)
@@ -194,6 +194,7 @@ traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1)
 traj2, param2, paramObj, _ = opt1(traj1, param1, 1, 0.8)
 # display(param2')
 traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 0.9)
+display(param3')
 # pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
 # plot(pl1...)
 pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj)
