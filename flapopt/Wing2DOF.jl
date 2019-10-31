@@ -82,7 +82,7 @@ function w2daero(m::Wing2DOFModel, yo::AbstractArray, _params::Vector)
     ρ = 1.225e-3 # [mg/(mm^3)]
     
     # unpack
-    cbar, T, mwing, kΨ, bΨ = _params
+    cbar, τ1, mwing, kΨ, bΨ, τ2 = _params
     σ, Ψ, σ̇, Ψ̇ = yo # [mm, rad, mm/ms, rad/ms]
     cΨ = cos(Ψ)
     sΨ = sin(Ψ)
@@ -115,9 +115,8 @@ end
 "Continuous dynamics second order model"
 function cu.dydt(m::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _params::Vector)::AbstractArray
     # unpack
-    cbar, T, mwing, kΨ, bΨ = _params
-    # cbar, T, kσ = _params
-    yo = (@SVector [T, 1, T, 1]) .* y # [mm, rad, mm/ms, rad/ms]
+    cbar, τ1, mwing, kΨ, bΨ, τ2 = _params
+    yo, T, τfun, τifun = cu.transmission(m, y, _params)
     σ, Ψ, σ̇, Ψ̇ = yo
     # NOTE: for optimizing transmission ratio
     # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
@@ -128,7 +127,7 @@ function cu.dydt(m::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _params::
 
     # inertial terms
     M = @SMatrix [mwing + m.ma/T^2   γ*cbar*mwing*cΨ;  γ*cbar*mwing*cΨ   2*cbar^2*γ^2*mwing]
-    corgrav = @SVector [(m.kσ + m.ka/T^2)*σ - γ*cbar*mwing*sΨ*Ψ̇^2, kΨ*Ψ]
+    corgrav = @SVector [(m.kσ*σ + m.ka/T*τifun(σ)) - γ*cbar*mwing*sΨ*Ψ̇^2, kΨ*Ψ]
     # non-lagrangian terms
     τdamp = @SVector [-(m.bσ + m.ba/T^2) * σ̇, -bΨ * Ψ̇]
     _, Jaero, Faero = w2daero(m, yo, _params)
@@ -230,8 +229,8 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, traj
 	Ny = (N+1)*ny
     # stroke "angle" = T*y[1] / R
     function strokeAng(traj, param)
-        cbar, T, mwing, kΨ, bΨ = param
-        traj[@view liy[1,:]] * T / (m.R/2)
+        σo = [cu.transmission(m, traj[@view liy[:,k]], param)[1][1] for k=1:N+1]
+        return σo / (m.R/2)
     end
     # If plot is given a matrix each column becomes a different line
     σt = plot(t, hcat([strokeAng(trajs[i], params[i]) for i in 1:length(trajs)]...), linewidth=2, ylabel="stroke ang [r]")# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
@@ -242,8 +241,8 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, traj
     Nt = length(trajs)
     # Plot of aero forces at each instant
     function aeroPlotVec(_traj::Vector, _param, ind)
-        cbar, T, mwing, kΨ, bΨ = _param
-        Faerok = k -> w2daero(m, [T,1,T,1].*_traj[@view liy[:,k]], _param)[end] * 1000 / 9.81 # to mg
+        cbar, τ1, mwing, kΨ, bΨ, τ2 = _param
+        Faerok = k -> w2daero(m, cu.transmission(m, _traj[@view liy[:,k]], _param)[1], _param)[end] * 1000 / 9.81 # to mg
         Faeros = hcat([Faerok(k) for k=1:N]...)
         return [Faeros[ind,:]' NaN]'
     end
@@ -268,7 +267,7 @@ function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 	Ny = (N+1)*ny
 	# stroke "angle" = T*y[1] / R
-    cbar, T, mwing, kΨ, bΨ = param
+    cbar, τ1, mwing, kΨ, bΨ, τ2 = param
     # Plot of aero forces at each instant
     function aeroPlotVec(_traj::Vector, _param, i)
         Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end]
@@ -288,9 +287,10 @@ function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param
 end
 
 function drawFrame(m::Wing2DOFModel, yk, uk, param; Faeroscale=1.0)
-    cbar, T, mwing, kΨ, bΨ = param
-    paero, _, Faero = w2daero(m, [T,1,T,1].*yk, param)
-    wing1 = [yk[1] * T;0] # wing tip
+    cbar, τ1, mwing, kΨ, bΨ, τ2 = param
+    yo, T, _, _ = cu.transmission(m, yk, param)
+    paero, _, Faero = w2daero(m, yo, param)
+    wing1 = [yo[1];0] # wing tip
     wing2 = wing1 + normalize(paero - wing1)*cbar
     # draw wing
     w = plot([wing1[1]; wing2[1]], [wing1[2]; wing2[2]], color=:gray, aspect_ratio=:equal, linewidth=5, legend=false, xlims=(-15,15), ylims=(-3,3))
@@ -325,7 +325,7 @@ function animateTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs)
     # return wingdraw 
 end
 
-function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, paramObj::Function, args...; μ::Float64=1e-1)
+function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, paramObj::Function, args...; μ::Float64=1e-1, Vclip=50000)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
     # First plot the param landscape
     pranges = [
@@ -360,7 +360,8 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, paramObj
             parg = copy(param0)
             parg[i1] = p1
             parg[i2] = p2
-            return paramObj(parg)
+            V = paramObj(parg)
+            return V > Vclip ? NaN : V
         end
         pl = contour(pranges[i1], pranges[i2], f, fill=true, seriescolor=cgrad(:bluesreds), xlabel=labels[i1], ylabel=labels[i2])
         # Now plot the path taken
@@ -400,11 +401,11 @@ function cu.robj(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, para
 	yk = k -> @view traj[liy[:,k]]
 	uk = k -> @view traj[liu[:,k]]
     
-    cbar, T, mwing, kΨ, bΨ = param
+    cbar, τ1, mwing, kΨ, bΨ, τ2 = param
 
     Favg = @SVector zeros(2)
     for k = 1:N
-        paero, _, Faero = w2daero(m, [T,1,T,1].*yk(k), param)
+        paero, _, Faero = w2daero(m, cu.transmission(m, yk(k), param)[1], param)
         Favg += Faero
     end
     # Divide by the total time
@@ -415,13 +416,28 @@ end
 
 # param opt stuff ------------------------
 
-function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
-    cbar, T, mwing, kΨ, bΨ = param
-    return [1, kΨ, bΨ, cbar, cbar^2, mwing, mwing*cbar, mwing*cbar^2], T
+function cu.transmission(m::Wing2DOFModel, y::AbstractArray, _param::Vector; o2a=false)
+    cbar, τ1, mwing, kΨ, bΨ, τ2 = _param
+    τfun = σa -> τ1*σa + τ2/3*σa^3
+    # Series from Mathematica
+    τifun = σo -> σo/τ1 - τ2*σo^3/(3*τ1^4) # + O[σo^4]
+    if !o2a
+        Dτfun = σa -> τ1 + τ2*σa^2
+        T = Dτfun(y[1]) # "gear ratio"
+
+        y2 = [τfun(y[1]), y[2], T*y[3], y[4]] # [mm, rad, mm/ms, rad/ms]
+    else
+        σo = y[1]
+        T = τ1 + σo^2*τ2/τ1^2
+        y2 = [τifun(σo), y[2], y[3]/T, y[4]] # [mm, rad, mm/ms, rad/ms]
+    end
+    return y2, T, τfun, τifun
 end
 
-function cu.TmapAtoO(m::Wing2DOFModel, T)
-	return [T, 1, T, 1]
+function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
+    cbar, τ1, mwing, kΨ, bΨ, τ2 = param
+    Tarr = [τ1, τ2]
+    return [1, kΨ, bΨ, cbar, cbar^2, mwing, mwing*cbar, mwing*cbar^2], Tarr
 end
 
 function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple, scaleTraj=1.0; Fext_pdep::Bool=false, debugComponents::Bool=false)
@@ -431,43 +447,43 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     uk = k -> @view traj[liu[:,k]]
 
     # Param stuff
-    cbar, T, mwing, kΨ, bΨ = param
+    cbar, τ1, mwing, kΨ, bΨ, τ2 = param
     # Need the original T to use output coords
-    yo = k -> [T, 1.0, T, 1.0] .* yk(k)
+    yo = k -> cu.transmission(m, yk(k), param)[1]
 
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
     """Inertial"""
     function HMqTWithoutCoupling(ypos, yvel)
         σo, Ψ, σ̇odum, Ψ̇dum = ypos
         σodum, Ψdum, σ̇o, Ψ̇ = yvel
-        return [0   0   0   0   0   σ̇o   0   0   σ̇o*m.ma;
-        0   0   0   0   0   0   0   2*Ψ̇*γ^2    0]
+        return [0   0   0   0   0   σ̇o   0   0   σ̇o*m.ma   σ̇o*m.ma*(-σo^2);
+        0   0   0   0   0   0   0   2*Ψ̇*γ^2    0   0]
     end
     function HMqTCoupling(ypos, yvel)
         σo, Ψ, σ̇odum, Ψ̇dum = ypos
         σodum, Ψdum, σ̇o, Ψ̇ = yvel
-        return [0   0   0   0   0   0   γ*Ψ̇*cos(Ψ)   0   0;
-        0   0   0   0   0   0   γ*σ̇o*cos(Ψ)   0    0]
+        return [0   0   0   0   0   0   γ*Ψ̇*cos(Ψ)   0   0   0;
+        0   0   0   0   0   0   γ*σ̇o*cos(Ψ)   0    0   0]
     end
     HMqT(ypos, yvel) = HMqTWithoutCoupling(ypos, yvel) + HMqTCoupling(ypos, yvel)
 
     """Coriolis"""
     function HC(y)
         σo, Ψ, σ̇o, Ψ̇ = y
-        return [0   0   0   0   0   0   -γ*Ψ̇^2*sin(Ψ)   0    0;
-        0   0   0    0   0   0   0   0   0]
+        return [0   0   0   0   0   0   -γ*Ψ̇^2*sin(Ψ)   0    0   0;
+        0   0   0    0   0   0   0   0   0   0]
     end
     """Stiffness/damping output"""
     function Hg(y)
         σo, Ψ, σ̇o, Ψ̇ = y
-        return [m.kσ*σo+m.bσ*σ̇o   0   0   0   0   0   0   0    0;
-        0   Ψ   Ψ̇    0   0   0   0   0   0]
+        return [m.kσ*σo+m.bσ*σ̇o   0   0   0   0   0   0   0    0   0;
+        0   Ψ   Ψ̇    0   0   0   0   0   0   0]
     end
     """Stiffness/damping actuator"""
     function Hgact(y)
         σo, Ψ, σ̇o, Ψ̇ = y
-        return [0   0   0   0   0   0   0   0    m.ba*σ̇o + m.ka*σo;
-        0   0   0    0   0   0   0   0   0]
+        return [0   0   0   0   0   0   0   0    m.ba*σ̇o+m.ka*σo   m.ba*σ̇o*(-σo^2)+m.ka*(-σo^3/3);
+        0   0   0    0   0   0   0   0   0   0]
     end
     """Ext force (aero)"""
     function HF(y, F)
@@ -482,13 +498,13 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
             # return [0   -m.kσ*σa-m.bσ*σ̇a   Ftil[1]   0   0;
             # -m.kΨ*Ψ-m.bΨ*Ψ̇   0   0   -σ̇a*Ψ̇*m.mwing*sin(Ψ)   rcopnondim*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))]
             # 1st order version
-            return [0   0   0   Ftil[1]   0   0   0   0   0;
-            0   0   0    0   rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0]
+            return [0   0   0   Ftil[1]   0   0   0   0   0   0;
+            0   0   0    0   rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0   0]
         else
             Ftil = -F
             # 1st order version
-            return [Ftil[1]   0   0   0   0   0   0   0    0;
-            0   0   0    rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0   0]
+            return [Ftil[1]   0   0   0   0   0   0   0    0   0;
+            0   0   0    rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0   0   0]
         end
     end
     function HF2(y)
@@ -515,7 +531,10 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         _, _, Faero = w2daero(m, yo(k) + Δyk, param)
         # NOTE: it uses param *only for Faero*. Add same F as the traj produced
         # This has the assumption that the interaction force is held constant.
-        return Htil(yo(k) + Δyk, yo(k+1) + Δykp1, Faero)
+        Hh = Htil(yo(k) + Δyk, yo(k+1) + Δykp1, Faero)
+        # With new nonlinear transmission need to break apart H
+        σo = (yo(k) + Δyk)[1]
+        return hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
     end
     
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
@@ -529,10 +548,10 @@ function avgLift(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, para
     yk = k -> @view traj[liy[:,k]]
     uk = k -> @view traj[liu[:,k]]
 
-    cbar, T, mwing, kΨ, bΨ = param
+    cbar, τ1, mwing, kΨ, bΨ, τ2 = param
     aa = 0
     for k=1:N
-        _, _, Faero = w2daero(m, [T,1,T,1].*yk(k), param)
+        _, _, Faero = w2daero(m, cu.transmission(m, yk(k), param)[1], param)
         aa += Faero[2] * δt
     end
     return aa / (N*δt)
