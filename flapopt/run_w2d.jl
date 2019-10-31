@@ -30,7 +30,7 @@ param0 = [3.2,  # cbar[mm] (area/R)
 	0.52, # mwing[mg]
 	5, # kΨ [mN-mm/rad]
 	3, # bΨ [mN-mm/(rad/ms)]
-	10 # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
+	0 # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
 ]
 
 # FUNCTIONS GO HERE -------------------------------------------------------------
@@ -79,7 +79,7 @@ cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
 R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 
 plimsL(al, τ1min) = [isnothing(al) ? 0.1 : cbarmin(al), τ1min, 0.1, 0.1, 0.1, 0]
-plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0]
+plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 0.0]
 # Taken by optAffine
 oaOpts(al, τ1min) = (R_WTS, 0.1, plimsL(al, τ1min), plimsU)
 
