@@ -32,6 +32,7 @@ param0 = [3.2,  # cbar[mm] (area/R)
 	3, # bΨ [mN-mm/(rad/ms)]
 	0 # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
 ]
+σamax = 0.3 # [mm] constant? for robobee actuators
 
 # FUNCTIONS GO HERE -------------------------------------------------------------
 
@@ -39,20 +40,15 @@ param0 = [3.2,  # cbar[mm] (area/R)
 fix -- Make traj satisfy dyn constraint with these params?
 """
 function initTraj(sim=false; fix=false, makeplot=false)
-	# FIXME: σomax is printed by optAffine
-	σamax = 0.3 # [mm] constant? for robobee actuators
 	if sim
 		opt = cu.OptOptions(false, 0.2, 1, :none, 1e-8, false) # sim
 		N = opt.boundaryConstraint == :symmetric ? 17 : 33
 		trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0, 187)
-		τ1min = 19.011058431792932 # σomax/σamax
 	else
 		# Load data
 		opt = cu.OptOptions(false, 0.135, 1, :none, 1e-8, false) # real
 		# N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
 		N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; sigi=1, strokeSign=1, strokeMult=m.R/(2*param0[2]), ForcePerVolt=75/100, vidSF=7320) # 75mN unidirectional at 200Vpp (from Noah)
-		# τ1min = 5.073510129481743/σamax
-		τ1min = 4.182/σamax
 	end
 
 	if fix
@@ -78,14 +74,14 @@ cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
 
 R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 
-plimsL(al, τ1min) = [isnothing(al) ? 0.1 : cbarmin(al), τ1min, 0.1, 0.1, 0.1, 0]
+plimsL(al) = [isnothing(al) ? 0.1 : cbarmin(al), 0.0, 0.1, 0.1, 0.1, 0] # FIXME: Tmin is filled out by optAffine
 plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 0.0]
 # Taken by optAffine
-oaOpts(al, τ1min) = (R_WTS, 0.1, plimsL(al, τ1min), plimsU)
+oaOpts(al) = (R_WTS, 0.1, plimsL(al), plimsU, σamax)
 
 """One-off ID or opt"""
-function opt1(traj, param, mode, minal, Tmin; testAffine=false, testAfter=false)
-	optoptions = oaOpts(minal, Tmin)
+function opt1(traj, param, mode, minal; testAffine=false, testAfter=false)
+	optoptions = oaOpts(minal)
 	param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj, param, mode, optoptions...; Fext_pdep=true, test=testAffine, testTrajReconstruction=false, print_level=1, max_iter=200)
 	if testAfter
 		cu.optAffine(m, opt, traj1, param1, 2, optoptions...; Fext_pdep=true, test=true, testTrajReconstruction=false, print_level=1, max_iter=200) # TEST
@@ -96,10 +92,10 @@ end
 """Debug components in a traj"""
 function debugComponentsPlot(traj, param; optal=nothing)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-	optoptions = oaOpts(optal, Tmin)
+	optoptions = oaOpts(optal)
 
 	if !isnothing(optal)
-		traj1, param1, _, _ = opt1(traj, param, 1, optal, Tmin)
+		traj1, param1, _, _ = opt1(traj, param, 1, optal)
 	else
 		param1 = param
 		traj1 = traj
@@ -151,8 +147,8 @@ end
 """Run many opts to get the best params for a desired min lift"""
 function scaleParamsForlift(traj, param, minlifts)
 	function maxuForMinAvgLift(al)
-		print("plimsL[1:2] = ", plimsL(al, Tmin)[1:2])
-		traj1, param1, _, unactErr = opt1(traj, param, 1, al, Tmin)
+		print("plimsL[1:2] = ", plimsL(al)[1:2])
+		traj1, param1, _, unactErr = opt1(traj, param, 1, al)
 		kΨ, bΨ = param1[4:5]
 		return [param1; norm(traj1[(N+1)*ny:end], Inf); norm(unactErr, Inf)]
 	end
@@ -187,17 +183,17 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1, Tmin)
+traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1)
 
 # ID
-traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1, Tmin)
+traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1)
 # display(param1')
 # pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
 # plot(pl1...)
 # 2. Try to optimize
-traj2, param2, paramObj, _ = opt1(traj1, param1, 1, 0.8, Tmin)
+traj2, param2, paramObj, _ = opt1(traj1, param1, 1, 0.8)
 # display(param2')
-traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 0.9, Tmin)
+traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 0.9)
 # pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
 # plot(pl1...)
 pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj)
