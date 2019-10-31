@@ -112,18 +112,6 @@ function w2daero(m::Wing2DOFModel, yo::AbstractArray, _params::Vector)
     return paero, Jaero, Faero
 end
 
-function cu.transmission(m::Wing2DOFModel, y::AbstractArray, _param::Vector)
-    cbar, τ1, mwing, kΨ, bΨ, τ2 = _param
-    τfun = σa -> τ1*σa + τ2/3*σa^3
-    Dτfun = σa -> τ1 + τ2*σa^2
-    # Series from Mathematica
-    τifun = σo -> σo/τ1 - τ2*σo^3/(3*τ1^4) # + O[σo^4]
-    T = Dτfun(y[1]) # "gear ratio"
-
-    yo = [τfun(y[1]), y[2], T*y[3], y[4]] # [mm, rad, mm/ms, rad/ms]
-    return yo, T, τfun, τifun
-end
-
 "Continuous dynamics second order model"
 function cu.dydt(m::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _params::Vector)::AbstractArray
     # unpack
@@ -261,7 +249,7 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, traj
     liftt = plot(t, hcat([aeroPlotVec(trajs[i], params[i], 2) for i=1:Nt]...), linewidth=2, legend=false, ylabel="lift [mg]")
     dragt = plot(t, hcat([aeroPlotVec(trajs[i], params[i], 1) for i=1:Nt]...), linewidth=2, legend=false, ylabel="drag [mg]")
     # Combine the subplots
-	return (σt, Ψt, ut)#, liftt, dragt)
+	return (σt, Ψt, ut, liftt, dragt)
 end
 
 function plotParamImprovement(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, trajs, paramObj::Function)
@@ -427,14 +415,28 @@ end
 
 # param opt stuff ------------------------
 
+function cu.transmission(m::Wing2DOFModel, y::AbstractArray, _param::Vector; o2a=false)
+    cbar, τ1, mwing, kΨ, bΨ, τ2 = _param
+    τfun = σa -> τ1*σa + τ2/3*σa^3
+    # Series from Mathematica
+    τifun = σo -> σo/τ1 - τ2*σo^3/(3*τ1^4) # + O[σo^4]
+    if !o2a
+        Dτfun = σa -> τ1 + τ2*σa^2
+        T = Dτfun(y[1]) # "gear ratio"
+
+        y2 = [τfun(y[1]), y[2], T*y[3], y[4]] # [mm, rad, mm/ms, rad/ms]
+    else
+        σo = y[1]
+        T = τ1 + σo^2*τ2/τ1^2
+        y2 = [τifun(σo), y[2], y[3]/T, y[4]] # [mm, rad, mm/ms, rad/ms]
+    end
+    return y2, T, τfun, τifun
+end
+
 function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
     cbar, τ1, mwing, kΨ, bΨ, τ2 = param
     Tarr = [τ1, τ2]
     return [1, kΨ, bΨ, cbar, cbar^2, mwing, mwing*cbar, mwing*cbar^2], Tarr
-end
-
-function cu.TmapAtoO(m::Wing2DOFModel, T)
-	return [T, 1, T, 1]
 end
 
 function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple, scaleTraj=1.0; Fext_pdep::Bool=false, debugComponents::Bool=false)

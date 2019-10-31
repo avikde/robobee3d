@@ -175,11 +175,6 @@ end
 "Implement this"
 paramLumped(m::Model, param::AbstractArray) = error("Implement this")
 
-"Return the transmission matrix that should multiply the state to go from OUTPUT to ACTUATOR"
-function TmapAtoO(m::Model, T)
-	error("Not implemented")
-end
-
 # lumped parameter vector
 function getpt(m::Model, p)
 	pb, Tarr = paramLumped(m, p)
@@ -188,13 +183,13 @@ function getpt(m::Model, p)
 	return [pb*τ1; pb*τ2/τ1^2; 1/τ1; τ2/τ1^4], Tarr
 end
 
-"Override this"
-function transmission(m::Model, y::AbstractArray, _param::Vector)
-	yo = y
+"Override this. Input y can be in actuator or output coordinates. If o2a is false, maps A to O, else maps O to A"
+function transmission(m::Model, y::AbstractArray, _param::Vector; o2a=false)
+	y2 = y
 	T = 1.0
 	τfun = x -> x
 	τifun = x -> x
-    return yo, T, τfun, τifun
+    return y2, T, τfun, τifun
 end
 
 "Helper function to reconstruct the traj (also test it)"
@@ -209,10 +204,13 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, 
 	ptnew, Tnew = getpt(m, pnew)
 	for k=1:N+1
 		# Go from output to act coords
-		traj2[liy[:,k]] = (1.0 ./ TmapAtoO(m, Tnew)) .* (yo(k) + Δyk(k))
+		ya, Tk = transmission(m, yo(k) + Δyk(k), pnew; o2a=true)[1:2]
+		traj2[liy[:,k]] = ya
+		# Calculate the new inputs
+		if k <= N
+			traj2[liu[:,k]] = 1 / δt * B' * Hk(k, Δyk(k), Δyk(k+1)) * ptnew # compare to the "test" equation above
+		end
 	end
-	# Calculate the new inputs
-	traj2[(N+1)*ny+1:end] = vcat([Tnew / δt * B' * Hk(k, Δyk(k), Δyk(k+1)) * ptnew for k=1:N]...) # compare to the "test" equation above
 
 	# println("Test that the lower rows dyn constraint worked ", vcat([Bperp * Hk(k, Δyk(k), Δyk(k+1)) * ptnew for k=1:N]...) - eval_g_ret(prob.x))
 
@@ -401,11 +399,10 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		J = dot(x[np+1 : end], x[np+1 : end])
 
 		if mode == 1
-			# Total cost: 1/2 (T*pt)' * Quu * (T*pt) + 1/2 qyy * T^(-2) + qyu' * pt
-			# TODO: quadratic version. for now just nonlinear
-			J += 1/2 * ((T*pt)' * Quu * (T*pt) + qyy * T^(-2)) + qyu' * pt
+			# FIXME: took out qyy component for nonlinear transmission
+			J += 1/2 * (pt' * Quu * pt) + qyu' * pt# + qyy * T^(-2)) 
 		elseif mode == 2
-			J += 1/2 * ((T*pt)' * Quu * (T*pt)) + qyu' * (T*pt)
+			J += 1/2 * (pt' * Quu * pt) + qyu' * pt
 		end
 
 		return J

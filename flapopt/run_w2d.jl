@@ -70,7 +70,7 @@ function initTraj(sim=false; fix=false, makeplot=false)
 end
 
 # IMPORTANT - load which traj here!!!
-N, trajt, traj0, opt, Tmin = initTraj(true; fix=true)
+N, trajt, traj0, opt, Tmin = initTraj()
 
 # Constraint on cbar placed by minAvgLift. FIXME: this is very specific to W2D, since lift \proptp cbar
 avgLift0 = avgLift(m, opt, traj0, param0)
@@ -187,7 +187,7 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1, Tmin; testAffine=true)
+traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1, Tmin)
 
 # ID
 traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1, Tmin)
