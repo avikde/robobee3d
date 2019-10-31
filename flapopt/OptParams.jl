@@ -184,7 +184,8 @@ end
 function getpt(m::Model, p)
 	pb, Tarr = paramLumped(m, p)
 	τ1, τ2 = Tarr
-	return [pb; 1/τ1^2; τ2/τ1^5], Tarr
+	# Nonlinear transmission: see https://github.com/avikde/robobee3d/pull/92
+	return [pb*τ1; pb*τ2/τ1^2; 1/τ1; τ2/τ1^4], Tarr
 end
 
 "Override this"
@@ -362,9 +363,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		Bu = similar(Hpb)
 		for k=1:N
 			Hpb[:,k] = Hk(k, zeros(ny), zeros(ny)) * ptTEST
-			# Need actuator coords here to call transmission()
-			T1TEST = transmission(m, traj[liy[:,k]], param)[2]
-			Bu[:,k] = δt * B * umeas(k)[1] / T1TEST
+			Bu[:,k] = δt * B * umeas(k)[1]
 		end
         display(Hpb - Bu)
         error("Tested")

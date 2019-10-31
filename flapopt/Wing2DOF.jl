@@ -453,7 +453,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     function HMqTWithoutCoupling(ypos, yvel)
         σo, Ψ, σ̇odum, Ψ̇dum = ypos
         σodum, Ψdum, σ̇o, Ψ̇ = yvel
-        return [0   0   0   0   0   σ̇o   0   0   σ̇o*m.ma   σ̇o*m.ma*(-2*σo^2);
+        return [0   0   0   0   0   σ̇o   0   0   σ̇o*m.ma   σ̇o*m.ma*(-σo^2);
         0   0   0   0   0   0   0   2*Ψ̇*γ^2    0   0]
     end
     function HMqTCoupling(ypos, yvel)
@@ -479,7 +479,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     """Stiffness/damping actuator"""
     function Hgact(y)
         σo, Ψ, σ̇o, Ψ̇ = y
-        return [0   0   0   0   0   0   0   0    m.ba*σ̇o+m.ka*σo   m.ba*σ̇o*(-2*σo^2)-4*m.ka*σo^3/3;
+        return [0   0   0   0   0   0   0   0    m.ba*σ̇o+m.ka*σo   m.ba*σ̇o*(-σo^2)+m.ka*(-σo^3/3);
         0   0   0    0   0   0   0   0   0   0]
     end
     """Ext force (aero)"""
@@ -528,7 +528,10 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         _, _, Faero = w2daero(m, yo(k) + Δyk, param)
         # NOTE: it uses param *only for Faero*. Add same F as the traj produced
         # This has the assumption that the interaction force is held constant.
-        return Htil(yo(k) + Δyk, yo(k+1) + Δykp1, Faero)
+        Hh = Htil(yo(k) + Δyk, yo(k+1) + Δykp1, Faero)
+        # With new nonlinear transmission need to break apart H
+        σo = (yo(k) + Δyk)[1]
+        return hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
     end
     
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
