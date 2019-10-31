@@ -191,17 +191,17 @@ traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1, Tmin)
 
 # ID
 traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1, Tmin)
-display(param1')
-pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
-plot(pl1...)
-# # 2. Try to optimize
-# traj2, param2, paramObj, _ = opt1(traj1, param1, 1, 0.8, Tmin)
-# # display(param2')
-# traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 0.9, Tmin)
-# # pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
-# # plot(pl1...)
-# pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj)
-# plot(pls...)
+# display(param1')
+# pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
+# plot(pl1...)
+# 2. Try to optimize
+traj2, param2, paramObj, _ = opt1(traj1, param1, 1, 0.8, Tmin)
+# display(param2')
+traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 0.9, Tmin)
+# pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
+# plot(pl1...)
+pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj)
+plot(pls...)
 
 # ---------
 

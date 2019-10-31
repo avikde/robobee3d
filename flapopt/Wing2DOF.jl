@@ -325,7 +325,7 @@ function animateTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs)
     # return wingdraw 
 end
 
-function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, paramObj::Function, args...; μ::Float64=1e-1)
+function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, paramObj::Function, args...; μ::Float64=1e-1, Vclip=50000)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
     # First plot the param landscape
     pranges = [
@@ -360,7 +360,8 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, paramObj
             parg = copy(param0)
             parg[i1] = p1
             parg[i2] = p2
-            return paramObj(parg)
+            V = paramObj(parg)
+            return V > Vclip ? NaN : V
         end
         pl = contour(pranges[i1], pranges[i2], f, fill=true, seriescolor=cgrad(:bluesreds), xlabel=labels[i1], ylabel=labels[i2])
         # Now plot the path taken
