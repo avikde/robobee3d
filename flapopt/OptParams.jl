@@ -293,7 +293,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 			# Get both transmission coeffs
 			pbb, Tarrr = paramLumped(m, x[1:np])
 			τ1, τ2 = Tarrr
-			gtransmission = σomax/τ1 # - σomax^3/3 * τ1/τ2^4
+			gtransmission = σomax/τ1# - σomax^3/3 * τ1/τ2^4
 			gvec = [gvec; gtransmission]
 		end
 		return gvec
@@ -303,7 +303,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# ----------- Constraint Jac ----------------------------
 	# Exploit sparsity in the nc*nx matrix. Each constraint depends on Δyk(k), Δyk(k+1), p
 	# The +2 at the end is for the transmission constraint
-	Dgnnz = ncunact * (2*ny + np) + (bTrCon ? 1 : 0)#2
+	Dgnnz = ncunact * (2*ny + np) + (bTrCon ? 2 : 0)
 
 	# Function for IPOPT
 	function eval_jac_g(x, imode, row::Vector{Int32}, col::Vector{Int32}, value)
@@ -342,9 +342,9 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 			if bTrCon
 				# transmission
 				offs += 1
-				value[offs] = -σomax/τ1^2 # d/dτ1
-				# offs += 1
-				# value[offs] = 0 # d/dτ2
+				value[offs] = -σomax/τ1^2# - σomax^3/(3*τ2^4) # d/dτ1
+				offs += 1
+				value[offs] = 0#-4*σomax^3*τ1/(3*τ2^5) # d/dτ2
 			end
 		else
 			for k=1:N
@@ -375,9 +375,9 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 				offs += 1
 				row[offs] = nc
 				col[offs] = 2
-				# offs += 1
-				# row[offs] = nc
-				# col[offs] = 6
+				offs += 1
+				row[offs] = nc
+				col[offs] = 6
 			end
 		end
 	end
