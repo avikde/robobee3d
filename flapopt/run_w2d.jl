@@ -74,8 +74,9 @@ cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
 
 R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 
-plimsL(al) = [isnothing(al) ? 0.1 : cbarmin(al), 0.1, 0.1, 0.1, 0.1, 0] # Tmin is filled out by optAffine
-plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 40.0]
+plimsL(al) = [isnothing(al) ? 0.1 : cbarmin(al), 0.1, 0.1, 0.1, 0.1, 0] # Tmin is filled out by optAffine.
+# From w2d_parameters.nb, seems like it is easy to have a design s.t. τ2 = 2*τ1
+plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 25.0]
 # Taken by optAffine
 oaOpts(al) = (R_WTS, 0.1, plimsL(al), plimsU, σamax)
 
