@@ -148,21 +148,23 @@ end
 """Run many opts to get the best params for a desired min lift"""
 function scaleParamsForlift(traj, param, minlifts)
 	function maxuForMinAvgLift(al)
-		print("plimsL[1:2] = ", plimsL(al)[1:2])
+		println("plimsL[1:2] = ", plimsL(al)[1:2])
 		traj1, param1, _, unactErr = opt1(traj, param, 1, al)
 		kΨ, bΨ = param1[4:5]
 		return [param1; norm(traj1[(N+1)*ny:end], Inf); norm(unactErr, Inf)]
 	end
 	llabels = [
 		"chord",
-		"T",
+		"T1",
 		"mwing",
 		"hinge k",
-		"hinge b"
+		"hinge b",
+		"T2"
 	]
 	minliftsmg = minlifts .* 1000/9.81
 
 	res = hcat(maxuForMinAvgLift.(minlifts)...)'
+	display(res)
 	np = length(param0)
 	p1 = plot(minliftsmg, res[:,1:np], xlabel="min avg lift [mg]", label=llabels, ylabel="design params", linewidth=2, legend=:topleft)
 	p2 = plot(minliftsmg, res[:,np+1], xlabel="min avg lift [mg]", ylabel="umin [mN]", linewidth=2, legend=false)
@@ -184,22 +186,20 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1)
-
 # ID
 traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1)
 # display(param1')
 # pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
 # plot(pl1...)
-# 2. Try to optimize
-traj2, param2, paramObj, _ = opt1(traj1, param1, 1, 0.8)
-# display(param2')
-traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 0.9)
-display(param3')
-# pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
-# plot(pl1...)
-pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj)
-plot(pls...)
+# # 2. Try to optimize
+# traj2, param2, paramObj, _ = opt1(traj1, param1, 1, 0.8)
+# # display(param2')
+# traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 0.9)
+# display(param3')
+# # pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
+# # plot(pl1...)
+# pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj)
+# plot(pls...)
 
 # ---------
 
@@ -211,8 +211,8 @@ plot(pls...)
 
 # ----------------
 
-# pls = scaleParamsForlift(traj0, param0, 0.5:0.1:2.0)
-# plot(pls...)
+pls = scaleParamsForlift(traj1, param1, 0.5:0.2:1.5)
+plot(pls...)
 
 # # traj opt ------------------------------------
 
