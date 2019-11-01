@@ -265,15 +265,15 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# IPOPT ---------------------------
 	nx = np + (N+1)*ny # p,Δy
 
-	xlimsL = -1000 * ones(nx)
-	xlimsU = 1000 * ones(nx)
-	xlimsL[1:np] = plimsL
-	xlimsU[1:np] = plimsU
-
 	# Transmission limits imposed by actuator FIXME:
 	σomax = norm([yo(k)[1] for k=1:N], Inf)
 	Tmin = σomax/σamax
 	plimsL[2] = Tmin # FIXME: this index??
+
+	xlimsL = -1000 * ones(nx)
+	xlimsU = 1000 * ones(nx)
+	xlimsL[1:np] = plimsL
+	xlimsU[1:np] = plimsU
 	
 	# ------------ Constraint: Bperp' * H(y + Δy) * pt is small enough (unactuated DOFs) -----------------
 	nact = size(B, 2)
