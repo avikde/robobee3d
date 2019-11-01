@@ -263,12 +263,15 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# return x
 
 	# IPOPT ---------------------------
+	bTrCon = true # add a transmission constraint in g()? TODO: remove
 	nx = np + (N+1)*ny # p,Δy
 
 	# Transmission limits imposed by actuator FIXME:
 	σomax = norm([yo(k)[1] for k=1:N], Inf)
 	Tmin = σomax/σamax
-	plimsL[2] = Tmin # FIXME: this index??
+	if !bTrCon
+		plimsL[2] = Tmin # FIXME: this index??
+	end
 
 	xlimsL = -1000 * ones(nx)
 	xlimsU = 1000 * ones(nx)
@@ -276,7 +279,6 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	xlimsU[1:np] = plimsU
 	
 	# ------------ Constraint: Bperp' * H(y + Δy) * pt is small enough (unactuated DOFs) -----------------
-	bTrCon = true # add a transmission constraint? TODO: remove
 	nact = size(B, 2)
 	nck = nq - nact # number of constraints for each k = # of unactuated DOFs ( = nunact)
 	Bperp = (I - B*B')[nact+1:end,:] # s.t. Bperp*B = 0
@@ -381,8 +383,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	glimsL = -εunact*ones(ncunact)
 	glimsU = εunact*ones(ncunact)
 	if bTrCon
-		glimsL = [glimsL; -10000]
-		glimsU = [glimsU; -10000]
+		glimsL = [glimsL; Tmin]
+		glimsU = [glimsU; 10000]
 	end
 
 	# ----------------------- Objective --------------------------------
