@@ -82,7 +82,7 @@ oaOpts(al) = (R_WTS, 0.1, plimsL(al), plimsU, σamax)
 """One-off ID or opt"""
 function opt1(traj, param, mode, minal; testAffine=false, testAfter=false)
 	optoptions = oaOpts(minal)
-	param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj, param, mode, optoptions...; Fext_pdep=true, test=testAffine, testTrajReconstruction=false, print_level=1, max_iter=4000)
+	param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj, param, mode, [2,6], optoptions...; Fext_pdep=true, test=testAffine, testTrajReconstruction=false, print_level=1, max_iter=4000)
 	if testAfter
 		cu.optAffine(m, opt, traj1, param1, 2, optoptions...; Fext_pdep=true, test=true, testTrajReconstruction=false, print_level=1, max_iter=200) # TEST
 	end

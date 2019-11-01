@@ -218,7 +218,7 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, 
 end
 
 "Mode=1 => opt, mode=2 ID. Fext(p) or hold constant"
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple, εunact, plimsL, plimsU, σamax, scaleTraj=1.0; Fext_pdep::Bool=false, test=false, testTrajReconstruction=false, kwargs...)
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, τinds::Array{Int}, R::Tuple, εunact, plimsL, plimsU, σamax, scaleTraj=1.0; Fext_pdep::Bool=false, test=false, testTrajReconstruction=false, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
 	np = length(param)
@@ -270,7 +270,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	σomax = norm([yo(k)[1] for k=1:N], Inf)
 	Tmin = σomax/σamax
 	if !bTrCon
-		plimsL[2] = Tmin # FIXME: this index??
+		plimsL[τinds[1]] = Tmin
 	end
 
 	xlimsL = -1000 * ones(nx)
@@ -371,13 +371,13 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 				end
 			end
 			if bTrCon
-				# transmission FIXME: how to get col inds
+				# transmission
 				offs += 1
 				row[offs] = nc
-				col[offs] = 2
+				col[offs] = τinds[1]
 				offs += 1
 				row[offs] = nc
-				col[offs] = 6
+				col[offs] = τinds[2]
 			end
 		end
 	end
