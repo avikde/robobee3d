@@ -291,8 +291,9 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		gvec = vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), x[1:np]) for k=1:N]...)
 		if bTrCon
 			# Get both transmission coeffs
-			# pbb, Tarrr = paramLumped(m, x[1:np])
-			gtransmission = x[2]#σomax#/Tarrr[1] # - σomax^3/3 * Tarrr[1]/Tarrr[2]^4
+			pbb, Tarrr = paramLumped(m, x[1:np])
+			τ1, τ2 = Tarrr
+			gtransmission = σomax/τ1 # - σomax^3/3 * τ1/τ2^4
 			gvec = [gvec; gtransmission]
 		end
 		return gvec
@@ -311,7 +312,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		if imode != :Structure
 			Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 			p = x[1:np]
-			# pbb, Tarrr = paramLumped(m, x[1:np])
+			pbb, Tarrr = paramLumped(m, x[1:np])
+			τ1, τ2 = Tarrr
 
 			for k=1:N
 				# Now assemble the pieces
@@ -340,7 +342,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 			if bTrCon
 				# transmission
 				offs += 1
-				value[offs] = 1#-σomax/Tarrr[1]^2 # d/dτ1
+				value[offs] = -σomax/τ1^2 # d/dτ1
 				# offs += 1
 				# value[offs] = 0 # d/dτ2
 			end
@@ -383,8 +385,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	glimsL = -εunact*ones(ncunact)
 	glimsU = εunact*ones(ncunact)
 	if bTrCon
-		glimsL = [glimsL; Tmin]
-		glimsU = [glimsU; 10000]
+		glimsL = [glimsL; 0.0]
+		glimsU = [glimsU; σamax]
 	end
 
 	# ----------------------- Objective --------------------------------
