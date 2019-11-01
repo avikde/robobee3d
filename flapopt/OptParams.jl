@@ -304,7 +304,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 
 	# Function for IPOPT
 	function eval_jac_g(x, imode, row::Vector{Int32}, col::Vector{Int32}, value)
-		offs = 1
+		offs = 0
 			
 		if imode != :Structure
 			Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
@@ -316,22 +316,22 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 				dyk = ForwardDiff.jacobian(yy -> eval_g_pieces(k, yy, Δyk(k+1), p), Δyk(k))
 				for i=1:nck
 					for j=1:ny
-						value[offs] = dyk[i,j]
 						offs += 1
+						value[offs] = dyk[i,j]
 					end
 				end
 				dykp1 = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(k), yy, p), Δyk(k+1))
 				for i=1:nck
 					for j=1:ny
-						value[offs] = dykp1[i,j]
 						offs += 1
+						value[offs] = dykp1[i,j]
 					end
 				end
 				dp = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(k), Δyk(k+1), yy), p)
 				for i=1:nck
 					for j=1:np
-						value[offs] = dp[i,j]
 						offs += 1
+						value[offs] = dp[i,j]
 					end
 				end
 			end
@@ -346,23 +346,23 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 			for k=1:N
 				for i=1:nck
 					for j=1:ny
+						offs += 1
 						row[offs] = (k-1)*nck + i
 						col[offs] = np + (k-1)*ny + j
-						offs += 1
 					end
 				end
 				for i=1:nck
 					for j=1:ny
+						offs += 1
 						row[offs] = (k-1)*nck + i
 						col[offs] = np + (k)*ny + j
-						offs += 1
 					end
 				end
 				for i=1:nck
 					for j=1:np
+						offs += 1
 						row[offs] = (k-1)*nck + i
 						col[offs] = j
-						offs += 1
 					end
 				end
 			end
