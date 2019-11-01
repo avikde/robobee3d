@@ -293,7 +293,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 			# Get both transmission coeffs
 			pbb, Tarrr = paramLumped(m, x[1:np])
 			τ1, τ2 = Tarrr
-			gtransmission = σomax/τ1# - σomax^3/3 * τ1/τ2^4
+			gtransmission = σomax/τ1 - σomax^3/3 * τ2/τ1^4
 			gvec = [gvec; gtransmission]
 		end
 		return gvec
@@ -342,9 +342,9 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 			if bTrCon
 				# transmission
 				offs += 1
-				value[offs] = -σomax/τ1^2# - σomax^3/(3*τ2^4) # d/dτ1
+				value[offs] = -σomax/τ1^2 + 4*σomax^3*τ2/(3*τ1^5) # d/dτ1
 				offs += 1
-				value[offs] = 0#-4*σomax^3*τ1/(3*τ2^5) # d/dτ2
+				value[offs] = -σomax/(3*τ1^4) # d/dτ2
 			end
 		else
 			for k=1:N
