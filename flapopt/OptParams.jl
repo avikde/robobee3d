@@ -266,7 +266,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	bTrCon = true # add a transmission constraint in g()? TODO: remove
 	nx = np + (N+1)*ny # p,Δy
 
-	# Transmission limits imposed by actuator FIXME:
+	# Transmission limits imposed by actuator
 	σomax = norm([yo(k)[1] for k=1:N], Inf)
 	Tmin = σomax/σamax
 	if !bTrCon

@@ -68,14 +68,14 @@ end
 # IMPORTANT - load which traj here!!!
 N, trajt, traj0, opt = initTraj()
 
-# Constraint on cbar placed by minAvgLift. FIXME: this is very specific to W2D, since lift \proptp cbar
+# Constraint on cbar placed by minAvgLift
 avgLift0 = avgLift(m, opt, traj0, param0)
 cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
 
 R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 
-plimsL(al) = [isnothing(al) ? 0.1 : cbarmin(al), 0.1, 0.1, 0.1, 0.1, 0] # FIXME: Tmin is filled out by optAffine
-plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 0.0]
+plimsL(al) = [isnothing(al) ? 0.1 : cbarmin(al), 0.1, 0.1, 0.1, 0.1, 0] # Tmin is filled out by optAffine
+plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 40.0]
 # Taken by optAffine
 oaOpts(al) = (R_WTS, 0.1, plimsL(al), plimsU, σamax)
 
@@ -221,7 +221,6 @@ plot(pls...)
 # # plot(plot(prob.g), plot(prob.mult_g), size=(900,400))
 
 # mo = nothing#cu.paramoptQPSetup(m, opt, traj0; scaling=false, verbose=false)
-# Q = nothing # FIXME: compile error
 
 # # IPOPT
 # εs = [0.05, 0.005, 0.001] # IC, dyn, symm
