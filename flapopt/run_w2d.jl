@@ -74,7 +74,7 @@ cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
 
 R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
 
-plimsL(al) = [isnothing(al) ? 0.1 : cbarmin(al), 0.1, 0.1, 0.1, 0.1, 0] # Tmin is filled out by optAffine.
+plimsL(al) = [isnothing(al) ? 0.1 : cbarmin(al), 10, 0.1, 0.1, 0.1, 0] # Tmin is filled out by optAffine.
 # From w2d_parameters.nb, seems like it is easy to have a design s.t. τ2 = 2*τ1
 plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 25.0]
 # Taken by optAffine
@@ -191,14 +191,25 @@ traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1)
 # display(param1')
 # pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
 # plot(pl1...)
-# 2. Try to optimize
-traj2, param2, paramObj, _ = opt1(traj1, param1, 1, 0.8)
-# display(param2')
-traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 1.3
-# pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
-# plot(pl1...)
-pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj)
-plot(pls...)
+# # 2. Try to optimize
+# traj2, param2, paramObj, _ = opt1(traj1, param1, 1, 0.8)
+# # display(param2')
+# traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 1.3
+# # pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
+# # plot(pl1...)
+# pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj)
+# plot(pls...)
+
+# TEST manual params
+Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, param1, R_WTS, 1.0; Fext_pdep=true)
+Δy0 = zeros((N+1)*ny)
+testp(pnew) = cu.reconstructTrajFromΔy(m, opt, traj1, yo, Hk, B, Δy0, pnew)
+pp = [8.44463,  13.9429,  0.235645,  23.9639,    8.29057,   0.0]
+traj2 = testp(pp)
+pptest = [8.44463,  11.0,  0.235645,  23.9639,    8.29057,   40.0]
+traj3 = testp(pptest)
+pl1 = plotTrajs(m, opt, trajt, [param1, param1, pp, pptest], [traj0, traj1, traj2, traj3])
+plot(pl1...)
 
 # ---------
 
