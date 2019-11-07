@@ -41,7 +41,8 @@ end
 "Continuous dynamics second order model"
 function cu.dydt(m::MassSpringDamperModel, y::AbstractArray, u::AbstractArray, param::Vector)::AbstractArray
     # unpack
-    T, ko, bo = param
+    τ1, ko, bo, τ2 = param
+    yo, T, τfun, τifun = cu.transmission(m, y, param)
 
     ddy = 1.0/(m.mo + m.ma/T^2) * (-(ko + m.ka/T^2)*y[1] - (bo)*y[2] + u[1]/T)
     # return ddq
@@ -166,50 +167,32 @@ function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t::Vector, para
 	return (σt, dσt, ut)
 end
 
-# function drawFrame(m::MassSpringDamperModel, yk, uk, param; Faeroscale=1.0)
-    
-#     w = plot([wing1[1]; wing2[1]], [wing1[2]; wing2[2]], color=:gray, aspect_ratio=:equal, linewidth=5, legend=false, xlims=(-15,15), ylims=(-3,3))
-#     # Faero
-#     FaeroEnd = paero + Faeroscale * Faero
-#     plot!(w, [paero[1], FaeroEnd[1]], [paero[2], FaeroEnd[2]], color=:red, linewidth=2, line=:arrow)
-#     # stroke plane
-#     plot!(w, [-T,T], [0, 0], color=:black, linestyle=:dash)
-#     return w
-# end
-
-# function animateTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, params, trajs)
-#     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
-
-#     # TODO: simulate with a waypoint controller for more steps
-    
-# 	yk(traj, k) = @view traj[liy[:,k]]
-#     uk(traj, k) = @view traj[liu[:,k]]
-    
-#     Nanim = opt.boundaryConstraint == :symmetric ? 2*N : N
-#     Nt = length(trajs)
-
-#     function drawTrajFrame(traj, param, k)
-#         _yk = opt.boundaryConstraint == :symmetric && k > N ? -yk(traj, k-N) : yk(traj, k)
-#         _uk = opt.boundaryConstraint == :symmetric && k > N ? -uk(traj, k-N) : uk(traj, k)
-#         return drawFrame(m, _yk, _uk, param)
-#     end
-#     @gif for k=1:Nanim
-#         plot([drawTrajFrame(trajs[i], params[i], k) for i in 1:Nt]..., layout=(Nt,1))
-#     end
-
-#     # return wingdraw 
-# end
-
 # ---------------------- Param opt -----------------------------
 
 function cu.paramLumped(m::MassSpringDamperModel, param::AbstractArray)
-    T, ko, bo = param
-    return [1, ko, bo], T
+    τ1, ko, bo, τ2 = param
+    return [1, ko, bo], [τ1, τ2]
 end
 
-function cu.TmapAtoO(m::MassSpringDamperModel, T)
-	return [1, 1] # y part of traj is in output coords
+function cu.transmission(m::MassSpringDamperModel, y::AbstractArray, _param::Vector; o2a=false)
+    error("TODO")
+    # cbar, τ1, mwing, kΨ, bΨ, τ2 = _param
+    # τfun = σa -> τ1*σa + τ2/3*σa^3
+    # # Series from Mathematica
+    # τifun = σo -> σo/τ1 - τ2*σo^3/(3*τ1^4) # + O[σo^4]
+    # if !o2a
+    #     Dτfun = σa -> τ1 + τ2*σa^2
+    #     T = Dτfun(y[1]) # "gear ratio"
+
+    #     y2 = [τfun(y[1]), y[2], T*y[3], y[4]] # [mm, rad, mm/ms, rad/ms]
+    # else
+    #     σo = y[1]
+    #     T = τ1 + σo^2*τ2/τ1^2
+    #     y2 = [τifun(σo), y[2], y[3]/T, y[4]] # [mm, rad, mm/ms, rad/ms]
+    # end
+    # return y2, T, τfun, τifun
 end
+
 
 function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple, scaleTraj=1.0; Fext_pdep::Bool=false)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
@@ -218,7 +201,7 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     uk = k -> @view traj[liu[:,k]]
 
     # Param stuff
-    T, ko, bo = param
+    τ1, ko, bo, τ2 = param
 
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
     function HMqT(ypos, yvel)
