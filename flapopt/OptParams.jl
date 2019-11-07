@@ -48,7 +48,7 @@ function paramoptQPSetup(m::Model, opt::OptOptions, traj::AbstractArray; Preg=1e
 end
 
 """
-Q = prioritization matrix of size ? x nc, where nc is the size of g
+Optimize wrt params
 """
 function paramopt(mo::Union{Nothing, OSQP.Model}, m::Model, opt::OptOptions, traj::AbstractArray, param0::AbstractArray, δx::AbstractArray, εs, Q::Union{Nothing, AbstractArray}; step=0.05, penalty=1e2)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
@@ -218,7 +218,7 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, 
 end
 
 "Mode=1 => opt, mode=2 ID. Fext(p) or hold constant"
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, R::Tuple, εunact, plimsL, plimsU, scaleTraj=1.0; Fext_pdep::Bool=false, test=false, testTrajReconstruction=false, kwargs...)
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, τinds::Array{Int}, R::Tuple, εunact, plimsL, plimsU, σamax, scaleTraj=1.0; Fext_pdep::Bool=false, test=false, testTrajReconstruction=false, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
 	np = length(param)
@@ -263,10 +263,15 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# return x
 
 	# IPOPT ---------------------------
+	bTrCon = true # add a transmission constraint in g()? TODO: remove
 	nx = np + (N+1)*ny # p,Δy
 
-	# FIXME: print this out for now
-	println("yomax = ", norm([yo(k)[1] for k=1:N], Inf))
+	# Transmission limits imposed by actuator
+	σomax = norm([yo(k)[1] for k=1:N], Inf)
+	Tmin = σomax/σamax
+	if !bTrCon
+		plimsL[τinds[1]] = Tmin
+	end
 
 	xlimsL = -1000 * ones(nx)
 	xlimsU = 1000 * ones(nx)
@@ -277,82 +282,112 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	nact = size(B, 2)
 	nck = nq - nact # number of constraints for each k = # of unactuated DOFs ( = nunact)
 	Bperp = (I - B*B')[nact+1:end,:] # s.t. Bperp*B = 0
-	nc = N * nck# + np
+	ncunact = N * nck
+	nc = ncunact + (bTrCon ? 1 : 0)
 
 	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1) * (getpt(m, p)[1])
 	function eval_g_ret(x)
 		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
-		# g .= x # OLD: 
-		return vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), x[1:np]) for k=1:N]...)
+		gvec = vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), x[1:np]) for k=1:N]...)
+		if bTrCon
+			# Get both transmission coeffs
+			pbb, Tarrr = paramLumped(m, x[1:np])
+			τ1, τ2 = Tarrr
+			gtransmission = σomax/τ1 - σomax^3/3 * τ2/τ1^4
+			gvec = [gvec; gtransmission]
+		end
+		return gvec
 	end
-	# g1 = Array{Any,1}(undef, nc)
 	eval_g(x::Vector, g::Vector) = g .= eval_g_ret(x)
 
 	# ----------- Constraint Jac ----------------------------
 	# Exploit sparsity in the nc*nx matrix. Each constraint depends on Δyk(k), Δyk(k+1), p
-	Dgnnz = nc * (2*ny + np)
+	# The +2 at the end is for the transmission constraint
+	Dgnnz = ncunact * (2*ny + np) + (bTrCon ? 2 : 0)
 
 	# Function for IPOPT
 	function eval_jac_g(x, imode, row::Vector{Int32}, col::Vector{Int32}, value)
-		offs = 1
+		offs = 0
 			
 		if imode != :Structure
 			Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 			p = x[1:np]
+			pbb, Tarrr = paramLumped(m, x[1:np])
+			τ1, τ2 = Tarrr
 
 			for k=1:N
 				# Now assemble the pieces
 				dyk = ForwardDiff.jacobian(yy -> eval_g_pieces(k, yy, Δyk(k+1), p), Δyk(k))
 				for i=1:nck
 					for j=1:ny
-						value[offs] = dyk[i,j]
 						offs += 1
+						value[offs] = dyk[i,j]
 					end
 				end
 				dykp1 = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(k), yy, p), Δyk(k+1))
 				for i=1:nck
 					for j=1:ny
-						value[offs] = dykp1[i,j]
 						offs += 1
+						value[offs] = dykp1[i,j]
 					end
 				end
 				dp = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(k), Δyk(k+1), yy), p)
 				for i=1:nck
 					for j=1:np
-						value[offs] = dp[i,j]
 						offs += 1
+						value[offs] = dp[i,j]
 					end
 				end
+			end
+			if bTrCon
+				# transmission
+				offs += 1
+				value[offs] = -σomax/τ1^2 + 4*σomax^3*τ2/(3*τ1^5) # d/dτ1
+				offs += 1
+				value[offs] = -σomax/(3*τ1^4) # d/dτ2
 			end
 		else
 			for k=1:N
 				for i=1:nck
 					for j=1:ny
+						offs += 1
 						row[offs] = (k-1)*nck + i
 						col[offs] = np + (k-1)*ny + j
-						offs += 1
 					end
 				end
 				for i=1:nck
 					for j=1:ny
+						offs += 1
 						row[offs] = (k-1)*nck + i
 						col[offs] = np + (k)*ny + j
-						offs += 1
 					end
 				end
 				for i=1:nck
 					for j=1:np
+						offs += 1
 						row[offs] = (k-1)*nck + i
 						col[offs] = j
-						offs += 1
 					end
 				end
+			end
+			if bTrCon
+				# transmission
+				offs += 1
+				row[offs] = nc
+				col[offs] = τinds[1]
+				offs += 1
+				row[offs] = nc
+				col[offs] = τinds[2]
 			end
 		end
 	end
 
-	glimsL = -εunact*ones(nc)
-	glimsU = εunact*ones(nc)
+	glimsL = -εunact*ones(ncunact)
+	glimsU = εunact*ones(ncunact)
+	if bTrCon
+		glimsL = [glimsL; 0.0]
+		glimsU = [glimsU; σamax]
+	end
 
 	# ----------------------- Objective --------------------------------
     # If test is true, it will test the affine relation
