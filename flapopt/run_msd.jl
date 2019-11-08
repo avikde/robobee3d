@@ -39,22 +39,20 @@ plimsU = [1000.0, 1000.0, 1000.0, 100.0]
 """One-off ID or opt"""
 function opt1(traj, param, mode, scaleTraj; testAffine=false, testAfter=false)
 	optoptions = (R_WTS, 0.1, plimsL, plimsU, σamax)
-	param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj, param, mode, [1,4], optoptions..., scaleTraj, false; Fext_pdep=true, test=testAffine, testTrajReconstruction=false, print_level=1, max_iter=4000)
+	param1, paramObj, traj1, _ = cu.optAffine(m, opt, traj, param, mode, [1,4], optoptions..., scaleTraj, false; Fext_pdep=true, test=testAffine, testTrajReconstruction=false, print_level=1, max_iter=4000)
 	if testAfter
 		cu.optAffine(m, opt, traj1, param1, 2, optoptions...; Fext_pdep=true, test=true, testTrajReconstruction=false, print_level=1, max_iter=200) # TEST
 	end
-	return traj1, param1, paramObj, unactErr
+	return traj1, param1, paramObj
 end
 
 # One-off ID or opt ---------
 
-param1, _, traj1, unactErr = opt1(traj0, param0, 1, 1.0; testAffine=true)
+traj1, param1, _ = opt1(traj0, param0, 1, 1.0)
 display(param1')
 
-# traj2 = cu.fixTrajWithDynConst(m, opt, traj1, param1)
-# # cu.optAffine(m, opt, traj1, param1, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=true, print_level=2)
-# pl1 = plotTrajs(m, opt, trajt, [param0, param1, param1], [traj0, traj1, traj2]; ulim=1e4)
-# plot(pl1...)
+pl1 = plotTrajs(m, opt, trajt, [param0, param1], [traj0, traj1]; ulim=1e4)
+plot(pl1...)
 
 # # many sims (scale) --------------
 
