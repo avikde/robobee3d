@@ -203,14 +203,14 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
 
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
     function HMqT(ypos, yvel)
-        σo, σ̇odum = ypos
-        σodum, σ̇o = yvel
-        return [σ̇o*m.mo   0   0   σ̇o*m.ma   σ̇o*m.ma*(-σo^2)] * scaleTraj
+        σo, σ̇odum = ypos * scaleTraj
+        σodum, σ̇o = yvel * scaleTraj
+        return [σ̇o*m.mo   0   0   σ̇o*m.ma   σ̇o*m.ma*(-σo^2)]
     end
 
     function HCgJT(y, F)
-        σo, σ̇o = y
-        return [0   σo   σ̇o   m.ka*σo   m.ka*(-σo^3/3)] * scaleTraj
+        σo, σ̇o = y * scaleTraj
+        return [0   σo   σ̇o   m.ka*σo   m.ka*(-σo^3/3)]
     end
     # ----------------
 
