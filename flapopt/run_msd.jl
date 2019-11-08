@@ -33,42 +33,52 @@ R_WTS = (zeros(2,2), 0, 1.0*I)#diagm(0=>[0.1,100]))
 σamax = 0.3 # [mm] constant? for robobee actuators
 # σamax = 100 # [mm] constant? test EM
 Tmin = 10.08799170499444/σamax
-plimsL = [Tmin, 0.1, 0.1]
-plimsU = [1000.0, 1000.0, 1000.0]
+plimsL = [0.1, 0.1, 0.1, 0.0]
+plimsU = [1000.0, 1000.0, 1000.0, 100.0]
 
-# # One-off ID or opt ---------
+"""One-off ID or opt"""
+function opt1(traj, param, mode, scaleTraj; testAffine=false, testAfter=false)
+	optoptions = (R_WTS, 0.1, plimsL, plimsU, σamax)
+	param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj, param, mode, [1,4], optoptions..., scaleTraj; Fext_pdep=true, test=testAffine, testTrajReconstruction=false, print_level=1, max_iter=4000)
+	if testAfter
+		cu.optAffine(m, opt, traj1, param1, 2, optoptions...; Fext_pdep=true, test=true, testTrajReconstruction=false, print_level=1, max_iter=200) # TEST
+	end
+	return traj1, param1, paramObj, unactErr
+end
 
-# param1, _, traj1, unactErr = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL, plimsU; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=100)
-# display(param1')
+# One-off ID or opt ---------
+
+param1, _, traj1, unactErr = opt1(traj0, param0, 1, 1.2)
+display(param1')
 
 # traj2 = cu.fixTrajWithDynConst(m, opt, traj1, param1)
 # # cu.optAffine(m, opt, traj1, param1, 1, R_WTS, 0.1, cbarmin(1.5); Fext_pdep=false, test=true, print_level=2)
 # pl1 = plotTrajs(m, opt, trajt, [param0, param1, param1], [traj0, traj1, traj2]; ulim=1e4)
 # plot(pl1...)
 
-# many sims (scale) --------------
+# # many sims (scale) --------------
 
-function paramsFor(σamax, scaleTraj)
-	Tmin = 10.08799170499444*scaleTraj/σamax
-	plimsL = [Tmin, 0.1, 0.1]
-	plimsU = [1000.0, 1000.0, 1000.0]
-	param1, _, traj1, _ = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL, plimsU, scaleTraj; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=100)
-	return [param1; norm(traj1[(N+1)*ny:end], Inf)]
-end
+# function paramsFor(σamax, scaleTraj)
+# 	Tmin = 10.08799170499444*scaleTraj/σamax
+# 	plimsL = [Tmin, 0.1, 0.1]
+# 	plimsU = [1000.0, 1000.0, 1000.0]
+# 	param1, _, traj1, _ = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL, plimsU, scaleTraj; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=100)
+# 	return [param1; norm(traj1[(N+1)*ny:end], Inf)]
+# end
 
-scales = 0.1:0.2:2.0
-σamaxs = 0.1:1:20
-llabels = [
-	"T",
-	"k",
-	"b"
-]
+# scales = 0.1:0.2:2.0
+# σamaxs = 0.1:1:20
+# llabels = [
+# 	"T",
+# 	"k",
+# 	"b"
+# ]
 
-res = hcat(paramsFor.(0.3, scales)...)'
-np = length(param0)
-p1 = plot(scales, res[:,1:np], xlabel="traj scale", label=llabels, ylabel="design params", linewidth=2, legend=:topleft)
-p2 = plot(scales, res[:,np+1], xlabel="traj scale", ylabel="umin [mN]", linewidth=2, legend=false)
-res2 = hcat(paramsFor.(σamaxs, 1.0)...)'
-p3 = plot(σamaxs, res2[:,1:np], xlabel="max stroke [mm]", label=llabels, ylabel="design params", linewidth=2, legend=:topleft)
-p4 = plot(σamaxs, res2[:,np+1], xlabel="max stroke [mm]", ylabel="umin [mN]", linewidth=2, legend=false)
-plot(p1, p2, p3, p4)
+# res = hcat(paramsFor.(0.3, scales)...)'
+# np = length(param0)
+# p1 = plot(scales, res[:,1:np], xlabel="traj scale", label=llabels, ylabel="design params", linewidth=2, legend=:topleft)
+# p2 = plot(scales, res[:,np+1], xlabel="traj scale", ylabel="umin [mN]", linewidth=2, legend=false)
+# res2 = hcat(paramsFor.(σamaxs, 1.0)...)'
+# p3 = plot(σamaxs, res2[:,1:np], xlabel="max stroke [mm]", label=llabels, ylabel="design params", linewidth=2, legend=:topleft)
+# p4 = plot(σamaxs, res2[:,np+1], xlabel="max stroke [mm]", ylabel="umin [mN]", linewidth=2, legend=false)
+# plot(p1, p2, p3, p4)

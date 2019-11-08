@@ -175,22 +175,20 @@ function cu.paramLumped(m::MassSpringDamperModel, param::AbstractArray)
 end
 
 function cu.transmission(m::MassSpringDamperModel, y::AbstractArray, _param::Vector; o2a=false)
-    error("TODO")
-    # cbar, τ1, mwing, kΨ, bΨ, τ2 = _param
-    # τfun = σa -> τ1*σa + τ2/3*σa^3
-    # # Series from Mathematica
-    # τifun = σo -> σo/τ1 - τ2*σo^3/(3*τ1^4) # + O[σo^4]
-    # if !o2a
-    #     Dτfun = σa -> τ1 + τ2*σa^2
-    #     T = Dτfun(y[1]) # "gear ratio"
-
-    #     y2 = [τfun(y[1]), y[2], T*y[3], y[4]] # [mm, rad, mm/ms, rad/ms]
-    # else
-    #     σo = y[1]
-    #     T = τ1 + σo^2*τ2/τ1^2
-    #     y2 = [τifun(σo), y[2], y[3]/T, y[4]] # [mm, rad, mm/ms, rad/ms]
-    # end
-    # return y2, T, τfun, τifun
+    τ1, ko, bo, τ2 = _param
+    τfun = σa -> τ1*σa + τ2/3*σa^3
+    # Series from Mathematica
+    τifun = σo -> σo/τ1 - τ2*σo^3/(3*τ1^4) # + O[σo^4]
+    if !o2a
+        Dτfun = σa -> τ1 + τ2*σa^2
+        T = Dτfun(y[1]) # "gear ratio"
+        y2 = [τfun(y[1]), T*y[2]] # [mm, mm/ms]
+    else
+        σo = y[1]
+        T = τ1 + σo^2*τ2/τ1^2
+        y2 = [τifun(σo), y[2]/T] # [mm, mm/ms]
+    end
+    return y2, T, τfun, τifun
 end
 
 
