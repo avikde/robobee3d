@@ -42,9 +42,9 @@ end
 function cu.dydt(m::MassSpringDamperModel, y::AbstractArray, u::AbstractArray, param::Vector)::AbstractArray
     # unpack
     τ1, ko, bo, τ2 = param
-    yo, T, τfun, τifun = cu.transmission(m, y, param)
-
-    ddy = 1.0/(m.mo + m.ma/T^2) * (-(ko + m.ka/T*τifun(y[1]))*y[1] - (bo)*y[2] + u[1]/T)
+    ya, T, τfun, τifun = cu.transmission(m, y, param; o2a=true)
+    σo, dσo = y
+    ddy = 1.0/(m.mo + m.ma/T^2) * (-(ko*σo + m.ka/T*τifun(σo)) - (bo)*dσo + u[1]/T)
     # return ddq
     return [y[2], ddy]
 end
