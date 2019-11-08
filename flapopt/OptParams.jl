@@ -180,7 +180,7 @@ function getpt(m::Model, p)
 	pb, Tarr = paramLumped(m, p)
 	τ1, τ2 = Tarr
 	# Nonlinear transmission: see https://github.com/avikde/robobee3d/pull/92
-	return [pb*τ1; pb*τ2/τ1^2; 1/τ1; τ2/τ1^4], Tarr
+	return [pb*τ1; pb*τ2; 1/τ1; τ2/τ1^4], Tarr
 end
 
 "Override this. Input y can be in actuator or output coordinates. If o2a is false, maps A to O, else maps O to A"
