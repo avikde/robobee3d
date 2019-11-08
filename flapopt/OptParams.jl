@@ -192,8 +192,8 @@ function transmission(m::Model, y::AbstractArray, _param::Vector; o2a=false)
     return y2, T, τfun, τifun
 end
 
-"Helper function to reconstruct the traj (also test it)"
-function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, yo, Hk, B, Δy, pnew; test::Bool=false)
+"Helper function to reconstruct the traj (also test it). trajAct true=>traj is in act coords (else output)"
+function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, yo, Hk, B, Δy, pnew, trajAct=true; test::Bool=false)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	np = length(pnew)
 	Δyk = k -> Δy[(k-1)*ny+1 : k*ny]
@@ -203,9 +203,13 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, 
 	# Calculate the new traj (which is in act coordinates, so needs scaling by T)
 	ptnew, Tnew = getpt(m, pnew)
 	for k=1:N+1
-		# Go from output to act coords
-		ya, Tk = transmission(m, yo(k) + Δyk(k), pnew; o2a=true)[1:2]
-		traj2[liy[:,k]] = ya
+		if trajAct
+			# Go from output to act coords
+			ya, Tk = transmission(m, yo(k) + Δyk(k), pnew; o2a=true)[1:2]
+			traj2[liy[:,k]] = ya
+		else
+			traj2[liy[:,k]] = yo(k) + Δyk(k)
+		end
 		# Calculate the new inputs
 		if k <= N
 			traj2[liu[:,k]] = 1 / δt * B' * Hk(k, Δyk(k), Δyk(k+1)) * ptnew # compare to the "test" equation above
@@ -218,7 +222,7 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, 
 end
 
 "Mode=1 => opt, mode=2 ID. Fext(p) or hold constant"
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, τinds::Array{Int}, R::Tuple, εunact, plimsL, plimsU, σamax, scaleTraj=1.0; Fext_pdep::Bool=false, test=false, testTrajReconstruction=false, kwargs...)
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, τinds::Array{Int}, R::Tuple, εunact, plimsL, plimsU, σamax, scaleTraj=1.0, trajAct=true; Fext_pdep::Bool=false, test=false, testTrajReconstruction=false, kwargs...)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
 	np = length(param)
@@ -480,7 +484,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	prob.x = [copy(param); zeros(nx - np)]
 	status = Ipopt.solveProblem(prob)
 	pnew = prob.x[1:np]
-	trajnew = reconstructTrajFromΔy(m, opt, traj, yo, Hk, B, prob.x[np+1:end], pnew)
+	trajnew = reconstructTrajFromΔy(m, opt, traj, yo, Hk, B, prob.x[np+1:end], pnew, trajAct)
 	unactErr = eval_g_ret(prob.x)
 
 	if testTrajReconstruction

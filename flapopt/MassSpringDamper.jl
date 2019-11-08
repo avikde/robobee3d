@@ -44,7 +44,7 @@ function cu.dydt(m::MassSpringDamperModel, y::AbstractArray, u::AbstractArray, p
     τ1, ko, bo, τ2 = param
     yo, T, τfun, τifun = cu.transmission(m, y, param)
 
-    ddy = 1.0/(m.mo + m.ma/T^2) * (-(ko + m.ka/T^2)*y[1] - (bo)*y[2] + u[1]/T)
+    ddy = 1.0/(m.mo + m.ma/T^2) * (-(ko + m.ka/T*τifun(y[1]))*y[1] - (bo)*y[2] + u[1]/T)
     # return ddq
     return [y[2], ddy]
 end
@@ -142,7 +142,7 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
         σdest = t -> σdes(m, freq, t)
         σactt = [sol.u[i][1] for i = 1:length(sol.t)]
         σt = plot(sol.t, [σactt  σdest.(sol.t)], ylabel="act pos [m]")
-        σtdec = plot(trajt, [traj0[1:2:(N+1)*2] traj0[2:2:(N+1)*2]], linewidth=2)
+        σtdec = plot(trajt, [traj0[1:2:(N+1)*2] traj0[2:2:(N+1)*2]], linewidth=2, ylabel="pos,vel")
         plot(σt, σtdec)
         gui()
         error("Initial traj plotted")
@@ -195,7 +195,7 @@ end
 function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple, scaleTraj=1.0; Fext_pdep::Bool=false)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 
-    yk = k -> @view traj[liy[:,k]]
+    yo = k -> @view traj[liy[:,k]] # traj is in output coords already
     uk = k -> @view traj[liu[:,k]]
 
     # Param stuff
@@ -222,15 +222,15 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     # Functions to output
     "Takes in a Δy in output coords"
     function Hk(k, Δyk, Δykp1)
-        Hh = Htil(yk(k) + Δyk, yk(k+1) + Δykp1, 0)
+        Hh = Htil(yo(k) + Δyk, yo(k+1) + Δykp1, 0)
         # With new nonlinear transmission need to break apart H
-        σo = (yk(k) + Δyk)[1]
+        σo = (yo(k) + Δyk)[1]
         return hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
     end
     
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
     B = reshape([1.0], 1, 1)
 
-    return Hk, yk, uk, B, N
+    return Hk, yo, uk, B, N
 end
 
