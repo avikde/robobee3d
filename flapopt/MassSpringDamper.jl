@@ -205,12 +205,12 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     function HMqT(ypos, yvel)
         σo, σ̇odum = ypos
         σodum, σ̇o = yvel
-        return [σ̇o*m.mo   0   0   σ̇o*m.ma] * scaleTraj
+        return [σ̇o*m.mo   0   0   σ̇o*m.ma   σ̇o*m.ma*(-σo^2)] * scaleTraj
     end
 
     function HCgJT(y, F)
         σo, σ̇o = y
-        return [0   σo   σ̇o   m.ka*σo] * scaleTraj
+        return [0   σo   σ̇o   m.ka*σo   m.ka*(-σo^3/3)] * scaleTraj
     end
     # ----------------
 
@@ -222,7 +222,10 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     # Functions to output
     "Takes in a Δy in output coords"
     function Hk(k, Δyk, Δykp1)
-        return Htil(yk(k) + Δyk, yk(k+1) + Δykp1, 0)
+        Hh = Htil(yk(k) + Δyk, yk(k+1) + Δykp1, 0)
+        # With new nonlinear transmission need to break apart H
+        σo = (yk(k) + Δyk)[1]
+        return hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
     end
     
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
