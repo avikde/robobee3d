@@ -62,7 +62,7 @@ function testp(pnew)
 end
 pp = [33.2353,  189.321,  10.0537,  0.0]
 traj2 = testp(pp)
-pptest = [30,  189.321,  10.0537,  0.0]
+pptest = [30,  189.321,  10.0537,  30.0]
 traj3 = testp(pptest)
 
 pl1 = plotTrajs(m, opt, trajt, [param0, param1, pp, pptest], [traj0, traj1, traj2, traj3]; ulim=1e4)
