@@ -51,7 +51,21 @@ end
 traj1, param1, _ = opt1(traj0, param0, 1, 1.0)
 display(param1')
 
-pl1 = plotTrajs(m, opt, trajt, [param0, param1], [traj0, traj1]; ulim=1e4)
+# TEST manual params
+Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, param1, R_WTS, 1.0; Fext_pdep=true)
+Δy0 = zeros((N+1)*ny)
+function testp(pnew)
+	trajnew = cu.reconstructTrajFromΔy(m, opt, traj1, yo, Hk, B, Δy0, pnew)
+	uvec = trajnew[(N+1)*ny+1:end]
+	println("RMS u = ", norm(uvec)/N)
+	return trajnew
+end
+pp = [33.2353,  189.321,  10.0537,  0.0]
+traj2 = testp(pp)
+pptest = [30,  189.321,  10.0537,  0.0]
+traj3 = testp(pptest)
+
+pl1 = plotTrajs(m, opt, trajt, [param0, param1, pp, pptest], [traj0, traj1, traj2, traj3]; ulim=1e4)
 plot(pl1...)
 
 # # many sims (scale) --------------
