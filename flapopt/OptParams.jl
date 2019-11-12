@@ -281,7 +281,6 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 
 	# Transmission limits imposed by actuator
 	σomax = norm([yo(k)[1] for k=1:N], Inf)
-	println("hi", σomax)
 	Tmin = σomax/σamax
 	if !bTrCon
 		plimsL[τinds[1]] = Tmin
