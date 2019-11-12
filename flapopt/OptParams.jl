@@ -192,6 +192,15 @@ function transmission(m::Model, y::AbstractArray, _param::Vector; o2a=false)
     return y2, T, τfun, τifun
 end
 
+"σomax is an output strain limit. This is the only transmission constraint for now, but others can be added."
+function gtransmission(m::Model, param, σomax)
+	# FIXME: this should take in traj and σamax
+	# Get both transmission coeffs
+	pbb, Tarrr = paramLumped(m, param)
+	τ1, τ2 = Tarrr
+	return σomax/τ1 - σomax^3/3 * τ2/τ1^4
+end
+
 "Helper function to reconstruct the traj (also test it). trajAct true=>traj is in act coords (else output)"
 function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, yo, Hk, B, Δy, pnew, trajAct=true; test::Bool=false)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
@@ -272,6 +281,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 
 	# Transmission limits imposed by actuator
 	σomax = norm([yo(k)[1] for k=1:N], Inf)
+	println("hi", σomax)
 	Tmin = σomax/σamax
 	if !bTrCon
 		plimsL[τinds[1]] = Tmin
@@ -294,11 +304,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 		gvec = vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), x[1:np]) for k=1:N]...)
 		if bTrCon
-			# Get both transmission coeffs
-			pbb, Tarrr = paramLumped(m, x[1:np])
-			τ1, τ2 = Tarrr
-			gtransmission = σomax/τ1 - σomax^3/3 * τ2/τ1^4
-			gvec = [gvec; gtransmission]
+			gvec = [gvec; gtransmission(m, x[1:np], σomax)]
 		end
 		return gvec
 	end

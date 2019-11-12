@@ -57,7 +57,7 @@ Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, param1, R_WTS, 1.0; Fext_pde
 function testp(pnew)
 	trajnew = cu.reconstructTrajFromΔy(m, opt, traj1, yo, Hk, B, Δy0, pnew)
 	uvec = trajnew[(N+1)*ny+1:end]
-	println("RMS u = ", norm(uvec)/N)
+	println("RMS u = ", norm(uvec)/N, ", const = ", cu.gtransmission(m, pnew, 9.97) - σamax)
 	return trajnew
 end
 pp = [33.2353,  189.321,  10.0537,  0.0]
