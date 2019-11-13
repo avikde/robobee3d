@@ -38,10 +38,10 @@ plimsL = [0.1, 0.1, 0.1, 0.0]
 plimsU = [1000.0, 1000.0, 1000.0, 100.0]
 
 """One-off ID or opt"""
-function opt1(traj, param, mode, scaleTraj; testAffine=false, testAfter=false)
+function opt1(traj, param, mode, scaleTraj, bkratio=1.0; testAffine=false, testAfter=false)
 	optoptions = (R_WTS, 0.1, plimsL, plimsU, σamax)
 	# A polytope constraint for the params: simple bo >= ko =>  ko - bo <= 0 => 
-	Cp = Float64[0  1  -1  0]
+	Cp = Float64[0  bkratio  -1  0]
 	dp = [0.0]
 	param1, paramObj, traj1, unactErr, paramConstraint = cu.optAffine(m, opt, traj, param, mode, [1,4], optoptions..., scaleTraj, false, Cp, dp; Fext_pdep=true, test=testAffine, testTrajReconstruction=false, print_level=1, max_iter=4000)
 	if testAfter
@@ -94,10 +94,10 @@ function debugComponentsPlot(traj, param)
 		return pl, pl2
 	end
 
-	pl1 = plotTrajs(m, opt, trajt, [param], [traj])
+	# pl1 = plotTrajs(m, opt, trajt, [param], [traj])
 	pls, plcomp = plotComponents("c")
 
-	return pl1..., pls, plcomp
+	return pls, plcomp
 end
 
 function idealparams(param)
@@ -121,8 +121,8 @@ display(param1')
 # param1 = idealparams(param1)
 
 # debug components ---
-pls = debugComponentsPlot(traj1, ppfeas(4))
-plot(pls..., size=(1000,600))
+pls = debugComponentsPlot(traj1, ppfeas(0))
+plot(pls..., size=(800,300))
 gui()
 error("comp")
 
