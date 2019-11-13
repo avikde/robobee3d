@@ -17,7 +17,7 @@ m = MassSpringDamperModel(6, # ma
 ny, nu = cu.dims(m)
 opt = cu.OptOptions(false, 0.1, 1, :none, 1e-8, false)
 fdes = 0.1 # KHz
-N = round(Int, 10/fdes) # 1 period with dt=0.1 in createInitialTraj
+N = round(Int, 1/(opt.fixedδt*fdes)) # 1 period with dt=0.1 in createInitialTraj
 param0 = [20.0, # τ1
 100.0, # ko
 100.0, # bo
