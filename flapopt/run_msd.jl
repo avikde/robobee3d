@@ -111,14 +111,18 @@ end
 
 # first optimization to get better params - closer to resonance
 traj1, param1, paramObj, xConstraint = opt1(traj0, param0, 1, 1.0)
+# Test sufficient approx for feasible transmission params
+pp = copy(param1)
+ppfeas(Δτ1) = pp + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
+testΔτ1(Δτ1) = testp(ppfeas(Δτ1))[1:2]
+# Test feasibility
 gparam(p) = xConstraint([p; zeros((N+1)*ny)])
 display(param1')
 # param1 = idealparams(param1)
 
 # debug components ---
-
-pls = debugComponentsPlot(traj1, param1)
-plot(pls..., size=(800,600))
+pls = debugComponentsPlot(traj1, ppfeas(4))
+plot(pls..., size=(1000,600))
 gui()
 error("comp")
 
@@ -131,9 +135,6 @@ function testp(pnew)
 	println(pnew[end], " RMS u = ", norm(uvec)/N, ", const = ", cu.gtransmission(m, pnew, σomax) - σamax)
 	return trajnew, pnew, norm(uvec)/N
 end
-pp = copy(param1)
-ppfeas(Δτ1) = pp + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
-testΔτ1(Δτ1) = testp(ppfeas(Δτ1))[1:2]
 traj2, p2 = testΔτ1(0)
 traj3, p3 = testΔτ1(1)
 
