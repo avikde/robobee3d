@@ -84,8 +84,8 @@ function debugComponentsPlot(traj, param)
 		tot = inertialo+inertiala+stiffo+stiffa+damp
 		plot!(pl, tot, linewidth=2, linestyle=:dash, label="tot")
 
-		pl2 = plot(traj1[(N+1)*ny+1:end], linewidth=2, label="actf", legend=:outertopright)
-		plot!(pl2, tot/δt, linewidth=2, linestyle=:dash, label="tot")
+		pl2 = plot(traj1[(N+1)*ny+1:end]*δt, linewidth=2, label="actf", legend=:outertopright)
+		plot!(pl2, tot, linewidth=2, linestyle=:dash, label="tot")
 		plot!(pl2, damp, linewidth=2, label="d")
 		return pl, pl2
 	end
