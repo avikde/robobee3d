@@ -43,11 +43,11 @@ function opt1(traj, param, mode, scaleTraj; testAffine=false, testAfter=false)
 	# A polytope constraint for the params: simple bo >= ko =>  ko - bo <= 0 => 
 	Cp = Float64[0  1  -1  0]
 	dp = [0.0]
-	param1, paramObj, traj1, _ = cu.optAffine(m, opt, traj, param, mode, [1,4], optoptions..., scaleTraj, false, Cp, dp; Fext_pdep=true, test=testAffine, testTrajReconstruction=false, print_level=1, max_iter=4000)
+	param1, paramObj, traj1, unactErr, paramConstraint = cu.optAffine(m, opt, traj, param, mode, [1,4], optoptions..., scaleTraj, false, Cp, dp; Fext_pdep=true, test=testAffine, testTrajReconstruction=false, print_level=1, max_iter=4000)
 	if testAfter
 		cu.optAffine(m, opt, traj1, param1, 2, optoptions...; Fext_pdep=true, test=true, testTrajReconstruction=false, print_level=1, max_iter=200) # TEST
 	end
-	return traj1, param1, paramObj
+	return traj1, param1, paramObj, paramConstraint
 end
 
 """Debug components in a traj. Assumes traj, param are feasible together here."""
@@ -103,12 +103,14 @@ end
 # One-off ID or opt ---------
 
 # first optimization to get better params - closer to resonance
-traj1, param1, _ = opt1(traj0, param0, 1, 1.0)
+traj1, param1, paramObj, xConstraint = opt1(traj0, param0, 1, 1.0)
+gparam(p) = xConstraint([p; zeros((N+1)*ny)])
 display(param1')
 # try to predict ideal params
 τ1, ko, bo, τ2 = param1
 paramidl = [τ1, m.mo * (fdes * 2 * π)^2, bo, τ2]
 display(paramidl')
+println("g = ", gparam(param1), " gidl =", gparam(paramidl))
 
 # debug components ---
 

@@ -557,7 +557,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		error("Tested")
 	end
 
-	return pnew, eval_f, trajnew, unactErr
+	return pnew, eval_f, trajnew, unactErr, eval_g_ret
 
 	# # Without that T, can just use OSQP -------------------------
 	# mo = OSQP.Model()
