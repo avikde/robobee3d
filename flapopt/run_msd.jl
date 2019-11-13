@@ -88,9 +88,9 @@ function debugComponentsPlot(traj, param)
     	plot!(pl, tvec, δt*T*ko*post.(tvec), color=:black, linestyle=:dash, label="k*x")
     	plot!(pl, tvec, δt*T*bo*velt.(tvec), color=:black, linestyle=:dash, label="b*dx")
 
-		pl2 = plot(tvec, traj1[(N+1)*ny+1:end]*δt, linewidth=2, label="actf", legend=:outertopright)
-		plot!(pl2, tvec, tot, linewidth=2, linestyle=:dash, label="tot")
-		plot!(pl2, tvec, damp, linewidth=2, label="d")
+		pl2 = plot(tvec, tot, linewidth=2, label="actn", legend=:outertopright)
+		plot!(pl2, tvec, traj1[(N+1)*ny+1:end]*δt, linewidth=2, linestyle=:dash, label="act0")
+		plot!(pl2, tvec, damp, linewidth=2, label="damp")
 		return pl, pl2
 	end
 
@@ -110,7 +110,7 @@ end
 # One-off ID or opt ---------
 
 # first optimization to get better params - closer to resonance
-traj1, param1, paramObj, xConstraint = opt1(traj0, param0, 1, 1.0)
+traj1, param1, paramObj, xConstraint = opt1(traj0, param0, 1, 1.0, 0.2)
 # Test sufficient approx for feasible transmission params
 pp = copy(param1)
 ppfeas(Δτ1) = pp + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
@@ -121,31 +121,12 @@ display(param1')
 # param1 = idealparams(param1)
 
 # debug components ---
-pls = debugComponentsPlot(traj1, ppfeas(0))
+pls = debugComponentsPlot(traj1, ppfeas(4))
 plot(pls..., size=(800,300))
-gui()
-error("comp")
 
-# TEST manual params
-Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, param1, R_WTS, 1.0; Fext_pdep=true)
-Δy0 = zeros((N+1)*ny)
-function testp(pnew)
-	trajnew = cu.reconstructTrajFromΔy(m, opt, traj1, yo, Hk, B, Δy0, pnew, false)
-	uvec = trajnew[(N+1)*ny+1:end]
-	println(pnew[end], " RMS u = ", norm(uvec)/N, ", const = ", cu.gtransmission(m, pnew, σomax) - σamax)
-	return trajnew, pnew, norm(uvec)/N
-end
-traj2, p2 = testΔτ1(0)
-traj3, p3 = testΔτ1(1)
-
-unormΔτ1(Δτ1) = testp(ppfeas(Δτ1))[3]
-Δτ1s = collect(0:0.1:15)
-unorms = unormΔτ1.(Δτ1s)
-pl2 = plot(Δτ1s, unorms, xlabel="Δτ1", ylabel="unorm")
-
-pl1 = plotTrajs(m, opt, trajt, [param1, p2, p3], [traj1, traj2, traj3]; ulim=1e4)
-plot(pl1..., pl2)
-
+# unormΔτ1(Δτ1) = testp(ppfeas(Δτ1))[3]
+# Δτ1s = collect(0:0.1:15)
+# unorms = unormΔτ1.(Δτ1s)
 
 # # many sims (scale) --------------
 
