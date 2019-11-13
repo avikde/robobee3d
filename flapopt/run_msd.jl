@@ -120,32 +120,27 @@ end
 function plotNonlinBenefit()
     # First plot the param landscape
     pranges = [
-        0:0.2:6.0, # Δτ1s
+        0:0.5:6.0, # Δτ1s
         0.1:0.1:1.0 # bkratios
     ]
     labels = [
-        "Δτ1",
+        "Delta t1",
         "bkratio"
     ]
 
-    # function plotSlice(i1, i2)
-    #     function f(p1, p2)
-    #         parg = copy(param0)
-    #         parg[i1] = p1
-    #         parg[i2] = p2
-    #         V = paramObj(parg)
-    #         return V > Vclip ? NaN : V
-    #     end
-    #     pl = contour(pranges[i1], pranges[i2], f, fill=true, seriescolor=cgrad(:bluesreds), xlabel=labels[i1], ylabel=labels[i2])
-    #     # Now plot the path taken
-    #     plot!(pl, params[i1,:], params[i2,:], marker=:auto, legend=false)
-    #     # just in case
-    #     xlims!(pl, (pranges[i1][1], pranges[i1][end]))
-    #     ylims!(pl, (pranges[i2][1], pranges[i2][end]))
-    #     return pl
-    # end
+    function plotSlice(i1, i2)
+		pl = contour(pranges[i1], pranges[i2], unormΔτ1, fill=true, seriescolor=cgrad(:bluesreds), xlabel=labels[i1], ylabel=labels[i2])
+		# f1(Δτ1) = unormΔτ1(Δτ1, 0.2)
+		# yy = f1.(pranges[i1])
+		# println("hi", yy)
+		# pl = plot(pranges[i1], yy)
+        # just in case
+        xlims!(pl, (pranges[i1][1], pranges[i1][end]))
+        ylims!(pl, (pranges[i2][1], pranges[i2][end]))
+        return pl
+    end
     
-    # return plotSlice(1, 2)
+    return (plotSlice(1, 2),)
 end
 
 # One-off ID or opt ---------
@@ -160,9 +155,12 @@ gparam(p) = xConstraint([p; zeros((N+1)*ny)])
 display(param1')
 # param1 = idealparams(param1)
 
-# debug components ---
-pls = debugComponentsPlot(traj1, ppfeas(4))
-plot(pls..., size=(800,300))
+# # debug components ---
+# pls = debugComponentsPlot(traj1, ppfeas(4))
+# plot(pls..., size=(800,300))
+
+pls = plotNonlinBenefit()
+plot(pls...)
 
 # 
 # Δτ1s = collect(0:0.1:15)
