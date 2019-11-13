@@ -213,8 +213,8 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
         return [0   0   0   σ̇o*m.ma   σ̇o*m.ma*(-σo^2)]
     end
     HMqT(ypos, yvel) = HMqTo(ypos, yvel) + HMqTa(ypos, yvel)
-    Htil_io = (y, ynext) -> HMqTo(y, ynext) - HMqTo(y, y)
-    Htil_ia = (y, ynext) -> HMqTa(y, ynext) - HMqTa(y, y)
+    Hio = (y, ynext) -> HMqTo(y, ynext) - HMqTo(y, y)
+    Hia = (y, ynext) -> HMqTa(y, ynext) - HMqTa(y, y)
 
     function Hstiffo(y)
         σo, σ̇o = y * scaleTraj
@@ -230,9 +230,13 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     end
     HCgJTδt(y) = Hstiffo(y) + Hstiffa(y) + Hdamp(y)
 
-    # if debugComponents
-    #     return yo, HMqTo, HMqTa, HCgJTo, HCgJTa
-    # end
+    if debugComponents
+        function Hτ(Hh, y)
+            σo = y[1]
+            return hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
+        end
+        return yo, Hτ, Hio, Hia, Hstiffo, Hstiffa, Hdamp
+    end
     # ----------------
 
     # 1st order integration
