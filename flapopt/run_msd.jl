@@ -83,7 +83,7 @@ function debugComponentsPlot(traj, param)
 		tot = inertialo+inertiala+stiffo+stiffa+damp
 		plot!(pl, tvec, tot, linewidth=2, linestyle=:dash, label="tot")
 		# test what I think they should be
-		y2, T, τfun, τifun = cu.transmission(m, traj, param; o2a=false)
+		y2, T, τfun, τifun = cu.transmission(m, traj, param; o2a=true)
     	plot!(pl, tvec, δt*T*m.mo*acct.(tvec), color=:black, linestyle=:dash, label="m*a")
     	plot!(pl, tvec, δt*T*ko*post.(tvec), color=:black, linestyle=:dash, label="k*x")
     	plot!(pl, tvec, δt*T*bo*velt.(tvec), color=:black, linestyle=:dash, label="b*dx")
