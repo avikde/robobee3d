@@ -49,10 +49,54 @@ function opt1(traj, param, mode, scaleTraj; testAffine=false, testAfter=false)
 	return traj1, param1, paramObj
 end
 
+"""Debug components in a traj. Assumes traj, param are feasible together here."""
+function debugComponentsPlot(traj, param)
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+
+	# Get the components
+	yo, HMqTo, HMqTa, HCgJTo, HCgJTa = cu.paramAffine(m, opt, traj, param, R_WTS; Fext_pdep=true, debugComponents=true)
+	pt0, Tnew = cu.getpt(m, param)
+	inertialo = zeros(N)
+	inertiala = similar(inertialo)
+	stiffdampo = similar(inertialo)
+	stiffdampa = similar(inertialo)
+
+	for k=1:N
+		# TODO: check *pt0
+		inertialo[:,k] = (HMqTo(yo(k), yo(k+1)) - HMqTo(yo(k), yo(k))) * pt0
+		inertiala[:,k] = (HMqTa(yo(k), yo(k+1)) - HMqTo(yo(k), yo(k))) * pt0
+		stiffdampo[:,k] = (δt * HCgJTo(yo(k))) * pt0
+		stiffdampa[:,k] = (δt * HCgJTa(yo(k))) * pt0
+	end
+
+	function plotComponents(ylbl)
+		pl = plot(inertialo + inertiala, linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
+		plot!(pl, stiffdampo, linewidth=2, label="g")
+		plot!(pl, stiffdampa, linewidth=2, label="ga")
+		tot = inertialo+inertiala+stiffdampo+stiffdampa
+		plot!(pl, tot, linewidth=2, linestyle=:dash, label="tot")
+
+		pl2 = plot(traj1[(N+1)*ny+1:end], linewidth=2, label="actf", legend=:outertopright)
+		return pl, pl2
+	end
+
+	pl1 = plotTrajs(m, opt, trajt, [param], [traj])
+	pls, plcomp = plotComponents("c")
+
+	return pl1..., pls, plcomp
+end
+
 # One-off ID or opt ---------
 
 traj1, param1, _ = opt1(traj0, param0, 1, 1.0)
 display(param1')
+
+# debug components ---
+
+# pls = debugComponentsPlot(traj1, param1)
+# plot(pls..., size=(800,600))
+# gui()
+# error("comp")
 
 # TEST manual params
 Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, param1, R_WTS, 1.0; Fext_pdep=true)

@@ -192,7 +192,7 @@ function cu.transmission(m::MassSpringDamperModel, y::AbstractArray, _param::Vec
 end
 
 
-function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple, scaleTraj=1.0; Fext_pdep::Bool=false)
+function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple, scaleTraj=1.0; Fext_pdep::Bool=false, debugComponents=false)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 
     yo = k -> @view traj[liy[:,k]] # traj is in output coords already
@@ -202,27 +202,46 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     τ1, ko, bo, τ2 = param
 
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
-    function HMqT(ypos, yvel)
+    function HMqTo(ypos, yvel)
         σo, σ̇odum = ypos * scaleTraj
         σodum, σ̇o = yvel * scaleTraj
-        return [σ̇o*m.mo   0   0   σ̇o*m.ma   σ̇o*m.ma*(-σo^2)]
+        return [σ̇o*m.mo   0   0   0   0]
     end
+    function HMqTa(ypos, yvel)
+        σo, σ̇odum = ypos * scaleTraj
+        σodum, σ̇o = yvel * scaleTraj
+        return [0   0   0   σ̇o*m.ma   σ̇o*m.ma*(-σo^2)]
+    end
+    HMqT(ypos, yvel) = HMqTo(ypos, yvel) + HMqTa(ypos, yvel)
+    Htil_io = (y, ynext) -> HMqTo(y, ynext) - HMqTo(y, y)
+    Htil_ia = (y, ynext) -> HMqTa(y, ynext) - HMqTa(y, y)
 
-    function HCgJT(y, F)
+    function Hstiffo(y)
         σo, σ̇o = y * scaleTraj
-        return [0   σo   σ̇o   m.ka*σo   m.ka*(-σo^3/3)]
+        return δt*[0   σo   0   0   0]
     end
+    function Hstiffa(y)
+        σo, σ̇o = y * scaleTraj
+        return δt*[0   0   0   m.ka*σo   m.ka*(-σo^3/3)]
+    end
+    function Hdamp(y)
+        σo, σ̇o = y * scaleTraj
+        return δt*[0   0   σ̇o   0    0]
+    end
+    HCgJTδt(y) = Hstiffo(y) + Hstiffa(y) + Hdamp(y)
+
+    # if debugComponents
+    #     return yo, HMqTo, HMqTa, HCgJTo, HCgJTa
+    # end
     # ----------------
 
-    # this is OK - see notes
-    # Htil = (y, ynext, F) -> HMq(ynext) - HMq(y) + δt*HCgJ(y, F)
-    # 1st order integration mods
-    Htil = (y, ynext, F) -> HMqT(y, ynext) - HMqT(y, y) + δt*HCgJT(y, F)
+    # 1st order integration
+    Htil = (y, ynext) -> HMqT(y, ynext) - HMqT(y, y) + HCgJTδt(y)
     
     # Functions to output
     "Takes in a Δy in output coords"
     function Hk(k, Δyk, Δykp1)
-        Hh = Htil(yo(k) + Δyk, yo(k+1) + Δykp1, 0)
+        Hh = Htil(yo(k) + Δyk, yo(k+1) + Δykp1)
         # With new nonlinear transmission need to break apart H
         σo = (yo(k) + Δyk)[1]
         return hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
