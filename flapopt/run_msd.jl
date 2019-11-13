@@ -32,7 +32,7 @@ trajt, traj0orig, trajt = createInitialTraj(m, opt, N, fdes)
 traj0 = traj0orig
 
 R_WTS = (zeros(2,2), 0, 1.0*I)#diagm(0=>[0.1,100]))
-σamax = 10000 # [mm] constant? for robobee actuators
+σamax = 0.3 # [mm] constant? for robobee actuators
 # σamax = 100 # [mm] constant? test EM
 plimsL = [0.1, 0.1, 0.1, 0.0]
 plimsU = [1000.0, 1000.0, 1000.0, 100.0]
