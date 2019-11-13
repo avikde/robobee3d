@@ -100,21 +100,24 @@ function debugComponentsPlot(traj, param)
 	return pl1..., pls, plcomp
 end
 
+function idealparams(param)
+	# try to predict ideal params
+	τ1, ko, bo, τ2 = param
+	kidl = m.mo * (fdes * 2 * π)^2
+	return [τ1, kidl, kidl, τ2]
+end
+
 # One-off ID or opt ---------
 
 # first optimization to get better params - closer to resonance
 traj1, param1, paramObj, xConstraint = opt1(traj0, param0, 1, 1.0)
 gparam(p) = xConstraint([p; zeros((N+1)*ny)])
 display(param1')
-# try to predict ideal params
-τ1, ko, bo, τ2 = param1
-paramidl = [τ1, m.mo * (fdes * 2 * π)^2, bo, τ2]
-display(paramidl')
-println("g = ", gparam(param1), " gidl =", gparam(paramidl))
+# param1 = idealparams(param1)
 
 # debug components ---
 
-pls = debugComponentsPlot(traj1, paramidl)
+pls = debugComponentsPlot(traj1, param1)
 plot(pls..., size=(800,600))
 gui()
 error("comp")
