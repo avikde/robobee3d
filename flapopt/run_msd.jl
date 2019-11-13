@@ -25,18 +25,15 @@ param0 = [20.0, # τ1
 
 # Generate a reference traj
 trajt, traj0orig, trajt = createInitialTraj(m, opt, N, fdes)
-
-# FIXME: replace this with a getOutputTrajectory(), and get σomax from that
-const σomax = 9.0 # 9 makes sense -- see creteInitialTraj. It goes higher if fixTraj is used. Without, the actual was 8.998970173157899 ~= 9.
+σomax = cu.limits(m)[1]
 
 # Make traj satisfy dyn constraint with these params?
 # traj0 = cu.fixTrajWithDynConst(m, opt, traj0orig, param0)
 traj0 = traj0orig
 
 R_WTS = (zeros(2,2), 0, 1.0*I)#diagm(0=>[0.1,100]))
-σamax = 0.3 # [mm] constant? for robobee actuators
+σamax = 10000 # [mm] constant? for robobee actuators
 # σamax = 100 # [mm] constant? test EM
-Tmin = 10.08799170499444/σamax
 plimsL = [0.1, 0.1, 0.1, 0.0]
 plimsU = [1000.0, 1000.0, 1000.0, 100.0]
 

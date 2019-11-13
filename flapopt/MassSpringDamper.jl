@@ -29,7 +29,7 @@ function cu.limits(m::MassSpringDamperModel)::Tuple{Vector, Vector, Vector, Vect
     # This is based on observing the OL trajectory. See note on units above.
     umax = [m.umax] # [mN]
     umin = -umax
-    xmax = [10,1000] # [mm, rad, mm/ms, rad/ms]
+    xmax = [10,1000] # [mm, mm/ms]
     xmin = -xmax
     return umin, umax, xmin, xmax
 end
