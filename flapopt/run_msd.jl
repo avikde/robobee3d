@@ -110,9 +110,11 @@ end
 
 function unormΔτ1(Δτ1, bkratio)
 	traj1, param1, paramObj, xConstraint = opt1(traj0, param0, 1, 1.0, bkratio)
-	pp = copy(param1)
-	ppfeas(Δτ1) = pp + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
-	
+	pnew = copy(param1) + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
+	Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, pnew, R_WTS, 1.0; Fext_pdep=true)	
+	Δy0 = zeros((N+1)*ny)
+	trajnew = cu.reconstructTrajFromΔy(m, opt, traj1, yo, Hk, B, Δy0, pnew, false)	
+	return norm(trajnew[(N+1)*ny+1:end])/N
 end
 
 function plotNonlinBenefit()
