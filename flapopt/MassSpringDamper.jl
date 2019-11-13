@@ -49,24 +49,20 @@ function cu.dydt(m::MassSpringDamperModel, y::AbstractArray, u::AbstractArray, p
     return [y[2], ddy]
 end
 
-function σdes(N, k)
-    return -10.0 * sin(π*(k-1)/N)
-end
-
-"Objective to minimize"
-function cu.robj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, params::AbstractArray)::AbstractArray
-    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+# "Objective to minimize"
+# function cu.robj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, params::AbstractArray)::AbstractArray
+#     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
     
-	yk = k -> @view traj[liy[:,k]]
-	uk = k -> @view traj[liu[:,k]]
-    kvec = collect(1:N+1)
-    rtrajErr = first.(yk.(kvec)) - σdes.(N, kvec)
-    # only traj cost
-    return rtrajErr
-    # # also add input cost?
-    # ru = 0.1 * uk.(collect(1:N))
-    # return [rtrajErr;ru]
-end
+# 	yk = k -> @view traj[liy[:,k]]
+# 	uk = k -> @view traj[liu[:,k]]
+#     kvec = collect(1:N+1)
+#     rtrajErr = first.(yk.(kvec)) - σdes.(N, kvec)
+#     # only traj cost
+#     return rtrajErr
+#     # # also add input cost?
+#     # ru = 0.1 * uk.(collect(1:N))
+#     # return [rtrajErr;ru]
+# end
 
 # -------------------------------------------------------------------------------
 
@@ -84,69 +80,26 @@ function createOLTraj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abstra
     return traj1
 end
 
-function σdesAll(m::MassSpringDamperModel, freq)
+function refTraj(m::MassSpringDamperModel, freq)
     σmax = cu.limits(m)[end][1]
     # had trouble with
-    post = t -> 0.9 * σmax * sin(freq * 2 * π * t)
-    velt = t -> 0.9 * σmax * (freq * 2 * π) * cos(freq * 2 * π * t)
+    post = t -> σmax * cos(freq * 2 * π * t)
+    velt = t -> -σmax * (freq * 2 * π) * sin(freq * 2 * π * t)
     return post, velt
 end
-σdes(m::MassSpringDamperModel, freq, t) = (post = σdesAll(m, freq)[1]; post(t))
 
 """
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, param::Vector, starti; showPlot=false)
-    # Create a traj
-    function controller(y, t)
-        return posGains[1] * (σdes(m, freq, t) - y[1]) - posGains[2] * y[2]
-    end
-    vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], param)
-    # OL traj1
-    simdt = 0.1 # [ms]
-    teval = collect(0:simdt:100) # [ms]
-    prob = ODEProblem(vf, [1.,0.], (teval[1], teval[end]))
-    sol = solve(prob, saveat=teval)
-
-    # # Animate whole traj
-    # Nt = length(sol.t)
-    # @gif for k = 1:3:Nt
-    #     yk = sol.u[k]
-    #     uk = [strokePosController(yk, sol.t[k])]
-    #     drawFrame(m, yk, uk, params)
-    # end
-
-    # expectedInterval = opt.boundaryConstraint == cu.SYMMETRIC ? 1/(2*freq) : 1/freq # [ms]
-    # expectedPts = expectedInterval / simdt
-
-    olRange = starti:(starti + N)
-    trajt = sol.t[olRange]
-    δt = trajt[2] - trajt[1]
-    olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)
-    olTraju = [controller(olTrajaa[i], trajt[i]) for i in 1:N] # get u1,...,uN
-    traj0 = [vcat(olTrajaa...); olTraju] # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
-    if opt.vart
-        traj0 = [traj0; δt]
-    else
-        println("Initial traj δt=", δt, ", opt.fixedδt=", opt.fixedδt)
-    end
-    # in (1..N+1) intervals, time elapsed = N*δt - this corresponds to tp/2 where tp=period
-    # so ω = 2π/tp, and we expect ω^2 = k/mb
-    # println("For resonance expect k = ", resStiff(m, opt, traj0))
-
-    if showPlot
-        # Plot
-        σdest = t -> σdes(m, freq, t)
-        σactt = [sol.u[i][1] for i = 1:length(sol.t)]
-        σt = plot(sol.t, [σactt  σdest.(sol.t)], ylabel="act pos [m]")
-        σtdec = plot(trajt, [traj0[1:2:(N+1)*2] traj0[2:2:(N+1)*2]], linewidth=2, ylabel="pos,vel")
-        plot(σt, σtdec)
-        gui()
-        error("Initial traj plotted")
-    end
-
-    return trajt .- trajt[1], traj0, trajt
+function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int, freq::Real)
+    # Create an output traj (came from a template or something)
+    post, velt = refTraj(m, freq)
+    trajt = 0:opt.fixedδt:(N)*opt.fixedδt
+    # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
+    dirtrany = reshape(hcat(post.(trajt), velt.(trajt))', :)
+    traj = [dirtrany; zeros(N)]
+    return trajt, traj, trajt
 end
 
 function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t, params, trajs; ulim=nothing, fdes=0.1)
@@ -162,7 +115,7 @@ function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t, params, traj
     end
     
     # also plot the des pos and vel to make sure the initial traj is "OK"
-    post, velt = σdesAll(m, fdes)
+    post, velt = refTraj(m, fdes)
     plot!(σt, t, post.(t), color=:black, linestyle=:dash)
     plot!(dσt, t, velt.(t), color=:black, linestyle=:dash)
     τ1, ko, bo, τ2 = params[end]
