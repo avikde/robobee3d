@@ -68,7 +68,7 @@ function debugComponentsPlot(traj, param)
 	damp = similar(inertialo)
 
 	for k=1:N
-		# TODO: check *pt0
+		# FIXME: this is OK for τ2=0 but need to use transmission()
 		inertialo[k] = (Hτ(Hio(yo(k), yo(k+1)), yo(k)) * pt0/τ1)[1]
 		inertiala[k] = (Hτ(Hia(yo(k), yo(k+1)), yo(k)) * pt0/τ1)[1]
 		stiffo[k] = (Hτ(Hstiffo(yo(k)), yo(k)) * pt0/τ1)[1]
@@ -88,7 +88,7 @@ function debugComponentsPlot(traj, param)
     	plot!(pl, tvec, δt*ko*post.(tvec), color=:black, linestyle=:dash, label="k*x")
     	plot!(pl, tvec, δt*bo*velt.(tvec), color=:black, linestyle=:dash, label="b*dx")
 
-		pl2 = plot(tvec, traj1[(N+1)*ny+1:end]*δt, linewidth=2, label="actf", legend=:outertopright)
+		pl2 = plot(tvec, traj1[(N+1)*ny+1:end]*δt/τ1, linewidth=2, label="actf", legend=:outertopright)
 		plot!(pl2, tvec, tot, linewidth=2, linestyle=:dash, label="tot")
 		plot!(pl2, tvec, damp, linewidth=2, label="d")
 		return pl, pl2
