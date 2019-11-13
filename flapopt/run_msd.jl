@@ -27,7 +27,7 @@ param0 = [20.0, # τ1
 trajt, traj0orig, trajt = createInitialTraj(m, opt, N, fdes, [1e6, 1e5], param0, 227; showPlot=false)
 
 # FIXME: replace this with a getOutputTrajectory(), and get σomax from that
-const σomax = 9.970576473992493
+const σomax = 9.0 # 9 makes sense -- see creteInitialTraj. It goes higher if fixTraj is used. Without, the actual was 8.998970173157899 ~= 9.
 
 # Make traj satisfy dyn constraint with these params?
 # traj0 = cu.fixTrajWithDynConst(m, opt, traj0orig, param0)
