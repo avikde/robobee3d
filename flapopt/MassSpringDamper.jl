@@ -115,15 +115,21 @@ function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t, params, traj
         ylims!(ut, (-ulim, ulim))
     end
     
+    # actuator displacement
+    function actdisp(traj, param)
+        τ1, ko, bo, τ2 = param
+        y2, T, τfun, τifun = cu.transmission(m, traj, param; o2a=true)
+        return τifun.(traj[@view liy[1,:]])
+    end
+    σat = plot(t, hcat([actdisp(trajs[i], params[i]) for i=1:length(trajs)]...), linewidth=2, ylabel="act stroke [mm]")
+
     # also plot the des pos and vel to make sure the initial traj is "OK"
     post, velt = refTraj(m, fdes)
     plot!(σt, t, post.(t), color=:black, linestyle=:dash)
     plot!(dσt, t, velt.(t), color=:black, linestyle=:dash)
-    τ1, ko, bo, τ2 = params[end]
-    plot!(ut, t, bo*velt.(t), color=:black, linestyle=:dash)
     
     # Combine the subplots
-	return (σt, dσt, ut)
+	return (σt, dσt, σat, ut)
 end
 
 # ---------------------- Param opt -----------------------------
