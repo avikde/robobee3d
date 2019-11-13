@@ -84,16 +84,14 @@ function createOLTraj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abstra
     return traj1
 end
 
-function σdes(m::MassSpringDamperModel, freq, t)
+function σdesAll(m::MassSpringDamperModel, freq)
     σmax = cu.limits(m)[end][1]
-    return 0.9 * σmax * sin(freq * 2 * π * t)
+    # had trouble with
+    post = t -> 0.9 * σmax * sin(freq * 2 * π * t)
+    velt = t -> 0.9 * σmax * (freq * 2 * π) * cos(freq * 2 * π * t)
+    return post, velt
 end
-
-function Hdes(m::MassSpringDamperModel, freq, t)
-    σmax = cu.limits(m)[end][1]
-    ω = freq * 2 * π
-    return 0.9 * σmax * [sin(ω * t); ω * cos(ω * t); -ω^2 * sin(ω * t)]
-end
+σdes(m::MassSpringDamperModel, freq, t) = (post = σdesAll(m, freq)[1]; post(t))
 
 """
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
@@ -151,7 +149,7 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
     return trajt .- trajt[1], traj0, trajt
 end
 
-function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t::Vector, params, trajs; ulim=nothing)
+function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t, params, trajs; ulim=nothing, fdes=0.1)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
     Ny = (N+1)*ny
     # If plot is given a matrix each column becomes a different line
@@ -162,6 +160,13 @@ function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t::Vector, para
     if !isnothing(ulim)
         ylims!(ut, (-ulim, ulim))
     end
+    
+    # also plot the des pos and vel to make sure the initial traj is "OK"
+    post, velt = σdesAll(m, fdes)
+    plot!(σt, t, post.(t), color=:black, linestyle=:dash)
+    plot!(dσt, t, velt.(t), color=:black, linestyle=:dash)
+    τ1, ko, bo, τ2 = params[end]
+    plot!(ut, t, bo*velt.(t), color=:black, linestyle=:dash)
     
     # Combine the subplots
 	return (σt, dσt, ut)
