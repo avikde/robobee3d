@@ -314,6 +314,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	ncpolytope = size(Cp,1)
 	nctransmission = bTrCon ? 1 : 0
 	nctotal = ncunact + ncpolytope + nctransmission # this is the TOTAL number of constraints
+	dp2 = copy(dp) # No idea why this was getting modified. Storing a copy seems to work.
 
 	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1) * (getpt(m, p)[1])
 	function eval_g_ret(x)
@@ -322,7 +323,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		gvec = vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), pp) for k=1:N]...)
 		# Polytope constraint on the params
 		if ncpolytope > 0
-			gvec = [gvec; Cp * pp - dp] # must be <= 0
+			gvec = [gvec; Cp * pp - dp2] # must be <= 0
 		end
 		if nctransmission > 0
 			gvec = [gvec; gtransmission(m, pp, σomax)]
@@ -445,8 +446,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	glimsL = -εunact*ones(ncunact)
 	glimsU = εunact*ones(ncunact)
 	if size(Cp,1) > 0
-		glimsL = [glimsL; -100000 * ones(Npolycon)] # Scott said having non-inf bounds helps IPOPT
-		glimsU = [glimsU; zeros(Npolycon)] # must be <= 0
+		glimsL = [glimsL; -100000 * ones(ncpolytope)] # Scott said having non-inf bounds helps IPOPT
+		glimsU = [glimsU; zeros(ncpolytope)] # must be <= 0
 	end
 	if bTrCon
 		glimsL = [glimsL; 0.0]

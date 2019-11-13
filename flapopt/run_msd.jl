@@ -30,8 +30,8 @@ trajt, traj0orig, trajt = createInitialTraj(m, opt, N, fdes, [1e6, 1e5], param0,
 const σomax = 9.970576473992493
 
 # Make traj satisfy dyn constraint with these params?
-traj0 = cu.fixTrajWithDynConst(m, opt, traj0orig, param0)
-# traj0 = traj0orig
+# traj0 = cu.fixTrajWithDynConst(m, opt, traj0orig, param0)
+traj0 = traj0orig
 
 R_WTS = (zeros(2,2), 0, 1.0*I)#diagm(0=>[0.1,100]))
 σamax = 0.3 # [mm] constant? for robobee actuators
@@ -43,7 +43,10 @@ plimsU = [1000.0, 1000.0, 1000.0, 100.0]
 """One-off ID or opt"""
 function opt1(traj, param, mode, scaleTraj; testAffine=false, testAfter=false)
 	optoptions = (R_WTS, 0.1, plimsL, plimsU, σamax)
-	param1, paramObj, traj1, _ = cu.optAffine(m, opt, traj, param, mode, [1,4], optoptions..., scaleTraj, false; Fext_pdep=true, test=testAffine, testTrajReconstruction=false, print_level=1, max_iter=4000)
+	# A polytope constraint for the params: simple bo >= ko =>  ko - bo <= 0 => 
+	Cp = Float64[0  1  -1  0]
+	dp = [0.0]
+	param1, paramObj, traj1, _ = cu.optAffine(m, opt, traj, param, mode, [1,4], optoptions..., scaleTraj, false, Cp, dp; Fext_pdep=true, test=testAffine, testTrajReconstruction=false, print_level=1, max_iter=4000)
 	if testAfter
 		cu.optAffine(m, opt, traj1, param1, 2, optoptions...; Fext_pdep=true, test=true, testTrajReconstruction=false, print_level=1, max_iter=200) # TEST
 	end
@@ -97,6 +100,7 @@ end
 
 # first optimization to get better params - closer to resonance
 traj1, param1, _ = opt1(traj0, param0, 1, 1.0)
+display(param1')
 
 # debug components ---
 
