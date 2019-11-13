@@ -126,10 +126,14 @@ function plotNonlinBenefit()
     labels = [
         "Delta t1",
         "bkratio"
-    ]
+	]
+	
+	function unormimprovement(Δτ1, bkratio)
+		return unormΔτ1(Δτ1, bkratio)/unormΔτ1(0, bkratio) # FIXME: this runs the 0 one twice...
+	end
 
     function plotSlice(i1, i2)
-		pl = contour(pranges[i1], pranges[i2], unormΔτ1, fill=true, seriescolor=cgrad(:bluesreds), xlabel=labels[i1], ylabel=labels[i2])
+		pl = contour(pranges[i1], pranges[i2], unormimprovement, fill=true, seriescolor=cgrad(:bluesreds), xlabel=labels[i1], ylabel=labels[i2])
 		# f1(Δτ1) = unormΔτ1(Δτ1, 0.2)
 		# yy = f1.(pranges[i1])
 		# println("hi", yy)
