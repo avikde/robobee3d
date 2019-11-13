@@ -192,8 +192,17 @@ function transmission(m::Model, y::AbstractArray, _param::Vector; o2a=false)
     return y2, T, τfun, τifun
 end
 
-"Helper function to reconstruct the traj (also test it)"
-function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, yo, Hk, B, Δy, pnew; test::Bool=false)
+"σomax is an output strain limit. This is the only transmission constraint for now, but others can be added."
+function gtransmission(m::Model, param, σomax)
+	# FIXME: this should take in traj and σamax
+	# Get both transmission coeffs
+	pbb, Tarrr = paramLumped(m, param)
+	τ1, τ2 = Tarrr
+	return σomax/τ1 - σomax^3/3 * τ2/τ1^4
+end
+
+"Helper function to reconstruct the traj (also test it). trajAct true=>traj is in act coords (else output)"
+function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, yo, Hk, B, Δy, pnew, trajAct=true; test::Bool=false)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	np = length(pnew)
 	Δyk = k -> Δy[(k-1)*ny+1 : k*ny]
@@ -203,9 +212,13 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, 
 	# Calculate the new traj (which is in act coordinates, so needs scaling by T)
 	ptnew, Tnew = getpt(m, pnew)
 	for k=1:N+1
-		# Go from output to act coords
-		ya, Tk = transmission(m, yo(k) + Δyk(k), pnew; o2a=true)[1:2]
-		traj2[liy[:,k]] = ya
+		if trajAct
+			# Go from output to act coords
+			ya, Tk = transmission(m, yo(k) + Δyk(k), pnew; o2a=true)[1:2]
+			traj2[liy[:,k]] = ya
+		else
+			traj2[liy[:,k]] = yo(k) + Δyk(k)
+		end
 		# Calculate the new inputs
 		if k <= N
 			traj2[liu[:,k]] = 1 / δt * B' * Hk(k, Δyk(k), Δyk(k+1)) * ptnew # compare to the "test" equation above
@@ -217,20 +230,7 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, 
 	return traj2
 end
 
-"Mode=1 => opt, mode=2 ID. Fext(p) or hold constant"
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, τinds::Array{Int}, R::Tuple, εunact, plimsL, plimsU, σamax, scaleTraj=1.0; Fext_pdep::Bool=false, test=false, testTrajReconstruction=false, kwargs...)
-	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
-	nq = ny÷2
-	np = length(param)
-    ptTEST, TTEST = getpt(m, param) # NOTE the actual param values are only needed for the test mode
-	npt = length(ptTEST)
-    
-	# Weights
-	Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
-
-	# Quadratic form matrix
-	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R, scaleTraj; Fext_pdep=Fext_pdep)
-
+#  Saving old work Gauss Newton for param opt ---------------------------------------
 	# GN -------------------------
 	# function pFeasible(p)
 	# 	cbar, T = p
@@ -261,9 +261,36 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# end
 	
 	# return x
+# -------------------------------------------------------------------------------
+
+"Mode=1 => opt, mode=2 ID. Fext(p) or hold constant.
+
+- εunact -- max error to tolerate in the unactuated rows when trying to match passive dynamics.
+- plimsL, plimsU -- box constraint for the params. These are used as variable limits in IPOPT.
+- σamax -- actuator strain limit. This is used to constrain the transmission coeffs s.t. the actuator displacement is limited to σamax. The form of the actuator constraint depends on bTrCon.
+- Cp, dp -- polytope constraint for params. Can pass Cp=ones(0,X) to not include.
+"
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, τinds::Array{Int}, R::Tuple, εunact, plimsL, plimsU, σamax, scaleTraj=1.0, trajAct=true, Cp::Matrix=ones(0,1), dp::Vector=ones(0); Fext_pdep::Bool=false, test=false, testTrajReconstruction=false, kwargs...)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+	nq = ny÷2
+	np = length(param)
+    ptTEST, TTEST = getpt(m, param) # NOTE the actual param values are only needed for the test mode
+	npt = length(ptTEST)
+    
+	# Weights
+	Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
+
+	# Quadratic form matrix
+	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, R, scaleTraj; Fext_pdep=Fext_pdep)
 
 	# IPOPT ---------------------------
+	# Options on the types of constraints to include
 	bTrCon = true # add a transmission constraint in g()? TODO: remove
+
+	"Variables for IPOPT:
+	x = [param; Δy] where Δy is the necessary traj modification for passive dynamics matching. 
+	For fully-actuated systems, Δy remains 0.
+	"
 	nx = np + (N+1)*ny # p,Δy
 
 	# Transmission limits imposed by actuator
@@ -282,30 +309,45 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	nact = size(B, 2)
 	nck = nq - nact # number of constraints for each k = # of unactuated DOFs ( = nunact)
 	Bperp = (I - B*B')[nact+1:end,:] # s.t. Bperp*B = 0
+	# Number of various constraints - these are used below to set up the jacobian of g.
 	ncunact = N * nck
-	nc = ncunact + (bTrCon ? 1 : 0)
+	ncpolytope = size(Cp,1)
+	nctransmission = bTrCon ? 1 : 0
+	nctotal = ncunact + ncpolytope + nctransmission # this is the TOTAL number of constraints
+	dp2 = copy(dp) # No idea why this was getting modified. Storing a copy seems to work.
 
 	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1) * (getpt(m, p)[1])
 	function eval_g_ret(x)
+		pp = x[1:np]
 		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
-		gvec = vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), x[1:np]) for k=1:N]...)
-		if bTrCon
-			# Get both transmission coeffs
-			pbb, Tarrr = paramLumped(m, x[1:np])
-			τ1, τ2 = Tarrr
-			gtransmission = σomax/τ1 - σomax^3/3 * τ2/τ1^4
-			gvec = [gvec; gtransmission]
+		gvec = vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), pp) for k=1:N]...)
+		# Polytope constraint on the params
+		if ncpolytope > 0
+			gvec = [gvec; Cp * pp - dp2] # must be <= 0
+		end
+		if nctransmission > 0
+			gvec = [gvec; gtransmission(m, pp, σomax)]
 		end
 		return gvec
 	end
 	eval_g(x::Vector, g::Vector) = g .= eval_g_ret(x)
 
 	# ----------- Constraint Jac ----------------------------
-	# Exploit sparsity in the nc*nx matrix. Each constraint depends on Δyk(k), Δyk(k+1), p
-	# The +2 at the end is for the transmission constraint
-	Dgnnz = ncunact * (2*ny + np) + (bTrCon ? 2 : 0)
+	"Constraints for IPOPT: g = [gunact; gpolycon; gtransmission]
+	- gunact = unactuated error = #unactuated DOFS * N
+	- gpolycon = Cp * p <= dp. But the user can pass in (and default is) Cp 0xX => has no effect
+	- gtransmission: actuator strain limit.
+	"
+	# Unactuated error: exploit sparsity in the nc*nx matrix. Each constraint depends on Δyk(k), Δyk(k+1), p
+	Dgnnz = ncunact * (2*ny + np)
+	if ncpolytope > 0
+		Dgnnz += prod(size(Cp)) # Assume Cp as a whole is full
+	end
+	if nctransmission > 0
+		Dgnnz += 2 # The +2 at the end is for the transmission constraint
+	end
 
-	# Function for IPOPT
+	"Dg jacobian of the constraint function g() for IPOPT."
 	function eval_jac_g(x, imode, row::Vector{Int32}, col::Vector{Int32}, value)
 		offs = 0
 			
@@ -339,7 +381,16 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 					end
 				end
 			end
-			if bTrCon
+			if ncpolytope > 0
+				# Cp * param <= dp
+				for i=1:size(Cp,1)
+					for j=1:size(Cp,2)
+						offs += 1
+						value[offs] = Cp[i,j]
+					end
+				end
+			end
+			if nctransmission > 0
 				# transmission
 				offs += 1
 				value[offs] = -σomax/τ1^2 + 4*σomax^3*τ2/(3*τ1^5) # d/dτ1
@@ -370,13 +421,23 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 					end
 				end
 			end
-			if bTrCon
+			if ncpolytope > 0
+				# Cp * param <= dp
+				for i=1:size(Cp,1)
+					for j=1:size(Cp,2)
+						offs += 1
+						row[offs] = ncunact + i # goes after the unact constraints
+						col[offs] = j # hits the elements of param (first part of x)
+					end
+				end
+			end
+			if nctransmission > 0
 				# transmission
 				offs += 1
-				row[offs] = nc
+				row[offs] = ncunact + ncpolytope + 1
 				col[offs] = τinds[1]
 				offs += 1
-				row[offs] = nc
+				row[offs] = ncunact + ncpolytope + 1
 				col[offs] = τinds[2]
 			end
 		end
@@ -384,6 +445,10 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 
 	glimsL = -εunact*ones(ncunact)
 	glimsU = εunact*ones(ncunact)
+	if size(Cp,1) > 0
+		glimsL = [glimsL; -100000 * ones(ncpolytope)] # Scott said having non-inf bounds helps IPOPT
+		glimsU = [glimsU; zeros(ncpolytope)] # must be <= 0
+	end
 	if bTrCon
 		glimsL = [glimsL; 0.0]
 		glimsU = [glimsU; σamax]
@@ -457,7 +522,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		nx, # Number of variables
 		xlimsL, # Variable lower bounds
 		xlimsU, # Variable upper bounds
-		nc, # Number of constraints
+		nctotal, # Number of constraints
 		glimsL,       # Constraint lower bounds
 		glimsU,       # Constraint upper bounds
 		Dgnnz,  # Number of non-zeros in Jacobian
@@ -480,7 +545,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	prob.x = [copy(param); zeros(nx - np)]
 	status = Ipopt.solveProblem(prob)
 	pnew = prob.x[1:np]
-	trajnew = reconstructTrajFromΔy(m, opt, traj, yo, Hk, B, prob.x[np+1:end], pnew)
+	trajnew = reconstructTrajFromΔy(m, opt, traj, yo, Hk, B, prob.x[np+1:end], pnew, trajAct)
 	unactErr = eval_g_ret(prob.x)
 
 	if testTrajReconstruction
@@ -492,7 +557,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		error("Tested")
 	end
 
-	return pnew, eval_f, trajnew, unactErr
+	return pnew, eval_f, trajnew, unactErr, eval_g_ret
 
 	# # Without that T, can just use OSQP -------------------------
 	# mo = OSQP.Model()
