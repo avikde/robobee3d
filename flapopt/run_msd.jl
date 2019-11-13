@@ -105,10 +105,14 @@ end
 # first optimization to get better params - closer to resonance
 traj1, param1, _ = opt1(traj0, param0, 1, 1.0)
 display(param1')
+# try to predict ideal params
+τ1, ko, bo, τ2 = param1
+paramidl = [τ1, m.mo * (fdes * 2 * π)^2, bo, τ2]
+display(paramidl')
 
 # debug components ---
 
-pls = debugComponentsPlot(traj1, param1)
+pls = debugComponentsPlot(traj1, paramidl)
 plot(pls..., size=(800,600))
 gui()
 error("comp")
