@@ -39,6 +39,7 @@ plimsU = [1000.0, 1000.0, 1000.0, 100.0]
 
 """One-off ID or opt"""
 function opt1(traj, param, mode, scaleTraj, bkratio=1.0; testAffine=false, testAfter=false)
+	println("bkratio = ", bkratio)
 	optoptions = (R_WTS, 0.1, plimsL, plimsU, σamax)
 	# A polytope constraint for the params: simple bo >= ko =>  ko - bo <= 0 => 
 	Cp = Float64[0  bkratio  -1  0]
@@ -107,6 +108,44 @@ function idealparams(param)
 	return [τ1, kidl, kidl, τ2] # Note the ko<=bo constraint: this is reflecting that, but must be set here separately
 end
 
+function unormΔτ1(Δτ1, bkratio)
+	traj1, param1, paramObj, xConstraint = opt1(traj0, param0, 1, 1.0, bkratio)
+	pp = copy(param1)
+	ppfeas(Δτ1) = pp + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
+	
+end
+
+function plotNonlinBenefit()
+    # First plot the param landscape
+    pranges = [
+        0:0.2:6.0, # Δτ1s
+        0.1:0.1:1.0 # bkratios
+    ]
+    labels = [
+        "Δτ1",
+        "bkratio"
+    ]
+
+    # function plotSlice(i1, i2)
+    #     function f(p1, p2)
+    #         parg = copy(param0)
+    #         parg[i1] = p1
+    #         parg[i2] = p2
+    #         V = paramObj(parg)
+    #         return V > Vclip ? NaN : V
+    #     end
+    #     pl = contour(pranges[i1], pranges[i2], f, fill=true, seriescolor=cgrad(:bluesreds), xlabel=labels[i1], ylabel=labels[i2])
+    #     # Now plot the path taken
+    #     plot!(pl, params[i1,:], params[i2,:], marker=:auto, legend=false)
+    #     # just in case
+    #     xlims!(pl, (pranges[i1][1], pranges[i1][end]))
+    #     ylims!(pl, (pranges[i2][1], pranges[i2][end]))
+    #     return pl
+    # end
+    
+    # return plotSlice(1, 2)
+end
+
 # One-off ID or opt ---------
 
 # first optimization to get better params - closer to resonance
@@ -114,7 +153,6 @@ traj1, param1, paramObj, xConstraint = opt1(traj0, param0, 1, 1.0, 0.2)
 # Test sufficient approx for feasible transmission params
 pp = copy(param1)
 ppfeas(Δτ1) = pp + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
-testΔτ1(Δτ1) = testp(ppfeas(Δτ1))[1:2]
 # Test feasibility
 gparam(p) = xConstraint([p; zeros((N+1)*ny)])
 display(param1')
@@ -124,7 +162,7 @@ display(param1')
 pls = debugComponentsPlot(traj1, ppfeas(4))
 plot(pls..., size=(800,300))
 
-# unormΔτ1(Δτ1) = testp(ppfeas(Δτ1))[3]
+# 
 # Δτ1s = collect(0:0.1:15)
 # unorms = unormΔτ1.(Δτ1s)
 
