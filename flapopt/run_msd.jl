@@ -10,8 +10,8 @@ cu = controlutils
 includet("MassSpringDamper.jl")
 
 # create an instance
-m = MassSpringDamperModel(6, # ma
-	150, # ka
+m = MassSpringDamperModel(0, # ma
+	0, # ka
 	500, # mo
 	100) # umax
 ny, nu = cu.dims(m)
@@ -53,7 +53,10 @@ end
 """Debug components in a traj. Assumes traj, param are feasible together here."""
 function debugComponentsPlot(traj, param)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+    τ1, ko, bo, τ2 = param
 	# opt1(traj, param, 1, 1.0; testAffine=true)
+	post, velt, acct = refTraj(m, fdes)
+	tvec = trajt[1:N]
 
 	# Get the components
 	yo, Hτ, Hio, Hia, Hstiffo, Hstiffa, Hdamp = cu.paramAffine(m, opt, traj, param, R_WTS; Fext_pdep=true, debugComponents=true)
@@ -66,24 +69,28 @@ function debugComponentsPlot(traj, param)
 
 	for k=1:N
 		# TODO: check *pt0
-		inertialo[k] = (Hτ(Hio(yo(k), yo(k+1)), yo(k)) * pt0)[1]
-		inertiala[k] = (Hτ(Hia(yo(k), yo(k+1)), yo(k)) * pt0)[1]
-		stiffo[k] = (Hτ(Hstiffo(yo(k)), yo(k)) * pt0)[1]
-		stiffa[k] = (Hτ(Hstiffa(yo(k)), yo(k)) * pt0)[1]
-		damp[k] = (Hτ(Hdamp(yo(k)), yo(k)) * pt0)[1]
+		inertialo[k] = (Hτ(Hio(yo(k), yo(k+1)), yo(k)) * pt0/τ1)[1]
+		inertiala[k] = (Hτ(Hia(yo(k), yo(k+1)), yo(k)) * pt0/τ1)[1]
+		stiffo[k] = (Hτ(Hstiffo(yo(k)), yo(k)) * pt0/τ1)[1]
+		stiffa[k] = (Hτ(Hstiffa(yo(k)), yo(k)) * pt0/τ1)[1]
+		damp[k] = (Hτ(Hdamp(yo(k)), yo(k)) * pt0/τ1)[1]
 	end
 
 	function plotComponents(ylbl)
-		pl = plot(inertialo + inertiala, linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
-		plot!(pl, stiffo, linewidth=2, label="so")
-		plot!(pl, stiffa, linewidth=2, label="sa")
-		plot!(pl, damp, linewidth=2, label="d")
+		pl = plot(tvec, inertialo + inertiala, linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
+		plot!(pl, tvec, stiffo, linewidth=2, label="so")
+		# plot!(pl, trajt, stiffa, linewidth=2, label="sa")
+		plot!(pl, tvec, damp, linewidth=2, label="d")
 		tot = inertialo+inertiala+stiffo+stiffa+damp
-		plot!(pl, tot, linewidth=2, linestyle=:dash, label="tot")
+		plot!(pl, tvec, tot, linewidth=2, linestyle=:dash, label="tot")
+		# test what I think they should be
+    	plot!(pl, tvec, δt*m.mo*acct.(tvec), color=:black, linestyle=:dash, label="m*a")
+    	plot!(pl, tvec, δt*ko*post.(tvec), color=:black, linestyle=:dash, label="k*x")
+    	plot!(pl, tvec, δt*bo*velt.(tvec), color=:black, linestyle=:dash, label="b*dx")
 
-		pl2 = plot(traj1[(N+1)*ny+1:end]*δt, linewidth=2, label="actf", legend=:outertopright)
-		plot!(pl2, tot, linewidth=2, linestyle=:dash, label="tot")
-		plot!(pl2, damp, linewidth=2, label="d")
+		pl2 = plot(tvec, traj1[(N+1)*ny+1:end]*δt, linewidth=2, label="actf", legend=:outertopright)
+		plot!(pl2, tvec, tot, linewidth=2, linestyle=:dash, label="tot")
+		plot!(pl2, tvec, damp, linewidth=2, label="d")
 		return pl, pl2
 	end
 

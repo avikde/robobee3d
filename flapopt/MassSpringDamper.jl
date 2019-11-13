@@ -85,7 +85,8 @@ function refTraj(m::MassSpringDamperModel, freq)
     # had trouble with
     post = t -> σmax * cos(freq * 2 * π * t)
     velt = t -> -σmax * (freq * 2 * π) * sin(freq * 2 * π * t)
-    return post, velt
+    acct = t -> -σmax * (freq * 2 * π)^2 * cos(freq * 2 * π * t)
+    return post, velt, acct
 end
 
 """
@@ -94,7 +95,7 @@ Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
 function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int, freq::Real)
     # Create an output traj (came from a template or something)
-    post, velt = refTraj(m, freq)
+    post, velt = refTraj(m, freq)[1:2]
     trajt = 0:opt.fixedδt:(N)*opt.fixedδt
     # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
     dirtrany = reshape(hcat(post.(trajt), velt.(trajt))', :)
