@@ -104,7 +104,7 @@ function idealparams(param)
 	# try to predict ideal params
 	τ1, ko, bo, τ2 = param
 	kidl = m.mo * (fdes * 2 * π)^2
-	return [τ1, kidl, kidl, τ2]
+	return [τ1, kidl, kidl, τ2] # Note the ko<=bo constraint: this is reflecting that, but must be set here separately
 end
 
 # One-off ID or opt ---------
