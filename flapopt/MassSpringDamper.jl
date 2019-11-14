@@ -157,7 +157,7 @@ function cu.transmission(m::MassSpringDamperModel, y::AbstractArray, _param::Vec
 end
 
 
-function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, R::Tuple, scaleTraj=1.0; Fext_pdep::Bool=false, debugComponents=false)
+function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, scaleTraj=1.0; Fext_pdep::Bool=false, debugComponents=false)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 
     yo = k -> @view traj[liy[:,k]] # traj is in output coords already

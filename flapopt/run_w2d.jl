@@ -85,7 +85,7 @@ function opt1(traj, param, mode, minal; testAffine=false, testAfter=false)
 	optoptions = oaOpts(minal)
 	param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj, param, mode, [2,6], optoptions...; Fext_pdep=true, test=testAffine, testTrajReconstruction=false, print_level=1, max_iter=4000)
 	if testAfter
-		cu.optAffine(m, opt, traj1, param1, 2, optoptions...; Fext_pdep=true, test=true, testTrajReconstruction=false, print_level=1, max_iter=200) # TEST
+		cu.affineTest(m, opt, traj1, param1)
 	end
 	return traj1, param1, paramObj, unactErr
 end
@@ -103,7 +103,7 @@ function debugComponentsPlot(traj, param; optal=nothing)
 	end
 
 	# Get the components
-	yo, HMnc, HMc, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj1, param1, R_WTS; Fext_pdep=true, debugComponents=true)
+	yo, HMnc, HMc, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj1, param1; Fext_pdep=true, debugComponents=true)
 	pt0, Tnew = cu.getpt(m, param1)
 	inertial = zeros(2,N)
 	inertialc = similar(inertial)
@@ -201,7 +201,7 @@ traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1)
 # plot(pls...)
 
 # TEST manual params
-Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, param1, R_WTS, 1.0; Fext_pdep=true)
+Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, param1, 1.0; Fext_pdep=true)
 Δy0 = zeros((N+1)*ny)
 testp(pnew) = cu.reconstructTrajFromΔy(m, opt, traj1, yo, Hk, B, Δy0, pnew)
 pp = [8.44463,  13.9429,  0.235645,  23.9639,    8.29057,   0.0]
