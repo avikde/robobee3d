@@ -153,10 +153,6 @@ function plotNonlinBenefit()
     return (plotSlice(1, 2),)
 end
 
-# One-off ID or opt ---------
-
-# first optimization to get better params - closer to resonance
-traj1, param1, paramObj, paramConstraint, s = opt1(traj0, param0, 1, 1.0, 0.2)
 # Test feasibility
 function paramTest(p, s)
 	xtest = [p; zeros((N+1)*ny); s]
@@ -166,22 +162,17 @@ function paramTest(p, s)
 	unew = cu.getTrajU(m, opt, traj1, p, POPTS)
 	println("Obj: ", paramObj(xtest), " should be ", norm(unew, Inf)^2)
 end
+
+# One-off ID or opt ---------
+
+# first optimization to get better params - closer to resonance
+traj1, param1, paramObj, paramConstraint, s = opt1(traj0, param0, 1, 1.0, 0.2)
 display(param1')
 # param1 = idealparams(param1)
 
-println("s = ", s)
-paramTest(param1, s)
-
-# Test sufficient approx for feasible transmission params
-pp = copy(param1)
-ppfeas(Δτ1) = pp + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
-paramTest(ppfeas(4), s)
-# paramTest(rand(4), s)
-# traj1, param1, paramObj, paramConstraint, s = opt1(traj0, param0, 1, 1.0, 0.2)
-
-# # debug components ---
-# pls = debugComponentsPlot(traj1, ppfeas(4))
-# plot(pls..., size=(800,300))
+# debug components ---
+pls = debugComponentsPlot(traj1, param1)
+plot(pls..., size=(800,300))
 
 # pls = plotNonlinBenefit() # SLOW
 # plot(pls...)
