@@ -444,10 +444,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		display(eval_g_ret2(pnew)')
 		error("Tested")
 	end
-	if uinfnorm
-		println("Slack variable value = ", prob.x[np+nΔy+1:np+nΔy+nu])
-	end
+	s = uinfnorm ? prob.x[np+nΔy+1:np+nΔy+nu] : NaN
 
-	return pnew, eval_f, trajnew, unactErr, eval_g_ret
+	return pnew, eval_f, trajnew, unactErr, eval_g_ret, s
 end
 

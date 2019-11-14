@@ -48,11 +48,11 @@ function opt1(traj, param, mode, scaleTraj, bkratio=1.0; testAffine=false, testA
 	# A polytope constraint for the params: simple bo >= ko =>  ko - bo <= 0 => 
 	Cp = Float64[0  bkratio  -1  0]
 	dp = [0.0]
-	param1, paramObj, traj1, unactErr, paramConstraint = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, scaleTraj=scaleTraj, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
+	param1, paramObj, traj1, unactErr, paramConstraint, s = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, scaleTraj=scaleTraj, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
 	if testAfter
 		cu.affineTest(m, opt, traj1, param1)
 	end
-	return traj1, param1, paramObj, paramConstraint
+	return traj1, param1, paramObj, paramConstraint, s
 end
 
 """Debug components in a traj. Assumes traj, param are feasible together here."""
@@ -155,14 +155,17 @@ end
 # One-off ID or opt ---------
 
 # first optimization to get better params - closer to resonance
-traj1, param1, paramObj, xConstraint = opt1(traj0, param0, 1, 1.0, 0.2)
+traj1, param1, paramObj, paramConstraint, s = opt1(traj0, param0, 1, 1.0, 0.2)
 # Test sufficient approx for feasible transmission params
 pp = copy(param1)
 ppfeas(Δτ1) = pp + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
 # Test feasibility
-gparam(p) = xConstraint([p; zeros((N+1)*ny)])
+gparam(p) = paramConstraint([p; zeros((N+1)*ny); s])
 display(param1')
 # param1 = idealparams(param1)
+
+
+println("s = ", s, ", g = ", gparam(param1))
 
 # # debug components ---
 # pls = debugComponentsPlot(traj1, ppfeas(4))
