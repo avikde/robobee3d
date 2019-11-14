@@ -45,9 +45,10 @@ POPTS = cu.ParamOptOpts(
 """One-off ID or opt"""
 function opt1(traj, param, mode, scaleTraj, bkratio=1.0; testAffine=false, testAfter=false)
 	println("bkratio = ", bkratio)
-	# A polytope constraint for the params: simple bo >= ko =>  ko - bo <= 0 => 
-	Cp = Float64[0  bkratio  -1  0]
-	dp = [0.0]
+	# A polytope constraint for the params: simple bo >= ko =>  ko - bo <= 0. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
+	Cp = Float64[0  bkratio  -1  0;
+		-2  0  0  1]
+	dp = zeros(2)
 	param1, paramObj, traj1, unactErr, paramConstraint, s = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, scaleTraj=scaleTraj, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
 	if testAfter
 		cu.affineTest(m, opt, traj1, param1, POPTS)
