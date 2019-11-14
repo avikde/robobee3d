@@ -145,8 +145,7 @@ end
 - gtransmission: actuator strain limit.
 "
 function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax)
-	# no infnorm for ID
-	uinfnorm = mode == 2 ? false : POPTS.uinfnorm
+	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
 	# Unactuated constraint: Bperp' * H(y + Δy) * pt is small enough (unactuated DOFs) 
 	nact = size(B, 2)
 	nck = nq - nact # number of constraints for each k = # of unactuated DOFs ( = nunact)
@@ -155,9 +154,10 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt
 	ncunact = N * nck
 	ncpolytope = size(Cp,1)
 	nctransmission = POPTS.nonlintransmission ? 1 : 0
-	ncuinfnorm = uinfnorm ? N * nact : 0
+	ncuinfnorm = uinfnorm ? 2 * N * nact : 0
 	nctotal = ncunact + ncpolytope + nctransmission + ncuinfnorm # this is the TOTAL number of constraints
 	dp2 = copy(dp) # No idea why this was getting modified. Storing a copy seems to work.
+	nΔy = (N+1)*ny
 
 	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1) * (getpt(m, p)[1])
 	if uinfnorm
@@ -168,6 +168,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt
 	function eval_g_ret(x)
 		pp = x[1:np]
 		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
+		s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
 		gvec = vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), pp) for k=1:N]...)
 		# Polytope constraint on the params
 		if ncpolytope > 0
@@ -177,7 +178,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt
 			gvec = [gvec; gtransmission(m, pp, σomax)]
 		end
 		if uinfnorm
-			gvec = [gvec; vcat([ukpred(k, pp) for k=1:N]...)] # all the u's just go in the constraint
+			gvec = [gvec; vcat([ukpred(k, pp)-s for k=1:N]...); vcat([-ukpred(k, pp)-s for k=1:N]...)] # uk-s<=0; -uk-s<=0
 		end
 		return gvec
 	end
@@ -192,8 +193,8 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt
 		Dgnnz += 2 # The +2 at the end is for the transmission constraint
 	end
 	if uinfnorm
-		# for each k, get d/dp(B' * Hk * pt) which should be nact*np
-		Dgnnz += N * nact * np
+		# for each k, get d/dp(B' * Hk * pt) which should be nact*np, and there is an identity for the "s", 2x times
+		Dgnnz += 2 * N * (nact * np + nact)
 	end
 
 	"Dg jacobian of the constraint function g() for IPOPT."
@@ -252,8 +253,14 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt
 					for i=1:nact
 						for j=1:np
 							offs += 1
-							value[offs] = dp[i,j]
+							value[offs] = dp[i,j] # uk in uk-s<=0
+							offs += 1
+							value[offs] = -dp[i,j] # uk in -uk-s<=0
 						end
+						offs += 1
+						value[offs] = -1 # -s in uk-s<=0
+						offs += 1
+						value[offs] = -1 # -s in -uk-s<=0
 					end
 				end
 			end
@@ -306,8 +313,17 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt
 						for j=1:np
 							offs += 1
 							row[offs] = ncunact + ncpolytope + nctransmission + (k-1)*nact + i
-							col[offs] = j
+							col[offs] = j # uk in uk-s<=0
+							offs += 1
+							row[offs] = ncunact + ncpolytope + nctransmission + ncuinfnorm÷2 + (k-1)*nact + i
+							col[offs] = j # uk in -uk-s<=0
 						end
+						offs += 1
+						row[offs] = ncunact + ncpolytope + nctransmission + (k-1)*nact + i
+						col[offs] = np+nΔy+i # s in uk-s<=0
+						offs += 1
+						row[offs] = ncunact + ncpolytope + nctransmission + ncuinfnorm÷2 + (k-1)*nact + i
+						col[offs] = np+nΔy+i # s in -uk-s<=0
 					end
 				end
 			end
@@ -326,7 +342,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt
 	end
 	if uinfnorm
 		glimsL = [glimsL; -100000 * ones(ncuinfnorm)]
-		glimsU = [glimsU; 100000 * ones(ncuinfnorm)]
+		glimsU = [glimsU; zeros(ncuinfnorm)]
 	end
 
 	return nctotal, glimsL, glimsU, eval_g_ret, eval_jac_g, Dgnnz, Bperp
@@ -343,11 +359,12 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	if test
 		affineTest(m, opt, traj, param) # this does not need to be here TODO: remove
 	end
-
+	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
 	np = length(param)
 	npt = length(getpt(m, param)[1])
+	nΔy = (N+1)*ny
 
 	# Quadratic form matrix
 	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, POPTS, scaleTraj)
@@ -365,7 +382,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	x = [param; Δy] where Δy is the necessary traj modification for passive dynamics matching. 
 	For fully-actuated systems, Δy remains 0.
 	"
-	nx = np + (N+1)*ny # p,Δy
+	nx = np + nΔy + (uinfnorm ? nu : 0) # p,Δy[,s]
 	xlimsL = -1000 * ones(nx)
 	xlimsU = 1000 * ones(nx)
 	xlimsL[1:np] = POPTS.plimsL
@@ -404,7 +421,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	prob.x = [copy(param); zeros(nx - np)]
 	status = Ipopt.solveProblem(prob)
 	pnew = prob.x[1:np]
-	trajnew = reconstructTrajFromΔy(m, opt, traj, yo, Hk, B, prob.x[np+1:end], pnew)
+	trajnew = reconstructTrajFromΔy(m, opt, traj, yo, Hk, B, prob.x[np+1:np+nΔy], pnew)
 	unactErr = eval_g_ret(prob.x)
 
 	if testTrajReconstruction
