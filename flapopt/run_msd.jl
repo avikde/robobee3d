@@ -117,7 +117,7 @@ function unormΔτ1(Δτ1, bkratio)
 	pnew = copy(param1) + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
 	Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, pnew, POPTS, 1.0)	
 	Δy0 = zeros((N+1)*ny)
-	trajnew = cu.reconstructTrajFromΔy(m, opt, traj1, yo, Hk, B, Δy0, pnew, false)	
+	trajnew = cu.reconstructTrajFromΔy(m, opt, traj1, yo, Hk, B, Δy0, pnew)	
 	return norm(trajnew[(N+1)*ny+1:end], Inf)
 end
 
@@ -164,12 +164,12 @@ gparam(p) = xConstraint([p; zeros((N+1)*ny)])
 display(param1')
 # param1 = idealparams(param1)
 
-# debug components ---
-pls = debugComponentsPlot(traj1, ppfeas(4))
-plot(pls..., size=(800,300))
+# # debug components ---
+# pls = debugComponentsPlot(traj1, ppfeas(4))
+# plot(pls..., size=(800,300))
 
-# pls = plotNonlinBenefit() # SLOW
-# plot(pls...)
+pls = plotNonlinBenefit() # SLOW
+plot(pls...)
 
 # 
 # Δτ1s = collect(0:0.1:15)
