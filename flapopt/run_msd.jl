@@ -38,10 +38,11 @@ plimsL = [0.1, 0.1, 0.1, 0.0]
 plimsU = [1000.0, 1000.0, 1000.0, 100.0]
 
 """One-off ID or opt"""
-function opt1(traj, param, mode, scaleTraj; testAffine=false, testAfter=false)
+function opt1(traj, param, mode, scaleTraj, bkratio=1.0; testAffine=false, testAfter=false)
+	println("bkratio = ", bkratio)
 	optoptions = (R_WTS, 0.1, plimsL, plimsU, σamax)
 	# A polytope constraint for the params: simple bo >= ko =>  ko - bo <= 0 => 
-	Cp = Float64[0  1  -1  0]
+	Cp = Float64[0  bkratio  -1  0]
 	dp = [0.0]
 	param1, paramObj, traj1, unactErr, paramConstraint = cu.optAffine(m, opt, traj, param, mode, [1,4], optoptions..., scaleTraj, false, Cp, dp; Fext_pdep=true, test=testAffine, testTrajReconstruction=false, print_level=1, max_iter=4000)
 	if testAfter
@@ -68,12 +69,11 @@ function debugComponentsPlot(traj, param)
 	damp = similar(inertialo)
 
 	for k=1:N
-		# FIXME: this is OK for τ2=0 but need to use transmission()
-		inertialo[k] = (Hτ(Hio(yo(k), yo(k+1)), yo(k)) * pt0/τ1)[1]
-		inertiala[k] = (Hτ(Hia(yo(k), yo(k+1)), yo(k)) * pt0/τ1)[1]
-		stiffo[k] = (Hτ(Hstiffo(yo(k)), yo(k)) * pt0/τ1)[1]
-		stiffa[k] = (Hτ(Hstiffa(yo(k)), yo(k)) * pt0/τ1)[1]
-		damp[k] = (Hτ(Hdamp(yo(k)), yo(k)) * pt0/τ1)[1]
+		inertialo[k] = (Hτ(Hio(yo(k), yo(k+1)), yo(k)) * pt0)[1]
+		inertiala[k] = (Hτ(Hia(yo(k), yo(k+1)), yo(k)) * pt0)[1]
+		stiffo[k] = (Hτ(Hstiffo(yo(k)), yo(k)) * pt0)[1]
+		stiffa[k] = (Hτ(Hstiffa(yo(k)), yo(k)) * pt0)[1]
+		damp[k] = (Hτ(Hdamp(yo(k)), yo(k)) * pt0)[1]
 	end
 
 	function plotComponents(ylbl)
@@ -84,67 +84,92 @@ function debugComponentsPlot(traj, param)
 		tot = inertialo+inertiala+stiffo+stiffa+damp
 		plot!(pl, tvec, tot, linewidth=2, linestyle=:dash, label="tot")
 		# test what I think they should be
-    	plot!(pl, tvec, δt*m.mo*acct.(tvec), color=:black, linestyle=:dash, label="m*a")
-    	plot!(pl, tvec, δt*ko*post.(tvec), color=:black, linestyle=:dash, label="k*x")
-    	plot!(pl, tvec, δt*bo*velt.(tvec), color=:black, linestyle=:dash, label="b*dx")
+		y2, T, τfun, τifun = cu.transmission(m, traj, param; o2a=true)
+    	plot!(pl, tvec, δt*T*m.mo*acct.(tvec), color=:black, linestyle=:dash, label="m*a")
+    	plot!(pl, tvec, δt*T*ko*post.(tvec), color=:black, linestyle=:dash, label="k*x")
+    	plot!(pl, tvec, δt*T*bo*velt.(tvec), color=:black, linestyle=:dash, label="b*dx")
 
-		pl2 = plot(tvec, traj1[(N+1)*ny+1:end]*δt/τ1, linewidth=2, label="actf", legend=:outertopright)
-		plot!(pl2, tvec, tot, linewidth=2, linestyle=:dash, label="tot")
-		plot!(pl2, tvec, damp, linewidth=2, label="d")
+		pl2 = plot(tvec, tot, linewidth=2, label="actn", legend=:outertopright)
+		plot!(pl2, tvec, traj1[(N+1)*ny+1:end]*δt, linewidth=2, linestyle=:dash, label="act0")
+		plot!(pl2, tvec, damp, linewidth=2, label="damp")
 		return pl, pl2
 	end
 
-	pl1 = plotTrajs(m, opt, trajt, [param], [traj])
+	# pl1 = plotTrajs(m, opt, trajt, [param], [traj])
 	pls, plcomp = plotComponents("c")
 
-	return pl1..., pls, plcomp
+	return pls, plcomp
 end
 
 function idealparams(param)
 	# try to predict ideal params
 	τ1, ko, bo, τ2 = param
 	kidl = m.mo * (fdes * 2 * π)^2
-	return [τ1, kidl, kidl, τ2]
+	return [τ1, kidl, kidl, τ2] # Note the ko<=bo constraint: this is reflecting that, but must be set here separately
+end
+
+function unormΔτ1(Δτ1, bkratio)
+	traj1, param1, paramObj, xConstraint = opt1(traj0, param0, 1, 1.0, bkratio)
+	pnew = copy(param1) + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
+	Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, pnew, R_WTS, 1.0; Fext_pdep=true)	
+	Δy0 = zeros((N+1)*ny)
+	trajnew = cu.reconstructTrajFromΔy(m, opt, traj1, yo, Hk, B, Δy0, pnew, false)	
+	return norm(trajnew[(N+1)*ny+1:end], Inf)
+end
+
+function plotNonlinBenefit()
+    # First plot the param landscape
+    pranges = [
+        0:0.3:6.0, # Δτ1s
+        0.1:0.05:1.0 # bkratios
+    ]
+    labels = [
+        "Delta t1",
+        "bkratio"
+	]
+	
+	function unormimprovement(Δτ1, bkratio)
+		r = unormΔτ1(Δτ1, bkratio)/unormΔτ1(0, bkratio) # FIXME: this runs the 0 one twice...
+		return r > 1.1 ? NaN : r
+	end
+
+    function plotSlice(i1, i2)
+		pl = contour(pranges[i1], pranges[i2], unormimprovement, fill=true, seriescolor=cgrad(:bluesreds), xlabel=labels[i1], ylabel=labels[i2])
+		# f1(Δτ1) = unormΔτ1(Δτ1, 0.2)
+		# yy = f1.(pranges[i1])
+		# println("hi", yy)
+		# pl = plot(pranges[i1], yy)
+        # just in case
+        xlims!(pl, (pranges[i1][1], pranges[i1][end]))
+        ylims!(pl, (pranges[i2][1], pranges[i2][end]))
+        return pl
+    end
+    
+    return (plotSlice(1, 2),)
 end
 
 # One-off ID or opt ---------
 
 # first optimization to get better params - closer to resonance
-traj1, param1, paramObj, xConstraint = opt1(traj0, param0, 1, 1.0)
+traj1, param1, paramObj, xConstraint = opt1(traj0, param0, 1, 1.0, 0.2)
+# Test sufficient approx for feasible transmission params
+pp = copy(param1)
+ppfeas(Δτ1) = pp + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
+# Test feasibility
 gparam(p) = xConstraint([p; zeros((N+1)*ny)])
 display(param1')
 # param1 = idealparams(param1)
 
 # debug components ---
+pls = debugComponentsPlot(traj1, ppfeas(4))
+plot(pls..., size=(800,300))
 
-pls = debugComponentsPlot(traj1, param1)
-plot(pls..., size=(800,600))
-gui()
-error("comp")
+# pls = plotNonlinBenefit() # SLOW
+# plot(pls...)
 
-# TEST manual params
-Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, param1, R_WTS, 1.0; Fext_pdep=true)
-Δy0 = zeros((N+1)*ny)
-function testp(pnew)
-	trajnew = cu.reconstructTrajFromΔy(m, opt, traj1, yo, Hk, B, Δy0, pnew, false)
-	uvec = trajnew[(N+1)*ny+1:end]
-	println(pnew[end], " RMS u = ", norm(uvec)/N, ", const = ", cu.gtransmission(m, pnew, σomax) - σamax)
-	return trajnew, pnew, norm(uvec)/N
-end
-pp = copy(param1)
-ppfeas(Δτ1) = pp + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
-testΔτ1(Δτ1) = testp(ppfeas(Δτ1))[1:2]
-traj2, p2 = testΔτ1(0)
-traj3, p3 = testΔτ1(1)
-
-unormΔτ1(Δτ1) = testp(ppfeas(Δτ1))[3]
-Δτ1s = collect(0:0.1:15)
-unorms = unormΔτ1.(Δτ1s)
-pl2 = plot(Δτ1s, unorms, xlabel="Δτ1", ylabel="unorm")
-
-pl1 = plotTrajs(m, opt, trajt, [param1, p2, p3], [traj1, traj2, traj3]; ulim=1e4)
-plot(pl1..., pl2)
-
+# 
+# Δτ1s = collect(0:0.1:15)
+# unorms = unormΔτ1.(Δτ1s)
 
 # # many sims (scale) --------------
 
