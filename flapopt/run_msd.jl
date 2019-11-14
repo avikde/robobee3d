@@ -114,14 +114,14 @@ function unormΔτ1(Δτ1, bkratio)
 	Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, pnew, R_WTS, 1.0; Fext_pdep=true)	
 	Δy0 = zeros((N+1)*ny)
 	trajnew = cu.reconstructTrajFromΔy(m, opt, traj1, yo, Hk, B, Δy0, pnew, false)	
-	return norm(trajnew[(N+1)*ny+1:end])/N
+	return norm(trajnew[(N+1)*ny+1:end], Inf)
 end
 
 function plotNonlinBenefit()
     # First plot the param landscape
     pranges = [
-        0:0.5:6.0, # Δτ1s
-        0.1:0.1:1.0 # bkratios
+        0:0.3:6.0, # Δτ1s
+        0.1:0.05:1.0 # bkratios
     ]
     labels = [
         "Delta t1",
@@ -129,7 +129,8 @@ function plotNonlinBenefit()
 	]
 	
 	function unormimprovement(Δτ1, bkratio)
-		return unormΔτ1(Δτ1, bkratio)/unormΔτ1(0, bkratio) # FIXME: this runs the 0 one twice...
+		r = unormΔτ1(Δτ1, bkratio)/unormΔτ1(0, bkratio) # FIXME: this runs the 0 one twice...
+		return r > 1.1 ? NaN : r
 	end
 
     function plotSlice(i1, i2)
