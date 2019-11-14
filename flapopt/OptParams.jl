@@ -94,42 +94,51 @@ function affineTest(m, opt, traj, param)
 end
 
 "Helper function for optAffine. See optAffine for the def of x"
-function paramOptObjQuadratic(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, nq, δt, Hk, yo, umeas, B, N)
-	Ryy, Ryu, Ruu = POPTS.R # NOTE Ryu is just weight on mech. power
+function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, nq, δt, Hk, yo, umeas, B, N)
+	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
+	nact = size(B, 2)
+	nΔy = (N+1)*ny
 	
-	# TODO: this is NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179
-	Quu = zeros(npt, npt)
-	qyu = zeros(npt)
-	qyy = 0
-	
-	# Matrices that contain sum of running actuator cost
-	for k=1:N
-		Hh = Hk(k, zeros(ny), zeros(ny)) #Hk(k, Δyk(k), Δyk(k+1))
-		yok = yo(k)# + Δyk(k)
-		if mode == 1
-			Quu += Hh' * Ruu * Hh
-			# Need output coords
-			qyu += Ryu * (Hh' * [B * B'  zeros(ny-nq, ny-nq)] * yok)
-			qyy += yok' * Ryy * yok # qyy * T^(-2)
-		elseif mode == 2
-			# Need to consider the unactuated rows too
-			Quu += Hh' * Ruu * Hh
-			# For ID, need uk
-			qyu += (-Hh' * Ruu * (δt * B * umeas(k)))
+	if !uinfnorm
+		Ryy, Ryu, Ruu = POPTS.R # NOTE Ryu is just weight on mech. power
+		# TODO: this is NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179
+		Quu = zeros(npt, npt)
+		qyu = zeros(npt)
+		qyy = 0
+		
+		# Matrices that contain sum of running actuator cost
+		for k=1:N
+			Hh = Hk(k, zeros(ny), zeros(ny)) #Hk(k, Δyk(k), Δyk(k+1))
+			yok = yo(k)# + Δyk(k)
+			if mode == 1
+				Quu += Hh' * Ruu * Hh
+				# Need output coords
+				qyu += Ryu * (Hh' * [B * B'  zeros(ny-nq, ny-nq)] * yok)
+				qyy += yok' * Ryy * yok # qyy * T^(-2)
+			elseif mode == 2
+				# Need to consider the unactuated rows too
+				Quu += Hh' * Ruu * Hh
+				# For ID, need uk
+				qyu += (-Hh' * Ruu * (δt * B * umeas(k)))
+			end
 		end
 	end
-	
+		
 	function eval_f(x)
 		pt, Tarr = getpt(m, x[1:np])
-
+		Δy = x[np+1 : np+nΔy]
 		# min Δy
-		J = dot(x[np+1 : end], x[np+1 : end])
-
-		if mode == 1
-			# FIXME: took out qyy component for nonlinear transmission
-			J += 1/2 * (pt' * Quu * pt) + qyu' * pt# + qyy * T^(-2)) 
-		elseif mode == 2
-			J += 1/2 * (pt' * Quu * pt) + qyu' * pt
+		J = dot(Δy, Δy)
+		if uinfnorm
+			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
+			J += dot(s, s)
+		else
+			if mode == 1
+				# FIXME: took out qyy component for nonlinear transmission
+				J += 1/2 * (pt' * Quu * pt) + qyu' * pt# + qyy * T^(-2)) 
+			elseif mode == 2
+				J += 1/2 * (pt' * Quu * pt) + qyu' * pt
+			end
 		end
 
 		return J
@@ -168,7 +177,6 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt
 	function eval_g_ret(x)
 		pp = x[1:np]
 		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
-		s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
 		gvec = vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), pp) for k=1:N]...)
 		# Polytope constraint on the params
 		if ncpolytope > 0
@@ -178,6 +186,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt
 			gvec = [gvec; gtransmission(m, pp, σomax)]
 		end
 		if uinfnorm
+			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
 			gvec = [gvec; vcat([ukpred(k, pp)-s for k=1:N]...); vcat([-ukpred(k, pp)-s for k=1:N]...)] # uk-s<=0; -uk-s<=0
 		end
 		return gvec
@@ -391,7 +400,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# IPOPT setup using helper functions
 	nctotal, glimsL, glimsU, eval_g_ret, eval_jac_g, Dgnnz, Bperp = paramOptConstraint(m, POPTS, mode, np, ny, nq, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax)
 	eval_g(x::Vector, g::Vector) = g .= eval_g_ret(x)
-	eval_f, eval_grad_f = paramOptObjQuadratic(m, POPTS, mode, np, npt, ny, nq, δt, Hk, yo, umeas, B, N)
+	eval_f, eval_grad_f = paramOptObjective(m, POPTS, mode, np, npt, ny, nq, δt, Hk, yo, umeas, B, N)
 	
 	# Create IPOPT problem
 	prob = Ipopt.createProblem(
@@ -431,6 +440,9 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		display(unactErr')
 		display(eval_g_ret2(pnew)')
 		error("Tested")
+	end
+	if uinfnorm
+		println("Slack variable value = ", prob.x[np+nΔy+1:np+nΔy+nu])
 	end
 
 	return pnew, eval_f, trajnew, unactErr, eval_g_ret
