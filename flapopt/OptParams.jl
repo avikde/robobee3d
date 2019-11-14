@@ -152,6 +152,7 @@ end
 - gunact = unactuated error = #unactuated DOFS * N
 - gpolycon = Cp * p <= dp. But the user can pass in (and default is) Cp 0xX => has no effect
 - gtransmission: actuator strain limit.
+- ginfnorm: if min of uinfnorm is desired, add on a slack variable s, and add constraints that -s <= uk <= s => {uk-s <= 0, -uk-s <= 0}
 "
 function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax)
 	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID

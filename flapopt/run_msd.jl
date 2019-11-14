@@ -160,12 +160,19 @@ traj1, param1, paramObj, paramConstraint, s = opt1(traj0, param0, 1, 1.0, 0.2)
 pp = copy(param1)
 ppfeas(Δτ1) = pp + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
 # Test feasibility
-gparam(p) = paramConstraint([p; zeros((N+1)*ny); s])
+function paramTest(p, s)
+	xtest = [p; zeros((N+1)*ny); s]
+	g = paramConstraint(xtest)
+	# no unact constraint. have [gpolycon (1); gtransmission (1); ginfnorm (2*N)]
+	shouldbenegative = [g[1]; g[3:end]]
+	println("Feas: should be nonpos: ", maximum(shouldbenegative), "; should be: 0 <= ", g[2], " <= ", σamax)
+	println("Obj: ", paramObj(xtest))
+end
 display(param1')
 # param1 = idealparams(param1)
 
-
-println("s = ", s, ", g = ", gparam(param1))
+println("s = ", s)
+paramTest(param1, s)
 
 # # debug components ---
 # pls = debugComponentsPlot(traj1, ppfeas(4))
