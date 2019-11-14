@@ -350,7 +350,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt
 		glimsU = [glimsU; σamax]
 	end
 	if uinfnorm
-		glimsL = [glimsL; -100000 * ones(ncuinfnorm)]
+		glimsL = [glimsL; -1e10 * ones(ncuinfnorm)]
 		glimsU = [glimsU; zeros(ncuinfnorm)]
 	end
 
@@ -396,6 +396,9 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	xlimsU = 1000 * ones(nx)
 	xlimsL[1:np] = POPTS.plimsL
 	xlimsU[1:np] = POPTS.plimsU
+	if uinfnorm
+		fill!(xlimsL[np+nΔy+1:np+nΔy+nu], 0)
+	end
 	
 	# IPOPT setup using helper functions
 	nctotal, glimsL, glimsU, eval_g_ret, eval_jac_g, Dgnnz, Bperp = paramOptConstraint(m, POPTS, mode, np, ny, nq, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax)

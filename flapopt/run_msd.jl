@@ -168,8 +168,8 @@ display(param1')
 # pls = debugComponentsPlot(traj1, ppfeas(4))
 # plot(pls..., size=(800,300))
 
-pls = plotNonlinBenefit() # SLOW
-plot(pls...)
+# pls = plotNonlinBenefit() # SLOW
+# plot(pls...)
 
 # 
 # Δτ1s = collect(0:0.1:15)
