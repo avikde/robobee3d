@@ -145,6 +145,8 @@ end
 - gtransmission: actuator strain limit.
 "
 function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax)
+	# no infnorm for ID
+	uinfnorm = mode == 2 ? false : POPTS.uinfnorm
 	# Unactuated constraint: Bperp' * H(y + Δy) * pt is small enough (unactuated DOFs) 
 	nact = size(B, 2)
 	nck = nq - nact # number of constraints for each k = # of unactuated DOFs ( = nunact)
@@ -153,12 +155,16 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt
 	ncunact = N * nck
 	ncpolytope = size(Cp,1)
 	nctransmission = POPTS.nonlintransmission ? 1 : 0
-	nctotal = ncunact + ncpolytope + nctransmission # this is the TOTAL number of constraints
+	ncuinfnorm = uinfnorm ? N * nact : 0
+	nctotal = ncunact + ncpolytope + nctransmission + ncuinfnorm # this is the TOTAL number of constraints
 	dp2 = copy(dp) # No idea why this was getting modified. Storing a copy seems to work.
-	# no infnorm for ID
-	uinfnorm = mode == 2 ? false : POPTS.uinfnorm
 
 	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1) * (getpt(m, p)[1])
+	if uinfnorm
+		Δy0 = zeros(ny)
+		ukpred(k, p) = B' * Hk(k, Δy0, Δy0) * (getpt(m, p)[1])
+	end
+
 	function eval_g_ret(x)
 		pp = x[1:np]
 		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
@@ -171,7 +177,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt
 			gvec = [gvec; gtransmission(m, pp, σomax)]
 		end
 		if uinfnorm
-
+			gvec = [gvec; vcat([ukpred(k, pp) for k=1:N]...)] # all the u's just go in the constraint
 		end
 		return gvec
 	end
@@ -184,6 +190,10 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt
 	end
 	if nctransmission > 0
 		Dgnnz += 2 # The +2 at the end is for the transmission constraint
+	end
+	if uinfnorm
+		# for each k, get d/dp(B' * Hk * pt) which should be nact*np
+		Dgnnz += N * nact * np
 	end
 
 	"Dg jacobian of the constraint function g() for IPOPT."
@@ -236,6 +246,17 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt
 				offs += 1
 				value[offs] = -σomax/(3*τ1^4) # d/dτ2
 			end
+			if uinfnorm
+				for k=1:N
+					dp = ForwardDiff.jacobian(pp -> ukpred(k, pp), p)
+					for i=1:nact
+						for j=1:np
+							offs += 1
+							value[offs] = dp[i,j]
+						end
+					end
+				end
+			end
 		else
 			for k=1:N
 				for i=1:nck
@@ -279,6 +300,17 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt
 				row[offs] = ncunact + ncpolytope + 1
 				col[offs] = POPTS.τinds[2]
 			end
+			if uinfnorm
+				for k=1:N
+					for i=1:nact
+						for j=1:np
+							offs += 1
+							row[offs] = ncunact + ncpolytope + nctransmission + (k-1)*nact + i
+							col[offs] = j
+						end
+					end
+				end
+			end
 		end
 	end
 
@@ -291,6 +323,10 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt
 	if nctransmission > 0
 		glimsL = [glimsL; 0.0]
 		glimsU = [glimsU; σamax]
+	end
+	if uinfnorm
+		glimsL = [glimsL; -100000 * ones(ncuinfnorm)]
+		glimsU = [glimsU; 100000 * ones(ncuinfnorm)]
 	end
 
 	return nctotal, glimsL, glimsU, eval_g_ret, eval_jac_g, Dgnnz, Bperp

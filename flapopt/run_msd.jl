@@ -35,7 +35,8 @@ POPTS = cu.ParamOptOpts(
 	τinds=[1,4], 
 	R=(zeros(2,2), 0, 1.0*I), 
 	plimsL = [0.1, 0.1, 0.1, 0.0],
-	plimsU = [1000.0, 1000.0, 1000.0, 100.0]
+	plimsU = [1000.0, 1000.0, 1000.0, 100.0],
+	uinfnorm = true
 )
 
 σamax = 0.3 # [mm] constant? for robobee actuators
