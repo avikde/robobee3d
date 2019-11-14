@@ -263,6 +263,54 @@ end
 	# return x
 # -------------------------------------------------------------------------------
 
+"Helper function for optAffine. See optAffine for the def of x"
+function paramOptObjQuadratic(m, mode, np, npt, ny, nq, δt, Hk, yo, umeas, B, N, R)
+	Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
+	
+	# TODO: this is NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179
+	Quu = zeros(npt, npt)
+	qyu = zeros(npt)
+	qyy = 0
+	
+	# Matrices that contain sum of running actuator cost
+	for k=1:N
+		Hh = Hk(k, zeros(ny), zeros(ny)) #Hk(k, Δyk(k), Δyk(k+1))
+		yok = yo(k)# + Δyk(k)
+		if mode == 1
+			Quu += Hh' * Ruu * Hh
+			# Need output coords
+			qyu += Ryu * (Hh' * [B * B'  zeros(ny-nq, ny-nq)] * yok)
+			qyy += yok' * Ryy * yok # qyy * T^(-2)
+		elseif mode == 2
+			# Need to consider the unactuated rows too
+			Quu += Hh' * Ruu * Hh
+			# For ID, need uk
+			qyu += (-Hh' * Ruu * (δt * B * umeas(k)))
+		end
+	end
+	
+	function eval_f(x)
+		pt, Tarr = getpt(m, x[1:np])
+		T = Tarr[1] # FIXME:
+		# Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
+
+		# min Δy
+		J = dot(x[np+1 : end], x[np+1 : end])
+
+		if mode == 1
+			# FIXME: took out qyy component for nonlinear transmission
+			J += 1/2 * (pt' * Quu * pt) + qyu' * pt# + qyy * T^(-2)) 
+		elseif mode == 2
+			J += 1/2 * (pt' * Quu * pt) + qyu' * pt
+		end
+
+		return J
+	end
+	eval_grad_f(x, grad_f) = ForwardDiff.gradient!(grad_f, eval_f, x)
+
+	return eval_f, eval_grad_f
+end
+
 "Mode=1 => opt, mode=2 ID. Fext(p) or hold constant.
 
 - εunact -- max error to tolerate in the unactuated rows when trying to match passive dynamics.
@@ -454,7 +502,6 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		glimsU = [glimsU; σamax]
 	end
 
-	# ----------------------- Objective --------------------------------
     # If test is true, it will test the affine relation
     if test
         Hpb = zeros(nq, N)
@@ -466,49 +513,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
         display(Hpb - Bu)
         error("Tested")
 	end
-	
-	# TODO: this is NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179
-	Quu = zeros(npt, npt)
-	qyu = zeros(npt)
-	qyy = 0
-	
-	# Matrices that contain sum of running actuator cost
-	for k=1:N
-		Hh = Hk(k, zeros(ny), zeros(ny)) #Hk(k, Δyk(k), Δyk(k+1))
-		yok = yo(k)# + Δyk(k)
-		if mode == 1
-			Quu += Hh' * Ruu * Hh
-			# Need output coords
-			qyu += Ryu * (Hh' * [B * B'  zeros(ny-nq, ny-nq)] * yok)
-			qyy += yok' * Ryy * yok # qyy * T^(-2)
-		elseif mode == 2
-			# Need to consider the unactuated rows too
-			Quu += Hh' * Ruu * Hh
-			# For ID, need uk
-			qyu += (-Hh' * Ruu * (δt * B * umeas(k)))
-		end
-	end
-	
-	# See eval_f for how these are used to form the objective
-	function eval_f(x)
-		pt, Tarr = getpt(m, x[1:np])
-		T = Tarr[1] # FIXME:
-		# Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 
-		# min Δy
-		J = dot(x[np+1 : end], x[np+1 : end])
-
-		if mode == 1
-			# FIXME: took out qyy component for nonlinear transmission
-			J += 1/2 * (pt' * Quu * pt) + qyu' * pt# + qyy * T^(-2)) 
-		elseif mode == 2
-			J += 1/2 * (pt' * Quu * pt) + qyu' * pt
-		end
-
-		return J
-	end
-	eval_grad_f(x, grad_f) = ForwardDiff.gradient!(grad_f, eval_f, x)
-
+	eval_f, eval_grad_f = paramOptObjQuadratic(m, mode, np, npt, ny, nq, δt, Hk, yo, umeas, B, N, R)
 	# # Plot
 	# display(Quu)
 	# display(qyu)
