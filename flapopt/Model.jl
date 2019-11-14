@@ -10,6 +10,7 @@ const OptVar = Set([:traj, :param])
 
 "An immutable struct of options"
 struct OptOptions
+	trajAct::Bool # trajAct true=>traj is in act coords (else output)
 	vart::Bool
 	fixedδt::Float64 # irrelevant if vart=true
 	order::Int # 1 => transcription, 3 => collocation

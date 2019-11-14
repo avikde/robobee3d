@@ -32,6 +32,13 @@ param0 = [3.2,  # cbar[mm] (area/R)
 	3, # bΨ [mN-mm/(rad/ms)]
 	0 # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
 ]
+
+POPTS = cu.ParamOptOpts(
+	τinds=[2,6], 
+	R=(zeros(4,4), 0, 1.0*I), 
+	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0],
+	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 25.0]
+)
 σamax = 0.3 # [mm] constant? for robobee actuators
 
 # FUNCTIONS GO HERE -------------------------------------------------------------
@@ -41,12 +48,12 @@ fix -- Make traj satisfy dyn constraint with these params?
 """
 function initTraj(sim=false; fix=false, makeplot=false)
 	if sim
-		opt = cu.OptOptions(false, 0.2, 1, :none, 1e-8, false) # sim
+		opt = cu.OptOptions(true, false, 0.2, 1, :none, 1e-8, false) # sim
 		N = opt.boundaryConstraint == :symmetric ? 17 : 33
 		trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0, 187)
 	else
 		# Load data
-		opt = cu.OptOptions(false, 0.135, 1, :none, 1e-8, false) # real
+		opt = cu.OptOptions(true, false, 0.135, 1, :none, 1e-8, false) # real
 		# N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
 		N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; sigi=1, strokeSign=1, strokeMult=m.R/(2*param0[2]), ForcePerVolt=75/100, vidSF=7320) # 75mN unidirectional at 200Vpp (from Noah)
 	end
@@ -70,22 +77,16 @@ N, trajt, traj0, opt = initTraj()
 
 # Constraint on cbar placed by minAvgLift
 avgLift0 = avgLift(m, opt, traj0, param0)
-cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
-
-R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
-
-plimsL(al) = [isnothing(al) ? 0.1 : cbarmin(al), 10, 0.1, 0.1, 0.1, 0] # Tmin is filled out by optAffine.
-# From w2d_parameters.nb, seems like it is easy to have a design s.t. τ2 = 2*τ1
-plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 25.0]
-# Taken by optAffine
-oaOpts(al) = (R_WTS, 0.1, plimsL(al), plimsU, σamax)
 
 """One-off ID or opt"""
 function opt1(traj, param, mode, minal; testAffine=false, testAfter=false)
-	optoptions = oaOpts(minal)
-	param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj, param, mode, [2,6], optoptions...; Fext_pdep=true, test=testAffine, testTrajReconstruction=false, print_level=1, max_iter=4000)
+	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin
+	Cp = Float64[-1  0  0  0  0  0]
+	cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
+	dp = [-cbarmin(minal)]
+	param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
 	if testAfter
-		cu.optAffine(m, opt, traj1, param1, 2, optoptions...; Fext_pdep=true, test=true, testTrajReconstruction=false, print_level=1, max_iter=200) # TEST
+		cu.affineTest(m, opt, traj1, param1)
 	end
 	return traj1, param1, paramObj, unactErr
 end
@@ -103,7 +104,7 @@ function debugComponentsPlot(traj, param; optal=nothing)
 	end
 
 	# Get the components
-	yo, HMnc, HMc, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj1, param1, R_WTS; Fext_pdep=true, debugComponents=true)
+	yo, HMnc, HMc, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj1, param1, POPTS; debugComponents=true)
 	pt0, Tnew = cu.getpt(m, param1)
 	inertial = zeros(2,N)
 	inertialc = similar(inertial)
@@ -201,7 +202,7 @@ traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1)
 # plot(pls...)
 
 # TEST manual params
-Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, param1, R_WTS, 1.0; Fext_pdep=true)
+Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, param1, POPTS, 1.0)
 Δy0 = zeros((N+1)*ny)
 testp(pnew) = cu.reconstructTrajFromΔy(m, opt, traj1, yo, Hk, B, Δy0, pnew)
 pp = [8.44463,  13.9429,  0.235645,  23.9639,    8.29057,   0.0]
