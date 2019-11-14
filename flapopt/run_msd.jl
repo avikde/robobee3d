@@ -161,8 +161,7 @@ function paramTest(p, s)
 	xtest = [p; zeros((N+1)*ny); s]
 	g = paramConstraint(xtest)
 	# no unact constraint. have [gpolycon (1); gtransmission (1); ginfnorm (2*N)]
-	shouldbenegative = [g[1]; g[3:end]]
-	println("Feas: should be nonpos: ", maximum(shouldbenegative), "; should be: 0 <= ", g[2], " <= ", σamax)
+	println("Feas: should be nonpos: ", maximum(g), "; transmission: ", g[2])
 	unew = cu.getTrajU(m, opt, traj1, p, POPTS)
 	println("Obj: ", paramObj(xtest), " should be ", norm(unew, Inf)^2)
 end
