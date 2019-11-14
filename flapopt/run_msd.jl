@@ -160,12 +160,12 @@ gparam(p) = xConstraint([p; zeros((N+1)*ny)])
 display(param1')
 # param1 = idealparams(param1)
 
-# # debug components ---
-# pls = debugComponentsPlot(traj1, ppfeas(4))
-# plot(pls..., size=(800,300))
+# debug components ---
+pls = debugComponentsPlot(traj1, ppfeas(4))
+plot(pls..., size=(800,300))
 
-pls = plotNonlinBenefit()
-plot(pls...)
+# pls = plotNonlinBenefit() # SLOW
+# plot(pls...)
 
 # 
 # Δτ1s = collect(0:0.1:15)
