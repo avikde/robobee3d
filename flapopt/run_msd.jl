@@ -15,7 +15,7 @@ m = MassSpringDamperModel(0, # ma
 	500, # mo
 	100) # umax
 ny, nu = cu.dims(m)
-opt = cu.OptOptions(false, 0.1, 1, :none, 1e-8, false)
+opt = cu.OptOptions(false, false, 0.1, 1, :none, 1e-8, false)
 fdes = 0.1 # KHz
 N = round(Int, 1/(opt.fixedδt*fdes)) # 1 period with dt=0.1 in createInitialTraj
 param0 = [20.0, # τ1
@@ -44,7 +44,7 @@ function opt1(traj, param, mode, scaleTraj, bkratio=1.0; testAffine=false, testA
 	# A polytope constraint for the params: simple bo >= ko =>  ko - bo <= 0 => 
 	Cp = Float64[0  bkratio  -1  0]
 	dp = [0.0]
-	param1, paramObj, traj1, unactErr, paramConstraint = cu.optAffine(m, opt, traj, param, mode, [1,4], optoptions..., scaleTraj, false, Cp, dp; Fext_pdep=true, test=testAffine, testTrajReconstruction=false, print_level=1, max_iter=4000)
+	param1, paramObj, traj1, unactErr, paramConstraint = cu.optAffine(m, opt, traj, param, mode, [1,4], optoptions..., scaleTraj, Cp, dp; Fext_pdep=true, test=testAffine, testTrajReconstruction=false, print_level=1, max_iter=4000)
 	if testAfter
 		cu.affineTest(m, opt, traj1, param1)
 	end

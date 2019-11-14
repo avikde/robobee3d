@@ -1,6 +1,21 @@
 
 include("OptBase.jl") #< including this helps vscode reference the functions in there
 
+
+# mutable struct ParamOptOpts
+# 	τinds::Array{Int}
+# 	R::Tuple
+# 	εunact
+# 	plimsL
+# 	plimsU
+# 	σamax
+# 	Cp::Matrix=ones(0,1)dp::Vector=ones(0)
+# 	Fext_pdep::Bool=false
+
+# 	scaleTraj=1.0, ; 
+# 	mode::Int
+# end
+
 # --------------
 "Implement this"
 function paramAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, scaleTraj=1.0; Fext_pdep::Bool=true)
@@ -35,8 +50,8 @@ function gtransmission(m::Model, param, σomax)
 	return σomax/τ1 - σomax^3/3 * τ2/τ1^4
 end
 
-"Helper function to reconstruct the traj (also test it). trajAct true=>traj is in act coords (else output)"
-function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, yo, Hk, B, Δy, pnew, trajAct=true; test::Bool=false)
+"Helper function to reconstruct the traj (also test it)."
+function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, yo, Hk, B, Δy, pnew; test::Bool=false)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	np = length(pnew)
 	Δyk = k -> Δy[(k-1)*ny+1 : k*ny]
@@ -46,7 +61,7 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, 
 	# Calculate the new traj (which is in act coordinates, so needs scaling by T)
 	ptnew, Tnew = getpt(m, pnew)
 	for k=1:N+1
-		if trajAct
+		if opt.trajAct
 			# Go from output to act coords
 			ya, Tk = transmission(m, yo(k) + Δyk(k), pnew; o2a=true)[1:2]
 			traj2[liy[:,k]] = ya
@@ -289,7 +304,7 @@ end
 - σamax -- actuator strain limit. This is used to constrain the transmission coeffs s.t. the actuator displacement is limited to σamax. The form of the actuator constraint depends on bTrCon.
 - Cp, dp -- polytope constraint for params. Can pass Cp=ones(0,X) to not include.
 "
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, τinds::Array{Int}, R::Tuple, εunact, plimsL, plimsU, σamax, scaleTraj=1.0, trajAct=true, Cp::Matrix=ones(0,1), dp::Vector=ones(0); Fext_pdep::Bool=false, test=false, testTrajReconstruction=false, kwargs...)
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, τinds::Array{Int}, R::Tuple, εunact, plimsL, plimsU, σamax, scaleTraj=1.0, Cp::Matrix=ones(0,1), dp::Vector=ones(0); Fext_pdep::Bool=false, test=false, testTrajReconstruction=false, kwargs...)
 	if test
 		affineTest(m, opt, traj, param) # this does not need to be here TODO: remove
 	end
@@ -356,7 +371,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	prob.x = [copy(param); zeros(nx - np)]
 	status = Ipopt.solveProblem(prob)
 	pnew = prob.x[1:np]
-	trajnew = reconstructTrajFromΔy(m, opt, traj, yo, Hk, B, prob.x[np+1:end], pnew, trajAct)
+	trajnew = reconstructTrajFromΔy(m, opt, traj, yo, Hk, B, prob.x[np+1:end], pnew)
 	unactErr = eval_g_ret(prob.x)
 
 	if testTrajReconstruction
