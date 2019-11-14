@@ -76,7 +76,16 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, 
 	return traj2
 end
 
-function affineTest(m, opt, traj, param)
+"A more lightweight version of reconstructTrajFromΔy that sets Δy=0"
+function getTrajU(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::ParamOptOpts)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, POPTS)
+	ptnew, Tnew = getpt(m, param)
+	Δy0 = zeros(ny)
+	return vcat([B' * Hk(k, Δy0, Δy0) * ptnew for k=1:N]...)
+end
+
+function affineTest(m, opt, traj, param, POPTS::ParamOptOpts)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
     ptTEST, TTEST = getpt(m, param) # NOTE the actual param values are only needed for the test mode
@@ -367,7 +376,7 @@ end
 "
 function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::ParamOptOpts, mode::Int, σamax; test=false, testTrajReconstruction=false, Cp::Matrix=ones(0,1), dp::Vector=ones(0), scaleTraj=1.0, kwargs...)
 	if test
-		affineTest(m, opt, traj, param) # this does not need to be here TODO: remove
+		affineTest(m, opt, traj, param, POPTS) # this does not need to be here TODO: remove
 	end
 	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)

@@ -50,7 +50,7 @@ function opt1(traj, param, mode, scaleTraj, bkratio=1.0; testAffine=false, testA
 	dp = [0.0]
 	param1, paramObj, traj1, unactErr, paramConstraint, s = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, scaleTraj=scaleTraj, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
 	if testAfter
-		cu.affineTest(m, opt, traj1, param1)
+		cu.affineTest(m, opt, traj1, param1, POPTS)
 	end
 	return traj1, param1, paramObj, paramConstraint, s
 end
@@ -156,9 +156,6 @@ end
 
 # first optimization to get better params - closer to resonance
 traj1, param1, paramObj, paramConstraint, s = opt1(traj0, param0, 1, 1.0, 0.2)
-# Test sufficient approx for feasible transmission params
-pp = copy(param1)
-ppfeas(Δτ1) = pp + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
 # Test feasibility
 function paramTest(p, s)
 	xtest = [p; zeros((N+1)*ny); s]
@@ -166,13 +163,21 @@ function paramTest(p, s)
 	# no unact constraint. have [gpolycon (1); gtransmission (1); ginfnorm (2*N)]
 	shouldbenegative = [g[1]; g[3:end]]
 	println("Feas: should be nonpos: ", maximum(shouldbenegative), "; should be: 0 <= ", g[2], " <= ", σamax)
-	println("Obj: ", paramObj(xtest))
+	unew = cu.getTrajU(m, opt, traj1, p, POPTS)
+	println("Obj: ", paramObj(xtest), " should be ", norm(unew, Inf)^2)
 end
 display(param1')
 # param1 = idealparams(param1)
 
 println("s = ", s)
 paramTest(param1, s)
+
+# Test sufficient approx for feasible transmission params
+pp = copy(param1)
+ppfeas(Δτ1) = pp + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
+paramTest(ppfeas(4), s)
+# paramTest(rand(4), s)
+# traj1, param1, paramObj, paramConstraint, s = opt1(traj0, param0, 1, 1.0, 0.2)
 
 # # debug components ---
 # pls = debugComponentsPlot(traj1, ppfeas(4))
