@@ -32,14 +32,6 @@ function paramoptQPSetup(m::Model, opt::OptOptions, traj::AbstractArray; Preg=1e
 	gL, gU = gbounds(m, opt, traj)
 	ng = length(gL)
 	np = pdims(m)
-	
-	# P and A are sparse matrices of type SparseMatrixCSC
-	# TODO: A for param box constraints
-	# # pick worst case for A = δg/δp. IC or symm constraints have no p; but assume Pk = δt δf/δp are all full
-	# row = repeat(ny+1:(N+1)*ny, outer=np)
-	# col = repeat(1:np, inner=N*ny)
-	# val = ones(length(row))
-
 	# everything will be updated - just need to set the sparsity
 	mo = OSQP.Model()
 	# OSQP.setup!(mo; P=sparse(ones(np,np)), q=ones(np), A=sparse(row, col, val, ng, np), l=ones(ng), u=ones(ng), settings...)
@@ -194,7 +186,6 @@ end
 
 "σomax is an output strain limit. This is the only transmission constraint for now, but others can be added."
 function gtransmission(m::Model, param, σomax)
-	# FIXME: this should take in traj and σamax
 	# Get both transmission coeffs
 	pbb, Tarrr = paramLumped(m, param)
 	τ1, τ2 = Tarrr
@@ -234,7 +225,7 @@ end
 	# GN -------------------------
 	# function pFeasible(p)
 	# 	cbar, T = p
-	# 	return T >= 1 # FIXME: testing
+	# 	return T >= 1
 	# end
 	# np = 2
 
@@ -318,8 +309,6 @@ function paramOptObjQuadratic(m, mode, np, npt, ny, nq, δt, Hk, yo, umeas, B, N
 	
 	function eval_f(x)
 		pt, Tarr = getpt(m, x[1:np])
-		T = Tarr[1] # FIXME:
-		# Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 
 		# min Δy
 		J = dot(x[np+1 : end], x[np+1 : end])
@@ -343,7 +332,7 @@ end
 - gpolycon = Cp * p <= dp. But the user can pass in (and default is) Cp 0xX => has no effect
 - gtransmission: actuator strain limit.
 "
-function paramOptConstraint(m, mode, np, ny, nq, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax, εunact, τinds; nonlinTransmission=true)
+function paramOptConstraint(m, mode, np, ny, nq, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax, εunact, τinds, uinfnorm; nonlinTransmission=true)
 	# Unactuated constraint: Bperp' * H(y + Δy) * pt is small enough (unactuated DOFs) 
 	nact = size(B, 2)
 	nck = nq - nact # number of constraints for each k = # of unactuated DOFs ( = nunact)
@@ -366,6 +355,9 @@ function paramOptConstraint(m, mode, np, ny, nq, δt, Hk, yo, umeas, B, N, Cp, d
 		end
 		if nctransmission > 0
 			gvec = [gvec; gtransmission(m, pp, σomax)]
+		end
+		if uinfnorm
+
 		end
 		return gvec
 	end
@@ -513,6 +505,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	# IPOPT ---------------------------
 	# Options on the types of constraints to include
 	nonlinTransmission = true # add a transmission constraint in g()? TODO: remove
+	uinfnorm = true
 	# Transmission limits imposed by actuator
 	σomax = norm([yo(k)[1] for k=1:N], Inf)
 	Tmin = σomax/σamax
@@ -530,8 +523,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	xlimsL[1:np] = plimsL
 	xlimsU[1:np] = plimsU
 	
-
-	nctotal, glimsL, glimsU, eval_g_ret, eval_jac_g, Dgnnz, Bperp = paramOptConstraint(m, mode, np, ny, nq, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax, εunact, τinds; nonlinTransmission=nonlinTransmission)
+	# IPOPT setup using helper functions
+	nctotal, glimsL, glimsU, eval_g_ret, eval_jac_g, Dgnnz, Bperp = paramOptConstraint(m, mode, np, ny, nq, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax, εunact, τinds, uinfnorm; nonlinTransmission=nonlinTransmission)
 	eval_g(x::Vector, g::Vector) = g .= eval_g_ret(x)
 	eval_f, eval_grad_f = paramOptObjQuadratic(m, mode, np, npt, ny, nq, δt, Hk, yo, umeas, B, N, R)
 	
