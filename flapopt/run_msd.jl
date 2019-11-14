@@ -31,20 +31,23 @@ trajt, traj0orig, trajt = createInitialTraj(m, opt, N, fdes)
 # traj0 = cu.fixTrajWithDynConst(m, opt, traj0orig, param0)
 traj0 = traj0orig
 
-R_WTS = (zeros(2,2), 0, 1.0*I)#diagm(0=>[0.1,100]))
+POPTS = cu.ParamOptOpts(
+	τinds=[1,4], 
+	R=(zeros(2,2), 0, 1.0*I), 
+	plimsL = [0.1, 0.1, 0.1, 0.0],
+	plimsU = [1000.0, 1000.0, 1000.0, 100.0]
+)
+
 σamax = 0.3 # [mm] constant? for robobee actuators
 # σamax = 100 # [mm] constant? test EM
-plimsL = [0.1, 0.1, 0.1, 0.0]
-plimsU = [1000.0, 1000.0, 1000.0, 100.0]
 
 """One-off ID or opt"""
 function opt1(traj, param, mode, scaleTraj, bkratio=1.0; testAffine=false, testAfter=false)
 	println("bkratio = ", bkratio)
-	optoptions = (R_WTS, 0.1, plimsL, plimsU, σamax)
 	# A polytope constraint for the params: simple bo >= ko =>  ko - bo <= 0 => 
 	Cp = Float64[0  bkratio  -1  0]
 	dp = [0.0]
-	param1, paramObj, traj1, unactErr, paramConstraint = cu.optAffine(m, opt, traj, param, mode, [1,4], optoptions..., scaleTraj, Cp, dp; Fext_pdep=true, test=testAffine, testTrajReconstruction=false, print_level=1, max_iter=4000)
+	param1, paramObj, traj1, unactErr, paramConstraint = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, scaleTraj=scaleTraj, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
 	if testAfter
 		cu.affineTest(m, opt, traj1, param1)
 	end
@@ -60,7 +63,7 @@ function debugComponentsPlot(traj, param)
 	tvec = trajt[1:N]
 
 	# Get the components
-	yo, Hτ, Hio, Hia, Hstiffo, Hstiffa, Hdamp = cu.paramAffine(m, opt, traj, param; Fext_pdep=true, debugComponents=true)
+	yo, Hτ, Hio, Hia, Hstiffo, Hstiffa, Hdamp = cu.paramAffine(m, opt, traj, param, POPTS; debugComponents=true)
 	pt0, Tnew = cu.getpt(m, param)
 	inertialo = zeros(N)
 	inertiala = similar(inertialo)
@@ -111,7 +114,7 @@ end
 function unormΔτ1(Δτ1, bkratio)
 	traj1, param1, paramObj, xConstraint = opt1(traj0, param0, 1, 1.0, bkratio)
 	pnew = copy(param1) + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
-	Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, pnew, 1.0; Fext_pdep=true)	
+	Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, pnew, POPTS, 1.0)	
 	Δy0 = zeros((N+1)*ny)
 	trajnew = cu.reconstructTrajFromΔy(m, opt, traj1, yo, Hk, B, Δy0, pnew, false)	
 	return norm(trajnew[(N+1)*ny+1:end], Inf)

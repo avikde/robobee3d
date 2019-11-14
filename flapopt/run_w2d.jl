@@ -32,6 +32,13 @@ param0 = [3.2,  # cbar[mm] (area/R)
 	3, # bΨ [mN-mm/(rad/ms)]
 	0 # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
 ]
+
+POPTS = cu.ParamOptOpts(
+	τinds=[2,6], 
+	R=(zeros(4,4), 0, 1.0*I), 
+	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0],
+	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 25.0]
+)
 σamax = 0.3 # [mm] constant? for robobee actuators
 
 # FUNCTIONS GO HERE -------------------------------------------------------------
@@ -70,20 +77,14 @@ N, trajt, traj0, opt = initTraj()
 
 # Constraint on cbar placed by minAvgLift
 avgLift0 = avgLift(m, opt, traj0, param0)
-cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
-
-R_WTS = (zeros(4,4), 0, 1.0*I)#diagm(0=>[0.1,100]))
-
-plimsL(al) = [isnothing(al) ? 0.1 : cbarmin(al), 10, 0.1, 0.1, 0.1, 0] # Tmin is filled out by optAffine.
-# From w2d_parameters.nb, seems like it is easy to have a design s.t. τ2 = 2*τ1
-plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 25.0]
-# Taken by optAffine
-oaOpts(al) = (R_WTS, 0.1, plimsL(al), plimsU, σamax)
 
 """One-off ID or opt"""
 function opt1(traj, param, mode, minal; testAffine=false, testAfter=false)
-	optoptions = oaOpts(minal)
-	param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj, param, mode, [2,6], optoptions...; Fext_pdep=true, test=testAffine, testTrajReconstruction=false, print_level=1, max_iter=4000)
+	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin
+	Cp = Float64[-1  0  0  0  0  0]
+	cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
+	dp = [-cbarmin(minal)]
+	param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
 	if testAfter
 		cu.affineTest(m, opt, traj1, param1)
 	end
@@ -103,7 +104,7 @@ function debugComponentsPlot(traj, param; optal=nothing)
 	end
 
 	# Get the components
-	yo, HMnc, HMc, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj1, param1; Fext_pdep=true, debugComponents=true)
+	yo, HMnc, HMc, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj1, param1, POPTS; debugComponents=true)
 	pt0, Tnew = cu.getpt(m, param1)
 	inertial = zeros(2,N)
 	inertialc = similar(inertial)
@@ -201,7 +202,7 @@ traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1)
 # plot(pls...)
 
 # TEST manual params
-Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, param1, 1.0; Fext_pdep=true)
+Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, param1, POPTS, 1.0)
 Δy0 = zeros((N+1)*ny)
 testp(pnew) = cu.reconstructTrajFromΔy(m, opt, traj1, yo, Hk, B, Δy0, pnew)
 pp = [8.44463,  13.9429,  0.235645,  23.9639,    8.29057,   0.0]

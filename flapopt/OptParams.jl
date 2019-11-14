@@ -1,24 +1,21 @@
 
 include("OptBase.jl") #< including this helps vscode reference the functions in there
+using Parameters
 
-
-# mutable struct ParamOptOpts
-# 	τinds::Array{Int}
-# 	R::Tuple
-# 	εunact
-# 	plimsL
-# 	plimsU
-# 	σamax
-# 	Cp::Matrix=ones(0,1)dp::Vector=ones(0)
-# 	Fext_pdep::Bool=false
-
-# 	scaleTraj=1.0, ; 
-# 	mode::Int
-# end
+@with_kw struct ParamOptOpts
+	τinds::Array{Int}
+	R::Tuple
+	plimsL::Vector
+	plimsU::Vector
+	εunact::Float64 = 0.1
+	Fext_pdep::Bool = true
+	uinfnorm::Bool = false # only in mode 1
+	nonlintransmission::Bool = true # false for linear transmission; true for the cubic polynomial transmission function
+end
 
 # --------------
 "Implement this"
-function paramAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, scaleTraj=1.0; Fext_pdep::Bool=true)
+function paramAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::ParamOptOpts, scaleTraj=1.0)
 	error("Implement this!")
 end
 
@@ -85,7 +82,7 @@ function affineTest(m, opt, traj, param)
     ptTEST, TTEST = getpt(m, param) # NOTE the actual param values are only needed for the test mode
 
 	# Quadratic form matrix
-	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, scaleTraj=1.0; Fext_pdep=Fext_pdep)
+	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, POPTS, scaleTraj=1.0)
 	Hpb = zeros(nq, N)
 	Bu = similar(Hpb)
 	for k=1:N
@@ -97,8 +94,8 @@ function affineTest(m, opt, traj, param)
 end
 
 "Helper function for optAffine. See optAffine for the def of x"
-function paramOptObjQuadratic(m, mode, np, npt, ny, nq, δt, Hk, yo, umeas, B, N, R)
-	Ryy, Ryu, Ruu = R # NOTE Ryu is just weight on mech. power
+function paramOptObjQuadratic(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, nq, δt, Hk, yo, umeas, B, N)
+	Ryy, Ryu, Ruu = POPTS.R # NOTE Ryu is just weight on mech. power
 	
 	# TODO: this is NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179
 	Quu = zeros(npt, npt)
@@ -147,7 +144,7 @@ end
 - gpolycon = Cp * p <= dp. But the user can pass in (and default is) Cp 0xX => has no effect
 - gtransmission: actuator strain limit.
 "
-function paramOptConstraint(m, mode, np, ny, nq, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax, εunact, τinds, uinfnorm; nonlinTransmission=true)
+function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax)
 	# Unactuated constraint: Bperp' * H(y + Δy) * pt is small enough (unactuated DOFs) 
 	nact = size(B, 2)
 	nck = nq - nact # number of constraints for each k = # of unactuated DOFs ( = nunact)
@@ -155,9 +152,11 @@ function paramOptConstraint(m, mode, np, ny, nq, δt, Hk, yo, umeas, B, N, Cp, d
 	# Number of various constraints - these are used below to set up the jacobian of g.
 	ncunact = N * nck
 	ncpolytope = size(Cp,1)
-	nctransmission = nonlinTransmission ? 1 : 0
+	nctransmission = POPTS.nonlintransmission ? 1 : 0
 	nctotal = ncunact + ncpolytope + nctransmission # this is the TOTAL number of constraints
 	dp2 = copy(dp) # No idea why this was getting modified. Storing a copy seems to work.
+	# no infnorm for ID
+	uinfnorm = mode == 2 ? false : POPTS.uinfnorm
 
 	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1) * (getpt(m, p)[1])
 	function eval_g_ret(x)
@@ -275,16 +274,16 @@ function paramOptConstraint(m, mode, np, ny, nq, δt, Hk, yo, umeas, B, N, Cp, d
 				# transmission
 				offs += 1
 				row[offs] = ncunact + ncpolytope + 1
-				col[offs] = τinds[1]
+				col[offs] = POPTS.τinds[1]
 				offs += 1
 				row[offs] = ncunact + ncpolytope + 1
-				col[offs] = τinds[2]
+				col[offs] = POPTS.τinds[2]
 			end
 		end
 	end
 
-	glimsL = -εunact*ones(ncunact)
-	glimsU = εunact*ones(ncunact)
+	glimsL = -POPTS.εunact*ones(ncunact)
+	glimsU = POPTS.εunact*ones(ncunact)
 	if size(Cp,1) > 0
 		glimsL = [glimsL; -100000 * ones(ncpolytope)] # Scott said having non-inf bounds helps IPOPT
 		glimsU = [glimsU; zeros(ncpolytope)] # must be <= 0
@@ -304,7 +303,7 @@ end
 - σamax -- actuator strain limit. This is used to constrain the transmission coeffs s.t. the actuator displacement is limited to σamax. The form of the actuator constraint depends on bTrCon.
 - Cp, dp -- polytope constraint for params. Can pass Cp=ones(0,X) to not include.
 "
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, mode::Int, τinds::Array{Int}, R::Tuple, εunact, plimsL, plimsU, σamax, scaleTraj=1.0, Cp::Matrix=ones(0,1), dp::Vector=ones(0); Fext_pdep::Bool=false, test=false, testTrajReconstruction=false, kwargs...)
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::ParamOptOpts, mode::Int, σamax; test=false, testTrajReconstruction=false, Cp::Matrix=ones(0,1), dp::Vector=ones(0), scaleTraj=1.0, kwargs...)
 	if test
 		affineTest(m, opt, traj, param) # this does not need to be here TODO: remove
 	end
@@ -315,17 +314,15 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	npt = length(getpt(m, param)[1])
 
 	# Quadratic form matrix
-	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, scaleTraj; Fext_pdep=Fext_pdep)
-
+	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, POPTS, scaleTraj)
 	# IPOPT ---------------------------
 	# Options on the types of constraints to include
 	nonlinTransmission = true # add a transmission constraint in g()? TODO: remove
-	uinfnorm = true
 	# Transmission limits imposed by actuator
 	σomax = norm([yo(k)[1] for k=1:N], Inf)
 	Tmin = σomax/σamax
 	if !nonlinTransmission
-		plimsL[τinds[1]] = Tmin
+		POPTS.plimsL[POPTS.τinds[1]] = Tmin
 	end
 
 	"Variables for IPOPT:
@@ -335,13 +332,13 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	nx = np + (N+1)*ny # p,Δy
 	xlimsL = -1000 * ones(nx)
 	xlimsU = 1000 * ones(nx)
-	xlimsL[1:np] = plimsL
-	xlimsU[1:np] = plimsU
+	xlimsL[1:np] = POPTS.plimsL
+	xlimsU[1:np] = POPTS.plimsU
 	
 	# IPOPT setup using helper functions
-	nctotal, glimsL, glimsU, eval_g_ret, eval_jac_g, Dgnnz, Bperp = paramOptConstraint(m, mode, np, ny, nq, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax, εunact, τinds, uinfnorm; nonlinTransmission=nonlinTransmission)
+	nctotal, glimsL, glimsU, eval_g_ret, eval_jac_g, Dgnnz, Bperp = paramOptConstraint(m, POPTS, mode, np, ny, nq, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax)
 	eval_g(x::Vector, g::Vector) = g .= eval_g_ret(x)
-	eval_f, eval_grad_f = paramOptObjQuadratic(m, mode, np, npt, ny, nq, δt, Hk, yo, umeas, B, N, R)
+	eval_f, eval_grad_f = paramOptObjQuadratic(m, POPTS, mode, np, npt, ny, nq, δt, Hk, yo, umeas, B, N)
 	
 	# Create IPOPT problem
 	prob = Ipopt.createProblem(
@@ -376,7 +373,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 
 	if testTrajReconstruction
 		# Test traj reconstruction:
-		Hk, yo, umeas, B, N = paramAffine(m, opt, trajnew, pnew; Fext_pdep=Fext_pdep)
+		Hk, yo, umeas, B, N = paramAffine(m, opt, trajnew, pnew, POPTS)
 		eval_g_ret2(p) = vcat([Bperp * Hk(k, zeros(ny), zeros(ny)) * (getpt(m, p)[1]) for k=1:N]...)
 		display(unactErr')
 		display(eval_g_ret2(pnew)')
