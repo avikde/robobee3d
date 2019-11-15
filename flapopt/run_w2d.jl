@@ -37,7 +37,7 @@ POPTS = cu.ParamOptOpts(
 	τinds=[2,6], 
 	R=(zeros(4,4), 0, 1.0*I), 
 	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0],
-	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 25.0]
+	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0]
 )
 σamax = 0.3 # [mm] constant? for robobee actuators
 
@@ -79,11 +79,12 @@ N, trajt, traj0, opt = initTraj()
 avgLift0 = avgLift(m, opt, traj0, param0)
 
 """One-off ID or opt"""
-function opt1(traj, param, mode, minal; testAffine=false, testAfter=false)
-	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin
-	Cp = Float64[-1  0  0  0  0  0]
+function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false)
+	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
+	Cp = Float64[-1  0  0  0  0  0;
+		0  -τ21ratiolim  0  0  0  1]
 	cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
-	dp = [-cbarmin(minal)]
+	dp = [-cbarmin(minal); 0]
 	param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
 	if testAfter
 		cu.affineTest(m, opt, traj1, param1, POPTS)
@@ -189,28 +190,18 @@ end
 
 # ID
 traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1)
-# display(param1')
+display(param1')
 # pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
 # plot(pl1...)
-# # 2. Try to optimize
-# traj2, param2, paramObj, _ = opt1(traj1, param1, 1, 0.8)
+# 2. Try to optimize
+traj2, param2, paramObj, _ = opt1(traj1, param1, 1, 1.0)
 # # display(param2')
-# traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 1.3
-# # pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
-# # plot(pl1...)
+traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 1.3)
+pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
+display(param3')
+plot(pl1...)
 # pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj)
 # plot(pls...)
-
-# TEST manual params
-Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, param1, POPTS, 1.0)
-Δy0 = zeros((N+1)*ny)
-testp(pnew) = cu.reconstructTrajFromΔy(m, opt, traj1, yo, Hk, B, Δy0, pnew)
-pp = [8.44463,  13.9429,  0.235645,  23.9639,    8.29057,   0.0]
-traj2 = testp(pp)
-pptest = [8.44463,  11.0,  0.235645,  23.9639,    8.29057,   40.0]
-traj3 = testp(pptest)
-pl1 = plotTrajs(m, opt, trajt, [param1, param1, pp, pptest], [traj0, traj1, traj2, traj3])
-plot(pl1...)
 
 # ---------
 
