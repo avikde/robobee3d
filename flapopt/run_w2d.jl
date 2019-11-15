@@ -94,16 +94,8 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 end
 
 """Debug components in a traj"""
-function debugComponentsPlot(traj, param; optal=nothing)
-    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-	optoptions = oaOpts(optal)
-
-	if !isnothing(optal)
-		traj1, param1, _, _ = opt1(traj, param, 1, optal)
-	else
-		param1 = param
-		traj1 = traj
-	end
+function debugComponentsPlot(traj1, param1)
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj1)
 
 	# Get the components
 	yo, HMnc, HMc, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj1, param1, POPTS; debugComponents=true)
@@ -115,12 +107,16 @@ function debugComponentsPlot(traj, param; optal=nothing)
 	aero = similar(inertial)
 
 	for k=1:N
-		inertial[:,k] = (HMnc(yo(k), yo(k+1)) - HMnc(yo(k), yo(k))) * pt0
-		inertialc[:,k] = (HMc(yo(k), yo(k+1)) - HMc(yo(k), yo(k)) + δt * HC(yo(k))) * pt0
-		stiffdamp[:,k] = (δt * Hg(yo(k))) * pt0
-		stiffdampa[:,k] = (δt * Hgact(yo(k))) * pt0
-		aero[:,k] = (δt * HF(yo(k))) * pt0
+		σo = yo(k)[1]
+		inertial[:,k] = cu.Hτ(HMnc(yo(k), yo(k+1)) - HMnc(yo(k), yo(k)), σo) * pt0
+		inertialc[:,k] = cu.Hτ(HMc(yo(k), yo(k+1)) - HMc(yo(k), yo(k)) + δt * HC(yo(k)), σo) * pt0
+		stiffdamp[:,k] = cu.Hτ(δt * Hg(yo(k)), σo) * pt0
+		stiffdampa[:,k] = cu.Hτ(δt * Hgact(yo(k)), σo) * pt0
+		aero[:,k] = cu.Hτ(δt * HF(yo(k)), σo) * pt0
 	end
+
+	# get the instantaneous transmission ratio at time k
+	Tvec = [cu.transmission(m, yo(k), param1; o2a=true)[2] for k=1:N]
 
 	function plotComponents(i, ylbl)
 		pl = plot(inertial[i,:] + inertialc[i,:], linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
@@ -130,7 +126,7 @@ function debugComponentsPlot(traj, param; optal=nothing)
 		tot = inertial[i,:]+inertialc[i,:]+stiffdamp[i,:]+stiffdampa[i,:]+aero[i,:]
 		plot!(pl, tot, linewidth=2, linestyle=:dash, label="tot")
 
-		pl2 = plot(aero[i,:] * Tnew / δt, linewidth=2, label="-dr(af)", legend=:outertopright)
+		pl2 = plot(aero[i,:] .* Tvec / δt, linewidth=2, label="-dr(af)", legend=:outertopright)
 		plot!(pl2, traj1[(N+1)*4+1:end], linewidth=2, label="actf")
 		
 		pl3 = plot(inertial[i,:], linewidth=2, label="inc", legend=:outertopright)
@@ -139,12 +135,12 @@ function debugComponentsPlot(traj, param; optal=nothing)
 		return pl, pl2, pl3
 	end
 
-	pl1 = plotTrajs(m, opt, trajt, [param], [traj])
+	pl1 = plotTrajs(m, opt, trajt, [param1], [traj1])
 	pls, plcomp, plis = plotComponents(1, "stroke")
 	plh, _, plih = plotComponents(2, "hinge")
 
 	# Note that gamma is here
-	println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2, ", optal = ", (!isnothing(optal) ? optal : "-"))
+	println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2)
 	return pl1[[1,2,4,5]]..., pls, plh, plcomp, plis, plih
 end
 
@@ -226,8 +222,8 @@ traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1)
 # pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
 # plot(pl1...)
 
-pls = plotNonlinBenefit() # SLOW
-plot(pls...)
+# pls = plotNonlinBenefit() # SLOW
+# plot(pls...)
 
 # # 2. Try to optimize
 # traj2, param2, paramObj, _ = opt1(traj1, param1, 1, 1.0)
@@ -242,9 +238,8 @@ plot(pls...)
 
 # ---------
 
-# pls = debugComponentsPlot(traj1, param1; optal=1.2)
-# plot(pls..., size=(800,600))
-# gui()
+pls = debugComponentsPlot(traj1, param1)
+plot(pls..., size=(800,600))
 
 # error("TEST")
 
