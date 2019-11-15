@@ -85,12 +85,12 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 		0  -τ21ratiolim  0  0  0  1]
 	cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
 	dp = [-cbarmin(minal); 0]
-	param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
+	param1, paramObj, traj1, unactErr, paramConstraint = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
 	if testAfter
 		cu.affineTest(m, opt, traj1, param1, POPTS)
 	end
 	println("minal = ", minal, ", τ21ratiolim = ", τ21ratiolim, " => ", param1')
-	return traj1, param1, paramObj, unactErr
+	return traj1, param1, paramObj, unactErr, paramConstraint
 end
 
 """Debug components in a traj"""
@@ -204,6 +204,18 @@ function plotNonlinBenefit()
     return (plotSlice(1, 2),)
 end
 
+# Test feasibility
+function paramTest(p, paramConstraint)
+	xtest = [p; zeros((N+1)*ny)]
+	g = paramConstraint(xtest)
+	gunact = g[1:(N+1)]
+	grest = g[(N+1)+1:end]
+	# have [gpolycon (2); gtransmission (1); ginfnorm (2*N)]
+	println("Feas: should be nonpos: ", maximum(grest), "; unact: ", maximum(abs.(gunact)) ,"; transmission: ", g[3])
+	unew = cu.getTrajU(m, opt, traj1, p, POPTS)
+	println("Obj: ", paramObj(xtest))
+end
+
 # Stiffness sweep ---
 # function respkσ(kσ)
 # 	olrfun = f -> openloopResponse(m, opt, f, [param0; kσ])
@@ -218,9 +230,12 @@ end
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
 # ID
-traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1)
+traj1, param1, paramObj, unactErr, paramConstraint = opt1(traj0, param0, 2, 0.1)
 # pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
 # plot(pl1...)
+
+traj2, param2, paramObj, unactErr, paramConstraint = opt1(traj1, param1, 1, 0.1)
+paramTest(param2, paramConstraint)
 
 # pls = plotNonlinBenefit() # SLOW
 # plot(pls...)
@@ -238,8 +253,8 @@ traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1)
 
 # ---------
 
-pls = debugComponentsPlot(traj1, param1)
-plot(pls..., size=(800,600))
+# pls = debugComponentsPlot(traj1, param1)
+# plot(pls..., size=(800,600))
 
 # error("TEST")
 
