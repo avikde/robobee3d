@@ -171,12 +171,12 @@ traj1, param1, paramObj, paramConstraint, s = opt1(traj0, param0, 1, 1.0, 0.2)
 display(param1')
 # param1 = idealparams(param1)
 
-# # debug components ---
-# pls = debugComponentsPlot(traj1, param1)
-# plot(pls..., size=(800,300))
+# debug components ---
+pls = debugComponentsPlot(traj1, param1)
+plot(pls..., size=(800,300))
 
-pls = plotNonlinBenefit() # SLOW
-plot(pls...)
+# pls = plotNonlinBenefit() # SLOW
+# plot(pls...)
 
 # 
 # Δτ1s = collect(0:0.1:15)
