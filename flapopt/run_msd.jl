@@ -65,7 +65,7 @@ function debugComponentsPlot(traj, param)
 	tvec = trajt[1:N]
 
 	# Get the components
-	yo, Hτ, Hio, Hia, Hstiffo, Hstiffa, Hdamp = cu.paramAffine(m, opt, traj, param, POPTS; debugComponents=true)
+	yo, Hio, Hia, Hstiffo, Hstiffa, Hdamp = cu.paramAffine(m, opt, traj, param, POPTS; debugComponents=true)
 	pt0, Tnew = cu.getpt(m, param)
 	inertialo = zeros(N)
 	inertiala = similar(inertialo)
@@ -74,11 +74,12 @@ function debugComponentsPlot(traj, param)
 	damp = similar(inertialo)
 
 	for k=1:N
-		inertialo[k] = (Hτ(Hio(yo(k), yo(k+1)), yo(k)) * pt0)[1]
-		inertiala[k] = (Hτ(Hia(yo(k), yo(k+1)), yo(k)) * pt0)[1]
-		stiffo[k] = (Hτ(Hstiffo(yo(k)), yo(k)) * pt0)[1]
-		stiffa[k] = (Hτ(Hstiffa(yo(k)), yo(k)) * pt0)[1]
-		damp[k] = (Hτ(Hdamp(yo(k)), yo(k)) * pt0)[1]
+		σo = yo(k)[1]
+		inertialo[k] = (cu.Hτ(Hio(yo(k), yo(k+1)), σo) * pt0)[1]
+		inertiala[k] = (cu.Hτ(Hia(yo(k), yo(k+1)), σo) * pt0)[1]
+		stiffo[k] = (cu.Hτ(Hstiffo(yo(k)), σo) * pt0)[1]
+		stiffa[k] = (cu.Hτ(Hstiffa(yo(k)), σo) * pt0)[1]
+		damp[k] = (cu.Hτ(Hdamp(yo(k)), σo) * pt0)[1]
 	end
 
 	function plotComponents(ylbl)

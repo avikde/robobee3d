@@ -30,6 +30,9 @@ function getpt(m::Model, p)
 	return [pb*τ1; pb*τ2/τ1^2; 1/τ1; τ2/τ1^4], Tarr
 end
 
+"Helper function for nonlinear transmission change to H"
+Hτ(Hh, σo) = hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
+
 "Override this. Input y can be in actuator or output coordinates. If o2a is false, maps A to O, else maps O to A"
 function transmission(m::Model, y::AbstractArray, _param::Vector; o2a=false)
 	y2 = y
