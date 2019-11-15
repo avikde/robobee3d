@@ -113,15 +113,6 @@ function idealparams(param)
 	return [τ1, kidl, kidl, τ2] # Note the ko<=bo constraint: this is reflecting that, but must be set here separately
 end
 
-function unormΔτ1(Δτ1, bkratio)
-	traj1, param1, paramObj, xConstraint = opt1(traj0, param0, 1, 1.0, bkratio)
-	pnew = copy(param1) + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
-	Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, pnew, POPTS, 1.0)	
-	Δy0 = zeros((N+1)*ny)
-	trajnew = cu.reconstructTrajFromΔy(m, opt, traj1, yo, Hk, B, Δy0, pnew)	
-	return norm(trajnew[(N+1)*ny+1:end], Inf)
-end
-
 function plotNonlinBenefit()
     # First plot the param landscape
     pranges = [

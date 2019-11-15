@@ -89,6 +89,7 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 	if testAfter
 		cu.affineTest(m, opt, traj1, param1, POPTS)
 	end
+	println("minal = ", minal, ", τ21ratiolim = ", τ21ratiolim, " => ", param1')
 	return traj1, param1, paramObj, unactErr
 end
 
@@ -175,6 +176,38 @@ function scaleParamsForlift(traj, param, minlifts)
 	return p1, p2, p3
 end
 
+function plotNonlinBenefit()
+    # First plot the param landscape
+    pranges = [
+        0:0.15:3.0, # τ21ratiolim
+        0.5:0.1:1.5 # minal
+    ]
+    labels = [
+        "nonlin ratio",
+        "minal"
+	]
+	
+	function maxu(τ21ratiolim, minal)
+		traj2, param2, paramObj, unactErr = opt1(traj1, param1, 1, minal, τ21ratiolim)
+		return norm(traj2[(N+1)*ny+1:end], Inf)
+	end
+
+	function plotSlice(i1, i2)
+		zgrid = [maxu(x,y) for y in pranges[i2], x in pranges[i1]] # reversed: see https://github.com/jheinen/GR.jl/blob/master/src/GR.jl
+		# to get the improvement, divide each metric by the performance at τ2=0
+		maxuatτ2_0 = zgrid[:,1]
+		zgrid = zgrid ./ repeat(maxuatτ2_0, 1, length(pranges[i1]))
+
+		pl = contourf(pranges[i1], pranges[i2], zgrid, fill=true, seriescolor=cgrad(:bluesreds), xlabel=labels[i1], ylabel=labels[i2])
+        # just in case
+        xlims!(pl, (pranges[i1][1], pranges[i1][end]))
+        ylims!(pl, (pranges[i2][1], pranges[i2][end]))
+        return pl
+    end
+    
+    return (plotSlice(1, 2),)
+end
+
 # Stiffness sweep ---
 # function respkσ(kσ)
 # 	olrfun = f -> openloopResponse(m, opt, f, [param0; kσ])
@@ -190,19 +223,22 @@ end
 
 # ID
 traj1, param1, paramObj, _ = opt1(traj0, param0, 2, 0.1)
-display(param1')
 # pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
 # plot(pl1...)
-# 2. Try to optimize
-traj2, param2, paramObj, _ = opt1(traj1, param1, 1, 1.0)
-# # display(param2')
-traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 1.3)
-pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
-# display(param3')
-# plot(pl1...)
-paramObj2(p) = paramObj([p; zeros((N+1)*ny)])
-pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj2)
+
+pls = plotNonlinBenefit() # SLOW
 plot(pls...)
+
+# # 2. Try to optimize
+# traj2, param2, paramObj, _ = opt1(traj1, param1, 1, 1.0)
+# # # display(param2')
+# traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 1.3)
+# pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
+# # display(param3')
+# # plot(pl1...)
+# paramObj2(p) = paramObj([p; zeros((N+1)*ny)])
+# pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj2)
+# plot(pls...)
 
 # ---------
 
