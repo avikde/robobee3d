@@ -198,10 +198,11 @@ traj2, param2, paramObj, _ = opt1(traj1, param1, 1, 1.0)
 # # display(param2')
 traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 1.3)
 pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
-display(param3')
-plot(pl1...)
-# pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj)
-# plot(pls...)
+# display(param3')
+# plot(pl1...)
+paramObj2(p) = paramObj([p; zeros((N+1)*ny)])
+pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj2)
+plot(pls...)
 
 # ---------
 
