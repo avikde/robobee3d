@@ -115,8 +115,8 @@ function debugComponentsPlot(traj1, param1)
 		aero[:,k] = cu.Hτ(δt * HF(yo(k)), σo) * pt0
 	end
 
-	# get the instantaneous transmission ratio at time k
-	Tvec = [cu.transmission(m, yo(k), param1; o2a=true)[2] for k=1:N]
+	# # get the instantaneous transmission ratio at time k
+	# Tvec = [cu.transmission(m, yo(k), param1; o2a=true)[2] for k=1:N]
 
 	function plotComponents(i, ylbl)
 		pl = plot(inertial[i,:] + inertialc[i,:], linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
@@ -126,8 +126,8 @@ function debugComponentsPlot(traj1, param1)
 		tot = inertial[i,:]+inertialc[i,:]+stiffdamp[i,:]+stiffdampa[i,:]+aero[i,:]
 		plot!(pl, tot, linewidth=2, linestyle=:dash, label="tot")
 
-		pl2 = plot(aero[i,:] .* Tvec / δt, linewidth=2, label="-dr(af)", legend=:outertopright)
-		plot!(pl2, traj1[(N+1)*4+1:end], linewidth=2, label="actf")
+		pl2 = plot(aero[i,:] / δt, linewidth=2, label="-dr(af)", legend=:outertopright)
+		plot!(pl2, traj1[(N+1)*ny+1:end], linewidth=2, label="actf")
 		
 		pl3 = plot(inertial[i,:], linewidth=2, label="inc", legend=:outertopright)
 		plot!(pl3, inertialc[i,:], linewidth=2, label="ic")
