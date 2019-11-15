@@ -99,8 +99,9 @@ function affineTest(m, opt, traj, param, POPTS::ParamOptOpts)
 end
 
 "Helper function for optAffine. See optAffine for the def of x"
-function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, nq, δt, Hk, yo, umeas, B, N)
+function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt, Hk, yo, umeas, B, N)
 	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
+	nq = ny÷2
 	nact = size(B, 2)
 	nΔy = (N+1)*ny
 	
@@ -165,10 +166,11 @@ Transmission constraint:
 	τ2>=0 is in xlims
 	The ineq above is: τ1min - τ1 <= τ2*σamax^2/3 => -τ1 - τ2*σamax^2/3 + τ1min <= 0 which is a linear constraint
 "
-function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax)
+function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax)
 	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
 	# Unactuated constraint: Bperp' * H(y + Δy) * pt is small enough (unactuated DOFs) 
 	nact = size(B, 2)
+	nq = ny÷2
 	nck = nq - nact # number of constraints for each k = # of unactuated DOFs ( = nunact)
 	Bperp = (I - B*B')[nact+1:end,:] # s.t. Bperp*B = 0
 	# Number of various constraints - these are used below to set up the jacobian of g.
@@ -384,7 +386,6 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	end
 	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
-	nq = ny÷2
 	np = length(param)
 	npt = length(getpt(m, param)[1])
 	nΔy = (N+1)*ny
@@ -415,9 +416,9 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	end
 	
 	# IPOPT setup using helper functions
-	nctotal, glimsL, glimsU, eval_g_ret, eval_jac_g, Dgnnz, Bperp = paramOptConstraint(m, POPTS, mode, np, ny, nq, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax)
+	nctotal, glimsL, glimsU, eval_g_ret, eval_jac_g, Dgnnz, Bperp = paramOptConstraint(m, POPTS, mode, np, ny, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax)
 	eval_g(x::Vector, g::Vector) = g .= eval_g_ret(x)
-	eval_f, eval_grad_f = paramOptObjective(m, POPTS, mode, np, npt, ny, nq, δt, Hk, yo, umeas, B, N)
+	eval_f, eval_grad_f = paramOptObjective(m, POPTS, mode, np, npt, ny, δt, Hk, yo, umeas, B, N)
 	
 	# Create IPOPT problem
 	prob = Ipopt.createProblem(
