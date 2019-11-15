@@ -39,13 +39,6 @@ function transmission(m::Model, y::AbstractArray, _param::Vector; o2a=false)
     return y2, T, τfun, τifun
 end
 
-"σomax is an output strain limit. This is the only transmission constraint for now, but others can be added."
-function gtransmission(m::Model, param, σomax)
-	# Get both transmission coeffs
-	pbb, Tarrr = paramLumped(m, param)
-	τ1, τ2 = Tarrr
-	return σomax/τ1 - σomax^3/3 * τ2/τ1^4
-end
 
 "Helper function to reconstruct the traj (also test it)."
 function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, yo, Hk, B, Δy, pnew; test::Bool=false)
@@ -76,7 +69,16 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, 
 	return traj2
 end
 
-function affineTest(m, opt, traj, param)
+"A more lightweight version of reconstructTrajFromΔy that sets Δy=0"
+function getTrajU(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::ParamOptOpts)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, POPTS)
+	ptnew, Tnew = getpt(m, param)
+	Δy0 = zeros(ny)
+	return vcat([B' * Hk(k, Δy0, Δy0) * ptnew for k=1:N]...)
+end
+
+function affineTest(m, opt, traj, param, POPTS::ParamOptOpts)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
     ptTEST, TTEST = getpt(m, param) # NOTE the actual param values are only needed for the test mode
@@ -151,7 +153,14 @@ end
 "Constraints for IPOPT: g = [gunact; gpolycon; gtransmission]
 - gunact = unactuated error = #unactuated DOFS * N
 - gpolycon = Cp * p <= dp. But the user can pass in (and default is) Cp 0xX => has no effect
-- gtransmission: actuator strain limit.
+- gtransmission: actuator strain limit (see below)
+- ginfnorm: if min of uinfnorm is desired, add on a slack variable s, and add constraints that -s <= uk <= s => {uk-s <= 0, -uk-s <= 0}
+
+Transmission constraint:
+	full nonlinear: σomax/τ1 - σomax^3/3 * τ2/τ1^4
+	start from a (τ1,0) feasible, then use (see https://github.com/avikde/robobee3d/pull/96#issuecomment-553092480) (τ1-Δτ1, τ2 >= 3/σamax^2*Δτ1) <=> τ2 >= 3/σamax^2*(τ1min - τ1)
+	τ2>=0 is in xlims
+	The ineq above is: τ1min - τ1 <= τ2*σamax^2/3 => -τ1 - τ2*σamax^2/3 + τ1min <= 0 which is a linear constraint
 "
 function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax)
 	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
@@ -167,6 +176,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt
 	nctotal = ncunact + ncpolytope + nctransmission + ncuinfnorm # this is the TOTAL number of constraints
 	dp2 = copy(dp) # No idea why this was getting modified. Storing a copy seems to work.
 	nΔy = (N+1)*ny
+	τ1min = σomax/σamax
 
 	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1) * (getpt(m, p)[1])
 	if uinfnorm
@@ -183,7 +193,8 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt
 			gvec = [gvec; Cp * pp - dp2] # must be <= 0
 		end
 		if nctransmission > 0
-			gvec = [gvec; gtransmission(m, pp, σomax)]
+			τ1, τ2 = paramLumped(m, pp)[2] # Get both transmission coeffs
+			gvec = [gvec; -τ1 - τ2*σamax^2/3 + τ1min]
 		end
 		if uinfnorm
 			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
@@ -252,9 +263,9 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt
 			if nctransmission > 0
 				# transmission
 				offs += 1
-				value[offs] = -σomax/τ1^2 + 4*σomax^3*τ2/(3*τ1^5) # d/dτ1
+				value[offs] = -1 # d/dτ1
 				offs += 1
-				value[offs] = -σomax/(3*τ1^4) # d/dτ2
+				value[offs] = -σamax^2/3 # d/dτ2
 			end
 			if uinfnorm
 				for k=1:N
@@ -346,11 +357,11 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, nq, δt
 		glimsU = [glimsU; zeros(ncpolytope)] # must be <= 0
 	end
 	if nctransmission > 0
-		glimsL = [glimsL; 0.0]
-		glimsU = [glimsU; σamax]
+		glimsL = [glimsL; -100000]
+		glimsU = [glimsU; 0.0]
 	end
 	if uinfnorm
-		glimsL = [glimsL; -100000 * ones(ncuinfnorm)]
+		glimsL = [glimsL; -1e10 * ones(ncuinfnorm)]
 		glimsU = [glimsU; zeros(ncuinfnorm)]
 	end
 
@@ -366,7 +377,7 @@ end
 "
 function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::ParamOptOpts, mode::Int, σamax; test=false, testTrajReconstruction=false, Cp::Matrix=ones(0,1), dp::Vector=ones(0), scaleTraj=1.0, kwargs...)
 	if test
-		affineTest(m, opt, traj, param) # this does not need to be here TODO: remove
+		affineTest(m, opt, traj, param, POPTS) # this does not need to be here TODO: remove
 	end
 	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
@@ -382,9 +393,9 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	nonlinTransmission = true # add a transmission constraint in g()? TODO: remove
 	# Transmission limits imposed by actuator
 	σomax = norm([yo(k)[1] for k=1:N], Inf)
-	Tmin = σomax/σamax
+	τ1min = σomax/σamax
 	if !nonlinTransmission
-		POPTS.plimsL[POPTS.τinds[1]] = Tmin
+		POPTS.plimsL[POPTS.τinds[1]] = τ1min
 	end
 
 	"Variables for IPOPT:
@@ -396,6 +407,9 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	xlimsU = 1000 * ones(nx)
 	xlimsL[1:np] = POPTS.plimsL
 	xlimsU[1:np] = POPTS.plimsU
+	if uinfnorm
+		fill!(xlimsL[np+nΔy+1:np+nΔy+nu], 0)
+	end
 	
 	# IPOPT setup using helper functions
 	nctotal, glimsL, glimsU, eval_g_ret, eval_jac_g, Dgnnz, Bperp = paramOptConstraint(m, POPTS, mode, np, ny, nq, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax)
@@ -441,10 +455,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		display(eval_g_ret2(pnew)')
 		error("Tested")
 	end
-	if uinfnorm
-		println("Slack variable value = ", prob.x[np+nΔy+1:np+nΔy+nu])
-	end
+	s = uinfnorm ? prob.x[np+nΔy+1:np+nΔy+nu] : NaN
 
-	return pnew, eval_f, trajnew, unactErr, eval_g_ret
+	return pnew, eval_f, trajnew, unactErr, eval_g_ret, s
 end
 

@@ -86,7 +86,7 @@ function opt1(traj, param, mode, minal; testAffine=false, testAfter=false)
 	dp = [-cbarmin(minal)]
 	param1, paramObj, traj1, unactErr = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
 	if testAfter
-		cu.affineTest(m, opt, traj1, param1)
+		cu.affineTest(m, opt, traj1, param1, POPTS)
 	end
 	return traj1, param1, paramObj, unactErr
 end

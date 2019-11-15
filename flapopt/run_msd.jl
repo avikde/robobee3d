@@ -36,23 +36,24 @@ POPTS = cu.ParamOptOpts(
 	R=(zeros(2,2), 0, 1.0*I), 
 	plimsL = [0.1, 0.1, 0.1, 0.0],
 	plimsU = [1000.0, 1000.0, 1000.0, 100.0],
-	uinfnorm = true
+	uinfnorm = false
 )
 
 σamax = 0.3 # [mm] constant? for robobee actuators
 # σamax = 100 # [mm] constant? test EM
 
 """One-off ID or opt"""
-function opt1(traj, param, mode, scaleTraj, bkratio=1.0; testAffine=false, testAfter=false)
-	println("bkratio = ", bkratio)
-	# A polytope constraint for the params: simple bo >= ko =>  ko - bo <= 0 => 
-	Cp = Float64[0  bkratio  -1  0]
-	dp = [0.0]
-	param1, paramObj, traj1, unactErr, paramConstraint = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, scaleTraj=scaleTraj, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
+function opt1(traj, param, mode, scaleTraj, bkratio=1.0, τ21ratiolim=2.0; testAffine=false, testAfter=false)
+	# A polytope constraint for the params: simple bo >= ko =>  ko - bo <= 0. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
+	Cp = Float64[0  bkratio  -1  0;
+		-τ21ratiolim  0  0  1]
+	dp = zeros(2)
+	param1, paramObj, traj1, unactErr, paramConstraint, s = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, scaleTraj=scaleTraj, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
 	if testAfter
-		cu.affineTest(m, opt, traj1, param1)
+		cu.affineTest(m, opt, traj1, param1, POPTS)
 	end
-	return traj1, param1, paramObj, paramConstraint
+	println("bkratio = ", bkratio, ", τ21ratiolim = ", τ21ratiolim, " => ", param1')
+	return traj1, param1, paramObj, paramConstraint, s
 end
 
 """Debug components in a traj. Assumes traj, param are feasible together here."""
@@ -117,32 +118,33 @@ function unormΔτ1(Δτ1, bkratio)
 	pnew = copy(param1) + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
 	Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, pnew, POPTS, 1.0)	
 	Δy0 = zeros((N+1)*ny)
-	trajnew = cu.reconstructTrajFromΔy(m, opt, traj1, yo, Hk, B, Δy0, pnew, false)	
+	trajnew = cu.reconstructTrajFromΔy(m, opt, traj1, yo, Hk, B, Δy0, pnew)	
 	return norm(trajnew[(N+1)*ny+1:end], Inf)
 end
 
 function plotNonlinBenefit()
     # First plot the param landscape
     pranges = [
-        0:0.3:6.0, # Δτ1s
-        0.1:0.05:1.0 # bkratios
+        0:0.15:3.0, # τ21ratiolim
+        0.1:0.04:0.8 # bkratios
     ]
     labels = [
-        "Delta t1",
+        "nonlin ratio",
         "bkratio"
 	]
 	
-	function unormimprovement(Δτ1, bkratio)
-		r = unormΔτ1(Δτ1, bkratio)/unormΔτ1(0, bkratio) # FIXME: this runs the 0 one twice...
-		return r > 1.1 ? NaN : r
+	function maxu(τ21ratiolim, bkratio)
+		traj1, param1, paramObj, paramConstraint, s = opt1(traj0, param0, 1, 1.0, bkratio, τ21ratiolim)
+		return norm(traj1[(N+1)*ny+1:end], Inf)
 	end
 
-    function plotSlice(i1, i2)
-		pl = contour(pranges[i1], pranges[i2], unormimprovement, fill=true, seriescolor=cgrad(:bluesreds), xlabel=labels[i1], ylabel=labels[i2])
-		# f1(Δτ1) = unormΔτ1(Δτ1, 0.2)
-		# yy = f1.(pranges[i1])
-		# println("hi", yy)
-		# pl = plot(pranges[i1], yy)
+	function plotSlice(i1, i2)
+		zgrid = [maxu(x,y) for y in pranges[i2], x in pranges[i1]] # reversed: see https://github.com/jheinen/GR.jl/blob/master/src/GR.jl
+		# to get the improvement, divide each metric by the performance at τ2=0
+		maxuatτ2_0 = zgrid[:,1]
+		zgrid = zgrid ./ repeat(maxuatτ2_0, 1, length(pranges[i1]))
+
+		pl = contourf(pranges[i1], pranges[i2], zgrid, fill=true, seriescolor=cgrad(:bluesreds), xlabel=labels[i1], ylabel=labels[i2])
         # just in case
         xlims!(pl, (pranges[i1][1], pranges[i1][end]))
         ylims!(pl, (pranges[i2][1], pranges[i2][end]))
@@ -152,20 +154,25 @@ function plotNonlinBenefit()
     return (plotSlice(1, 2),)
 end
 
+# Test feasibility
+function paramTest(p, s)
+	xtest = [p; zeros((N+1)*ny); s]
+	g = paramConstraint(xtest)
+	# no unact constraint. have [gpolycon (1); gtransmission (1); ginfnorm (2*N)]
+	println("Feas: should be nonpos: ", maximum(g), "; transmission: ", g[2])
+	unew = cu.getTrajU(m, opt, traj1, p, POPTS)
+	println("Obj: ", paramObj(xtest), " should be ", norm(unew, Inf)^2)
+end
+
 # One-off ID or opt ---------
 
 # first optimization to get better params - closer to resonance
-traj1, param1, paramObj, xConstraint = opt1(traj0, param0, 1, 1.0, 0.2)
-# Test sufficient approx for feasible transmission params
-pp = copy(param1)
-ppfeas(Δτ1) = pp + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
-# Test feasibility
-gparam(p) = xConstraint([p; zeros((N+1)*ny)])
+traj1, param1, paramObj, paramConstraint, s = opt1(traj0, param0, 1, 1.0, 0.2)
 display(param1')
 # param1 = idealparams(param1)
 
 # debug components ---
-pls = debugComponentsPlot(traj1, ppfeas(4))
+pls = debugComponentsPlot(traj1, param1)
 plot(pls..., size=(800,300))
 
 # pls = plotNonlinBenefit() # SLOW
