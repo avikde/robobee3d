@@ -145,12 +145,11 @@ function debugComponentsPlot(traj1, param1)
 end
 
 """Run many opts to get the best params for a desired min lift"""
-function scaleParamsForlift(traj, param, minlifts)
+function scaleParamsForlift(traj, param, minlifts, τ21ratiolim)
 	function maxuForMinAvgLift(al)
-		println("plimsL[1:2] = ", plimsL(al)[1:2])
-		traj1, param1, _, unactErr = opt1(traj, param, 1, al)
-		kΨ, bΨ = param1[4:5]
-		return [param1; norm(traj1[(N+1)*ny:end], Inf); norm(unactErr, Inf)]
+		traj2, param2, _, unactErr = opt1(traj, param, 1, al, τ21ratiolim)
+		# kΨ, bΨ = param2[4:5]
+		return [param2; norm(traj2[(N+1)*ny:end], Inf); norm(unactErr, Inf); norm(traj2[(N+1)*ny:end], 2)/N]
 	end
 	llabels = [
 		"chord",
@@ -165,8 +164,8 @@ function scaleParamsForlift(traj, param, minlifts)
 	res = hcat(maxuForMinAvgLift.(minlifts)...)'
 	display(res)
 	np = length(param0)
-	p1 = plot(minliftsmg, res[:,1:np], xlabel="min avg lift [mg]", label=llabels, ylabel="design params", linewidth=2, legend=:topleft)
-	p2 = plot(minliftsmg, res[:,np+1], xlabel="min avg lift [mg]", ylabel="umin [mN]", linewidth=2, legend=false)
+	p1 = plot(minliftsmg, res[:,POPTS.τinds], xlabel="min avg lift [mg]", label=llabels[POPTS.τinds], ylabel="design params", linewidth=2, legend=:topleft)
+	p2 = plot(minliftsmg, [res[:,np+1]  res[:,np+3]], xlabel="min avg lift [mg]", ylabel="umin [mN]", linewidth=2, legend=:topleft, label=["inf","2"])
 	p3 = plot(minliftsmg, res[:,np+2], xlabel="min avg lift [mg]", ylabel="unact err", linewidth=2, label="err", legend=false)
 
 	return p1, p2, p3
@@ -234,9 +233,6 @@ traj1, param1, paramObj, unactErr, paramConstraint = opt1(traj0, param0, 2, 0.1)
 # pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
 # plot(pl1...)
 
-traj2, param2, paramObj, unactErr, paramConstraint = opt1(traj1, param1, 1, 0.1)
-paramTest(param2, paramConstraint)
-
 # pls = plotNonlinBenefit() # SLOW
 # plot(pls...)
 
@@ -260,8 +256,8 @@ paramTest(param2, paramConstraint)
 
 # ----------------
 
-# pls = scaleParamsForlift(traj1, param1, 0.5:0.2:1.5)
-# plot(pls...)
+pls = scaleParamsForlift(traj1, param1, 0.2:0.2:1.6, 0)
+plot(pls...)
 
 # # traj opt ------------------------------------
 
