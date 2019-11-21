@@ -95,13 +95,16 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 	return ret
 end
 
+listOfParamTraj(retlist) = [ret["param"] for ret in retlist], [ret["traj"] for ret in retlist]
+
 """Debug components in a traj"""
 function debugComponentsPlot(ret)
+	traj1, param1 = ret["traj"], ret["param"]
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, ret["traj"])
 
 	# Get the components
-	yo, HMnc, HMc, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, ret["traj"], ret["param"], POPTS; debugComponents=true)
-	pt0, Tnew = cu.getpt(m, ret["param"])
+	yo, HMnc, HMc, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj1, param1, POPTS; debugComponents=true)
+	pt0, Tnew = cu.getpt(m, param1)
 	inertial = zeros(2,N)
 	inertialc = similar(inertial)
 	stiffdamp = similar(inertial)
@@ -120,29 +123,31 @@ function debugComponentsPlot(ret)
 	# # get the instantaneous transmission ratio at time k
 	# Tvec = [cu.transmission(m, yo(k), param1; o2a=true)[2] for k=1:N]
 
-	function plotComponents(i, ylbl)
-		pl = plot(inertial[i,:] + inertialc[i,:], linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
-		plot!(pl, stiffdamp[i,:], linewidth=2, label="g")
-		plot!(pl, stiffdampa[i,:], linewidth=2, label="ga")
-		plot!(pl, aero[i,:], linewidth=2, label="a")
-		tot = inertial[i,:]+inertialc[i,:]+stiffdamp[i,:]+stiffdampa[i,:]+aero[i,:]
-		plot!(pl, tot, linewidth=2, linestyle=:dash, label="tot")
+	t2 = trajt[1:end-1]
 
-		pl2 = plot(aero[i,:] / δt, linewidth=2, label="-dr(af)", legend=:outertopright)
-		plot!(pl2, traj1[(N+1)*ny+1:end], linewidth=2, label="actf")
+	function plotComponents(i, ylbl)
+		pl = plot(t2, inertial[i,:] + inertialc[i,:], linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
+		plot!(pl, t2, stiffdamp[i,:], linewidth=2, label="g")
+		plot!(pl, t2, stiffdampa[i,:], linewidth=2, label="ga")
+		plot!(pl, t2, aero[i,:], linewidth=2, label="a")
+		tot = inertial[i,:]+inertialc[i,:]+stiffdamp[i,:]+stiffdampa[i,:]+aero[i,:]
+		plot!(pl, t2, tot, linewidth=2, linestyle=:dash, label="tot")
+
+		pl2 = plot(t2, aero[i,:] / δt, linewidth=2, label="-dr(af)")
+		plot!(pl2, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="actf")
 		
-		pl3 = plot(inertial[i,:], linewidth=2, label="inc", legend=:outertopright)
-		plot!(pl3, inertialc[i,:], linewidth=2, label="ic")
-		plot!(pl3, inertial[i,:] + inertialc[i,:], linewidth=2, linestyle=:dash, label="itot")
+		pl3 = plot(t2, inertial[i,:], linewidth=2, label="inc", legend=:outertopright)
+		plot!(pl3, t2, inertialc[i,:], linewidth=2, label="ic")
+		plot!(pl3, t2, inertial[i,:] + inertialc[i,:], linewidth=2, linestyle=:dash, label="itot")
 		return pl, pl2, pl3
 	end
 
-	pl1 = plotTrajs(m, opt, trajt, [ret["param"]], [ret["traj"]])
+	pl1 = plotTrajs(m, opt, trajt, listOfParamTraj([ret])...)
 	pls, plcomp, plis = plotComponents(1, "stroke")
 	plh, _, plih = plotComponents(2, "hinge")
 
 	# Note that gamma is here
-	println("param = ", ret["param"]', ", Iw = ", ret["param"][3] * (0.5 * ret["param"][1])^2)
+	println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2)
 	return pl1[[1,2,4,5]]..., pls, plh, plcomp, plis, plih
 end
 
@@ -174,7 +179,7 @@ function scaleParamsForlift(traj, param, minlifts, τ21ratiolim)
 	return p1, p2, p3
 end
 
-function plotNonlinBenefit()
+function plotNonlinBenefit(ret)
     # First plot the param landscape
     pranges = [
         0:0.15:3.0, # τ21ratiolim
@@ -218,8 +223,6 @@ function paramTest(p, paramConstraint)
 	println("Obj: ", paramObj(xtest))
 end
 
-listOfParamTraj(retlist) = [ret["param"] for ret in retlist], [ret["traj"] for ret in retlist]
-
 # Stiffness sweep ---
 # function respkσ(kσ)
 # 	olrfun = f -> openloopResponse(m, opt, f, [param0; kσ])
@@ -239,8 +242,8 @@ ret1 = opt1(traj0, param0, 2, 0.1)
 # plot(pl1...)
 
 # 2. Try to optimize
-ret2 = opt1(ret1["traj"], ret1["param"], 1, 0.8; print_level=3, max_iter=10000)
-ret3 = opt1(ret1["traj"], ret1["param"], 1, 1.0; print_level=3, max_iter=10000)
+ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.0; print_level=3, max_iter=10000)
+# ret3 = opt1(ret1["traj"], ret1["param"], 1, 1.0; print_level=3, max_iter=10000)
 # traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 1.3)
 # pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
 # # plot(pl1...)
@@ -248,12 +251,12 @@ ret3 = opt1(ret1["traj"], ret1["param"], 1, 1.0; print_level=3, max_iter=10000)
 # pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj2)
 # plot(pls...)
 
-pl1 = plotTrajs(m, opt, trajt, listOfParamTraj([ret2, ret3])...)
-plot(pl1...)
+# pl1 = plotTrajs(m, opt, trajt, listOfParamTraj([ret2, ret3])...)
+# plot(pl1...)
 
 # ---------
-# pls = debugComponentsPlot(traj2, param2)
-# plot(pls..., size=(800,600))
+pls = debugComponentsPlot(ret2)
+plot(pls..., size=(800,600))
 
 # -----------------
 # pls = plotNonlinBenefit() # SLOW
