@@ -449,18 +449,16 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	status = Ipopt.solveProblem(prob)
 	pnew = prob.x[1:np]
 	trajnew = reconstructTrajFromΔy(m, opt, traj, yo, Hk, B, prob.x[np+1:np+nΔy], pnew)
-	unactErr = eval_g_ret(prob.x)
 
 	if testTrajReconstruction
 		# Test traj reconstruction:
 		Hk, yo, umeas, B, N = paramAffine(m, opt, trajnew, pnew, POPTS)
 		eval_g_ret2(p) = vcat([Bperp * Hk(k, zeros(ny), zeros(ny)) * (getpt(m, p)[1]) for k=1:N]...)
-		display(unactErr')
 		display(eval_g_ret2(pnew)')
 		error("Tested")
 	end
 	s = uinfnorm ? prob.x[np+nΔy+1:np+nΔy+nu] : NaN
 
-	return prob.x, eval_f, trajnew, unactErr, eval_g_ret, s
+	return Dict("x"=>prob.x, "traj"=>trajnew, "param"=>prob.x[1:np], "eval_f"=>eval_f, "eval_g"=>eval_g_ret, "s"=>s)
 end
 

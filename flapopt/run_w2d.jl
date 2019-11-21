@@ -85,13 +85,14 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 		0  -τ21ratiolim  0  0  0  1]
 	cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
 	dp = [-cbarmin(minal); 0]
-	xx, paramObj, traj1, unactErr, paramConstraint, s = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
-	param1 = xx[1:length(param)]
+	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
+	# append unactErr
+	ret["unactErr"] = ret["eval_g"](ret["x"])[1:N] # 1 unact DOF
 	if testAfter
-		cu.affineTest(m, opt, traj1, param1, POPTS)
+		cu.affineTest(m, opt, ret["traj"], ret["param"], POPTS)
 	end
-	println("minal = ", minal, ", τ21ratiolim = ", τ21ratiolim, " => ", param1')
-	return traj1, param1, paramObj, unactErr, paramConstraint, xx
+	println("minal = ", minal, ", τ21ratiolim = ", τ21ratiolim, " => ", ret["param"]')
+	return ret
 end
 
 """Debug components in a traj"""
@@ -148,9 +149,10 @@ end
 """Run many opts to get the best params for a desired min lift"""
 function scaleParamsForlift(traj, param, minlifts, τ21ratiolim)
 	function maxuForMinAvgLift(al)
-		traj2, param2, _, unactErr = opt1(traj, param, 1, al, τ21ratiolim)
+		r = opt1(traj, param, 1, al, τ21ratiolim)
 		# kΨ, bΨ = param2[4:5]
-		return [param2; norm(traj2[(N+1)*ny:end], Inf); norm(unactErr, Inf); norm(traj2[(N+1)*ny:end], 2)/N]
+		uu = r["traj"][(N+1)*ny:end]
+		return [r["param"]; norm(uu, Inf); norm(r["unactErr"], Inf); norm(uu, 2)/N]
 	end
 	llabels = [
 		"chord",
@@ -184,8 +186,8 @@ function plotNonlinBenefit()
 	]
 	
 	function maxu(τ21ratiolim, minal)
-		traj2, param2, paramObj, unactErr = opt1(traj1, param1, 1, minal, τ21ratiolim)
-		return norm(traj2[(N+1)*ny+1:end], Inf)
+		r = opt1(traj1, param1, 1, minal, τ21ratiolim)
+		return norm(r["traj"][(N+1)*ny+1:end], Inf)
 	end
 
 	function plotSlice(i1, i2)
@@ -230,7 +232,7 @@ end
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
 # ID
-traj1, param1, paramObj, unactErr, paramConstraint = opt1(traj0, param0, 2, 0.1)
+ret1 = opt1(traj0, param0, 2, 0.1)
 # pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
 # plot(pl1...)
 
@@ -250,11 +252,6 @@ traj1, param1, paramObj, unactErr, paramConstraint = opt1(traj0, param0, 2, 0.1)
 
 # ---------
 
-traj2, param2, paramObj, unactErr, paramConstraint, xx = opt1(traj1, param1, 1, 1.0; print_level=3)
-gg = paramConstraint(xx)#[param2; zeros((N+1)*ny)])
-plot(plot(unactErr), plot(gg))
-# second to last element of unactErr is too large - constraint would be violated?
-# TODO: check for bugs in constraint spec
 
 # pl1 = plotTrajs(m, opt, trajt, [param2], [traj2])
 # plot(pl1...)
@@ -266,8 +263,8 @@ plot(plot(unactErr), plot(gg))
 
 # ----------------
 
-# pls = scaleParamsForlift(traj1, param1, 0.2:0.2:1.6, 0)
-# plot(pls...)
+pls = scaleParamsForlift(ret1["traj"], ret1["param"], 0.2:0.2:1.6, 0)
+plot(pls...)
 
 # # traj opt ------------------------------------
 
