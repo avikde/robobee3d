@@ -249,15 +249,16 @@ traj1, param1, paramObj, unactErr, paramConstraint = opt1(traj0, param0, 2, 0.1)
 
 # ---------
 
-# pls = debugComponentsPlot(traj1, param1)
-# plot(pls..., size=(800,600))
+traj2, param2, paramObj, unactErr, paramConstraint = opt1(traj1, param1, 1, 1.0)
+pls = debugComponentsPlot(traj2, param2)
+plot(pls..., size=(800,600))
 
 # error("TEST")
 
 # ----------------
 
-pls = scaleParamsForlift(traj1, param1, 0.2:0.2:1.6, 0)
-plot(pls...)
+# pls = scaleParamsForlift(traj1, param1, 0.2:0.2:1.6, 0)
+# plot(pls...)
 
 # # traj opt ------------------------------------
 
