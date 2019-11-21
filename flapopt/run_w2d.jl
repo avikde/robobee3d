@@ -249,9 +249,10 @@ traj1, param1, paramObj, unactErr, paramConstraint = opt1(traj0, param0, 2, 0.1)
 
 # ---------
 
-traj2, param2, paramObj, unactErr, paramConstraint = opt1(traj1, param1, 1, 1.0)
-pls = debugComponentsPlot(traj2, param2)
-plot(pls..., size=(800,600))
+traj2, param2, paramObj, unactErr, paramConstraint = opt1(traj1, param1, 1, 0.8)
+plot(unactErr)
+# pls = debugComponentsPlot(traj2, param2)
+# plot(pls..., size=(800,600))
 
 # error("TEST")
 
