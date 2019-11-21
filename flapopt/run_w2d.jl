@@ -96,12 +96,12 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 end
 
 """Debug components in a traj"""
-function debugComponentsPlot(traj1, param1)
-    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj1)
+function debugComponentsPlot(ret)
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, ret["traj"])
 
 	# Get the components
-	yo, HMnc, HMc, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj1, param1, POPTS; debugComponents=true)
-	pt0, Tnew = cu.getpt(m, param1)
+	yo, HMnc, HMc, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, ret["traj"], ret["param"], POPTS; debugComponents=true)
+	pt0, Tnew = cu.getpt(m, ret["param"])
 	inertial = zeros(2,N)
 	inertialc = similar(inertial)
 	stiffdamp = similar(inertial)
@@ -137,12 +137,12 @@ function debugComponentsPlot(traj1, param1)
 		return pl, pl2, pl3
 	end
 
-	pl1 = plotTrajs(m, opt, trajt, [param1], [traj1])
+	pl1 = plotTrajs(m, opt, trajt, [ret["param"]], [ret["traj"]])
 	pls, plcomp, plis = plotComponents(1, "stroke")
 	plh, _, plih = plotComponents(2, "hinge")
 
 	# Note that gamma is here
-	println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2)
+	println("param = ", ret["param"]', ", Iw = ", ret["param"][3] * (0.5 * ret["param"][1])^2)
 	return pl1[[1,2,4,5]]..., pls, plh, plcomp, plis, plih
 end
 
@@ -218,6 +218,8 @@ function paramTest(p, paramConstraint)
 	println("Obj: ", paramObj(xtest))
 end
 
+listOfParamTraj(retlist) = [ret["param"] for ret in retlist], [ret["traj"] for ret in retlist]
+
 # Stiffness sweep ---
 # function respkσ(kσ)
 # 	olrfun = f -> openloopResponse(m, opt, f, [param0; kσ])
@@ -236,35 +238,30 @@ ret1 = opt1(traj0, param0, 2, 0.1)
 # pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
 # plot(pl1...)
 
-# pls = plotNonlinBenefit() # SLOW
-# plot(pls...)
-
-# # 2. Try to optimize
-# traj2, param2, paramObj, _ = opt1(traj1, param1, 1, 1.0)
-# # # display(param2')
+# 2. Try to optimize
+ret2 = opt1(ret1["traj"], ret1["param"], 1, 0.8; print_level=3, max_iter=10000)
+ret3 = opt1(ret1["traj"], ret1["param"], 1, 1.0; print_level=3, max_iter=10000)
 # traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 1.3)
 # pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
-# # display(param3')
 # # plot(pl1...)
 # paramObj2(p) = paramObj([p; zeros((N+1)*ny)])
 # pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj2)
 # plot(pls...)
 
+pl1 = plotTrajs(m, opt, trajt, listOfParamTraj([ret2, ret3])...)
+plot(pl1...)
+
 # ---------
-
-
-# pl1 = plotTrajs(m, opt, trajt, [param2], [traj2])
-# plot(pl1...)
-
 # pls = debugComponentsPlot(traj2, param2)
 # plot(pls..., size=(800,600))
 
-# error("TEST")
+# -----------------
+# pls = plotNonlinBenefit() # SLOW
+# plot(pls...)
 
 # ----------------
-
-pls = scaleParamsForlift(ret1["traj"], ret1["param"], 0.2:0.2:1.6, 0)
-plot(pls...)
+# pls = scaleParamsForlift(ret1["traj"], ret1["param"], 0.2:0.2:1.6, 0)
+# plot(pls...)
 
 # # traj opt ------------------------------------
 
