@@ -79,18 +79,19 @@ N, trajt, traj0, opt = initTraj()
 avgLift0 = avgLift(m, opt, traj0, param0)
 
 """One-off ID or opt"""
-function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false)
+function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1)
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
 	Cp = Float64[-1  0  0  0  0  0;
 		0  -τ21ratiolim  0  0  0  1]
 	cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
 	dp = [-cbarmin(minal); 0]
-	param1, paramObj, traj1, unactErr, paramConstraint = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
+	xx, paramObj, traj1, unactErr, paramConstraint, s = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
+	param1 = xx[1:length(param)]
 	if testAfter
 		cu.affineTest(m, opt, traj1, param1, POPTS)
 	end
 	println("minal = ", minal, ", τ21ratiolim = ", τ21ratiolim, " => ", param1')
-	return traj1, param1, paramObj, unactErr, paramConstraint
+	return traj1, param1, paramObj, unactErr, paramConstraint, xx
 end
 
 """Debug components in a traj"""
@@ -249,8 +250,15 @@ traj1, param1, paramObj, unactErr, paramConstraint = opt1(traj0, param0, 2, 0.1)
 
 # ---------
 
-traj2, param2, paramObj, unactErr, paramConstraint = opt1(traj1, param1, 1, 0.8)
-plot(unactErr)
+traj2, param2, paramObj, unactErr, paramConstraint, xx = opt1(traj1, param1, 1, 1.0; print_level=3)
+gg = paramConstraint(xx)#[param2; zeros((N+1)*ny)])
+plot(plot(unactErr), plot(gg))
+# second to last element of unactErr is too large - constraint would be violated?
+# TODO: check for bugs in constraint spec
+
+# pl1 = plotTrajs(m, opt, trajt, [param2], [traj2])
+# plot(pl1...)
+
 # pls = debugComponentsPlot(traj2, param2)
 # plot(pls..., size=(800,600))
 

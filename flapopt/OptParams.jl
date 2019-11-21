@@ -461,6 +461,6 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	end
 	s = uinfnorm ? prob.x[np+nΔy+1:np+nΔy+nu] : NaN
 
-	return pnew, eval_f, trajnew, unactErr, eval_g_ret, s
+	return prob.x, eval_f, trajnew, unactErr, eval_g_ret, s
 end
 
