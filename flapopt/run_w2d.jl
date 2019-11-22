@@ -246,6 +246,18 @@ function shiftAndOpt(ret, minal, shift=0; kwargs...)
 	return [retr["param"]; retr["traj"]]
 end
 
+function testManyShifts(retdict0, shifts, minal; kwargs...)
+	rets = hcat([shiftAndOpt(retdict0, minal, shift; kwargs...) for shift=shifts]...)
+	np = length(param0)
+	Nshift = size(rets,2)
+	paramss = [rets[1:np,i] for i=1:Nshift]
+	trajs = [rets[np+1:end,i] for i=1:Nshift]
+
+	pl1 = plotTrajs(m, opt, trajt, paramss, trajs)
+	pl2 = plot(shifts, [p[6]/p[2] for p in paramss], marker=:auto, xlabel="shift", ylabel="Tratio")
+	plot(pl1..., pl2)
+end
+
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
 # ID
@@ -261,14 +273,7 @@ ret1 = opt1(traj0, param0, 2, 0.1)
 # pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj2)
 # plot(pls...)
 
-rets = hcat([shiftAndOpt(ret1, 0.6, shift; print_level=3) for shift=0:1]...)
-np = length(param0)
-Nshift = size(rets,2)
-paramss = [rets[1:np,i] for i=1:Nshift]
-trajs = [rets[np+1:end,i] for i=1:Nshift]
-
-pl1 = plotTrajs(m, opt, trajt, paramss, trajs)
-plot(pl1...)
+testManyShifts(ret1, [0], 0.6)
 
 # # ---------
 # pls = debugComponentsPlot(ret2)
