@@ -85,16 +85,21 @@ function debugComponentsPlot(ret)
 	t2 = trajt[1:end-1]
 
 	function plotComponents(i, ylbl)
-		pl = plot(t2, inertial[i,:] + inertialc[i,:], linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
-		plot!(pl, t2, stiffdamp[i,:], linewidth=2, label="g")
-		plot!(pl, t2, stiffdampa[i,:], linewidth=2, label="ga")
-		plot!(pl, t2, aero[i,:], linewidth=2, label="a")
-		tot = inertial[i,:]+inertialc[i,:]+stiffdamp[i,:]+stiffdampa[i,:]+aero[i,:]
-		plot!(pl, t2, tot, linewidth=2, linestyle=:dash, label="tot")
+		# grav+inertial -- ideally they would "cancel" at "resonance"
+		inertiastiff = inertial[i,:]+inertialc[i,:]+stiffdamp[i,:]+stiffdampa[i,:]
+		tot = inertiastiff+aero[i,:]
 
-		pl2 = plot(t2, aero[i,:] / δt, linewidth=2, label="-dr(af)", legend=:outertopright)
-		plot!(pl2, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="actf")
+		pl = plot(t2, (inertial[i,:] + inertialc[i,:]) / δt, linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
+		plot!(pl, t2, stiffdamp[i,:] / δt, linewidth=2, label="g")
+		plot!(pl, t2, stiffdampa[i,:] / δt, linewidth=2, label="ga")
+		# plot!(pl, t2, aero[i,:], linewidth=2, label="a")
+		plot!(pl, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="act")
+		plot!(pl, t2, tot / δt, linewidth=2, linestyle=:dash, label="tot")
+
+		pl2 = plot(t2, aero[i,:] / δt, linewidth=2, label="-dr", legend=:outertopright)
+		plot!(pl2, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="act")
 		plot!(pl2, t2, coriolis[i,:] / δt, linewidth=2, label="cor")
+		plot!(pl2, t2, inertiastiff / δt, linewidth=2, label="is")
 		
 		pl3 = plot(t2, inertial[i,:], linewidth=2, label="inc", legend=:outertopright)
 		plot!(pl3, t2, inertialc[i,:], linewidth=2, label="ic")
