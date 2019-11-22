@@ -73,7 +73,7 @@ function initTraj(sim=false; fix=false, makeplot=false, Ψshift=0)
 end
 
 # IMPORTANT - load which traj here!!!
-N, trajt, traj0, opt = initTraj(Ψshift=5)
+N, trajt, traj0, opt = initTraj()
 
 # Constraint on cbar placed by minAvgLift
 avgLift0 = avgLift(m, opt, traj0, param0)
@@ -228,24 +228,26 @@ function paramTest(p, paramConstraint)
 	println("Obj: ", paramObj(xtest))
 end
 
-# Stiffness sweep ---
-# function respkσ(kσ)
-# 	olrfun = f -> openloopResponse(m, opt, f, [param0; kσ])
-# 	freqs = collect(0.05:0.01:0.45)
-# 	mags = hcat(olrfun.(freqs)...)'
-# 	return plot(freqs, mags, ylabel=string(kσ * 100), legend=false)
-# end
-# kσs = collect(0.0:0.5:5)
-# pls = respkσ.(kσs)
-# plot(pls...)
+"""Hinge phase shift and test opt"""
+function shiftAndOpt(traj, param, minal, shift=0; kwargs...)
+	traj1 = copy(traj)
+	function shiftTraj(i)
+		comps = traj1[i:ny:(N+1)*ny]
+		traj1[i:ny:(N+1)*ny] = [comps[1+shift:end];comps[1:shift]]
+	end
+	shiftTraj(2)
+	shiftTraj(4)
+	# after this the traj will likely not be feasible - need to run opt
+	return opt1(traj1, param, 1, minal; kwargs...)
+end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-# ID
-ret1 = opt1(traj0, param0, 2, 0.1)
+# # ID
+# ret1 = opt1(traj0, param0, 2, 0.1)
 
-# 2. Try to optimize
-ret2 = opt1(ret1["traj"], ret1["param"], 1, 0.6; print_level=3, max_iter=10000)
+# # 2. Try to optimize
+# ret2 = opt1(ret1["traj"], ret1["param"], 1, 0.6; print_level=3, max_iter=10000)
 # ret3 = opt1(ret1["traj"], ret1["param"], 1, 1.0; print_level=3, max_iter=10000)
 # traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 1.3)
 # pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
@@ -254,7 +256,9 @@ ret2 = opt1(ret1["traj"], ret1["param"], 1, 0.6; print_level=3, max_iter=10000)
 # pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj2)
 # plot(pls...)
 
-pl1 = plotTrajs(m, opt, trajt, listOfParamTraj([ret1, ret2])...)
+ret1 = shiftAndOpt(traj0, param0, 0.6, 5; print_level=3)
+
+pl1 = plotTrajs(m, opt, trajt, listOfParamTraj([ret1])...)
 plot(pl1...)
 
 # # ---------
