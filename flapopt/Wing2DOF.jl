@@ -43,6 +43,7 @@ struct Wing2DOFModel <: controlutils.Model
     ma::Float64 # [mg]; effective
     ba::Float64 # [mN/(mm/ms)]
     ka::Float64 # [mN/mm]
+    bCoriolis::Bool # true to include hinge->stroke Coriolis term or leave out for testing
 end
 
 # Fixed params -----------------
@@ -127,7 +128,7 @@ function cu.dydt(m::Wing2DOFModel, y::AbstractArray, u::AbstractArray, _params::
 
     # inertial terms
     M = @SMatrix [mwing + m.ma/T^2   γ*cbar*mwing*cΨ;  γ*cbar*mwing*cΨ   2*cbar^2*γ^2*mwing]
-    corgrav = @SVector [(m.kσ*σ + m.ka/T*τifun(σ)) - γ*cbar*mwing*sΨ*Ψ̇^2, kΨ*Ψ]
+    corgrav = @SVector [(m.kσ*σ + m.ka/T*τifun(σ)) + (m.bCoriolis ? -γ*cbar*mwing*sΨ*Ψ̇^2 : 0), kΨ*Ψ]
     # non-lagrangian terms
     τdamp = @SVector [-(m.bσ + m.ba/T^2) * σ̇, -bΨ * Ψ̇]
     _, Jaero, Faero = w2daero(m, yo, _params)
@@ -470,7 +471,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     """Coriolis"""
     function HC(y)
         σo, Ψ, σ̇o, Ψ̇ = y
-        return [0   0   0   0   0   0   -γ*Ψ̇^2*sin(Ψ)   0    0   0;
+        return [0   0   0   0   0   0   (m.bCoriolis ? -γ*Ψ̇^2*sin(Ψ) : 0)   0    0   0;
         0   0   0    0   0   0   0   0   0   0]
     end
     """Stiffness/damping output"""

@@ -65,7 +65,7 @@ function debugComponentsPlot(traj, param)
 	tvec = trajt[1:N]
 
 	# Get the components
-	yo, Hτ, Hio, Hia, Hstiffo, Hstiffa, Hdamp = cu.paramAffine(m, opt, traj, param, POPTS; debugComponents=true)
+	yo, Hio, Hia, Hstiffo, Hstiffa, Hdamp = cu.paramAffine(m, opt, traj, param, POPTS; debugComponents=true)
 	pt0, Tnew = cu.getpt(m, param)
 	inertialo = zeros(N)
 	inertiala = similar(inertialo)
@@ -74,11 +74,12 @@ function debugComponentsPlot(traj, param)
 	damp = similar(inertialo)
 
 	for k=1:N
-		inertialo[k] = (Hτ(Hio(yo(k), yo(k+1)), yo(k)) * pt0)[1]
-		inertiala[k] = (Hτ(Hia(yo(k), yo(k+1)), yo(k)) * pt0)[1]
-		stiffo[k] = (Hτ(Hstiffo(yo(k)), yo(k)) * pt0)[1]
-		stiffa[k] = (Hτ(Hstiffa(yo(k)), yo(k)) * pt0)[1]
-		damp[k] = (Hτ(Hdamp(yo(k)), yo(k)) * pt0)[1]
+		σo = yo(k)[1]
+		inertialo[k] = (cu.Hτ(Hio(yo(k), yo(k+1)), σo) * pt0)[1]
+		inertiala[k] = (cu.Hτ(Hia(yo(k), yo(k+1)), σo) * pt0)[1]
+		stiffo[k] = (cu.Hτ(Hstiffo(yo(k)), σo) * pt0)[1]
+		stiffa[k] = (cu.Hτ(Hstiffa(yo(k)), σo) * pt0)[1]
+		damp[k] = (cu.Hτ(Hdamp(yo(k)), σo) * pt0)[1]
 	end
 
 	function plotComponents(ylbl)
@@ -111,15 +112,6 @@ function idealparams(param)
 	τ1, ko, bo, τ2 = param
 	kidl = m.mo * (fdes * 2 * π)^2
 	return [τ1, kidl, kidl, τ2] # Note the ko<=bo constraint: this is reflecting that, but must be set here separately
-end
-
-function unormΔτ1(Δτ1, bkratio)
-	traj1, param1, paramObj, xConstraint = opt1(traj0, param0, 1, 1.0, bkratio)
-	pnew = copy(param1) + [-Δτ1, 0, 0, 3/σamax^2*Δτ1]
-	Hk, yo, umeas, B, N = cu.paramAffine(m, opt, traj1, pnew, POPTS, 1.0)	
-	Δy0 = zeros((N+1)*ny)
-	trajnew = cu.reconstructTrajFromΔy(m, opt, traj1, yo, Hk, B, Δy0, pnew)	
-	return norm(trajnew[(N+1)*ny+1:end], Inf)
 end
 
 function plotNonlinBenefit()

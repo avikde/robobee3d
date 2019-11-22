@@ -196,11 +196,7 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     HCgJTδt(y) = Hstiffo(y) + Hstiffa(y) + Hdamp(y)
 
     if debugComponents
-        function Hτ(Hh, y)
-            σo = y[1]
-            return hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
-        end
-        return yo, Hτ, Hio, Hia, Hstiffo, Hstiffa, Hdamp
+        return yo, Hio, Hia, Hstiffo, Hstiffa, Hdamp
     end
     # ----------------
 

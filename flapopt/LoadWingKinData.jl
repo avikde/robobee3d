@@ -197,7 +197,7 @@ For sigYout = true:
 For sigYout = false:
 - startOffs -- the first timestamp used from the MAT file
 """
-function loadAlignedData(fnameMat, fnameCSV, startOffs; strokeMult=1.0, ForcePerVolt=0.75, sigYout=true, vidSF=7500, sigi=1, sigsign=1.0, strokeSign=1.0)
+function loadAlignedData(fnameMat, fnameCSV, startOffs; strokeMult=1.0, ForcePerVolt=0.75, sigYout=true, vidSF=7500, sigi=1, sigsign=1.0, strokeSign=1.0, Ψshift::Int=0)
 	if sigYout
 		# New yout created on the target computer. Assuming sample rate is 10KHz.
 		# Column index
@@ -276,6 +276,10 @@ function loadAlignedData(fnameMat, fnameCSV, startOffs; strokeMult=1.0, ForcePer
 	dΨ = lpfilt(numDeriv(Ψ), 2, 0.5)
 	Φ .= strokeSign*Φ
 	# ---------------------------------------------------------------------
+
+	# shift phase for testing
+	Ψ = [Ψ[1+Ψshift:end];Ψ[1:Ψshift]]
+	dΨ = [dΨ[1+Ψshift:end];dΨ[1:Ψshift]]
 
 	# Now convert to dirtran form for compatibilty with prior code
 	Ndp1 = length(Φ)
