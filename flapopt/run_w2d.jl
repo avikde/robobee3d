@@ -130,8 +130,8 @@ end
 # ID
 ret1 = opt1(traj0, param0, 2, 0.1)
 
-# # 2. Try to optimize
-# ret2 = opt1(ret1["traj"], ret1["param"], 1, 0.6; print_level=3, max_iter=10000)
+# 2. Try to optimize
+ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.0)#; print_level=3, max_iter=10000)
 # ret3 = opt1(ret1["traj"], ret1["param"], 1, 1.0; print_level=3, max_iter=10000)
 # traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 1.3)
 # pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
@@ -142,17 +142,17 @@ ret1 = opt1(traj0, param0, 2, 0.1)
 
 # testManyShifts(ret1, [0], 0.6)
 
-# # ---------
-# pls = debugComponentsPlot(ret2)
-# plot(pls..., size=(800,600))
+# ---------
+pls = debugComponentsPlot(ret2)
+plot(pls..., size=(800,600))
 
 # -----------------
 # pls = plotNonlinBenefit() # SLOW
 # plot(pls...)
 
-# ----------------
-pls = scaleParamsForlift(ret1, 0.4:0.1:0.8, 2)
-plot(pls...)
+# # ----------------
+# pls = scaleParamsForlift(ret1, 0.4:0.2:1.2, 2)
+# plot(pls...)
 
 # # traj opt ------------------------------------
 
