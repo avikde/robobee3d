@@ -46,7 +46,7 @@ POPTS = cu.ParamOptOpts(
 """Produce initial traj
 fix -- Make traj satisfy dyn constraint with these params?
 """
-function initTraj(sim=false; fix=false, makeplot=false)
+function initTraj(sim=false; fix=false, makeplot=false, Ψshift=0)
 	if sim
 		opt = cu.OptOptions(true, false, 0.2, 1, :none, 1e-8, false) # sim
 		N = opt.boundaryConstraint == :symmetric ? 17 : 33
@@ -55,7 +55,7 @@ function initTraj(sim=false; fix=false, makeplot=false)
 		# Load data
 		opt = cu.OptOptions(true, false, 0.135, 1, :none, 1e-8, false) # real
 		# N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
-		N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; sigi=1, strokeSign=1, strokeMult=m.R/(2*param0[2]), ForcePerVolt=75/100, vidSF=7320) # 75mN unidirectional at 200Vpp (from Noah)
+		N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; sigi=1, strokeSign=1, strokeMult=m.R/(2*param0[2]), ForcePerVolt=75/100, vidSF=7320, Ψshift=Ψshift) # 75mN unidirectional at 200Vpp (from Noah)
 	end
 
 	if fix
@@ -73,7 +73,7 @@ function initTraj(sim=false; fix=false, makeplot=false)
 end
 
 # IMPORTANT - load which traj here!!!
-N, trajt, traj0, opt = initTraj()
+N, trajt, traj0, opt = initTraj(Ψshift=5)
 
 # Constraint on cbar placed by minAvgLift
 avgLift0 = avgLift(m, opt, traj0, param0)
@@ -135,9 +135,9 @@ function debugComponentsPlot(ret)
 		tot = inertial[i,:]+inertialc[i,:]+stiffdamp[i,:]+stiffdampa[i,:]+aero[i,:]
 		plot!(pl, t2, tot, linewidth=2, linestyle=:dash, label="tot")
 
-		pl2 = plot(t2, aero[i,:] / δt, linewidth=2, label="-dr(af)")
-		plot!(pl2, t2, coriolis[i,:] / δt, linewidth=2, label="cor")
+		pl2 = plot(t2, aero[i,:] / δt, linewidth=2, label="-dr(af)", legend=:outertopright)
 		plot!(pl2, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="actf")
+		plot!(pl2, t2, coriolis[i,:] / δt, linewidth=2, label="cor")
 		
 		pl3 = plot(t2, inertial[i,:], linewidth=2, label="inc", legend=:outertopright)
 		plot!(pl3, t2, inertialc[i,:], linewidth=2, label="ic")
@@ -243,11 +243,9 @@ end
 
 # ID
 ret1 = opt1(traj0, param0, 2, 0.1)
-# pl1 = plotTrajs(m, opt, trajt, [param1, param1], [traj0, traj1])
-# plot(pl1...)
 
 # 2. Try to optimize
-ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.0; print_level=3, max_iter=10000)
+ret2 = opt1(ret1["traj"], ret1["param"], 1, 0.6; print_level=3, max_iter=10000)
 # ret3 = opt1(ret1["traj"], ret1["param"], 1, 1.0; print_level=3, max_iter=10000)
 # traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 1.3)
 # pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
@@ -256,12 +254,12 @@ ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.0; print_level=3, max_iter=10000)
 # pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj2)
 # plot(pls...)
 
-# pl1 = plotTrajs(m, opt, trajt, listOfParamTraj([ret2, ret3])...)
-# plot(pl1...)
+pl1 = plotTrajs(m, opt, trajt, listOfParamTraj([ret1, ret2])...)
+plot(pl1...)
 
-# ---------
-pls = debugComponentsPlot(ret2)
-plot(pls..., size=(800,600))
+# # ---------
+# pls = debugComponentsPlot(ret2)
+# plot(pls..., size=(800,600))
 
 # -----------------
 # pls = plotNonlinBenefit() # SLOW
