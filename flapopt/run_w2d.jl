@@ -23,7 +23,7 @@ m = Wing2DOFModel(
 	6, # ma
 	0, # ba
 	250#= 0 =#, # ka
-	false) # bCoriolis
+	true) # bCoriolis
 ny, nu = cu.dims(m)
 param0 = [3.2,  # cbar[mm] (area/R)
 	28.33, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
@@ -140,7 +140,7 @@ ret1 = opt1(traj0, param0, 2, 0.1)
 # pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj2)
 # plot(pls...)
 
-testManyShifts(ret1, [0], 0.6)
+# testManyShifts(ret1, [0], 0.6)
 
 # # ---------
 # pls = debugComponentsPlot(ret2)
@@ -150,9 +150,9 @@ testManyShifts(ret1, [0], 0.6)
 # pls = plotNonlinBenefit() # SLOW
 # plot(pls...)
 
-# # ----------------
-# pls = scaleParamsForlift(ret1, 0.4:0.1:0.8, 2)
-# plot(pls...)
+# ----------------
+pls = scaleParamsForlift(ret1, 0.4:0.1:0.8, 2)
+plot(pls...)
 
 # # traj opt ------------------------------------
 
