@@ -37,6 +37,7 @@ end
 """One-off ID or opt"""
 function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1)
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
+	print("minal = ", minal, ", τ21ratiolim = ", τ21ratiolim, " => ")
 	Cp = Float64[-1  0  0  0  0  0;
 		0  -τ21ratiolim  0  0  0  1]
 	cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
@@ -47,7 +48,7 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 	if testAfter
 		cu.affineTest(m, opt, ret["traj"], ret["param"], POPTS)
 	end
-	println("minal = ", minal, ", τ21ratiolim = ", τ21ratiolim, " => ", ret["param"]')
+	println(ret["param"]')
 	return ret
 end
 
