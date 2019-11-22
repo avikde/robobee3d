@@ -229,22 +229,27 @@ function paramTest(p, paramConstraint)
 end
 
 """Hinge phase shift and test opt"""
-function shiftAndOpt(traj, param, minal, shift=0; kwargs...)
-	traj1 = copy(traj)
+function shiftAndOpt(ret, minal, shift=0; kwargs...)
+	traj1 = copy(ret["traj"])
 	function shiftTraj(i)
 		comps = traj1[i:ny:(N+1)*ny]
-		traj1[i:ny:(N+1)*ny] = [comps[1+shift:end];comps[1:shift]]
+		if shift >= 0
+			traj1[i:ny:(N+1)*ny] = [comps[1+shift:end];comps[1:shift]]
+		else
+			traj1[i:ny:(N+1)*ny] = [comps[end+shift+1:end];comps[1:end+shift]]
+		end
 	end
 	shiftTraj(2)
 	shiftTraj(4)
 	# after this the traj will likely not be feasible - need to run opt
-	return opt1(traj1, param, 1, minal; kwargs...)
+	retr = opt1(traj1, ret["param"], 1, minal; kwargs...)
+	return [retr["param"]; retr["traj"]]
 end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-# # ID
-# ret1 = opt1(traj0, param0, 2, 0.1)
+# ID
+ret1 = opt1(traj0, param0, 2, 0.1)
 
 # # 2. Try to optimize
 # ret2 = opt1(ret1["traj"], ret1["param"], 1, 0.6; print_level=3, max_iter=10000)
@@ -256,9 +261,13 @@ end
 # pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj2)
 # plot(pls...)
 
-ret1 = shiftAndOpt(traj0, param0, 0.6, 5; print_level=3)
+rets = hcat([shiftAndOpt(ret1, 0.6, shift; print_level=3) for shift=0:1]...)
+np = length(param0)
+Nshift = size(rets,2)
+paramss = [rets[1:np,i] for i=1:Nshift]
+trajs = [rets[np+1:end,i] for i=1:Nshift]
 
-pl1 = plotTrajs(m, opt, trajt, listOfParamTraj([ret1])...)
+pl1 = plotTrajs(m, opt, trajt, paramss, trajs)
 plot(pl1...)
 
 # # ---------
