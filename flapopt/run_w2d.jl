@@ -9,7 +9,6 @@ using Revise # while developing
 import controlutils
 cu = controlutils
 includet("Wing2DOF.jl")
-includet("LoadWingKinData.jl")
 
 # create an instance
 # From Patrick 300 mN-mm/rad. 1 rad => R/2 σ-displacement. The torque is applied with a lever arm of R/2 => force = torque / (R/2)
@@ -23,7 +22,8 @@ m = Wing2DOFModel(
 	0, #b output
 	6, # ma
 	0, # ba
-	250#= 0 =#) # ka
+	250#= 0 =#, # ka
+	false) # bCoriolis
 ny, nu = cu.dims(m)
 param0 = [3.2,  # cbar[mm] (area/R)
 	28.33, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
@@ -41,36 +41,7 @@ POPTS = cu.ParamOptOpts(
 )
 σamax = 0.3 # [mm] constant? for robobee actuators
 
-# FUNCTIONS GO HERE -------------------------------------------------------------
-
-"""Produce initial traj
-fix -- Make traj satisfy dyn constraint with these params?
-"""
-function initTraj(sim=false; fix=false, makeplot=false, Ψshift=0)
-	if sim
-		opt = cu.OptOptions(true, false, 0.2, 1, :none, 1e-8, false) # sim
-		N = opt.boundaryConstraint == :symmetric ? 17 : 33
-		trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0, 187)
-	else
-		# Load data
-		opt = cu.OptOptions(true, false, 0.135, 1, :none, 1e-8, false) # real
-		# N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
-		N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; sigi=1, strokeSign=1, strokeMult=m.R/(2*param0[2]), ForcePerVolt=75/100, vidSF=7320, Ψshift=Ψshift) # 75mN unidirectional at 200Vpp (from Noah)
-	end
-
-	if fix
-		traj0 = cu.fixTrajWithDynConst(m, opt, traj0, param0)
-	end
-
-	if makeplot
-		pl1 = plotTrajs(m, opt, trajt, [param0], [traj0])
-		# pl1 = compareTrajToDAQ(m, opt, trajt, param0, traj0, lift, drag)
-		plot(pl1...)
-		gui()
-	end
-
-	return N, trajt, traj0, opt
-end
+includet("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
 N, trajt, traj0, opt = initTraj()
@@ -78,82 +49,8 @@ N, trajt, traj0, opt = initTraj()
 # Constraint on cbar placed by minAvgLift
 avgLift0 = avgLift(m, opt, traj0, param0)
 
-"""One-off ID or opt"""
-function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1)
-	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
-	Cp = Float64[-1  0  0  0  0  0;
-		0  -τ21ratiolim  0  0  0  1]
-	cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
-	dp = [-cbarmin(minal); 0]
-	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
-	# append unactErr
-	ret["unactErr"] = ret["eval_g"](ret["x"])[1:N] # 1 unact DOF
-	if testAfter
-		cu.affineTest(m, opt, ret["traj"], ret["param"], POPTS)
-	end
-	println("minal = ", minal, ", τ21ratiolim = ", τ21ratiolim, " => ", ret["param"]')
-	return ret
-end
-
-listOfParamTraj(retlist) = [ret["param"] for ret in retlist], [ret["traj"] for ret in retlist]
-
-"""Debug components in a traj"""
-function debugComponentsPlot(ret)
-	traj1, param1 = ret["traj"], ret["param"]
-    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, ret["traj"])
-
-	# Get the components
-	yo, HMnc, HMc, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj1, param1, POPTS; debugComponents=true)
-	pt0, Tnew = cu.getpt(m, param1)
-	inertial = zeros(2,N)
-	inertialc = similar(inertial)
-	coriolis = similar(inertial)
-	stiffdamp = similar(inertial)
-	stiffdampa = similar(inertial)
-	aero = similar(inertial)
-
-	for k=1:N
-		σo = yo(k)[1]
-		inertial[:,k] = cu.Hτ(HMnc(yo(k), yo(k+1)) - HMnc(yo(k), yo(k)), σo) * pt0
-		inertialc[:,k] = cu.Hτ(HMc(yo(k), yo(k+1)) - HMc(yo(k), yo(k)) + δt * HC(yo(k)), σo) * pt0
-		stiffdamp[:,k] = cu.Hτ(δt * Hg(yo(k)), σo) * pt0
-		stiffdampa[:,k] = cu.Hτ(δt * Hgact(yo(k)), σo) * pt0
-		coriolis[:,k] = cu.Hτ(δt * HC(yo(k)), σo) * pt0
-		aero[:,k] = cu.Hτ(δt * HF(yo(k)), σo) * pt0
-	end
-
-	# # get the instantaneous transmission ratio at time k
-	# Tvec = [cu.transmission(m, yo(k), param1; o2a=true)[2] for k=1:N]
-
-	t2 = trajt[1:end-1]
-
-	function plotComponents(i, ylbl)
-		pl = plot(t2, inertial[i,:] + inertialc[i,:], linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
-		plot!(pl, t2, stiffdamp[i,:], linewidth=2, label="g")
-		plot!(pl, t2, stiffdampa[i,:], linewidth=2, label="ga")
-		plot!(pl, t2, aero[i,:], linewidth=2, label="a")
-		tot = inertial[i,:]+inertialc[i,:]+stiffdamp[i,:]+stiffdampa[i,:]+aero[i,:]
-		plot!(pl, t2, tot, linewidth=2, linestyle=:dash, label="tot")
-
-		pl2 = plot(t2, aero[i,:] / δt, linewidth=2, label="-dr(af)", legend=:outertopright)
-		plot!(pl2, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="actf")
-		plot!(pl2, t2, coriolis[i,:] / δt, linewidth=2, label="cor")
-		
-		pl3 = plot(t2, inertial[i,:], linewidth=2, label="inc", legend=:outertopright)
-		plot!(pl3, t2, inertialc[i,:], linewidth=2, label="ic")
-		plot!(pl3, t2, inertial[i,:] + inertialc[i,:], linewidth=2, linestyle=:dash, label="itot")
-
-		return pl, pl2, pl3
-	end
-
-	pl1 = plotTrajs(m, opt, trajt, listOfParamTraj([ret])...)
-	pls, plcomp, plis = plotComponents(1, "stroke")
-	plh, _, plih = plotComponents(2, "hinge")
-
-	# Note that gamma is here
-	println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2)
-	return pl1[[1,2,4,5]]..., pls, plh, plcomp, plis, plih
-end
+includet("w2d_shift.jl")
+# FUNCTIONS GO HERE -------------------------------------------------------------
 
 """Run many opts to get the best params for a desired min lift"""
 function scaleParamsForlift(ret, minlifts, τ21ratiolim)
@@ -226,36 +123,6 @@ function paramTest(p, paramConstraint)
 	println("Feas: should be nonpos: ", maximum(grest), "; unact: ", maximum(abs.(gunact)) ,"; transmission: ", g[3])
 	unew = cu.getTrajU(m, opt, traj1, p, POPTS)
 	println("Obj: ", paramObj(xtest))
-end
-
-"""Hinge phase shift and test opt"""
-function shiftAndOpt(ret, minal, shift=0; kwargs...)
-	traj1 = copy(ret["traj"])
-	function shiftTraj(i)
-		comps = traj1[i:ny:(N+1)*ny]
-		if shift >= 0
-			traj1[i:ny:(N+1)*ny] = [comps[1+shift:end];comps[1:shift]]
-		else
-			traj1[i:ny:(N+1)*ny] = [comps[end+shift+1:end];comps[1:end+shift]]
-		end
-	end
-	shiftTraj(2)
-	shiftTraj(4)
-	# after this the traj will likely not be feasible - need to run opt
-	retr = opt1(traj1, ret["param"], 1, minal; kwargs...)
-	return [retr["param"]; retr["traj"]]
-end
-
-function testManyShifts(retdict0, shifts, minal; kwargs...)
-	rets = hcat([shiftAndOpt(retdict0, minal, shift; kwargs...) for shift=shifts]...)
-	np = length(param0)
-	Nshift = size(rets,2)
-	paramss = [rets[1:np,i] for i=1:Nshift]
-	trajs = [rets[np+1:end,i] for i=1:Nshift]
-
-	pl1 = plotTrajs(m, opt, trajt, paramss, trajs)
-	pl2 = plot(shifts, [p[6]/p[2] for p in paramss], marker=:auto, xlabel="shift", ylabel="Tratio")
-	plot(pl1..., pl2)
 end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
