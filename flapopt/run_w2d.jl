@@ -22,7 +22,7 @@ m = Wing2DOFModel(
 	0, #b output
 	6, # ma
 	0, # ba
-	250#= 0 =#, # ka
+	150#= 0 =#, # ka
 	true) # bCoriolis
 ny, nu = cu.dims(m)
 param0 = [3.2,  # cbar[mm] (area/R)
@@ -141,6 +141,9 @@ ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.0)#; print_level=3, max_iter=10000
 # plot(pls...)
 
 # testManyShifts(ret1, [0], 0.6)
+
+# retTest = Dict("traj"=>ret2["traj"], "param"=>ret2["param"])
+# retTest["param"][2]
 
 # ---------
 pls = debugComponentsPlot(ret2)
