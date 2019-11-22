@@ -107,6 +107,7 @@ function debugComponentsPlot(ret)
 	pt0, Tnew = cu.getpt(m, param1)
 	inertial = zeros(2,N)
 	inertialc = similar(inertial)
+	coriolis = similar(inertial)
 	stiffdamp = similar(inertial)
 	stiffdampa = similar(inertial)
 	aero = similar(inertial)
@@ -117,6 +118,7 @@ function debugComponentsPlot(ret)
 		inertialc[:,k] = cu.Hτ(HMc(yo(k), yo(k+1)) - HMc(yo(k), yo(k)) + δt * HC(yo(k)), σo) * pt0
 		stiffdamp[:,k] = cu.Hτ(δt * Hg(yo(k)), σo) * pt0
 		stiffdampa[:,k] = cu.Hτ(δt * Hgact(yo(k)), σo) * pt0
+		coriolis[:,k] = cu.Hτ(δt * HC(yo(k)), σo) * pt0
 		aero[:,k] = cu.Hτ(δt * HF(yo(k)), σo) * pt0
 	end
 
@@ -134,11 +136,13 @@ function debugComponentsPlot(ret)
 		plot!(pl, t2, tot, linewidth=2, linestyle=:dash, label="tot")
 
 		pl2 = plot(t2, aero[i,:] / δt, linewidth=2, label="-dr(af)")
+		plot!(pl2, t2, coriolis[i,:] / δt, linewidth=2, label="cor")
 		plot!(pl2, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="actf")
 		
 		pl3 = plot(t2, inertial[i,:], linewidth=2, label="inc", legend=:outertopright)
 		plot!(pl3, t2, inertialc[i,:], linewidth=2, label="ic")
 		plot!(pl3, t2, inertial[i,:] + inertialc[i,:], linewidth=2, linestyle=:dash, label="itot")
+
 		return pl, pl2, pl3
 	end
 
@@ -152,7 +156,8 @@ function debugComponentsPlot(ret)
 end
 
 """Run many opts to get the best params for a desired min lift"""
-function scaleParamsForlift(traj, param, minlifts, τ21ratiolim)
+function scaleParamsForlift(ret, minlifts, τ21ratiolim)
+	traj, param = ret["traj"], ret["param"]
 	function maxuForMinAvgLift(al)
 		r = opt1(traj, param, 1, al, τ21ratiolim)
 		# kΨ, bΨ = param2[4:5]
@@ -262,8 +267,8 @@ plot(pls..., size=(800,600))
 # pls = plotNonlinBenefit() # SLOW
 # plot(pls...)
 
-# ----------------
-# pls = scaleParamsForlift(ret1["traj"], ret1["param"], 0.2:0.2:1.6, 0)
+# # ----------------
+# pls = scaleParamsForlift(ret1, 0.4:0.1:0.8, 2)
 # plot(pls...)
 
 # # traj opt ------------------------------------
