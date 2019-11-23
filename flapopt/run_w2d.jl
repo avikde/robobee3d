@@ -18,11 +18,11 @@ includet("Wing2DOF.jl")
 # To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
 	17.0, # R, [Jafferis (2016)]
-	0.65#= 1.5 =#, #k output
+	0.7#= 1.5 =#, #k output
 	0, #b output
 	6, # ma
 	0, # ba
-	130#= 0 =#, # ka
+	150#= 0 =#, # ka
 	true) # bCoriolis
 ny, nu = cu.dims(m)
 param0 = [3.2,  # cbar[mm] (area/R)
@@ -37,7 +37,8 @@ POPTS = cu.ParamOptOpts(
 	τinds=[2,6], 
 	R=(zeros(4,4), 0, 1.0*I), 
 	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0],
-	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0]
+	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0],
+	εunact = 1.0 # 0.1 default. Do this for now to iterate faster
 )
 σamax = 0.3 # [mm] constant? for robobee actuators
 
@@ -45,7 +46,7 @@ includet("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
-N, trajt, traj0, opt = initTraj(KINTYPE; makeplot=true)
+N, trajt, traj0, opt = initTraj(KINTYPE)
 
 # Constraint on cbar placed by minAvgLift
 avgLift0 = avgLift(m, opt, traj0, param0)
@@ -147,7 +148,7 @@ ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.0)#; print_level=3, max_iter=10000
 # retTest["param"][2]
 
 # ---------
-pls = debugComponentsPlot(ret1)
+pls = debugComponentsPlot(ret2)
 plot(pls..., size=(800,600))
 
 # -----------------
