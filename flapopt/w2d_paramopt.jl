@@ -5,6 +5,36 @@ using Plots; gr()
 include("Wing2DOF.jl")
 include("LoadWingKinData.jl")
 
+"""From Chen (2016) IROS, find a usable estimate of the wing density to use as a bound."""
+function estimateWingDensity(test=false)
+	# Copy-pasted data from [Chen (2016)]. Each of these should presumably be a different "density" (instantiated by dspar).
+	# For constraining the design, could use the lowest one of these.
+	dspar = [0.14 0.17 0.20 0.23 0.26 0.29]'
+	Ixx = [1.91 2.25 2.56 2.90 3.27 3.64]' # spanwise moment of inertia, i.e. in the stroke dynamics (through R^2)
+	Izz = [40.6 48.8 57.2 65.6 73.4 82.7]' # chordwise moment of inertia, i.e. inertia in the hinge dynamics
+	cbar0 = 5.345 # Use dC from LoadWingKinData.jl
+	# Want to fit a density such that Ixx
+	mwings = Ixx/(m.R/2)^2 #<- this TODO: this does not make much sense... check with Noah
+	mwings2 = Izz/(2*cbar0^2*γ^2)
+	meanpred = mwings2 ./ cbar0
+	# FIXME: for robobee design this is producing torques that are too high
+	# rholims = [meanpred[1] * cbar0, meanpred[end] * cbar0]
+	rholims = [0.16, 0.35] # from param0 = 0.16
+
+	if test
+		p1 = plot(dspar, mwings, ylabel="mwing from Ixx", lw=2)
+		p2 = plot(dspar, mwings2, ylabel="mwing from Izz", lw=2)
+		hline!(p2, rholims)
+		plot(p1, p2)
+		gui()
+		error("rholims", rholims, " from param0 ", param0[3]/param0[1])
+	end
+	
+	# return param0[3]/param0[1] <- 0.16
+	return rholims
+end
+
+
 """Produce initial traj
 fix -- Make traj satisfy dyn constraint with these params?
 """
@@ -38,12 +68,16 @@ end
 function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1)
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
 	print("minal = ", minal, ", τ21ratiolim = ", τ21ratiolim, " => ")
-	rhow = param0[3]/param0[1]
+
+	# Poly constraint
+	rholims = estimateWingDensity()
 	Cp = Float64[-1  0  0  0  0  0;
 		0  -τ21ratiolim  0  0  0  1;
-		rhow   0  -1  0  0  0] # wing density 
+		rholims[1]   0  -1  0  0  0; # wing density mw >= cbar*ρ1
+		-rholims[2]   0  1  0  0  0] # wing density mw <= cbar*ρ2
 	cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
-	dp = [-cbarmin(minal); 0; 0]
+	dp = [-cbarmin(minal); 0; 0; 0]
+
 	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
 	# append unactErr
 	ret["unactErr"] = ret["eval_g"](ret["x"])[1:N] # 1 unact DOF

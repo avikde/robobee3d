@@ -47,7 +47,7 @@ struct Wing2DOFModel <: controlutils.Model
 end
 
 # Fixed params -----------------
-const γ = 0.5 # location of mwing lumped mass is γ*cbar down from the spar
+const γ = 0.8 # location of mwing lumped mass is γ*cbar down from the spar
 
 function cu.dims(m::Wing2DOFModel)::Tuple{Int, Int}
     return 4, 1
