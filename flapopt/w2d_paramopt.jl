@@ -59,6 +59,7 @@ function initTraj(sim=false; fix=false, makeplot=false, Ψshift=0)
 		# pl1 = compareTrajToDAQ(m, opt, trajt, param0, traj0, lift, drag)
 		plot(pl1...)
 		gui()
+		error("Initial traj")
 	end
 
 	return N, trajt, traj0, opt
