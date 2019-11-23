@@ -18,11 +18,11 @@ includet("Wing2DOF.jl")
 # To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
 	17.0, # R, [Jafferis (2016)]
-	0.3#= 1.5 =#, #k output
+	0.35#= 1.5 =#, #k output
 	0, #b output
 	6, # ma
 	0, # ba
-	50#= 0 =#, # ka
+	150#= 0 =#, # ka
 	true) # bCoriolis
 ny, nu = cu.dims(m)
 param0 = [3.2,  # cbar[mm] (area/R)
@@ -128,7 +128,7 @@ end
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
 # ID
-ret1 = opt1(traj0, param0, 2, 0.1)
+ret1 = opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
 ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.0)#; print_level=3, max_iter=10000)

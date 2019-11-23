@@ -67,7 +67,7 @@ end
 """One-off ID or opt"""
 function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1)
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
-	print("minal = ", minal, ", τ21ratiolim = ", τ21ratiolim, " => ")
+	print(mode==2 ? "ID" : "Opt", " minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
 
 	# Poly constraint
 	rholims = estimateWingDensity()
@@ -84,7 +84,7 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 	if testAfter
 		cu.affineTest(m, opt, ret["traj"], ret["param"], POPTS)
 	end
-	println(ret["param"]')
+	println(round.(ret["param"]', digits=3))
 	return ret
 end
 
@@ -122,24 +122,25 @@ function debugComponentsPlot(ret)
 
 	function plotComponents(i, ylbl)
 		# grav+inertial -- ideally they would "cancel" at "resonance"
-		inertiastiff = inertial[i,:]+inertialc[i,:]+stiffdamp[i,:]+stiffdampa[i,:]
+		inertiastiff = inertial[i,:]#= +inertialc[i,:] =#+stiffdamp[i,:]+stiffdampa[i,:]
 		tot = inertiastiff+aero[i,:]
 
-		pl = plot(t2, (inertial[i,:] + inertialc[i,:]) / δt, linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
+		pl = plot(t2, (inertial[i,:] #= + inertialc[i,:] =#) / δt, linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
 		plot!(pl, t2, stiffdamp[i,:] / δt, linewidth=2, label="g")
 		plot!(pl, t2, stiffdampa[i,:] / δt, linewidth=2, label="ga")
 		# plot!(pl, t2, aero[i,:], linewidth=2, label="a")
-		plot!(pl, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="act")
-		plot!(pl, t2, tot / δt, linewidth=2, linestyle=:dash, label="tot")
+		# plot!(pl, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="act")
+		plot!(pl, t2, tot / δt, linewidth=2, linestyle=:dash, label="act")
 
 		pl2 = plot(t2, aero[i,:] / δt, linewidth=2, label="-dr", legend=:outertopright)
 		plot!(pl2, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="act")
 		plot!(pl2, t2, coriolis[i,:] / δt, linewidth=2, label="cor")
 		plot!(pl2, t2, inertiastiff / δt, linewidth=2, label="is")
 		
-		pl3 = plot(t2, inertial[i,:], linewidth=2, label="inc", legend=:outertopright)
-		plot!(pl3, t2, inertialc[i,:], linewidth=2, label="ic")
-		plot!(pl3, t2, inertial[i,:] + inertialc[i,:], linewidth=2, linestyle=:dash, label="itot")
+		pl3 = plot(t2, inertial[i,:] / δt, linewidth=2, label="inc", legend=:outertopright)
+		plot!(pl3, t2, inertialc[i,:] / δt, linewidth=2, label="ic")
+		plot!(pl3, t2, (inertial[i,:] + inertialc[i,:]) / δt, linewidth=2, linestyle=:dash, label="itot")
+		plot!(pl3, t2, -(stiffdamp[i,:] + stiffdampa[i,:]) / δt, linewidth=2, label="-gtot")
 
 		return pl, pl2, pl3
 	end
