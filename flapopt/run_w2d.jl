@@ -18,11 +18,11 @@ includet("Wing2DOF.jl")
 # To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
 	17.0, # R, [Jafferis (2016)]
-	0.55#= 1.5 =#, #k output
+	0.35#= 1.5 =#, #k output
 	0, #b output
 	6, # ma
 	0, # ba
-	250#= 0 =#, # ka
+	100#= 0 =#, # ka
 	true) # bCoriolis
 ny, nu = cu.dims(m)
 param0 = [3.2,  # cbar[mm] (area/R)
@@ -37,14 +37,16 @@ POPTS = cu.ParamOptOpts(
 	τinds=[2,6], 
 	R=(zeros(4,4), 0, 1.0*I), 
 	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0],
-	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0]
+	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0],
+	εunact = 1.0 # 0.1 default. Do this for now to iterate faster
 )
 σamax = 0.3 # [mm] constant? for robobee actuators
 
 includet("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
-N, trajt, traj0, opt = initTraj()
+KINTYPE = 1
+N, trajt, traj0, opt = initTraj(KINTYPE)
 
 # Constraint on cbar placed by minAvgLift
 avgLift0 = avgLift(m, opt, traj0, param0)
@@ -128,7 +130,7 @@ end
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
 # ID
-ret1 = opt1(traj0, param0, 2, 0.1)
+ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
 ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.0)#; print_level=3, max_iter=10000)
@@ -141,6 +143,9 @@ ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.0)#; print_level=3, max_iter=10000
 # plot(pls...)
 
 # testManyShifts(ret1, [0], 0.6)
+
+# retTest = Dict("traj"=>ret2["traj"], "param"=>ret2["param"])
+# retTest["param"][2]
 
 # ---------
 pls = debugComponentsPlot(ret2)

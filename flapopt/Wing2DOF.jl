@@ -143,36 +143,36 @@ end
 
 # Create an initial traj --------------
 
-"Simulate with an OL signal at a freq"
-function openloopResponse(m::Wing2DOFModel, opt::cu.OptOptions, freq::Real, params::Vector)
-    # Create a traj
-    σmax = cu.limits(m)[end][1]
-    tend = 100.0 # [ms]
-    function controller(y, t)
-        return 50.0 * sin(2*π*freq*t)
-    end
-    vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
-    # OL traj1
-    simdt = 0.1 # [ms]
-    teval = collect(0:simdt:tend) # [ms]
-    prob = ODEProblem(vf, [0.2,0.,0.,0.], (teval[1], teval[end]))
-    sol = solve(prob, saveat=teval)
+# "Simulate with an OL signal at a freq"
+# function openloopResponse(m::Wing2DOFModel, opt::cu.OptOptions, freq::Real, params::Vector)
+#     # Create a traj
+#     σmax = cu.limits(m)[end][1]
+#     tend = 100.0 # [ms]
+#     function controller(y, t)
+#         return 50.0 * sin(2*π*freq*t)
+#     end
+#     vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
+#     # OL traj1
+#     simdt = 0.1 # [ms]
+#     teval = collect(0:simdt:tend) # [ms]
+#     prob = ODEProblem(vf, [0.2,0.,0.,0.], (teval[1], teval[end]))
+#     sol = solve(prob, saveat=teval)
     
-    # Deduce metrics
-    t = sol.t[end-100:end]
-    y = hcat(sol.u[end-100:end]...)
-    σmag = (maximum(y[1,:]) - minimum(y[1,:])) * params[2] / (m.R/2)
-    Ψmag = maximum(y[2,:]) - minimum(y[2,:])
-    # relative phase? Hilbert transform?
+#     # Deduce metrics
+#     t = sol.t[end-100:end]
+#     y = hcat(sol.u[end-100:end]...)
+#     σmag = (maximum(y[1,:]) - minimum(y[1,:])) * params[2] / (m.R/2)
+#     Ψmag = maximum(y[2,:]) - minimum(y[2,:])
+#     # relative phase? Hilbert transform?
 
-    # # Plot
-    # σt = plot(sol, vars=3, ylabel="act vel [m/s]")
-    # Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
-    # plot(σt, Ψt, layout=(2,1))
-    # gui()
+#     # # Plot
+#     # σt = plot(sol, vars=3, ylabel="act vel [m/s]")
+#     # Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
+#     # plot(σt, Ψt, layout=(2,1))
+#     # gui()
 
-    return [σmag, Ψmag]
-end
+#     return [σmag, Ψmag]
+# end
 
 """
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
@@ -180,16 +180,16 @@ Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
 function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti)
     # Create a traj
-    σmax = cu.limits(m)[end][1]
+    σmax = 0.2#cu.limits(m)[end][1]
     tend = 100.0 # [ms]
     function controller(y, t)
         # Stroke pos control
-        σdes = 0.9 * σmax * sin(freq * 2 * π * t)
+        σdes = σmax * sin(freq * 2 * π * t)
         return posGains[1] * (σdes - y[1]) - posGains[2] * y[3]
     end
     vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
     # OL traj1
-    simdt = 0.1 # [ms]
+    simdt = opt.fixedδt # [ms]
     teval = collect(0:simdt:tend) # [ms]
     prob = ODEProblem(vf, [0.2,0.,0.,0.], (teval[1], teval[end]))
     sol = solve(prob, saveat=teval)
@@ -210,7 +210,7 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     # expectedInterval = opt.boundaryConstraint == cu.SYMMETRIC ? 1/(2*freq) : 1/freq # [ms]
     # expectedPts = expectedInterval / simdt
 
-    olRange = starti:2:(starti + 2*N)
+    olRange = starti:(starti + N)
     trajt = sol.t[olRange]
     δt = trajt[2] - trajt[1]
     olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)
