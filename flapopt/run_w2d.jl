@@ -22,7 +22,7 @@ m = Wing2DOFModel(
 	0, #b output
 	6, # ma
 	0, # ba
-	150#= 0 =#, # ka
+	120#= 0 =#, # ka
 	true) # bCoriolis
 ny, nu = cu.dims(m)
 param0 = [3.2,  # cbar[mm] (area/R)

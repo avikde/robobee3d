@@ -122,10 +122,10 @@ function debugComponentsPlot(ret)
 
 	function plotComponents(i, ylbl)
 		# grav+inertial -- ideally they would "cancel" at "resonance"
-		inertiastiff = inertial[i,:]#= +inertialc[i,:] =#+stiffdamp[i,:]+stiffdampa[i,:]
+		inertiastiff = inertial[i,:]+inertialc[i,:]+stiffdamp[i,:]+stiffdampa[i,:]
 		tot = inertiastiff+aero[i,:]
 
-		pl = plot(t2, (inertial[i,:] #= + inertialc[i,:] =#) / δt, linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
+		pl = plot(t2, (inertial[i,:] + inertialc[i,:]) / δt, linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
 		plot!(pl, t2, stiffdamp[i,:] / δt, linewidth=2, label="g")
 		plot!(pl, t2, stiffdampa[i,:] / δt, linewidth=2, label="ga")
 		# plot!(pl, t2, aero[i,:], linewidth=2, label="a")
@@ -150,6 +150,6 @@ function debugComponentsPlot(ret)
 	plh, _, plih = plotComponents(2, "hinge")
 
 	# Note that gamma is here
-	println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2)
+	# println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2)
 	return pl1[[1,2,4,5]]..., pls, plh, plcomp, plis, plih
 end
