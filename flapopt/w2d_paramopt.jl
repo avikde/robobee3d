@@ -38,10 +38,12 @@ end
 function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1)
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
 	print("minal = ", minal, ", τ21ratiolim = ", τ21ratiolim, " => ")
+	rhow = param0[3]/param0[1]
 	Cp = Float64[-1  0  0  0  0  0;
-		0  -τ21ratiolim  0  0  0  1]
+		0  -τ21ratiolim  0  0  0  1;
+		rhow   0  -1  0  0  0] # wing density 
 	cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
-	dp = [-cbarmin(minal); 0]
+	dp = [-cbarmin(minal); 0; 0]
 	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
 	# append unactErr
 	ret["unactErr"] = ret["eval_g"](ret["x"])[1:N] # 1 unact DOF
