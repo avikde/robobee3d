@@ -36,18 +36,21 @@ end
 
 
 """Produce initial traj
+kinType -- 0 => ID'ed real data, 1 => openloop sim with param0 then truncate, 2 => generate kinematics(t)
 fix -- Make traj satisfy dyn constraint with these params?
 """
-function initTraj(sim=false; fix=false, makeplot=false, Ψshift=0)
-	if sim
-		opt = cu.OptOptions(true, false, 0.2, 1, :none, 1e-8, false) # sim
-		N = opt.boundaryConstraint == :symmetric ? 17 : 33
-		trajt, traj0 = createInitialTraj(m, opt, N, 0.15, [1e3, 1e2], param0, 187)
-	else
+function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0)
+	if kinType==1
+		opt = cu.OptOptions(true, false, 0.135, 1, :none, 1e-8, false) # sim
+		N = opt.boundaryConstraint == :symmetric ? 23 : 45
+		trajt, traj0 = createInitialTraj(m, opt, N, 0.165, [1e3, 1e2], param0, 172)
+	elseif kinType==0
 		# Load data
 		opt = cu.OptOptions(true, false, 0.135, 1, :none, 1e-8, false) # real
 		# N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
 		N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; sigi=1, strokeSign=1, strokeMult=m.R/(2*param0[2]), ForcePerVolt=75/100, vidSF=7320, Ψshift=Ψshift) # 75mN unidirectional at 200Vpp (from Noah)
+	else
+		error("Not implemented")
 	end
 
 	if fix

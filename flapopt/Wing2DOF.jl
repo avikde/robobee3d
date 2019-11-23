@@ -189,7 +189,7 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     end
     vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
     # OL traj1
-    simdt = 0.1 # [ms]
+    simdt = opt.fixedδt # [ms]
     teval = collect(0:simdt:tend) # [ms]
     prob = ODEProblem(vf, [0.2,0.,0.,0.], (teval[1], teval[end]))
     sol = solve(prob, saveat=teval)
@@ -210,7 +210,7 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     # expectedInterval = opt.boundaryConstraint == cu.SYMMETRIC ? 1/(2*freq) : 1/freq # [ms]
     # expectedPts = expectedInterval / simdt
 
-    olRange = starti:2:(starti + 2*N)
+    olRange = starti:(starti + N)
     trajt = sol.t[olRange]
     δt = trajt[2] - trajt[1]
     olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)

@@ -44,7 +44,8 @@ POPTS = cu.ParamOptOpts(
 includet("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
-N, trajt, traj0, opt = initTraj()
+KINTYPE = 1
+N, trajt, traj0, opt = initTraj(KINTYPE; makeplot=true)
 
 # Constraint on cbar placed by minAvgLift
 avgLift0 = avgLift(m, opt, traj0, param0)
@@ -128,7 +129,7 @@ end
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
 # ID
-ret1 = opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
+ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
 ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.0)#; print_level=3, max_iter=10000)
@@ -146,7 +147,7 @@ ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.0)#; print_level=3, max_iter=10000
 # retTest["param"][2]
 
 # ---------
-pls = debugComponentsPlot(ret2)
+pls = debugComponentsPlot(ret1)
 plot(pls..., size=(800,600))
 
 # -----------------
