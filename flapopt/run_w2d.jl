@@ -37,8 +37,8 @@ param0 = [3.2,  # cbar[mm] (area/R)
 POPTS = cu.ParamOptOpts(
 	τinds=[2,6], 
 	R=(zeros(4,4), 0, 1.0*I), 
-	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0],
-	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0],
+	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0, 0.13],
+	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0, 0.14],
 	εunact = 1.0 # 0.1 default. Do this for now to iterate faster
 )
 σamax = 0.3 # [mm] constant? for robobee actuators
@@ -132,8 +132,6 @@ end
 
 # ID
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
-
-cu.affineTest(m, opt, traj0, param0, POPTS)
 
 # 2. Try to optimize
 ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.0)#; print_level=3, max_iter=10000)

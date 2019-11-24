@@ -75,10 +75,10 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 
 	# Poly constraint
 	rholims = estimateWingDensity()
-	Cp = Float64[-1  0  0  0  0  0;
-		0  -τ21ratiolim  0  0  0  1;
-		rholims[1]   0  -1  0  0  0; # wing density mw >= cbar*ρ1
-		-rholims[2]   0  1  0  0  0] # wing density mw <= cbar*ρ2
+	Cp = Float64[-1  0  0  0  0  0  0;
+		0  -τ21ratiolim  0  0  0  1  0;
+		rholims[1]   0  -1  0  0  0  0; # wing density mw >= cbar*ρ1
+		-rholims[2]   0  1  0  0  0  0] # wing density mw <= cbar*ρ2
 	cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
 	dp = [-cbarmin(minal); 0; 0; 0]
 
