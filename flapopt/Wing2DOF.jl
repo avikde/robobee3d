@@ -523,7 +523,8 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     # this is OK - see notes
     # Htil = (y, ynext, F) -> HMq(ynext) - HMq(y) + δt*HCgJ(y, F)
     # 1st order integration mods
-    Htil = (y, ynext, F) -> HMqT(y, ynext) - HMqT(y, y) + δt*HCgJT(y, F)
+    Htili = (y, ynext) -> HMqT(y, ynext) - HMqT(y, y)
+    Htilni = HCgJT
     
     # Functions to output
     "Takes in a Δy in output coords"
@@ -531,9 +532,10 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         # Same Faero as before?
         _, _, Faero = w2daero(m, yo(k) + Δyk, param)
         # NOTE: it uses param *only for Faero*. Add same F as the traj produced
-        # This has the assumption that the interaction force is held constant.
-        Hh = Htil(yo(k) + Δyk, yo(k+1) + Δykp1, Faero)
-        # With new nonlinear transmission need to break apart H
+        Hi = Htili(yo(k) + Δyk, yo(k+1) + Δykp1)
+        Hni = Htilni(yo(k) + Δyk, Faero)
+        Hh = Hi + δt*Hni # inertial and non-inertial components
+        # With nonlinear transmission need to break apart H
         σo = (yo(k) + Δyk)[1]
         return hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
     end
