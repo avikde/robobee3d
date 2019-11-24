@@ -80,11 +80,12 @@ function scaleParamsForlift(ret, minlifts, τ21ratiolim)
 	res = hcat(maxuForMinAvgLift.(minlifts)...)'
 	display(res)
 	np = length(param0)
-	p1 = plot(minliftsmg, res[:,POPTS.τinds], xlabel="min avg lift [mg]", label=llabels[POPTS.τinds], ylabel="design params", linewidth=2, legend=:topleft)
+	p1 = plot(minliftsmg, res[:,POPTS.τinds], xlabel="min avg lift [mg]", label=llabels[POPTS.τinds], ylabel="T1,T2", linewidth=2, legend=:topleft)
 	p2 = plot(minliftsmg, [res[:,np+1]  res[:,np+3]], xlabel="min avg lift [mg]", ylabel="umin [mN]", linewidth=2, legend=:topleft, label=["inf","2"])
-	p3 = plot(minliftsmg, res[:,np+2], xlabel="min avg lift [mg]", ylabel="unact err", linewidth=2, label="err", legend=false)
+	p3 = plot(minliftsmg, 1000 ./ (N*res[:,np]), xlabel="min avg lift [mg]", ylabel="Cycle freq [Hz]", linewidth=2, legend=false)
+	p4 = plot(minliftsmg, res[:,np+2], xlabel="min avg lift [mg]", ylabel="unact err", linewidth=2, legend=false)
 
-	return p1, p2, p3
+	return p1, p2, p3, p4
 end
 
 function plotNonlinBenefit(ret)
@@ -136,8 +137,8 @@ end
 # ID
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
-# 2. Try to optimize
-ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.0)#; print_level=3, max_iter=10000)
+# # 2. Try to optimize
+# ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.0)#; print_level=3, max_iter=10000)
 # ret3 = opt1(ret1["traj"], ret1["param"], 1, 1.0; print_level=3, max_iter=10000)
 # traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 1.3)
 # pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
@@ -151,17 +152,17 @@ ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.0)#; print_level=3, max_iter=10000
 # retTest = Dict("traj"=>ret2["traj"], "param"=>ret2["param"])
 # retTest["param"][2]
 
-# ---------
-pls = debugComponentsPlot(ret2)
-plot(pls..., size=(800,600))
+# # ---------
+# pls = debugComponentsPlot(ret2)
+# plot(pls..., size=(800,600))
 
 # -----------------
 # pls = plotNonlinBenefit() # SLOW
 # plot(pls...)
 
-# # ----------------
-# pls = scaleParamsForlift(ret1, 0.4:0.2:1.2, 2)
-# plot(pls...)
+# ----------------
+pls = scaleParamsForlift(ret1, 0.6:0.2:1.6, 2)
+plot(pls...)
 
 # # traj opt ------------------------------------
 
