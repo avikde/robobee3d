@@ -268,7 +268,7 @@ function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 	Ny = (N+1)*ny
 	# stroke "angle" = T*y[1] / R
-    cbar, τ1, mwing, kΨ, bΨ, τ2 = param
+    cbar, τ1, mwing, kΨ, bΨ, τ2, dt = param
     # Plot of aero forces at each instant
     function aeroPlotVec(_traj::Vector, _param, i)
         Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end]
@@ -288,7 +288,7 @@ function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param
 end
 
 function drawFrame(m::Wing2DOFModel, yk, uk, param; Faeroscale=1.0)
-    cbar, τ1, mwing, kΨ, bΨ, τ2 = param
+    cbar, τ1, mwing, kΨ, bΨ, τ2, dt = param
     yo, T, _, _ = cu.transmission(m, yk, param)
     paero, _, Faero = w2daero(m, yo, param)
     wing1 = [yo[1];0] # wing tip
@@ -402,7 +402,7 @@ function cu.robj(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, para
 	yk = k -> @view traj[liy[:,k]]
 	uk = k -> @view traj[liu[:,k]]
     
-    cbar, τ1, mwing, kΨ, bΨ, τ2 = param
+    cbar, τ1, mwing, kΨ, bΨ, τ2, dt = param
 
     Favg = @SVector zeros(2)
     for k = 1:N
@@ -436,9 +436,9 @@ function cu.transmission(m::Wing2DOFModel, y::AbstractArray, _param::Vector; o2a
 end
 
 function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
-    cbar, τ1, mwing, kΨ, bΨ, τ2 = param
+    cbar, τ1, mwing, kΨ, bΨ, τ2, dt = param
     Tarr = [τ1, τ2]
-    return [1, kΨ, bΨ, cbar, cbar^2, mwing, mwing*cbar, mwing*cbar^2], Tarr
+    return [1, kΨ, bΨ, cbar, cbar^2, mwing, mwing*cbar, mwing*cbar^2], Tarr, dt
 end
 
 function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::cu.ParamOptOpts, scaleTraj=1.0; debugComponents::Bool=false)
@@ -448,7 +448,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     uk = k -> @view traj[liu[:,k]]
 
     # Param stuff
-    cbar, τ1, mwing, kΨ, bΨ, τ2 = param
+    cbar, τ1, mwing, kΨ, bΨ, τ2, dt = param
     # Need the original T to use output coords
     yo = k -> cu.transmission(m, yk(k), param)[1]
 
@@ -534,10 +534,11 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         # NOTE: it uses param *only for Faero*. Add same F as the traj produced
         Hi = Htili(yo(k) + Δyk, yo(k+1) + Δykp1)
         Hni = Htilni(yo(k) + Δyk, Faero)
-        Hh = Hi + δt*Hni # inertial and non-inertial components
+        # Hh = Hi + δt*Hni # inertial and non-inertial components
         # With nonlinear transmission need to break apart H
         σo = (yo(k) + Δyk)[1]
-        return hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
+        Hfortrans = Hh -> hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
+        return [Hfortrans(Hi)  Hfortrans(Hni)]
     end
     
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
@@ -551,7 +552,7 @@ function avgLift(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, para
     yk = k -> @view traj[liy[:,k]]
     uk = k -> @view traj[liu[:,k]]
 
-    cbar, τ1, mwing, kΨ, bΨ, τ2 = param
+    cbar, τ1, mwing, kΨ, bΨ, τ2, dt = param
     aa = 0
     for k=1:N
         _, _, Faero = w2daero(m, cu.transmission(m, yk(k), param)[1], param)

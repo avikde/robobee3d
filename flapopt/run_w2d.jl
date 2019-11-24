@@ -30,7 +30,8 @@ param0 = [3.2,  # cbar[mm] (area/R)
 	0.52, # mwing[mg]
 	5, # kΨ [mN-mm/rad]
 	3, # bΨ [mN-mm/(rad/ms)]
-	0 # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
+	0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
+	0.135 # dt
 ]
 
 POPTS = cu.ParamOptOpts(
@@ -131,6 +132,8 @@ end
 
 # ID
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
+
+cu.affineTest(m, opt, traj0, param0, POPTS)
 
 # 2. Try to optimize
 ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.0)#; print_level=3, max_iter=10000)
