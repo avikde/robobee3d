@@ -64,8 +64,12 @@ function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0)
 		gui()
 		error("Initial traj")
 	end
+	
+	# Constraint on cbar placed by minAvgLift
+	avgLift0 = avgLift(m, opt, traj0, param0)
+	println("Avg lift initial [mN]=", round(avgLift0, digits=4), ", in [mg]=", round(avgLift0*1000/9.81, digits=1))
 
-	return N, trajt, traj0, opt
+	return N, trajt, traj0, opt, avgLift0
 end
 
 """One-off ID or opt"""
@@ -85,10 +89,13 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
 	# append unactErr
 	ret["unactErr"] = ret["eval_g"](ret["x"])[1:N] # 1 unact DOF
+	ret["al"] = avgLift(m, opt, ret["traj"], ret["param"])
+	uu = ret["traj"][(N+1)*ny:end]
+	ret["u∞"] = norm(uu, Inf)
 	if testAfter
 		cu.affineTest(m, opt, ret["traj"], ret["param"], POPTS)
 	end
-	println(round.(ret["param"]', digits=3), ", fHz=", round(1000/(N*ret["param"][end]), digits=1))
+	println(round.(ret["param"]', digits=3), ", fHz=", round(1000/(N*ret["param"][end]), digits=1), ", al[mg]=", round(ret["al"] * 1000/9.81, digits=1), ", u∞=", round(ret["u∞"], digits=1))
 	return ret
 end
 

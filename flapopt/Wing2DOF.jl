@@ -219,7 +219,7 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     if opt.vart
         traj0 = [traj0; δt]
     else
-        println("Initial traj δt=", δt, ", opt.fixedδt=", opt.fixedδt)
+        println("Initial traj δt=", round(δt, digits=4), ", opt.fixedδt=", opt.fixedδt)
     end
 
     return trajt .- trajt[1], traj0
