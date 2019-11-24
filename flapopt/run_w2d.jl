@@ -33,14 +33,6 @@ param0 = [3.2,  # cbar[mm] (area/R)
 	0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
 	0.135 # dt
 ]
-
-POPTS = cu.ParamOptOpts(
-	τinds=[2,6], 
-	R=(zeros(4,4), 0, 1.0*I), 
-	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0, 0.13],
-	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0, 0.14],
-	εunact = 1.0 # 0.1 default. Do this for now to iterate faster
-)
 σamax = 0.3 # [mm] constant? for robobee actuators
 
 includet("w2d_paramopt.jl")
@@ -51,6 +43,17 @@ N, trajt, traj0, opt = initTraj(KINTYPE)
 
 # Constraint on cbar placed by minAvgLift
 avgLift0 = avgLift(m, opt, traj0, param0)
+
+# Param opt init
+cycleFreqLims = [0.4, 0.03] # [KHz]
+dtlims = 1.0 ./ (N*cycleFreqLims)
+POPTS = cu.ParamOptOpts(
+	τinds=[2,6], 
+	R=(zeros(4,4), 0, 1.0*I), 
+	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0, dtlims[1]],
+	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0, dtlims[2]],
+	εunact = 1.0 # 0.1 default. Do this for now to iterate faster
+)
 
 includet("w2d_shift.jl")
 # FUNCTIONS GO HERE -------------------------------------------------------------

@@ -88,7 +88,7 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 	if testAfter
 		cu.affineTest(m, opt, ret["traj"], ret["param"], POPTS)
 	end
-	println(round.(ret["param"]', digits=3))
+	println(round.(ret["param"]', digits=3), ", fHz=", round(1000/(N*ret["param"][end]), digits=1))
 	return ret
 end
 
