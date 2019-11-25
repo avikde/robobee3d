@@ -180,12 +180,12 @@ Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
 function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti)
     # Create a traj
-    σmax = 0.2#cu.limits(m)[end][1]
+    σampl = 0.2#cu.limits(m)[end][1]
     tend = 100.0 # [ms]
     function controller(y, t)
         # Stroke pos control
-        σdes = σmax * sin(freq * 2 * π * t)
-        dσdes = σmax * freq * 2 * π * cos(freq * 2 * π * t)
+        σdes = σampl * sin(freq * 2 * π * t)
+        dσdes = σampl * freq * 2 * π * cos(freq * 2 * π * t)
         return posGains[1] * (σdes - y[1]) + posGains[2] * (dσdes - y[3])
     end
     vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)

@@ -39,7 +39,7 @@ includet("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
-N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE; makeplot=true)
+N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE)
 
 # Param opt init
 cycleFreqLims = [0.4, 0.03] # [KHz]
@@ -134,7 +134,7 @@ end
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.6)#; print_level=3, max_iter=10000)
+ret2 = opt1(ret1["traj"], ret1["param"], 1, 0.6)#; print_level=3, max_iter=10000)
 # ret3 = opt1(ret1["traj"], ret1["param"], 1, 1.0; print_level=3, max_iter=10000)
 # traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 1.3)
 # paramObj2(p) = paramObj([p; zeros((N+1)*ny)])
@@ -146,12 +146,12 @@ ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.6)#; print_level=3, max_iter=10000
 # retTest = Dict("traj"=>ret2["traj"], "param"=>ret2["param"])
 # retTest["param"][2]
 
-pl1 = plotTrajs(m, opt, listOfParamTraj(ret1, ret2)...)
-plot(pl1...)
+# pl1 = plotTrajs(m, opt, listOfParamTraj(ret1, ret2)...)
+# plot(pl1...)
 
-# # ---------
-# pls = debugComponentsPlot(ret2)
-# plot(pls..., size=(800,600))
+# ---------
+pls = debugComponentsPlot(ret2)
+plot(pls..., size=(800,600))
 
 # -----------------
 # pls = plotNonlinBenefit() # SLOW
