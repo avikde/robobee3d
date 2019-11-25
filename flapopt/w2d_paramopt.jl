@@ -58,7 +58,7 @@ function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0)
 	end
 
 	if makeplot
-		pl1 = plotTrajs(m, opt, trajt, [param0], [traj0])
+		pl1 = plotTrajs(m, opt, [param0], [traj0])
 		# pl1 = compareTrajToDAQ(m, opt, trajt, param0, traj0, lift, drag)
 		plot(pl1...)
 		gui()
@@ -99,7 +99,7 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 	return ret
 end
 
-listOfParamTraj(retlist) = [ret["param"] for ret in retlist], [ret["traj"] for ret in retlist]
+listOfParamTraj(rets...) = [ret["param"] for ret in rets], [ret["traj"] for ret in rets]
 
 """Debug components in a traj"""
 function debugComponentsPlot(ret)
@@ -158,7 +158,7 @@ function debugComponentsPlot(ret)
 		return pl, pl2, pl3
 	end
 
-	pl1 = plotTrajs(m, opt, trajt, listOfParamTraj([ret])...)
+	pl1 = plotTrajs(m, opt, listOfParamTraj(ret)...)
 	pls, plcomp, plis = plotComponents(1, "stroke")
 	plh, _, plih = plotComponents(2, "hinge")
 

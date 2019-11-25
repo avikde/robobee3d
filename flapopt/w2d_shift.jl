@@ -26,7 +26,7 @@ function testManyShifts(retdict0, shifts, minal; kwargs...)
 	paramss = [rets[1:np,i] for i=1:Nshift]
 	trajs = [rets[np+1:end,i] for i=1:Nshift]
 
-	pl1 = plotTrajs(m, opt, trajt, paramss, trajs)
+	pl1 = plotTrajs(m, opt, paramss, trajs)
 	pl2 = plot(shifts, [p[6]/p[2] for p in paramss], marker=:auto, xlabel="shift", ylabel="Tratio")
 	plot(pl1..., pl2)
 end

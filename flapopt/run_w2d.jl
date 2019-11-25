@@ -39,7 +39,7 @@ includet("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
-N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE; makeplot=true)
+N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE)
 
 # Param opt init
 cycleFreqLims = [0.4, 0.03] # [KHz]
@@ -137,10 +137,8 @@ ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2
 ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.6)#; print_level=3, max_iter=10000)
 # ret3 = opt1(ret1["traj"], ret1["param"], 1, 1.0; print_level=3, max_iter=10000)
 # traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 1.3)
-# pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
-# # plot(pl1...)
 # paramObj2(p) = paramObj([p; zeros((N+1)*ny)])
-# pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj2)
+# pls = plotParamImprovement(m, opt, [param1, param2, param3], [traj1, traj2, traj3], paramObj2)
 # plot(pls...)
 
 # testManyShifts(ret1, [0], 0.6)
@@ -148,9 +146,12 @@ ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.6)#; print_level=3, max_iter=10000
 # retTest = Dict("traj"=>ret2["traj"], "param"=>ret2["param"])
 # retTest["param"][2]
 
-# ---------
-pls = debugComponentsPlot(ret2)
-plot(pls..., size=(800,600))
+pl1 = plotTrajs(m, opt, listOfParamTraj(ret1, ret2)...)
+plot(pl1...)
+
+# # ---------
+# pls = debugComponentsPlot(ret2)
+# plot(pls..., size=(800,600))
 
 # -----------------
 # pls = plotNonlinBenefit() # SLOW
@@ -214,7 +215,7 @@ plot(pls..., size=(800,600))
 # println("Params: ", params)
 
 # # animateTrajs(m, opt, params, trajs)
-# pl1 = plotTrajs(m, opt, trajt, params, trajs)
+# pl1 = plotTrajs(m, opt, params, trajs)
 # pl2 = cu.visualizeConstraintViolations(m, opt, params, trajs)
 
 # l = @layout [grid(2,2) a]

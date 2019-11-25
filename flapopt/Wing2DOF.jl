@@ -225,21 +225,15 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     return trajt .- trajt[1], traj0
 end
 
-function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, trajs)
+function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
 	Ny = (N+1)*ny
+    Nt = length(trajs)
     # stroke "angle" = T*y[1] / R
     function strokeAng(traj, param)
         σo = [cu.transmission(m, traj[@view liy[:,k]], param)[1][1] for k=1:N+1]
         return σo / (m.R/2)
     end
-    # If plot is given a matrix each column becomes a different line
-    σt = plot(t, hcat([strokeAng(trajs[i], params[i]) for i in 1:length(trajs)]...), linewidth=2, ylabel="stroke ang [r]")# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
-    
-    Ψt = plot(t, hcat([traj[@view liy[2,:]] for traj in trajs]...), linewidth=2, legend=false, ylabel="hinge ang [r]")
-    
-    ut = plot(t, hcat([[traj[@view liu[1,:]];NaN] for traj in trajs]...), linewidth=2, legend=false, ylabel="stroke force [mN]")
-    Nt = length(trajs)
     # Plot of aero forces at each instant
     function aeroPlotVec(_traj::Vector, _param, ind)
         cbar, τ1, mwing, kΨ, bΨ, τ2 = _param
@@ -247,19 +241,34 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, traj
         Faeros = hcat([Faerok(k) for k=1:N]...)
         return [Faeros[ind,:]' NaN]'
     end
-    liftt = plot(t, hcat([aeroPlotVec(trajs[i], params[i], 2) for i=1:Nt]...), linewidth=2, legend=false, ylabel="lift [mg]")
-    dragt = plot(t, hcat([aeroPlotVec(trajs[i], params[i], 1) for i=1:Nt]...), linewidth=2, legend=false, ylabel="drag [mg]")
-    # Combine the subplots
+
+    # Empty versions of all the subplots
+    σt = plot(ylabel="stroke ang [r]")# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
+    Ψt = plot(ylabel="hinge ang [r]")
+    ut = plot(ylabel="stroke force [mN]")
+    liftt = plot(ylabel="lift [mg]")
+    dragt = plot(ylabel="drag [mg]")
+    for i=1:Nt
+        traj, param = trajs[i], params[i]
+        dt = param[end]
+        t = 0:dt:(N)*dt
+        plot!(σt, t, strokeAng(traj, param), linewidth=2)
+        plot!(Ψt, t, traj[@view liy[2,:]], linewidth=2)
+        plot!(ut, t, [traj[@view liu[1,:]];NaN], linewidth=2)
+        plot!(liftt, t, aeroPlotVec(traj, param, 2), linewidth=2)
+        plot!(dragt, t, aeroPlotVec(traj, param, 1), linewidth=2)
+    end
+    # Return tuple
 	return (σt, Ψt, ut, liftt, dragt)
 end
 
-function plotParamImprovement(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, trajs, paramObj::Function)
+function plotParamImprovement(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs, paramObj::Function)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
 
     # The param space plots
     pls = plotParams(m, opt, trajs[1], paramObj, params...)
     # Traj plots
-    σt, Ψt, ut, liftt, dragt = plotTrajs(m, opt, t, params, trajs)
+    σt, Ψt, ut, liftt, dragt = plotTrajs(m, opt, params, trajs)
 
     return pls..., σt, Ψt, ut, liftt, dragt
 end
@@ -281,7 +290,7 @@ function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param
     plot!(dragp, t, aeroPlotVec(traj, param, 1), marker=:auto, label="pred")
 
     # Get the basic kinematics
-    σt, Ψt, ut, _ = plotTrajs(m, opt, t, [param], [traj])
+    σt, Ψt, ut, _ = plotTrajs(m, opt, [param], [traj])
 
     # Combine the subplots
 	return (σt, Ψt, ut, liftp, dragp)
