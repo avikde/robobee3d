@@ -185,7 +185,8 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     function controller(y, t)
         # Stroke pos control
         σdes = σmax * sin(freq * 2 * π * t)
-        return posGains[1] * (σdes - y[1]) - posGains[2] * y[3]
+        dσdes = σmax * freq * 2 * π * cos(freq * 2 * π * t)
+        return posGains[1] * (σdes - y[1]) + posGains[2] * (dσdes - y[3])
     end
     vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
     # OL traj1
@@ -231,7 +232,8 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs)
     Nt = length(trajs)
     # stroke "angle" = T*y[1] / R
     function strokeAng(traj, param)
-        σo = [cu.transmission(m, traj[@view liy[:,k]], param)[1][1] for k=1:N+1]
+        σo = [cu.transmission(m, traj[@view liy[:,k]], param; o2a=false)[1][1] for k=1:N+1]
+        # σo = traj[1:ny:(N+1)*ny]
         return σo / (m.R/2)
     end
     # Plot of aero forces at each instant
@@ -243,7 +245,7 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs)
     end
 
     # Empty versions of all the subplots
-    σt = plot(ylabel="stroke ang [r]")# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
+    σt = plot(ylabel="stroke ang [r]", ylims=(-0.8,0.8))# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
     Ψt = plot(ylabel="hinge ang [r]")
     ut = plot(ylabel="stroke force [mN]")
     liftt = plot(ylabel="lift [mg]")

@@ -43,7 +43,7 @@ function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0)
 	if kinType==1
 		opt = cu.OptOptions(true, false, 0.135, 1, :none, 1e-8, false) # sim
 		N = opt.boundaryConstraint == :symmetric ? 23 : 45
-		trajt, traj0 = createInitialTraj(m, opt, N, 0.165, [1e3, 1e2], param0, 172)
+		trajt, traj0 = createInitialTraj(m, opt, N, 0.165, [1e6, 1e5], param0, 170)
 	elseif kinType==0
 		# Load data
 		opt = cu.OptOptions(true, false, 0.135, 1, :none, 1e-8, false) # real
