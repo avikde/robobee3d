@@ -25,7 +25,7 @@ m = Wing2DOFModel(
 	100#= 0 =#, # ka
 	true) # bCoriolis
 ny, nu = cu.dims(m)
-param0 = [3.2,  # cbar[mm] (area/R)
+param0 = [5.4,  # cbar[mm] (area/R)
 	28.33, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
 	0.52, # mwing[mg]
 	5, # kΨ [mN-mm/rad]
@@ -39,7 +39,7 @@ includet("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
-N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE)
+N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE; makeplot=true)
 
 # Param opt init
 cycleFreqLims = [0.4, 0.03] # [KHz]
