@@ -29,7 +29,7 @@ ny, nu = cu.dims(m)
 function getInitialParams(itype=0)
 	if itype==0
 		# robobee scale
-		return 65, [3.2,  # cbar[mm] (area/R)
+		return 70, [3.2,  # cbar[mm] (area/R)
 			28.33, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
 			0.52, # mwing[mg]
 			5, # kΨ [mN-mm/rad]
@@ -49,14 +49,14 @@ function getInitialParams(itype=0)
 		]
 	end
 end
-uampl, param0 = getInitialParams(1)
+uampl, param0 = getInitialParams(0)
 σamax = 0.3 # [mm] constant? for robobee actuators
 
 includet("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
-N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE; uampl=uampl)
+N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE; uampl=uampl, makeplot=true)
 
 # Param opt init
 cycleFreqLims = [0.4, 0.03] # [KHz]
