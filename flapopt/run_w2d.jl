@@ -18,11 +18,11 @@ includet("Wing2DOF.jl")
 # To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
 	17.0, # R, [Jafferis (2016)]
-	0.35#= 1.5 =#, #k output
+	0.65#= 1.5 =#, #k output
 	0, #b output
 	6, # ma
 	0, # ba
-	100#= 0 =#, # ka
+	250#= 0 =#, # ka
 	true) # bCoriolis
 ny, nu = cu.dims(m)
 param0 = [5.411,  # cbar[mm] (area/R)
@@ -39,7 +39,7 @@ includet("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
-N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE; makeplot=true)
+N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE)
 
 # Param opt init
 cycleFreqLims = [0.4, 0.03] # [KHz]
@@ -134,7 +134,7 @@ end
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-ret2 = opt1(ret1["traj"], ret1["param"], 1, 0.6)#; print_level=3, max_iter=10000)
+ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.6)#; print_level=3, max_iter=10000)
 # ret3 = opt1(ret1["traj"], ret1["param"], 1, 1.0; print_level=3, max_iter=10000)
 # traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 1.3)
 # paramObj2(p) = paramObj([p; zeros((N+1)*ny)])
