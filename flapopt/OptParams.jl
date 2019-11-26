@@ -24,10 +24,12 @@ paramLumped(m::Model, param::AbstractArray) = error("Implement this")
 
 # lumped parameter vector
 function getpt(m::Model, p)
-	pb, Tarr = paramLumped(m, p)
+	pb, Tarr, dt = paramLumped(m, p)
 	τ1, τ2 = Tarr
 	# Nonlinear transmission: see https://github.com/avikde/robobee3d/pull/92
-	return [pb*τ1; pb*τ2/τ1^2; 1/τ1; τ2/τ1^4], Tarr
+	ptWithTransmission = [pb*τ1; pb*τ2/τ1^2; 1/τ1; τ2/τ1^4]
+	# Adding dt: https://github.com/avikde/robobee3d/pull/102
+	return [ptWithTransmission; dt*ptWithTransmission], Tarr
 end
 
 "Helper function for nonlinear transmission change to H"
@@ -87,7 +89,7 @@ function affineTest(m, opt, traj, param, POPTS::ParamOptOpts)
     ptTEST, TTEST = getpt(m, param) # NOTE the actual param values are only needed for the test mode
 
 	# Quadratic form matrix
-	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, POPTS, scaleTraj=1.0)
+	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, POPTS)
 	Hpb = zeros(nq, N)
 	Bu = similar(Hpb)
 	for k=1:N

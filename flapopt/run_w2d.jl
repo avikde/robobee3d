@@ -30,27 +30,27 @@ param0 = [3.2,  # cbar[mm] (area/R)
 	0.52, # mwing[mg]
 	5, # kΨ [mN-mm/rad]
 	3, # bΨ [mN-mm/(rad/ms)]
-	0 # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
+	0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
+	0.135 # dt
 ]
-
-POPTS = cu.ParamOptOpts(
-	τinds=[2,6], 
-	R=(zeros(4,4), 0, 1.0*I), 
-	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0],
-	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0],
-	εunact = 1.0 # 0.1 default. Do this for now to iterate faster
-)
 σamax = 0.3 # [mm] constant? for robobee actuators
 
 includet("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
-N, trajt, traj0, opt = initTraj(KINTYPE)
+N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE)
 
-# Constraint on cbar placed by minAvgLift
-avgLift0 = avgLift(m, opt, traj0, param0)
-
+# Param opt init
+cycleFreqLims = [0.4, 0.03] # [KHz]
+dtlims = 1.0 ./ (N*cycleFreqLims)
+POPTS = cu.ParamOptOpts(
+	τinds=[2,6], 
+	R=(zeros(4,4), 0, 1.0*I), 
+	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0, dtlims[1]],
+	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0, dtlims[2]],
+	εunact = 1.0 # 0.1 default. Do this for now to iterate faster
+)
 includet("w2d_shift.jl")
 # FUNCTIONS GO HERE -------------------------------------------------------------
 
@@ -76,11 +76,12 @@ function scaleParamsForlift(ret, minlifts, τ21ratiolim)
 	res = hcat(maxuForMinAvgLift.(minlifts)...)'
 	display(res)
 	np = length(param0)
-	p1 = plot(minliftsmg, res[:,POPTS.τinds], xlabel="min avg lift [mg]", label=llabels[POPTS.τinds], ylabel="design params", linewidth=2, legend=:topleft)
+	p1 = plot(minliftsmg, res[:,POPTS.τinds], xlabel="min avg lift [mg]", label=llabels[POPTS.τinds], ylabel="T1,T2", linewidth=2, legend=:topleft)
 	p2 = plot(minliftsmg, [res[:,np+1]  res[:,np+3]], xlabel="min avg lift [mg]", ylabel="umin [mN]", linewidth=2, legend=:topleft, label=["inf","2"])
-	p3 = plot(minliftsmg, res[:,np+2], xlabel="min avg lift [mg]", ylabel="unact err", linewidth=2, label="err", legend=false)
+	p3 = plot(minliftsmg, 1000 ./ (N*res[:,np]), xlabel="min avg lift [mg]", ylabel="Cycle freq [Hz]", linewidth=2, legend=false)
+	p4 = plot(minliftsmg, res[:,np+2], xlabel="min avg lift [mg]", ylabel="unact err", linewidth=2, legend=false)
 
-	return p1, p2, p3
+	return p1, p2, p3, p4
 end
 
 function plotNonlinBenefit(ret)
@@ -133,19 +134,20 @@ end
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.0)#; print_level=3, max_iter=10000)
+ret2 = opt1(ret1["traj"], ret1["param"], 1, 0.6)#; print_level=3, max_iter=10000)
 # ret3 = opt1(ret1["traj"], ret1["param"], 1, 1.0; print_level=3, max_iter=10000)
 # traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 1.3)
-# pl1 = plotTrajs(m, opt, trajt, [param1, param1, param2, param3], [traj0, traj1, traj2, traj3])
-# # plot(pl1...)
 # paramObj2(p) = paramObj([p; zeros((N+1)*ny)])
-# pls = plotParamImprovement(m, opt, trajt, [param1, param2, param3], [traj1, traj2, traj3], paramObj2)
+# pls = plotParamImprovement(m, opt, [param1, param2, param3], [traj1, traj2, traj3], paramObj2)
 # plot(pls...)
 
 # testManyShifts(ret1, [0], 0.6)
 
 # retTest = Dict("traj"=>ret2["traj"], "param"=>ret2["param"])
 # retTest["param"][2]
+
+# pl1 = plotTrajs(m, opt, listOfParamTraj(ret1, ret2)...)
+# plot(pl1...)
 
 # ---------
 pls = debugComponentsPlot(ret2)
@@ -156,7 +158,7 @@ plot(pls..., size=(800,600))
 # plot(pls...)
 
 # # ----------------
-# pls = scaleParamsForlift(ret1, 0.4:0.2:1.2, 2)
+# pls = scaleParamsForlift(ret1, 0.6:0.2:1.6, 2)
 # plot(pls...)
 
 # # traj opt ------------------------------------
@@ -213,7 +215,7 @@ plot(pls..., size=(800,600))
 # println("Params: ", params)
 
 # # animateTrajs(m, opt, params, trajs)
-# pl1 = plotTrajs(m, opt, trajt, params, trajs)
+# pl1 = plotTrajs(m, opt, params, trajs)
 # pl2 = cu.visualizeConstraintViolations(m, opt, params, trajs)
 
 # l = @layout [grid(2,2) a]

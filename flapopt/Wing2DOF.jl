@@ -178,14 +178,16 @@ end
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti)
+function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65)
     # Create a traj
-    σmax = 0.2#cu.limits(m)[end][1]
+    σampl = 0.2#cu.limits(m)[end][1]
     tend = 100.0 # [ms]
     function controller(y, t)
-        # Stroke pos control
-        σdes = σmax * sin(freq * 2 * π * t)
-        return posGains[1] * (σdes - y[1]) - posGains[2] * y[3]
+        # # Stroke pos control
+        # σdes = σampl * sin(freq * 2 * π * t)
+        # dσdes = σampl * freq * 2 * π * cos(freq * 2 * π * t)
+        # return posGains[1] * (σdes - y[1]) + posGains[2] * (dσdes - y[3])
+        return uampl * cos(freq * 2 * π * t)
     end
     vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
     # OL traj1
@@ -219,27 +221,22 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     if opt.vart
         traj0 = [traj0; δt]
     else
-        println("Initial traj δt=", δt, ", opt.fixedδt=", opt.fixedδt)
+        println("Initial traj δt=", round(δt, digits=4), ", opt.fixedδt=", opt.fixedδt)
     end
 
     return trajt .- trajt[1], traj0
 end
 
-function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, trajs)
+function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
 	Ny = (N+1)*ny
+    Nt = length(trajs)
     # stroke "angle" = T*y[1] / R
     function strokeAng(traj, param)
-        σo = [cu.transmission(m, traj[@view liy[:,k]], param)[1][1] for k=1:N+1]
+        σo = [cu.transmission(m, traj[@view liy[:,k]], param; o2a=false)[1][1] for k=1:N+1]
+        # σo = traj[1:ny:(N+1)*ny]
         return σo / (m.R/2)
     end
-    # If plot is given a matrix each column becomes a different line
-    σt = plot(t, hcat([strokeAng(trajs[i], params[i]) for i in 1:length(trajs)]...), linewidth=2, ylabel="stroke ang [r]")# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
-    
-    Ψt = plot(t, hcat([traj[@view liy[2,:]] for traj in trajs]...), linewidth=2, legend=false, ylabel="hinge ang [r]")
-    
-    ut = plot(t, hcat([[traj[@view liu[1,:]];NaN] for traj in trajs]...), linewidth=2, legend=false, ylabel="stroke force [mN]")
-    Nt = length(trajs)
     # Plot of aero forces at each instant
     function aeroPlotVec(_traj::Vector, _param, ind)
         cbar, τ1, mwing, kΨ, bΨ, τ2 = _param
@@ -247,19 +244,34 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, traj
         Faeros = hcat([Faerok(k) for k=1:N]...)
         return [Faeros[ind,:]' NaN]'
     end
-    liftt = plot(t, hcat([aeroPlotVec(trajs[i], params[i], 2) for i=1:Nt]...), linewidth=2, legend=false, ylabel="lift [mg]")
-    dragt = plot(t, hcat([aeroPlotVec(trajs[i], params[i], 1) for i=1:Nt]...), linewidth=2, legend=false, ylabel="drag [mg]")
-    # Combine the subplots
+
+    # Empty versions of all the subplots
+    σt = plot(ylabel="stroke ang [r]", ylims=(-0.8,0.8))# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
+    Ψt = plot(ylabel="hinge ang [r]")
+    ut = plot(ylabel="stroke force [mN]")
+    liftt = plot(ylabel="lift [mg]")
+    dragt = plot(ylabel="drag [mg]")
+    for i=1:Nt
+        traj, param = trajs[i], params[i]
+        dt = param[end]
+        t = 0:dt:(N)*dt
+        plot!(σt, t, strokeAng(traj, param), linewidth=2)
+        plot!(Ψt, t, traj[@view liy[2,:]], linewidth=2)
+        plot!(ut, t, [traj[@view liu[1,:]];NaN], linewidth=2)
+        plot!(liftt, t, aeroPlotVec(traj, param, 2), linewidth=2)
+        plot!(dragt, t, aeroPlotVec(traj, param, 1), linewidth=2)
+    end
+    # Return tuple
 	return (σt, Ψt, ut, liftt, dragt)
 end
 
-function plotParamImprovement(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, params, trajs, paramObj::Function)
+function plotParamImprovement(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs, paramObj::Function)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
 
     # The param space plots
     pls = plotParams(m, opt, trajs[1], paramObj, params...)
     # Traj plots
-    σt, Ψt, ut, liftt, dragt = plotTrajs(m, opt, t, params, trajs)
+    σt, Ψt, ut, liftt, dragt = plotTrajs(m, opt, params, trajs)
 
     return pls..., σt, Ψt, ut, liftt, dragt
 end
@@ -268,7 +280,7 @@ function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 	Ny = (N+1)*ny
 	# stroke "angle" = T*y[1] / R
-    cbar, τ1, mwing, kΨ, bΨ, τ2 = param
+    cbar, τ1, mwing, kΨ, bΨ, τ2, dt = param
     # Plot of aero forces at each instant
     function aeroPlotVec(_traj::Vector, _param, i)
         Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end]
@@ -281,14 +293,14 @@ function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param
     plot!(dragp, t, aeroPlotVec(traj, param, 1), marker=:auto, label="pred")
 
     # Get the basic kinematics
-    σt, Ψt, ut, _ = plotTrajs(m, opt, t, [param], [traj])
+    σt, Ψt, ut, _ = plotTrajs(m, opt, [param], [traj])
 
     # Combine the subplots
 	return (σt, Ψt, ut, liftp, dragp)
 end
 
 function drawFrame(m::Wing2DOFModel, yk, uk, param; Faeroscale=1.0)
-    cbar, τ1, mwing, kΨ, bΨ, τ2 = param
+    cbar, τ1, mwing, kΨ, bΨ, τ2, dt = param
     yo, T, _, _ = cu.transmission(m, yk, param)
     paero, _, Faero = w2daero(m, yo, param)
     wing1 = [yo[1];0] # wing tip
@@ -402,7 +414,7 @@ function cu.robj(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, para
 	yk = k -> @view traj[liy[:,k]]
 	uk = k -> @view traj[liu[:,k]]
     
-    cbar, τ1, mwing, kΨ, bΨ, τ2 = param
+    cbar, τ1, mwing, kΨ, bΨ, τ2, dt = param
 
     Favg = @SVector zeros(2)
     for k = 1:N
@@ -436,9 +448,9 @@ function cu.transmission(m::Wing2DOFModel, y::AbstractArray, _param::Vector; o2a
 end
 
 function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
-    cbar, τ1, mwing, kΨ, bΨ, τ2 = param
+    cbar, τ1, mwing, kΨ, bΨ, τ2, dt = param
     Tarr = [τ1, τ2]
-    return [1, kΨ, bΨ, cbar, cbar^2, mwing, mwing*cbar, mwing*cbar^2], Tarr
+    return [1, kΨ, bΨ, cbar, cbar^2, mwing, mwing*cbar, mwing*cbar^2], Tarr, dt
 end
 
 function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::cu.ParamOptOpts, scaleTraj=1.0; debugComponents::Bool=false)
@@ -448,7 +460,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     uk = k -> @view traj[liu[:,k]]
 
     # Param stuff
-    cbar, τ1, mwing, kΨ, bΨ, τ2 = param
+    cbar, τ1, mwing, kΨ, bΨ, τ2, dt = param
     # Need the original T to use output coords
     yo = k -> cu.transmission(m, yk(k), param)[1]
 
@@ -523,7 +535,8 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     # this is OK - see notes
     # Htil = (y, ynext, F) -> HMq(ynext) - HMq(y) + δt*HCgJ(y, F)
     # 1st order integration mods
-    Htil = (y, ynext, F) -> HMqT(y, ynext) - HMqT(y, y) + δt*HCgJT(y, F)
+    Htili = (y, ynext) -> HMqT(y, ynext) - HMqT(y, y)
+    Htilni = HCgJT
     
     # Functions to output
     "Takes in a Δy in output coords"
@@ -531,11 +544,13 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         # Same Faero as before?
         _, _, Faero = w2daero(m, yo(k) + Δyk, param)
         # NOTE: it uses param *only for Faero*. Add same F as the traj produced
-        # This has the assumption that the interaction force is held constant.
-        Hh = Htil(yo(k) + Δyk, yo(k+1) + Δykp1, Faero)
-        # With new nonlinear transmission need to break apart H
+        Hi = Htili(yo(k) + Δyk, yo(k+1) + Δykp1)
+        Hni = Htilni(yo(k) + Δyk, Faero)
+        # Hh = Hi + δt*Hni # inertial and non-inertial components
+        # With nonlinear transmission need to break apart H
         σo = (yo(k) + Δyk)[1]
-        return hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
+        Hfortrans = Hh -> hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
+        return [Hfortrans(Hi)  Hfortrans(Hni)]
     end
     
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
@@ -549,7 +564,7 @@ function avgLift(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, para
     yk = k -> @view traj[liy[:,k]]
     uk = k -> @view traj[liu[:,k]]
 
-    cbar, τ1, mwing, kΨ, bΨ, τ2 = param
+    cbar, τ1, mwing, kΨ, bΨ, τ2, dt = param
     aa = 0
     for k=1:N
         _, _, Faero = w2daero(m, cu.transmission(m, yk(k), param)[1], param)

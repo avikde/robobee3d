@@ -43,7 +43,7 @@ function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0)
 	if kinType==1
 		opt = cu.OptOptions(true, false, 0.135, 1, :none, 1e-8, false) # sim
 		N = opt.boundaryConstraint == :symmetric ? 23 : 45
-		trajt, traj0 = createInitialTraj(m, opt, N, 0.165, [1e3, 1e2], param0, 172)
+		trajt, traj0 = createInitialTraj(m, opt, N, 0.165, [1e3, 1e2], param0, 170)
 	elseif kinType==0
 		# Load data
 		opt = cu.OptOptions(true, false, 0.135, 1, :none, 1e-8, false) # real
@@ -58,14 +58,18 @@ function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0)
 	end
 
 	if makeplot
-		pl1 = plotTrajs(m, opt, trajt, [param0], [traj0])
+		pl1 = plotTrajs(m, opt, [param0], [traj0])
 		# pl1 = compareTrajToDAQ(m, opt, trajt, param0, traj0, lift, drag)
 		plot(pl1...)
 		gui()
 		error("Initial traj")
 	end
+	
+	# Constraint on cbar placed by minAvgLift
+	avgLift0 = avgLift(m, opt, traj0, param0)
+	println("Avg lift initial [mN]=", round(avgLift0, digits=4), ", in [mg]=", round(avgLift0*1000/9.81, digits=1))
 
-	return N, trajt, traj0, opt
+	return N, trajt, traj0, opt, avgLift0
 end
 
 """One-off ID or opt"""
@@ -75,24 +79,27 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 
 	# Poly constraint
 	rholims = estimateWingDensity()
-	Cp = Float64[-1  0  0  0  0  0;
-		0  -τ21ratiolim  0  0  0  1;
-		rholims[1]   0  -1  0  0  0; # wing density mw >= cbar*ρ1
-		-rholims[2]   0  1  0  0  0] # wing density mw <= cbar*ρ2
+	Cp = Float64[-1  0  0  0  0  0  0;
+		0  -τ21ratiolim  0  0  0  1  0;
+		rholims[1]   0  -1  0  0  0  0; # wing density mw >= cbar*ρ1
+		-rholims[2]   0  1  0  0  0  0] # wing density mw <= cbar*ρ2
 	cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
 	dp = [-cbarmin(minal); 0; 0; 0]
 
 	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
 	# append unactErr
 	ret["unactErr"] = ret["eval_g"](ret["x"])[1:N] # 1 unact DOF
+	ret["al"] = avgLift(m, opt, ret["traj"], ret["param"])
+	uu = ret["traj"][(N+1)*ny:end]
+	ret["u∞"] = norm(uu, Inf)
 	if testAfter
 		cu.affineTest(m, opt, ret["traj"], ret["param"], POPTS)
 	end
-	println(round.(ret["param"]', digits=3))
+	println(round.(ret["param"]', digits=3), ", fHz=", round(1000/(N*ret["param"][end]), digits=1), ", al[mg]=", round(ret["al"] * 1000/9.81, digits=1), ", u∞=", round(ret["u∞"], digits=1))
 	return ret
 end
 
-listOfParamTraj(retlist) = [ret["param"] for ret in retlist], [ret["traj"] for ret in retlist]
+listOfParamTraj(rets...) = [ret["param"] for ret in rets], [ret["traj"] for ret in rets]
 
 """Debug components in a traj"""
 function debugComponentsPlot(ret)
@@ -108,15 +115,17 @@ function debugComponentsPlot(ret)
 	stiffdamp = similar(inertial)
 	stiffdampa = similar(inertial)
 	aero = similar(inertial)
+	# to fill in for (non) inertial half of H https://github.com/avikde/robobee3d/pull/102
+	H0 = zeros(size(inertial,1),length(pt0)÷2)
 
 	for k=1:N
 		σo = yo(k)[1]
-		inertial[:,k] = cu.Hτ(HMnc(yo(k), yo(k+1)) - HMnc(yo(k), yo(k)), σo) * pt0
-		inertialc[:,k] = cu.Hτ(HMc(yo(k), yo(k+1)) - HMc(yo(k), yo(k)) + δt * HC(yo(k)), σo) * pt0
-		stiffdamp[:,k] = cu.Hτ(δt * Hg(yo(k)), σo) * pt0
-		stiffdampa[:,k] = cu.Hτ(δt * Hgact(yo(k)), σo) * pt0
-		coriolis[:,k] = cu.Hτ(δt * HC(yo(k)), σo) * pt0
-		aero[:,k] = cu.Hτ(δt * HF(yo(k)), σo) * pt0
+		inertial[:,k] = [cu.Hτ(HMnc(yo(k), yo(k+1)) - HMnc(yo(k), yo(k)), σo)  H0] * pt0
+		inertialc[:,k] = [cu.Hτ(HMc(yo(k), yo(k+1)) - HMc(yo(k), yo(k)), σo)  cu.Hτ(HC(yo(k)), σo)] * pt0
+		stiffdamp[:,k] = [H0  cu.Hτ(Hg(yo(k)), σo)] * pt0
+		stiffdampa[:,k] = [H0  cu.Hτ(Hgact(yo(k)), σo)] * pt0
+		coriolis[:,k] = [H0  cu.Hτ(HC(yo(k)), σo)] * pt0
+		aero[:,k] = [H0  cu.Hτ(HF(yo(k)), σo)] * pt0
 	end
 
 	# # get the instantaneous transmission ratio at time k
@@ -149,7 +158,7 @@ function debugComponentsPlot(ret)
 		return pl, pl2, pl3
 	end
 
-	pl1 = plotTrajs(m, opt, trajt, listOfParamTraj([ret])...)
+	pl1 = plotTrajs(m, opt, listOfParamTraj(ret)...)
 	pls, plcomp, plis = plotComponents(1, "stroke")
 	plh, _, plih = plotComponents(2, "hinge")
 
