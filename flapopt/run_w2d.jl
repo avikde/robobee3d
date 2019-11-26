@@ -18,13 +18,15 @@ includet("Wing2DOF.jl")
 # To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
 	17.0, # R, [Jafferis (2016)]
-	0.65#= 1.5 =#, #k output
+	0.35#= 1.5 =#, #k output
 	0, #b output
 	6, # ma
 	0, # ba
-	250#= 0 =#, # ka
+	100#= 0 =#, # ka
 	true) # bCoriolis
 ny, nu = cu.dims(m)
+
+# scaled-up
 param0 = [5.411,  # cbar[mm] (area/R)
 	18.681, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
 	0.866, # mwing[mg]
@@ -33,6 +35,15 @@ param0 = [5.411,  # cbar[mm] (area/R)
 	0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
 	0.109 # dt
 ]
+# # robobee-scale
+# param0 = [3.2,  # cbar[mm] (area/R)
+# 	28.33, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
+# 	0.52, # mwing[mg]
+# 	5, # kΨ [mN-mm/rad]
+# 	3, # bΨ [mN-mm/(rad/ms)]
+# 	0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
+# 	0.135 # dt
+# ]
 σamax = 0.3 # [mm] constant? for robobee actuators
 
 includet("w2d_paramopt.jl")
@@ -49,16 +60,17 @@ POPTS = cu.ParamOptOpts(
 	R=(zeros(4,4), 0, 1.0*I), 
 	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0, dtlims[1]],
 	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0, dtlims[2]],
-	εunact = 1.0 # 0.1 default. Do this for now to iterate faster
+	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
+	uinfnorm = true
 )
 includet("w2d_shift.jl")
 # FUNCTIONS GO HERE -------------------------------------------------------------
 
 """Run many opts to get the best params for a desired min lift"""
-function scaleParamsForlift(ret, minlifts, τ21ratiolim)
+function scaleParamsForlift(ret, minlifts, τ21ratiolim; kwargs...)
 	traj, param = ret["traj"], ret["param"]
 	function maxuForMinAvgLift(al)
-		r = opt1(traj, param, 1, al, τ21ratiolim)
+		r = opt1(traj, param, 1, al, τ21ratiolim; kwargs...)
 		# kΨ, bΨ = param2[4:5]
 		uu = r["traj"][(N+1)*ny:end]
 		return [r["param"]; norm(uu, Inf); norm(r["unactErr"], Inf); norm(uu, 2)/N]
@@ -149,17 +161,17 @@ ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.6)#; print_level=3, max_iter=10000
 # pl1 = plotTrajs(m, opt, listOfParamTraj(ret1, ret2)...)
 # plot(pl1...)
 
-# ---------
-pls = debugComponentsPlot(ret2)
-plot(pls..., size=(800,600))
+# # ---------
+# pls = debugComponentsPlot(ret2)
+# plot(pls..., size=(800,600))
 
 # -----------------
 # pls = plotNonlinBenefit() # SLOW
 # plot(pls...)
 
-# # ----------------
-# pls = scaleParamsForlift(ret1, 0.6:0.2:1.6, 2)
-# plot(pls...)
+# ----------------
+pls = scaleParamsForlift(ret1, 0.5:0.2:1.6, 2)
+plot(pls...)
 
 # # traj opt ------------------------------------
 
