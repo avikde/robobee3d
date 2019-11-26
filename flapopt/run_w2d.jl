@@ -49,14 +49,14 @@ function getInitialParams(itype=0)
 		]
 	end
 end
-uampl, param0 = getInitialParams(0)
+uampl, param0 = getInitialParams(1)
 σamax = 0.3 # [mm] constant? for robobee actuators
 
 includet("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
-N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE; uampl=uampl, makeplot=true)
+N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE; uampl=uampl)
 
 # Param opt init
 cycleFreqLims = [0.4, 0.03] # [KHz]
