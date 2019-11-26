@@ -96,6 +96,7 @@ function scaleParamsForlift(ret, minlifts, τ21ratiolim; kwargs...)
 	np = length(param0)
 	p1 = plot(minliftsmg, res[:,POPTS.τinds], xlabel="min avg lift [mg]", label=llabels[POPTS.τinds], ylabel="T1,T2", linewidth=2, legend=:topleft)
 	p2 = plot(minliftsmg, [res[:,np+1]  res[:,np+3]], xlabel="min avg lift [mg]", ylabel="umin [mN]", linewidth=2, legend=:topleft, label=["inf","2"])
+	hline!(p2, [75], linestyle=:dash, color=:black, label="robobee act")
 	p3 = plot(minliftsmg, 1000 ./ (N*res[:,np]), xlabel="min avg lift [mg]", ylabel="Cycle freq [Hz]", linewidth=2, legend=false)
 	p4 = plot(minliftsmg, res[:,np+2], xlabel="min avg lift [mg]", ylabel="unact err", linewidth=2, legend=false)
 
@@ -110,7 +111,7 @@ function plotNonlinBenefit(ret)
     ]
     labels = [
         "nonlin ratio",
-        "min avg lift [mg]"
+        "min avg lift [mN]"
 	]
 	
 	function maxu(τ21ratiolim, minal)
@@ -124,7 +125,7 @@ function plotNonlinBenefit(ret)
 		maxuatτ2_0 = zgrid[:,1]
 		zgrid = zgrid ./ repeat(maxuatτ2_0, 1, length(pranges[i1]))
 
-		pl = contourf(1000/9.81 * pranges[i1], pranges[i2], zgrid, fill=true, seriescolor=cgrad(:bluesreds), xlabel=labels[i1], ylabel=labels[i2])
+		pl = contourf(pranges[i1], pranges[i2], zgrid, fill=true, seriescolor=cgrad(:bluesreds), xlabel=labels[i1], ylabel=labels[i2])
         # just in case
         xlims!(pl, (pranges[i1][1], pranges[i1][end]))
         ylims!(pl, (pranges[i2][1], pranges[i2][end]))
@@ -151,8 +152,8 @@ end
 # ID
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
-# # 2. Try to optimize
-# ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.6)#; print_level=3, max_iter=10000)
+# 2. Try to optimize
+ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.7)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 
@@ -162,16 +163,16 @@ ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2
 # pl1 = plotTrajs(m, opt, listOfParamTraj(ret1, ret2)...)
 # plot(pl1...)
 
-# # ---------
-# pls = debugComponentsPlot(ret2)
-# plot(pls..., size=(800,600))
+# ---------
+pls = debugComponentsPlot(ret2)
+plot(pls..., size=(800,600))
 
-# -----------------
-pls = plotNonlinBenefit(ret1) # SLOW
-plot(pls...)
+# # -----------------
+# pls = plotNonlinBenefit(ret1) # SLOW
+# plot(pls...)
 
 # # ----------------
-# pls = scaleParamsForlift(ret1, 0.6:0.2:1.6, 2)
+# pls = scaleParamsForlift(ret1, 1.0:0.2:2.0, 2)
 # plot(pls...)
 
 # # traj opt ------------------------------------
