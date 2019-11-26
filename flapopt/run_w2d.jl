@@ -106,11 +106,11 @@ function plotNonlinBenefit(ret)
     # First plot the param landscape
     pranges = [
         0:0.3:3.0, # τ21ratiolim
-        0.6:0.2:1.6 # minal
+        0.6:0.15:1.6 # minal
     ]
     labels = [
         "nonlin ratio",
-        "minal"
+        "min avg lift [mg]"
 	]
 	
 	function maxu(τ21ratiolim, minal)
@@ -124,7 +124,7 @@ function plotNonlinBenefit(ret)
 		maxuatτ2_0 = zgrid[:,1]
 		zgrid = zgrid ./ repeat(maxuatτ2_0, 1, length(pranges[i1]))
 
-		pl = contourf(pranges[i1], pranges[i2], zgrid, fill=true, seriescolor=cgrad(:bluesreds), xlabel=labels[i1], ylabel=labels[i2])
+		pl = contourf(1000/9.81 * pranges[i1], pranges[i2], zgrid, fill=true, seriescolor=cgrad(:bluesreds), xlabel=labels[i1], ylabel=labels[i2])
         # just in case
         xlims!(pl, (pranges[i1][1], pranges[i1][end]))
         ylims!(pl, (pranges[i2][1], pranges[i2][end]))
