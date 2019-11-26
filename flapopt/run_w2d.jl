@@ -105,8 +105,8 @@ end
 function plotNonlinBenefit(ret)
     # First plot the param landscape
     pranges = [
-        0:0.15:3.0, # τ21ratiolim
-        0.5:0.1:1.5 # minal
+        0:0.3:3.0, # τ21ratiolim
+        0.6:0.2:1.6 # minal
     ]
     labels = [
         "nonlin ratio",
@@ -114,8 +114,8 @@ function plotNonlinBenefit(ret)
 	]
 	
 	function maxu(τ21ratiolim, minal)
-		r = opt1(traj1, param1, 1, minal, τ21ratiolim)
-		return norm(r["traj"][(N+1)*ny+1:end], Inf)
+		rr = opt1(ret["traj"], ret["param"], 1, minal, τ21ratiolim)
+		return rr["u∞"]
 	end
 
 	function plotSlice(i1, i2)
@@ -151,8 +151,8 @@ end
 # ID
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
-# 2. Try to optimize
-ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.6)#; print_level=3, max_iter=10000)
+# # 2. Try to optimize
+# ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.6)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 
@@ -162,13 +162,13 @@ ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.6)#; print_level=3, max_iter=10000
 # pl1 = plotTrajs(m, opt, listOfParamTraj(ret1, ret2)...)
 # plot(pl1...)
 
-# ---------
-pls = debugComponentsPlot(ret2)
-plot(pls..., size=(800,600))
+# # ---------
+# pls = debugComponentsPlot(ret2)
+# plot(pls..., size=(800,600))
 
 # -----------------
-# pls = plotNonlinBenefit() # SLOW
-# plot(pls...)
+pls = plotNonlinBenefit(ret1) # SLOW
+plot(pls...)
 
 # # ----------------
 # pls = scaleParamsForlift(ret1, 0.6:0.2:1.6, 2)
