@@ -18,11 +18,11 @@ includet("Wing2DOF.jl")
 # To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
 	17.0, # R, [Jafferis (2016)]
-	0.35#= 1.5 =#, #k output
+	0.55#= 1.5 =#, #k output
 	0, #b output
 	6, # ma
 	0, # ba
-	100#= 0 =#, # ka
+	150#= 0 =#, # ka
 	true) # bCoriolis
 ny, nu = cu.dims(m)
 
@@ -66,7 +66,7 @@ POPTS = cu.ParamOptOpts(
 	R=(zeros(4,4), 0, 1.0*I), 
 	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0, dtlims[1]],
 	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0, dtlims[2]],
-	εunact = 0.3, # 0.1 default. Do this for now to iterate faster
+	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
 	uinfnorm = true
 )
 includet("w2d_shift.jl")
@@ -151,8 +151,8 @@ end
 # ID
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
-# # 2. Try to optimize
-# ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.6)#; print_level=3, max_iter=10000)
+# 2. Try to optimize
+ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.6)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 
@@ -162,17 +162,17 @@ ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2
 # pl1 = plotTrajs(m, opt, listOfParamTraj(ret1, ret2)...)
 # plot(pl1...)
 
-# # ---------
-# pls = debugComponentsPlot(ret2)
-# plot(pls..., size=(800,600))
+# ---------
+pls = debugComponentsPlot(ret2)
+plot(pls..., size=(800,600))
 
 # -----------------
 # pls = plotNonlinBenefit() # SLOW
 # plot(pls...)
 
-# ----------------
-pls = scaleParamsForlift(ret1, 0.6:0.2:1.6, 2)
-plot(pls...)
+# # ----------------
+# pls = scaleParamsForlift(ret1, 0.6:0.2:1.6, 2)
+# plot(pls...)
 
 # # traj opt ------------------------------------
 
