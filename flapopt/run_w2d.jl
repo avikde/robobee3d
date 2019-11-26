@@ -25,13 +25,13 @@ m = Wing2DOFModel(
 	100#= 0 =#, # ka
 	true) # bCoriolis
 ny, nu = cu.dims(m)
-param0 = [5.4,  # cbar[mm] (area/R)
-	28.33, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
-	0.52, # mwing[mg]
-	5, # kΨ [mN-mm/rad]
-	3, # bΨ [mN-mm/(rad/ms)]
+param0 = [5.411,  # cbar[mm] (area/R)
+	18.681, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
+	0.866, # mwing[mg]
+	22.633, # kΨ [mN-mm/rad]
+	12.037, # bΨ [mN-mm/(rad/ms)]
 	0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
-	0.135 # dt
+	0.109 # dt
 ]
 σamax = 0.3 # [mm] constant? for robobee actuators
 
