@@ -26,31 +26,37 @@ m = Wing2DOFModel(
 	true) # bCoriolis
 ny, nu = cu.dims(m)
 
-# scaled-up
-param0 = [5.411,  # cbar[mm] (area/R)
-	18.681, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
-	0.866, # mwing[mg]
-	22.633, # kΨ [mN-mm/rad]
-	12.037, # bΨ [mN-mm/(rad/ms)]
-	0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
-	0.109 # dt
-]
-# # robobee-scale
-# param0 = [3.2,  # cbar[mm] (area/R)
-# 	28.33, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
-# 	0.52, # mwing[mg]
-# 	5, # kΨ [mN-mm/rad]
-# 	3, # bΨ [mN-mm/(rad/ms)]
-# 	0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
-# 	0.135 # dt
-# ]
+function getInitialParams(itype=0)
+	if itype==0
+		# robobee scale
+		return 65, [3.2,  # cbar[mm] (area/R)
+			28.33, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
+			0.52, # mwing[mg]
+			5, # kΨ [mN-mm/rad]
+			3, # bΨ [mN-mm/(rad/ms)]
+			0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
+			0.135 # dt
+		]
+	elseif itype==1
+		# scaled up
+		return 100, [5.411,  # cbar[mm] (area/R)
+			18.681, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
+			0.866, # mwing[mg]
+			22.633, # kΨ [mN-mm/rad]
+			12.037, # bΨ [mN-mm/(rad/ms)]
+			0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
+			0.109 # dt
+		]
+	end
+end
+uampl, param0 = getInitialParams(1)
 σamax = 0.3 # [mm] constant? for robobee actuators
 
 includet("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
-N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE)
+N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE; uampl=uampl)
 
 # Param opt init
 cycleFreqLims = [0.4, 0.03] # [KHz]
@@ -60,7 +66,7 @@ POPTS = cu.ParamOptOpts(
 	R=(zeros(4,4), 0, 1.0*I), 
 	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0, dtlims[1]],
 	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0, dtlims[2]],
-	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
+	εunact = 0.3, # 0.1 default. Do this for now to iterate faster
 	uinfnorm = true
 )
 includet("w2d_shift.jl")
@@ -145,13 +151,8 @@ end
 # ID
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
-# 2. Try to optimize
-ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.6)#; print_level=3, max_iter=10000)
-# ret3 = opt1(ret1["traj"], ret1["param"], 1, 1.0; print_level=3, max_iter=10000)
-# traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 1.3)
-# paramObj2(p) = paramObj([p; zeros((N+1)*ny)])
-# pls = plotParamImprovement(m, opt, [param1, param2, param3], [traj1, traj2, traj3], paramObj2)
-# plot(pls...)
+# # 2. Try to optimize
+# ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.6)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 
@@ -170,7 +171,7 @@ ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.6)#; print_level=3, max_iter=10000
 # plot(pls...)
 
 # ----------------
-pls = scaleParamsForlift(ret1, 0.5:0.2:1.6, 2)
+pls = scaleParamsForlift(ret1, 0.6:0.2:1.6, 2)
 plot(pls...)
 
 # # traj opt ------------------------------------

@@ -39,11 +39,11 @@ end
 kinType -- 0 => ID'ed real data, 1 => openloop sim with param0 then truncate, 2 => generate kinematics(t)
 fix -- Make traj satisfy dyn constraint with these params?
 """
-function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0)
+function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65)
 	if kinType==1
 		opt = cu.OptOptions(true, false, 0.135, 1, :none, 1e-8, false) # sim
 		N = opt.boundaryConstraint == :symmetric ? 23 : 45
-		trajt, traj0 = createInitialTraj(m, opt, N, 0.165, [1e3, 1e2], param0, 170; uampl=100)
+		trajt, traj0 = createInitialTraj(m, opt, N, 0.165, [1e3, 1e2], param0, 170; uampl=uampl)
 	elseif kinType==0
 		# Load data
 		opt = cu.OptOptions(true, false, 0.135, 1, :none, 1e-8, false) # real
