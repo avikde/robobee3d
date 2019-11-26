@@ -18,28 +18,45 @@ includet("Wing2DOF.jl")
 # To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
 	17.0, # R, [Jafferis (2016)]
-	0.35#= 1.5 =#, #k output
+	0.55#= 1.5 =#, #k output
 	0, #b output
 	6, # ma
 	0, # ba
-	100#= 0 =#, # ka
+	150#= 0 =#, # ka
 	true) # bCoriolis
 ny, nu = cu.dims(m)
-param0 = [3.2,  # cbar[mm] (area/R)
-	28.33, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
-	0.52, # mwing[mg]
-	5, # kΨ [mN-mm/rad]
-	3, # bΨ [mN-mm/(rad/ms)]
-	0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
-	0.135 # dt
-]
+
+function getInitialParams(itype=0)
+	if itype==0
+		# robobee scale
+		return 70, [3.2,  # cbar[mm] (area/R)
+			28.33, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
+			0.52, # mwing[mg]
+			5, # kΨ [mN-mm/rad]
+			3, # bΨ [mN-mm/(rad/ms)]
+			0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
+			0.135 # dt
+		]
+	elseif itype==1
+		# scaled up
+		return 100, [5.411,  # cbar[mm] (area/R)
+			18.681, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
+			0.866, # mwing[mg]
+			22.633, # kΨ [mN-mm/rad]
+			12.037, # bΨ [mN-mm/(rad/ms)]
+			0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
+			0.109 # dt
+		]
+	end
+end
+uampl, param0 = getInitialParams(1)
 σamax = 0.3 # [mm] constant? for robobee actuators
 
 includet("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
-N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE)
+N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE; uampl=uampl)
 
 # Param opt init
 cycleFreqLims = [0.4, 0.03] # [KHz]
@@ -49,16 +66,17 @@ POPTS = cu.ParamOptOpts(
 	R=(zeros(4,4), 0, 1.0*I), 
 	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0, dtlims[1]],
 	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0, dtlims[2]],
-	εunact = 1.0 # 0.1 default. Do this for now to iterate faster
+	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
+	uinfnorm = true
 )
 includet("w2d_shift.jl")
 # FUNCTIONS GO HERE -------------------------------------------------------------
 
 """Run many opts to get the best params for a desired min lift"""
-function scaleParamsForlift(ret, minlifts, τ21ratiolim)
+function scaleParamsForlift(ret, minlifts, τ21ratiolim; kwargs...)
 	traj, param = ret["traj"], ret["param"]
 	function maxuForMinAvgLift(al)
-		r = opt1(traj, param, 1, al, τ21ratiolim)
+		r = opt1(traj, param, 1, al, τ21ratiolim; kwargs...)
 		# kΨ, bΨ = param2[4:5]
 		uu = r["traj"][(N+1)*ny:end]
 		return [r["param"]; norm(uu, Inf); norm(r["unactErr"], Inf); norm(uu, 2)/N]
@@ -78,6 +96,7 @@ function scaleParamsForlift(ret, minlifts, τ21ratiolim)
 	np = length(param0)
 	p1 = plot(minliftsmg, res[:,POPTS.τinds], xlabel="min avg lift [mg]", label=llabels[POPTS.τinds], ylabel="T1,T2", linewidth=2, legend=:topleft)
 	p2 = plot(minliftsmg, [res[:,np+1]  res[:,np+3]], xlabel="min avg lift [mg]", ylabel="umin [mN]", linewidth=2, legend=:topleft, label=["inf","2"])
+	hline!(p2, [75], linestyle=:dash, color=:black, label="robobee act")
 	p3 = plot(minliftsmg, 1000 ./ (N*res[:,np]), xlabel="min avg lift [mg]", ylabel="Cycle freq [Hz]", linewidth=2, legend=false)
 	p4 = plot(minliftsmg, res[:,np+2], xlabel="min avg lift [mg]", ylabel="unact err", linewidth=2, legend=false)
 
@@ -87,17 +106,17 @@ end
 function plotNonlinBenefit(ret)
     # First plot the param landscape
     pranges = [
-        0:0.15:3.0, # τ21ratiolim
-        0.5:0.1:1.5 # minal
+        0:0.3:3.0, # τ21ratiolim
+        0.6:0.15:1.6 # minal
     ]
     labels = [
         "nonlin ratio",
-        "minal"
+        "min avg lift [mN]"
 	]
 	
 	function maxu(τ21ratiolim, minal)
-		r = opt1(traj1, param1, 1, minal, τ21ratiolim)
-		return norm(r["traj"][(N+1)*ny+1:end], Inf)
+		rr = opt1(ret["traj"], ret["param"], 1, minal, τ21ratiolim)
+		return rr["u∞"]
 	end
 
 	function plotSlice(i1, i2)
@@ -134,12 +153,7 @@ end
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-ret2 = opt1(ret1["traj"], ret1["param"], 1, 0.6)#; print_level=3, max_iter=10000)
-# ret3 = opt1(ret1["traj"], ret1["param"], 1, 1.0; print_level=3, max_iter=10000)
-# traj3, param3, paramObj, _ = opt1(traj2, param2, 1, 1.3)
-# paramObj2(p) = paramObj([p; zeros((N+1)*ny)])
-# pls = plotParamImprovement(m, opt, [param1, param2, param3], [traj1, traj2, traj3], paramObj2)
-# plot(pls...)
+ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.7)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 
@@ -153,12 +167,12 @@ ret2 = opt1(ret1["traj"], ret1["param"], 1, 0.6)#; print_level=3, max_iter=10000
 pls = debugComponentsPlot(ret2)
 plot(pls..., size=(800,600))
 
-# -----------------
-# pls = plotNonlinBenefit() # SLOW
+# # -----------------
+# pls = plotNonlinBenefit(ret1) # SLOW
 # plot(pls...)
 
 # # ----------------
-# pls = scaleParamsForlift(ret1, 0.6:0.2:1.6, 2)
+# pls = scaleParamsForlift(ret1, 1.0:0.2:2.0, 2)
 # plot(pls...)
 
 # # traj opt ------------------------------------

@@ -178,16 +178,19 @@ end
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65)
+function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, posctrl=false)
     # Create a traj
     σampl = 0.2#cu.limits(m)[end][1]
     tend = 100.0 # [ms]
     function controller(y, t)
-        # # Stroke pos control
-        # σdes = σampl * sin(freq * 2 * π * t)
-        # dσdes = σampl * freq * 2 * π * cos(freq * 2 * π * t)
-        # return posGains[1] * (σdes - y[1]) + posGains[2] * (dσdes - y[3])
-        return uampl * cos(freq * 2 * π * t)
+        if posctrl
+            # Stroke pos control
+            σdes = σampl * sin(freq * 2 * π * t)
+            dσdes = σampl * freq * 2 * π * cos(freq * 2 * π * t)
+            return posGains[1] * (σdes - y[1]) + posGains[2] * (dσdes - y[3])
+        else
+            return uampl * cos(freq * 2 * π * t)
+        end
     end
     vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
     # OL traj1
