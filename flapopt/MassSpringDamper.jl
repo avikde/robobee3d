@@ -49,23 +49,7 @@ function cu.dydt(m::MassSpringDamperModel, y::AbstractArray, u::AbstractArray, p
     return [y[2], ddy]
 end
 
-# "Objective to minimize"
-# function cu.robj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, params::AbstractArray)::AbstractArray
-#     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-    
-# 	yk = k -> @view traj[liy[:,k]]
-# 	uk = k -> @view traj[liu[:,k]]
-#     kvec = collect(1:N+1)
-#     rtrajErr = first.(yk.(kvec)) - σdes.(N, kvec)
-#     # only traj cost
-#     return rtrajErr
-#     # # also add input cost?
-#     # ru = 0.1 * uk.(collect(1:N))
-#     # return [rtrajErr;ru]
-# end
-
-# -------------------------------------------------------------------------------
-
+# ------------------------------------
 
 function createOLTraj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, params::AbstractArray)::AbstractArray
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)

@@ -408,28 +408,6 @@ function eulerIntegrate(m::cu.Model, opt::cu.OptOptions, traj::Vector, params::V
     return trajei
 end
 
-# "Cost function components" ------------------
-
-"Objective to minimize"
-function cu.robj(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray)::AbstractArray
-    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-    
-	yk = k -> @view traj[liy[:,k]]
-	uk = k -> @view traj[liu[:,k]]
-    
-    cbar, τ1, mwing, kΨ, bΨ, τ2, dt = param
-
-    Favg = @SVector zeros(2)
-    for k = 1:N
-        paero, _, Faero = w2daero(m, cu.transmission(m, yk(k), param)[1], param)
-        Favg += Faero
-    end
-    # Divide by the total time
-    Favg /= (N) # [mN]
-    # avg lift
-    return [Favg[2] - 100]
-end
-
 # param opt stuff ------------------------
 
 function cu.transmission(m::Wing2DOFModel, y::AbstractArray, _param::Vector; o2a=false)

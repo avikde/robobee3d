@@ -58,6 +58,29 @@ includet("w2d_paramopt.jl")
 KINTYPE = 1
 N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE; uampl=uampl)
 
+# "Cost function components" ------------------
+
+wrench(paero, Faero) = [Faero; paero' * [0 -1; 1 0] * Faero]
+
+"Objective to minimize"
+function cu.robj(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray)::AbstractArray
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+    
+	yk = k -> @view traj[liy[:,k]]
+	uk = k -> @view traj[liu[:,k]]
+    
+	cbar, τ1, mwing, kΨ, bΨ, τ2, dt = param
+	
+	function wrenchk(k)
+		paero, _, Faero = w2daero(m, cu.transmission(m, yk(k), param)[1], param)
+		return wrench(paero, Faero)
+	end
+
+	Wavg = sum([wrenchk(k)[1] for k=1:N]) / N
+    # avg lift
+    return [Wavg - 100]
+end
+
 # traj opt ------------------------------------
 
 εs = [0.05, 0.005, 0.001] # IC, dyn, symm
