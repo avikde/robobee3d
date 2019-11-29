@@ -58,10 +58,14 @@ includet("w2d_paramopt.jl")
 KINTYPE = 1
 N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE; uampl=uampl)
 
-# # traj opt ------------------------------------
+# traj opt ------------------------------------
 
-# # εs = [0.05, 0.005, 0.001] # IC, dyn, symm
-# # prob = cu.ipoptsolve(m, opt, traj0, param0, εs, :traj)
+εs = [0.05, 0.005, 0.001] # IC, dyn, symm
+prob = cu.ipoptsolve(m, opt, traj0, param0, εs, :traj; print_level=1)
+traj1 = prob.x
+
+pls = plotTrajs(m, opt, [param0, param0], [traj0, traj1])
+plot(pls...)
 
 # # plot(plot(prob.g), plot(prob.mult_g), size=(900,400))
 
