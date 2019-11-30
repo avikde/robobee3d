@@ -76,9 +76,14 @@ function cu.robj(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, para
 		return wrench(paero, Faero)
 	end
 
-	Wavg = sum([wrenchk(k)[1] for k=1:N]) / N
+	# Compute the average wrench over the cycle
+	wrenchAvg = zeros(3)
+	for k=1:N
+		wrenchAvg += wrenchk(k)
+	end
+	wrenchAvg /= N
     # avg lift
-    return [Wavg - 100]
+    return [wrenchAvg[2] - 100]
 end
 
 # traj opt ------------------------------------
