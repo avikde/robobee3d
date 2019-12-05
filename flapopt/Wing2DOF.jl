@@ -44,6 +44,7 @@ struct Wing2DOFModel <: controlutils.Model
     ba::Float64 # [mN/(mm/ms)]
     ka::Float64 # [mN/mm]
     bCoriolis::Bool # true to include hinge->stroke Coriolis term or leave out for testing
+    r2hr1h2::Float64 # (r2hat/r1hat)^2 where those are the first and second moments -- see [Whitney (2010)]
 end
 
 # Fixed params -----------------
@@ -108,7 +109,7 @@ function w2daero(m::Wing2DOFModel, yo::AbstractArray, _params::Vector)
     {d\[Sigma], -1, 1}, {\[Psi], -\[Pi]/2, \[Pi]/2}]
     =#
     Caero = @SVector [((CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2α)), CLmax * sin(2α)]
-    Faero = 1/2 * ρ * cbar * m.R * σ̇^2 * Caero * sign(-σ̇) # [mN]
+    Faero = 1/2 * ρ * cbar * m.r2hr1h2 * m.R * σ̇^2 * Caero * sign(-σ̇) # [mN]
 
     return paero, Jaero, Faero
 end

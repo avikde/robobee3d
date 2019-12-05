@@ -23,7 +23,8 @@ m = Wing2DOFModel(
 	6, # ma
 	0, # ba
 	150#= 0 =#, # ka
-	true) # bCoriolis
+	true, # bCoriolis
+	4/3) # r2hr1h2
 ny, nu = cu.dims(m)
 
 function getInitialParams(itype=0)
