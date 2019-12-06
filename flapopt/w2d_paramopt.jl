@@ -13,10 +13,10 @@ function estimateWingDensity(test=false)
 	Ixx = [1.91 2.25 2.56 2.90 3.27 3.64]' # spanwise moment of inertia, i.e. in the stroke dynamics (through R^2)
 	Izz = [40.6 48.8 57.2 65.6 73.4 82.7]' # chordwise moment of inertia, i.e. inertia in the hinge dynamics
 	cbar0 = 5.345 # Use dC from LoadWingKinData.jl
-	# Want to fit a density such that Ixx
-	mwings = Ixx/(m.R/2)^2 #<- this TODO: this does not make much sense... check with Noah
-	mwings2 = Izz/(2*cbar0^2*γ^2)
-	meanpred = mwings2 ./ cbar0
+	# # Want to fit a density such that Ixx
+	# mwings = Ixx/(m.R/2)^2 #<- this TODO: this does not make much sense... check with Noah
+	# mwings2 = Izz/(2*cbar0^2*γ^2)
+	# meanpred = mwings2 ./ cbar0
 	# FIXME: for robobee design this is producing torques that are too high
 	# rholims = [meanpred[1] * cbar0, meanpred[end] * cbar0]
 	rholims = [0.16, 0.35] # from param0 = 0.16
@@ -46,9 +46,10 @@ function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, sta
 		trajt, traj0 = createInitialTraj(m, opt, N, 0.165, [1e3, 1e2], param0, starti; uampl=uampl)
 	elseif kinType==0
 		# Load data
+    	cbar, τ1, mwing, kΨ, bΨ, τ2, R, dt = param0
 		opt = cu.OptOptions(true, false, 0.135, 1, :none, 1e-8, false) # real
 		# N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
-		N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; sigi=1, strokeSign=1, strokeMult=m.R/(2*param0[2]), ForcePerVolt=75/100, vidSF=7320, Ψshift=Ψshift) # 75mN unidirectional at 200Vpp (from Noah)
+		N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; sigi=1, strokeSign=1, strokeMult=R/(2*τ1), ForcePerVolt=75/100, vidSF=7320, Ψshift=Ψshift) # 75mN unidirectional at 200Vpp (from Noah)
 	else
 		error("Not implemented")
 	end
@@ -79,10 +80,10 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 
 	# Poly constraint
 	rholims = estimateWingDensity()
-	Cp = Float64[-1  0  0  0  0  0  0;
-		0  -τ21ratiolim  0  0  0  1  0;
-		rholims[1]   0  -1  0  0  0  0; # wing density mw >= cbar*ρ1
-		-rholims[2]   0  1  0  0  0  0] # wing density mw <= cbar*ρ2
+	Cp = Float64[-1  0  0  0  0  0  0  0;
+		0  -τ21ratiolim  0  0  0  1  0  0;
+		rholims[1]   0  -1  0  0  0  0  0; # wing density mw >= cbar*ρ1
+		-rholims[2]   0  1  0  0  0  0  0] # wing density mw <= cbar*ρ2
 	cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
 	dp = [-cbarmin(minal); 0; 0; 0]
 

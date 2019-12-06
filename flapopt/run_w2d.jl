@@ -17,7 +17,6 @@ includet("Wing2DOF.jl")
 # For T=20, get ka = 240.
 # To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
-	17.0, # R, [Jafferis (2016)]
 	0.55#= 1.5 =#, #k output
 	0, #b output
 	6, # ma
@@ -36,16 +35,18 @@ function getInitialParams(itype=0)
 			5, # kΨ [mN-mm/rad]
 			3, # bΨ [mN-mm/(rad/ms)]
 			0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
+			17.0, # R [mm] (Jafferis 2016)
 			0.135 # dt
 		]
 	elseif itype==1
 		# scaled up
 		return 100, [5.411,  # cbar[mm] (area/R)
-			18.681, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
+			18.681, # τ1
 			0.866, # mwing[mg]
 			22.633, # kΨ [mN-mm/rad]
 			12.037, # bΨ [mN-mm/(rad/ms)]
-			0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
+			0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92,
+			17.0, # R [mm] (Jafferis 2016)
 			0.109 # dt
 		]
 	end
@@ -65,8 +66,8 @@ dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS = cu.ParamOptOpts(
 	τinds=[2,6], 
 	R=(zeros(4,4), 0, 1.0*I), 
-	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0, dtlims[1]],
-	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0, dtlims[2]],
+	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0, 15.0, dtlims[1]],
+	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0, 20.0, dtlims[2]],
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
 	uinfnorm = true
 )
