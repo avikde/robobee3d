@@ -19,7 +19,7 @@ function estimateWingDensity(test=false)
 	# meanpred = mwings2 ./ cbar0
 	# FIXME: for robobee design this is producing torques that are too high
 	# rholims = [meanpred[1] * cbar0, meanpred[end] * cbar0]
-	rholims = [0.16, 0.35] # from param0 = 0.16
+	rholims = [0.01, 0.04] # from param0 = 0.52/54.4
 
 	if test
 		p1 = plot(dspar, mwings, ylabel="mwing from Ixx", lw=2)
@@ -27,7 +27,7 @@ function estimateWingDensity(test=false)
 		hline!(p2, rholims)
 		plot(p1, p2)
 		gui()
-		error("rholims", rholims, " from param0 ", param0[3]/param0[1])
+		error("rholims", rholims, " from param0 ", param0[3]/param0[7])
 	end
 	
 	# return param0[3]/param0[1] <- 0.16
@@ -95,10 +95,10 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
     # cbar, τ1, mwing, kΨ, bΨ, τ2, Aw, dt = param
 	# Poly constraint
 	rholims = estimateWingDensity()
-	Cp = Float64[0  0  0  0  0  0  -1  0;
-		0  -τ21ratiolim  0  0  0  1  0  0;
-		rholims[1]   0  -1  0  0  0  0  0; # wing density mw >= cbar*ρ1
-		-rholims[2]   0  1  0  0  0  0  0] # wing density mw <= cbar*ρ2
+	Cp = Float64[0  0  0  0  0  0  -1  0; # min lift => Aw >= ?
+		0  -τ21ratiolim  0  0  0  1  0  0; # transmission nonlinearity τ2 <= τ21ratiolim * τ1
+		0   0  -1  0  0  0  rholims[1]  0; # wing density mw >= Aw*ρ1
+		0   0  1  0  0  0  -rholims[2]  0] # wing density mw <= Aw*ρ2
 	Awmin = minAvgLift -> param0[7] * minAvgLift / avgLift0
 	dp = [-Awmin(minal); 0; 0; 0]
 
