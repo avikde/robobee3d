@@ -453,7 +453,7 @@ end
 function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
     cbar, τ1, mwing, kΨ, bΨ, τ2, R, dt = param
     Tarr = [τ1, τ2]
-    return [1, kΨ, bΨ, cbar, cbar^2, mwing, mwing*cbar, mwing*cbar^2], Tarr, dt
+    return [1, kΨ, bΨ, cbar*R, cbar^2*R, mwing, mwing*cbar, mwing*cbar^2], Tarr, dt
 end
 
 function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::cu.ParamOptOpts, scaleTraj=1.0; debugComponents::Bool=false)
@@ -508,7 +508,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         rcop = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
 
         if POPTS.Fext_pdep
-            Ftil = -F/cbar
+            Ftil = -F/(cbar*R)
 
             # FIXME: this orig version probably has a negative sign error on the dynamics terms
             # return [0   -m.kσ*σa-m.bσ*σ̇a   Ftil[1]   0   0;
