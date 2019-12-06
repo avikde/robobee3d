@@ -17,13 +17,13 @@ includet("Wing2DOF.jl")
 # For T=20, get ka = 240.
 # To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
-	17.0, # R, [Jafferis (2016)]
 	0.55#= 1.5 =#, #k output
 	0, #b output
 	6, # ma
 	0, # ba
 	150#= 0 =#, # ka
-	true) # bCoriolis
+	true, # bCoriolis
+	4/3) # r2hr1h2
 ny, nu = cu.dims(m)
 
 function getInitialParams(itype=0)
@@ -35,16 +35,18 @@ function getInitialParams(itype=0)
 			5, # kΨ [mN-mm/rad]
 			3, # bΨ [mN-mm/(rad/ms)]
 			0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
+			54.4, # Aw = 3.2*17 [mm^2] (Jafferis 2016)
 			0.135 # dt
 		]
 	elseif itype==1
 		# scaled up
 		return 100, [5.411,  # cbar[mm] (area/R)
-			18.681, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
+			18.681, # τ1
 			0.866, # mwing[mg]
 			22.633, # kΨ [mN-mm/rad]
 			12.037, # bΨ [mN-mm/(rad/ms)]
-			0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
+			0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92,
+			91.987, # Aw [mm^2] (Jafferis 2016)
 			0.109 # dt
 		]
 	end
@@ -64,8 +66,8 @@ dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS = cu.ParamOptOpts(
 	τinds=[2,6], 
 	R=(zeros(4,4), 0, 1.0*I), 
-	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0, dtlims[1]],
-	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0, dtlims[2]],
+	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0, 84.0, dtlims[1]],
+	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0, 150.0, dtlims[2]],
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
 	uinfnorm = true
 )
@@ -87,7 +89,9 @@ function scaleParamsForlift(ret, minlifts, τ21ratiolim; kwargs...)
 		"mwing",
 		"hinge k",
 		"hinge b",
-		"T2"
+		"T2",
+		"Aw",
+		"dt"
 	]
 	minliftsmg = minlifts .* 1000/9.81
 
@@ -153,7 +157,7 @@ end
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.7)#; print_level=3, max_iter=10000)
+ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.9)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 
@@ -172,7 +176,7 @@ plot(pls..., size=(800,600))
 # plot(pls...)
 
 # # ----------------
-# pls = scaleParamsForlift(ret1, 1.0:0.2:2.0, 2)
+# pls = scaleParamsForlift(ret1, 1.5:0.1:2.2, 2)
 # plot(pls...)
 
 # # traj opt ------------------------------------
