@@ -92,14 +92,15 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
 	print(mode==2 ? "ID" : "Opt", " minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
 
+    # cbar, τ1, mwing, kΨ, bΨ, τ2, Aw, dt = param
 	# Poly constraint
 	rholims = estimateWingDensity()
-	Cp = Float64[-1  0  0  0  0  0  0  0;
+	Cp = Float64[0  0  0  0  0  0  -1  0;
 		0  -τ21ratiolim  0  0  0  1  0  0;
 		rholims[1]   0  -1  0  0  0  0  0; # wing density mw >= cbar*ρ1
 		-rholims[2]   0  1  0  0  0  0  0] # wing density mw <= cbar*ρ2
-	cbarmin = minAvgLift -> param0[1] * minAvgLift / avgLift0
-	dp = [-cbarmin(minal); 0; 0; 0]
+	Awmin = minAvgLift -> param0[7] * minAvgLift / avgLift0
+	dp = [-Awmin(minal); 0; 0; 0]
 
 	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
 	# append unactErr

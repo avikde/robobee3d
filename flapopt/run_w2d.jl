@@ -89,7 +89,9 @@ function scaleParamsForlift(ret, minlifts, τ21ratiolim; kwargs...)
 		"mwing",
 		"hinge k",
 		"hinge b",
-		"T2"
+		"T2",
+		"Aw",
+		"dt"
 	]
 	minliftsmg = minlifts .* 1000/9.81
 
