@@ -34,6 +34,20 @@ function estimateWingDensity(test=false)
 	return rholims
 end
 
+# TODO: improve this https://github.com/avikde/robobee3d/issues/81
+function fixTrajWithDynConst(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray)
+	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+	dt = param0[end]
+	
+	# Make a new traj where the dynamics constraint is satisfied exactly
+	traj1 = copy(traj)
+	yk = k -> @view traj1[liy[:,k]]
+	uk = k -> @view traj1[liu[:,k]]
+	for k=1:N
+		traj1[liy[:,k+1]] = yk(k) + dt * cu.dydt(m, yk(k), uk(k), param)
+	end
+	return traj1
+end
 
 """Produce initial traj
 kinType -- 0 => ID'ed real data, 1 => openloop sim with param0 then truncate, 2 => generate kinematics(t)
@@ -54,7 +68,7 @@ function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, sta
 	end
 
 	if fix
-		traj0 = cu.fixTrajWithDynConst(m, opt, traj0, param0)
+		traj0 = fixTrajWithDynConst(m, opt, traj0, param0)
 	end
 
 	if makeplot

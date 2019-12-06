@@ -86,7 +86,8 @@ end
 function affineTest(m, opt, traj, param, POPTS::ParamOptOpts)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
-    ptTEST, TTEST = getpt(m, param) # NOTE the actual param values are only needed for the test mode
+	ptTEST, TTEST = getpt(m, param) # NOTE the actual param values are only needed for the test mode
+	dt = param[end]
 
 	# Quadratic form matrix
 	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, POPTS)
@@ -94,7 +95,7 @@ function affineTest(m, opt, traj, param, POPTS::ParamOptOpts)
 	Bu = similar(Hpb)
 	for k=1:N
 		Hpb[:,k] = Hk(k, zeros(ny), zeros(ny)) * ptTEST
-		Bu[:,k] = δt * B * umeas(k)[1]
+		Bu[:,k] = dt * B * umeas(k)[1]
 	end
 	display(Hpb - Bu)
 	error("Tested")
