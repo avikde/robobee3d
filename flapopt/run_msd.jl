@@ -21,7 +21,8 @@ N = round(Int, 1/(opt.fixedδt*fdes)) # 1 period with dt=0.1 in createInitialTra
 param0 = [20.0, # τ1
 100.0, # ko
 100.0, # bo
-0.0] # τ2
+0.0, # τ2
+0.1] # dt
 
 # Generate a reference traj
 trajt, traj0orig, trajt = createInitialTraj(m, opt, N, fdes)
@@ -34,8 +35,8 @@ traj0 = traj0orig
 POPTS = cu.ParamOptOpts(
 	τinds=[1,4], 
 	R=(zeros(2,2), 0, 1.0*I), 
-	plimsL = [0.1, 0.1, 0.1, 0.0],
-	plimsU = [1000.0, 1000.0, 1000.0, 100.0],
+	plimsL = [0.1, 0.1, 0.1, 0.0, 0.01],
+	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 0.4],
 	uinfnorm = false
 )
 
@@ -45,15 +46,17 @@ POPTS = cu.ParamOptOpts(
 """One-off ID or opt"""
 function opt1(traj, param, mode, scaleTraj, bkratio=1.0, τ21ratiolim=2.0; testAffine=false, testAfter=false)
 	# A polytope constraint for the params: simple bo >= ko =>  ko - bo <= 0. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
-	Cp = Float64[0  bkratio  -1  0;
-		-τ21ratiolim  0  0  1]
+	Cp = Float64[0  bkratio  -1  0  0;
+		-τ21ratiolim  0  0  1  0]
 	dp = zeros(2)
-	param1, paramObj, traj1, unactErr, paramConstraint, s = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, scaleTraj=scaleTraj, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
+	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, scaleTraj=scaleTraj, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
+	uu = ret["traj"][(N+1)*ny:end]
+	ret["u∞"] = norm(uu, Inf)
 	if testAfter
-		cu.affineTest(m, opt, traj1, param1, POPTS)
+		cu.affineTest(m, opt, ret["traj"], ret["param"], POPTS)
 	end
-	println("bkratio = ", bkratio, ", τ21ratiolim = ", τ21ratiolim, " => ", param1')
-	return traj1, param1, paramObj, paramConstraint, s
+	println(ret["status"], ", ", round.(ret["param"]', digits=3), ", fHz=", round(1000/(N*ret["param"][end]), digits=1), ", al[mg]=", round(ret["al"] * 1000/9.81, digits=1), ", u∞=", round(ret["u∞"], digits=1), ", J=", round(ret["eval_f"](ret["x"]), digits=1), ", AR=", round(ret["param"][7]/ret["param"][1]^2, digits=1))
+	return ret
 end
 
 """Debug components in a traj. Assumes traj, param are feasible together here."""
@@ -159,12 +162,12 @@ end
 # One-off ID or opt ---------
 
 # first optimization to get better params - closer to resonance
-traj1, param1, paramObj, paramConstraint, s = opt1(traj0, param0, 1, 1.0, 0.2)
-display(param1')
+ret1 = opt1(traj0, param0, 1, 1.0, 0.2)
+display(ret1["param"]')
 # param1 = idealparams(param1)
 
 # debug components ---
-pls = debugComponentsPlot(traj1, param1)
+pls = debugComponentsPlot(ret1["traj"], ret1["param"])
 plot(pls..., size=(800,300))
 
 # pls = plotNonlinBenefit() # SLOW

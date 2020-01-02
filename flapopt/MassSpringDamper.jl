@@ -41,7 +41,7 @@ end
 "Continuous dynamics second order model"
 function cu.dydt(m::MassSpringDamperModel, y::AbstractArray, u::AbstractArray, param::Vector)::AbstractArray
     # unpack
-    τ1, ko, bo, τ2 = param
+    τ1, ko, bo, τ2, dt = param
     ya, T, τfun, τifun = cu.transmission(m, y, param; o2a=true)
     σo, dσo = y
     ddy = 1.0/(m.mo + m.ma/T^2) * (-(ko*σo + m.ka/T*τifun(σo)) - (bo)*dσo + u[1]/T)
@@ -117,7 +117,7 @@ function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t, params, traj
     
     # actuator displacement
     function actdisp(traj, param)
-        τ1, ko, bo, τ2 = param
+        τ1, ko, bo, τ2, dt = param
         y2, T, τfun, τifun = cu.transmission(m, traj, param; o2a=true)
         return τifun.(traj[@view liy[1,:]])
     end
@@ -135,8 +135,8 @@ end
 # ---------------------- Param opt -----------------------------
 
 function cu.paramLumped(m::MassSpringDamperModel, param::AbstractArray)
-    τ1, ko, bo, τ2 = param
-    return [1, ko, bo], [τ1, τ2]
+    τ1, ko, bo, τ2, dt = param
+    return [1, ko, bo], [τ1, τ2], dt
 end
 
 function cu.transmission(m::MassSpringDamperModel, y::AbstractArray, _param::Vector; o2a=false)
@@ -164,7 +164,7 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     uk = k -> @view traj[liu[:,k]]
 
     # Param stuff
-    τ1, ko, bo, τ2 = param
+    τ1, ko, bo, τ2, dt = param
 
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
     function HMqTo(ypos, yvel)
@@ -178,22 +178,22 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
         return [0   0   0   σ̇o*m.ma   σ̇o*m.ma*(-σo^2)]
     end
     HMqT(ypos, yvel) = HMqTo(ypos, yvel) + HMqTa(ypos, yvel)
-    Hio = (y, ynext) -> HMqTo(y, ynext) - HMqTo(y, y)
-    Hia = (y, ynext) -> HMqTa(y, ynext) - HMqTa(y, y)
+    # Hio = (y, ynext) -> HMqTo(y, ynext) - HMqTo(y, y)
+    # Hia = (y, ynext) -> HMqTa(y, ynext) - HMqTa(y, y)
 
     function Hstiffo(y)
         σo, σ̇o = y * scaleTraj
-        return δt*[0   σo   0   0   0]
+        return [0   σo   0   0   0]
     end
     function Hstiffa(y)
         σo, σ̇o = y * scaleTraj
-        return δt*[0   0   0   m.ka*σo   m.ka*(-σo^3/3)]
+        return [0   0   0   m.ka*σo   m.ka*(-σo^3/3)]
     end
     function Hdamp(y)
         σo, σ̇o = y * scaleTraj
-        return δt*[0   0   σ̇o   0    0]
+        return [0   0   σ̇o   0    0]
     end
-    HCgJTδt(y) = Hstiffo(y) + Hstiffa(y) + Hdamp(y)
+    HCgJT(y) = Hstiffo(y) + Hstiffa(y) + Hdamp(y)
 
     if debugComponents
         return yo, Hio, Hia, Hstiffo, Hstiffa, Hdamp
@@ -201,15 +201,18 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     # ----------------
 
     # 1st order integration
-    Htil = (y, ynext) -> HMqT(y, ynext) - HMqT(y, y) + HCgJTδt(y)
+    Htili = (y, ynext) -> HMqT(y, ynext) - HMqT(y, y)
+    Htilni = HCgJT
     
     # Functions to output
     "Takes in a Δy in output coords"
     function Hk(k, Δyk, Δykp1)
-        Hh = Htil(yo(k) + Δyk, yo(k+1) + Δykp1)
+        Hi = Htili(yo(k) + Δyk, yo(k+1) + Δykp1)
+        Hni = Htilni(yo(k) + Δyk)
         # With new nonlinear transmission need to break apart H
         σo = (yo(k) + Δyk)[1]
-        return hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
+        Hfortrans = Hh -> hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
+        return [Hfortrans(Hi)  Hfortrans(Hni)]
     end
     
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
