@@ -101,6 +101,21 @@ function affineTest(m, opt, traj, param, POPTS::ParamOptOpts)
 	error("Tested")
 end
 
+# TODO: improve this https://github.com/avikde/robobee3d/issues/81
+function fixTrajWithDynConst(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+	dt = param[end]
+	
+	# Make a new traj where the dynamics constraint is satisfied exactly
+	traj1 = copy(traj)
+	yk = k -> @view traj1[liy[:,k]]
+	uk = k -> @view traj1[liu[:,k]]
+	for k=1:N
+		traj1[liy[:,k+1]] = yk(k) + dt * dydt(m, yk(k), uk(k), param)
+	end
+	return traj1
+end
+
 "Helper function for optAffine. See optAffine for the def of x"
 function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt, Hk, yo, umeas, B, N)
 	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
