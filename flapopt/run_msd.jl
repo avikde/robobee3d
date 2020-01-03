@@ -35,8 +35,8 @@ traj0 = traj0orig
 POPTS = cu.ParamOptOpts(
 	τinds=[1,4], 
 	R=(zeros(2,2), 0, 1.0*I), 
-	plimsL = [0.1, 0.1, 0.1, 0.0, 0.01],
-	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 0.4],
+	plimsL = [0.1, 0.1, 0.1, 0.0, 0.1],
+	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 0.1],
 	uinfnorm = false
 )
 
@@ -63,7 +63,7 @@ end
 function debugComponentsPlot(traj, param)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
     τ1, ko, bo, τ2, dt = param
-	tvec = dt*collect(1:N) # was trajt[1:N]
+	tvec = dt*collect(0:(N-1)) # was trajt[1:N]
 	freq = 1/(N*dt)
 	post, velt, acct = refTraj(m, freq)
 
