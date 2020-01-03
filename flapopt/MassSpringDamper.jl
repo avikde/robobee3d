@@ -135,7 +135,8 @@ function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t, params, traj
         # also plot the des pos and vel to make sure the initial traj is "OK"
         post, velt = refTraj(m, fdes)
         plot!(σt, t, post.(t), color=:blue, linestyle=:dash)
-        plot!(dσt, t, velt.(t), color=:blue, linestyle=:dash)
+        # FIXME: this factor seems like it is related to the freq. initial dt=0.1; if the dt is changed so that new dt=0.3; this needs to be newdt/olddt. Why??
+        plot!(dσt, t, 4*velt.(t), color=:blue, linestyle=:dash)
     end
 
     # Combine the subplots
