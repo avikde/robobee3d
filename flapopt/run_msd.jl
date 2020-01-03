@@ -10,8 +10,8 @@ cu = controlutils
 includet("MassSpringDamper.jl")
 
 # create an instance
-m = MassSpringDamperModel(0, # ma
-	0, # ka
+m = MassSpringDamperModel(6, # ma
+	150, # ka
 	500, # mo
 	100) # umax
 ny, nu = cu.dims(m)
