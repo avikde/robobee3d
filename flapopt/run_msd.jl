@@ -63,9 +63,9 @@ end
 function debugComponentsPlot(traj, param)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
     τ1, ko, bo, τ2, dt = param
-	# opt1(traj, param, 1, 1.0; testAffine=true)
-	tvec = collect(dt:dt:N*dt) # was trajt[1:N]
-	post, velt, acct = refTraj(m, 1/(N*dt))
+	tvec = dt*collect(1:N) # was trajt[1:N]
+	freq = 1/(N*dt)
+	post, velt, acct = refTraj(m, freq)
 
 	# Get the components
 	yo, Hio, Hia, Hstiffo, Hstiffa, Hdamp = cu.paramAffine(m, opt, traj, param, POPTS; debugComponents=true)
@@ -111,10 +111,10 @@ function debugComponentsPlot(traj, param)
 		return pl, pl2
 	end
 
-	# pl1 = plotTrajs(m, opt, trajt, [param], [traj])
+	pl1 = plotTrajs(m, opt, trajt, [param], [traj]; fdes=freq)
 	pls, plcomp = plotComponents("c")
 
-	return pls, plcomp
+	return pl1..., pls, plcomp
 end
 
 function idealparams(param)
@@ -175,7 +175,7 @@ display(ret1["param"]')
 
 # debug components ---
 pls = debugComponentsPlot(ret1["traj"], ret1["param"])
-plot(pls..., size=(600,200))
+plot(pls..., size=(800,400))
 
 # pls = plotNonlinBenefit() # SLOW
 # plot(pls...)

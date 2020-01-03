@@ -106,11 +106,12 @@ end
 function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t, params, trajs; ulim=nothing, fdes=0.1)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
     Ny = (N+1)*ny
-    # If plot is given a matrix each column becomes a different line
-    σt = plot(t, hcat([traj[@view liy[1,:]] for traj in trajs]...), linewidth=2, ylabel="stroke [mm]", title="δt=$(round(δt; sigdigits=4))ms")
-    dσt = plot(t, hcat([traj[@view liy[2,:]] for traj in trajs]...), linewidth=2, ylabel="stroke vel [mm/ms]", legend=false)
+    Nt = length(trajs)
     
-    ut = plot(t, hcat([[traj[@view liu[1,:]];NaN] for traj in trajs]...), linewidth=2, legend=false, ylabel="stroke force [mN]")
+    # Empty versions of all the subplots
+    σt = plot(ylabel="stroke [mm]")
+    σat = plot(ylabel="stroke act [mm]")
+    ut = plot(ylabel="stroke force [mN]")
     if !isnothing(ulim)
         ylims!(ut, (-ulim, ulim))
     end
@@ -121,15 +122,21 @@ function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t, params, traj
         y2, T, τfun, τifun = cu.transmission(m, traj, param; o2a=true)
         return τifun.(traj[@view liy[1,:]])
     end
-    σat = plot(t, hcat([actdisp(trajs[i], params[i]) for i=1:length(trajs)]...), linewidth=2, ylabel="act stroke [mm]")
 
-    # also plot the des pos and vel to make sure the initial traj is "OK"
-    post, velt = refTraj(m, fdes)
-    plot!(σt, t, post.(t), color=:black, linestyle=:dash)
-    plot!(dσt, t, velt.(t), color=:black, linestyle=:dash)
-    
+    for i=1:Nt
+        traj, param = trajs[i], params[i]
+        dt = param[end]
+        t = 0:dt:(N)*dt
+        plot!(σt, t, traj[1:ny:(N+1)*ny], linewidth=2)
+        plot!(σat, t, actdisp(traj, param), linewidth=2)
+        plot!(ut, t, [traj[@view liu[1,:]];NaN], linewidth=2)
+        # also plot the des pos and vel to make sure the initial traj is "OK"
+        post, velt = refTraj(m, fdes)
+        plot!(σt, t, post.(t), color=:blue, linestyle=:dash)
+    end
+
     # Combine the subplots
-	return (σt, dσt, σat, ut)
+	return (σt, σat, ut)
 end
 
 # ---------------------- Param opt -----------------------------
