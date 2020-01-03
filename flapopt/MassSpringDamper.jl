@@ -110,6 +110,7 @@ function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t, params, traj
     
     # Empty versions of all the subplots
     σt = plot(ylabel="stroke [mm]")
+    dσt = plot(ylabel="stroke vel [mm/ms]")
     σat = plot(ylabel="stroke act [mm]")
     ut = plot(ylabel="stroke force [mN]")
     if !isnothing(ulim)
@@ -128,15 +129,17 @@ function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t, params, traj
         dt = param[end]
         t = 0:dt:(N)*dt
         plot!(σt, t, traj[1:ny:(N+1)*ny], linewidth=2)
+        plot!(dσt, t, traj[2:ny:(N+1)*ny], linewidth=2)
         plot!(σat, t, actdisp(traj, param), linewidth=2)
         plot!(ut, t, [traj[@view liu[1,:]];NaN], linewidth=2)
         # also plot the des pos and vel to make sure the initial traj is "OK"
         post, velt = refTraj(m, fdes)
         plot!(σt, t, post.(t), color=:blue, linestyle=:dash)
+        plot!(dσt, t, velt.(t), color=:blue, linestyle=:dash)
     end
 
     # Combine the subplots
-	return (σt, σat, ut)
+	return (σt, dσt, σat, ut)
 end
 
 # ---------------------- Param opt -----------------------------
