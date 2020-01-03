@@ -64,8 +64,8 @@ function debugComponentsPlot(traj, param)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
     τ1, ko, bo, τ2, dt = param
 	# opt1(traj, param, 1, 1.0; testAffine=true)
-	post, velt, acct = refTraj(m, fdes)
-	tvec = trajt[1:N]
+	tvec = collect(dt:dt:N*dt) # was trajt[1:N]
+	post, velt, acct = refTraj(m, 1/(N*dt))
 
 	# Get the components
 	yo, Hio, Hia, Hstiffo, Hstiffa, Hdamp = cu.paramAffine(m, opt, traj, param, POPTS; debugComponents=true)
@@ -96,9 +96,9 @@ function debugComponentsPlot(traj, param)
 		plot!(pl, tvec, tot, linewidth=2, linestyle=:dash, label="tot")
 		# test what I think they should be
 		y2, T, τfun, τifun = cu.transmission(m, traj, param; o2a=true)
-    	plot!(pl, tvec, dt*T*m.mo*acct.(tvec), color=:black, linestyle=:dash, label="m*a")
-    	plot!(pl, tvec, dt*T*ko*post.(tvec), color=:black, linestyle=:dash, label="k*x")
-    	plot!(pl, tvec, dt*T*bo*velt.(tvec), color=:black, linestyle=:dash, label="b*dx")
+    	plot!(pl, tvec, dt*T*m.mo*acct.(tvec), color=:blue, linestyle=:dash, lw=2, label="m*a")
+    	plot!(pl, tvec, dt*T*ko*post.(tvec), color=:red, linestyle=:dash, lw=2, label="k*x")
+    	plot!(pl, tvec, dt*T*bo*velt.(tvec), color=:green, linestyle=:dash, lw=2, label="b*dx")
 
 		pl2 = plot(tvec, tot, linewidth=2, label="actn", legend=:outertopright)
 		plot!(pl2, tvec, ret1["traj"][(N+1)*ny+1:end]*dt, linewidth=2, linestyle=:dash, label="act0")
