@@ -55,14 +55,14 @@ function opt1(traj, param, mode, scaleTraj, bkratio=1.0, τ21ratiolim=2.0; testA
 	if testAfter
 		cu.affineTest(m, opt, ret["traj"], ret["param"], POPTS)
 	end
-	println(ret["status"], ", ", round.(ret["param"]', digits=3), ", fHz=", round(1000/(N*ret["param"][end]), digits=1), ", al[mg]=", round(ret["al"] * 1000/9.81, digits=1), ", u∞=", round(ret["u∞"], digits=1), ", J=", round(ret["eval_f"](ret["x"]), digits=1), ", AR=", round(ret["param"][7]/ret["param"][1]^2, digits=1))
+	println(ret["status"], ", ", round.(ret["param"]', digits=3), ", fHz=", round(1000/(N*ret["param"][end]), digits=1), ", u∞=", round(ret["u∞"], digits=1), ", J=", round(ret["eval_f"](ret["x"]), digits=1))
 	return ret
 end
 
 """Debug components in a traj. Assumes traj, param are feasible together here."""
 function debugComponentsPlot(traj, param)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-    τ1, ko, bo, τ2 = param
+    τ1, ko, bo, τ2, dt = param
 	# opt1(traj, param, 1, 1.0; testAffine=true)
 	post, velt, acct = refTraj(m, fdes)
 	tvec = trajt[1:N]
@@ -75,14 +75,16 @@ function debugComponentsPlot(traj, param)
 	stiffo = similar(inertialo)
 	stiffa = similar(inertialo)
 	damp = similar(inertialo)
+	# to fill in for (non) inertial half of H https://github.com/avikde/robobee3d/pull/102
+	H0 = zeros(1,length(pt0)÷2)
 
 	for k=1:N
 		σo = yo(k)[1]
-		inertialo[k] = (cu.Hτ(Hio(yo(k), yo(k+1)), σo) * pt0)[1]
-		inertiala[k] = (cu.Hτ(Hia(yo(k), yo(k+1)), σo) * pt0)[1]
-		stiffo[k] = (cu.Hτ(Hstiffo(yo(k)), σo) * pt0)[1]
-		stiffa[k] = (cu.Hτ(Hstiffa(yo(k)), σo) * pt0)[1]
-		damp[k] = (cu.Hτ(Hdamp(yo(k)), σo) * pt0)[1]
+		inertialo[k] = [cu.Hτ(Hio(yo(k), yo(k+1)), σo)  H0] ⋅ pt0
+		inertiala[k] = [cu.Hτ(Hia(yo(k), yo(k+1)), σo)  H0] ⋅ pt0
+		stiffo[k] = [H0  cu.Hτ(Hstiffo(yo(k)), σo)] ⋅ pt0
+		stiffa[k] = [H0  cu.Hτ(Hstiffa(yo(k)), σo)] ⋅ pt0
+		damp[k] = [H0  cu.Hτ(Hdamp(yo(k)), σo)] ⋅ pt0
 	end
 
 	function plotComponents(ylbl)
@@ -94,12 +96,12 @@ function debugComponentsPlot(traj, param)
 		plot!(pl, tvec, tot, linewidth=2, linestyle=:dash, label="tot")
 		# test what I think they should be
 		y2, T, τfun, τifun = cu.transmission(m, traj, param; o2a=true)
-    	plot!(pl, tvec, δt*T*m.mo*acct.(tvec), color=:black, linestyle=:dash, label="m*a")
-    	plot!(pl, tvec, δt*T*ko*post.(tvec), color=:black, linestyle=:dash, label="k*x")
-    	plot!(pl, tvec, δt*T*bo*velt.(tvec), color=:black, linestyle=:dash, label="b*dx")
+    	plot!(pl, tvec, dt*T*m.mo*acct.(tvec), color=:black, linestyle=:dash, label="m*a")
+    	plot!(pl, tvec, dt*T*ko*post.(tvec), color=:black, linestyle=:dash, label="k*x")
+    	plot!(pl, tvec, dt*T*bo*velt.(tvec), color=:black, linestyle=:dash, label="b*dx")
 
 		pl2 = plot(tvec, tot, linewidth=2, label="actn", legend=:outertopright)
-		plot!(pl2, tvec, traj1[(N+1)*ny+1:end]*δt, linewidth=2, linestyle=:dash, label="act0")
+		plot!(pl2, tvec, ret1["traj"][(N+1)*ny+1:end]*dt, linewidth=2, linestyle=:dash, label="act0")
 		plot!(pl2, tvec, damp, linewidth=2, label="damp")
 		return pl, pl2
 	end
