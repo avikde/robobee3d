@@ -93,20 +93,20 @@ function debugComponentsPlot(traj, param)
 	end
 
 	function plotComponents(ylbl)
-		pl = plot(tvec, inertialo + inertiala, linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
-		plot!(pl, tvec, stiffo+stiffa, linewidth=2, label="s")
+		pl = plot(tvec, (inertialo + inertiala)/dt, linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
+		plot!(pl, tvec, (stiffo+stiffa)/dt, linewidth=2, label="s")
 		# plot!(pl, trajt, stiffa, linewidth=2, label="sa")
-		plot!(pl, tvec, damp, linewidth=2, label="d")
+		plot!(pl, tvec, damp/dt, linewidth=2, label="d")
 		tot = inertialo+inertiala+stiffo+stiffa+damp
-		plot!(pl, tvec, tot, linewidth=2, linestyle=:dash, label="tot")
+		plot!(pl, tvec, tot/dt, linewidth=2, linestyle=:dash, label="tot")
 		# test what I think they should be
 		y2, T, τfun, τifun = cu.transmission(m, traj, param; o2a=true)
-    	plot!(pl, tvec, dt*T*meq*acct.(tvec), color=:blue, linestyle=:dash, lw=2, label="m*a")
-    	plot!(pl, tvec, dt*T*keq*post.(tvec), color=:red, linestyle=:dash, lw=2, label="k*x")
-    	plot!(pl, tvec, dt*T*bo*velt.(tvec), color=:green, linestyle=:dash, lw=2, label="b*dx")
+    	plot!(pl, tvec, T*meq*acct.(tvec), color=:blue, linestyle=:dash, lw=2, label="m*a")
+    	plot!(pl, tvec, T*keq*post.(tvec), color=:red, linestyle=:dash, lw=2, label="k*x")
+    	plot!(pl, tvec, T*bo*velt.(tvec), color=:green, linestyle=:dash, lw=2, label="b*dx")
 
-		pl2 = plot(tvec, tot, linewidth=2, label="actn", legend=:outertopright)
-		plot!(pl2, tvec, ret1["traj"][(N+1)*ny+1:end]*dt, linewidth=2, linestyle=:dash, label="act0")
+		pl2 = plot(tvec, tot, linewidth=2, label="act(tot)", legend=:outertopright)
+		plot!(pl2, tvec, ret1["traj"][(N+1)*ny+1:end], linewidth=2, linestyle=:dash, label="act")
 		plot!(pl2, tvec, damp, linewidth=2, label="damp")
 		return pl, pl2
 	end
@@ -169,13 +169,13 @@ end
 # One-off ID or opt ---------
 
 # first optimization to get better params - closer to resonance
-ret1 = opt1(traj0, param0, 1, 0.1, 0.2; testAffine=true)
+ret1 = opt1(traj0, param0, 1, 0.1, 0.2)
 display(ret1["param"]')
 # param1 = idealparams(param1)
 
 # debug components ---
 pls = debugComponentsPlot(ret1["traj"], ret1["param"])
-plot(pls..., size=(800,300))
+plot(pls..., size=(600,200))
 
 # pls = plotNonlinBenefit() # SLOW
 # plot(pls...)
