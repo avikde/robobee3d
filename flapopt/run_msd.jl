@@ -45,7 +45,7 @@ POPTS = cu.ParamOptOpts(
 
 """One-off ID or opt"""
 function opt1(traj, param, mode, scaleTraj, bkratio=1.0, τ21ratiolim=2.0; testAffine=false, testAfter=false)
-	# A polytope constraint for the params: simple bo >= ko =>  ko - bo <= 0. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
+	# A polytope constraint for the params: simple bo >= bkratio*ko =>  bkratio*ko - bo <= 0. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
 	Cp = Float64[0  bkratio  -1  0  0;
 		-τ21ratiolim  0  0  1  0]
 	dp = zeros(2)
@@ -94,7 +94,7 @@ function debugComponentsPlot(traj, param)
 
 	function plotComponents(ylbl)
 		pl = plot(tvec, inertialo + inertiala, linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
-		plot!(pl, tvec, stiffo, linewidth=2, label="so")
+		plot!(pl, tvec, stiffo+stiffa, linewidth=2, label="s")
 		# plot!(pl, trajt, stiffa, linewidth=2, label="sa")
 		plot!(pl, tvec, damp, linewidth=2, label="d")
 		tot = inertialo+inertiala+stiffo+stiffa+damp
@@ -169,7 +169,7 @@ end
 # One-off ID or opt ---------
 
 # first optimization to get better params - closer to resonance
-ret1 = opt1(traj0, param0, 1, 1.0, 0.2)
+ret1 = opt1(traj0, param0, 1, 0.1, 0.2)
 display(ret1["param"]')
 # param1 = idealparams(param1)
 
