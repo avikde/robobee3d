@@ -169,7 +169,7 @@ end
 # One-off ID or opt ---------
 
 # first optimization to get better params - closer to resonance
-ret1 = opt1(traj0, param0, 1, 0.1, 0.2)
+ret1 = opt1(traj0, param0, 1, 0.1, 0.2; testAffine=true)
 display(ret1["param"]')
 # param1 = idealparams(param1)
 
