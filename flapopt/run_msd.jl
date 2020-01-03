@@ -78,6 +78,11 @@ function debugComponentsPlot(traj, param)
 	# to fill in for (non) inertial half of H https://github.com/avikde/robobee3d/pull/102
 	H0 = zeros(1,length(pt0)÷2)
 
+	# println("Mass, refl=", m.mo, ",", m.ma/τ1^2)
+	# TODO: update this
+	meq = m.mo + m.ma/τ1^2
+	keq = ko + m.ka/τ1^2
+
 	for k=1:N
 		σo = yo(k)[1]
 		inertialo[k] = [cu.Hτ(Hio(yo(k), yo(k+1)), σo)  H0] ⋅ pt0
@@ -96,8 +101,8 @@ function debugComponentsPlot(traj, param)
 		plot!(pl, tvec, tot, linewidth=2, linestyle=:dash, label="tot")
 		# test what I think they should be
 		y2, T, τfun, τifun = cu.transmission(m, traj, param; o2a=true)
-    	plot!(pl, tvec, dt*T*m.mo*acct.(tvec), color=:blue, linestyle=:dash, lw=2, label="m*a")
-    	plot!(pl, tvec, dt*T*ko*post.(tvec), color=:red, linestyle=:dash, lw=2, label="k*x")
+    	plot!(pl, tvec, dt*T*meq*acct.(tvec), color=:blue, linestyle=:dash, lw=2, label="m*a")
+    	plot!(pl, tvec, dt*T*keq*post.(tvec), color=:red, linestyle=:dash, lw=2, label="k*x")
     	plot!(pl, tvec, dt*T*bo*velt.(tvec), color=:green, linestyle=:dash, lw=2, label="b*dx")
 
 		pl2 = plot(tvec, tot, linewidth=2, label="actn", legend=:outertopright)
