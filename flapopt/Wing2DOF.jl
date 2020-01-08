@@ -553,7 +553,13 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         # With nonlinear transmission need to break apart H
         σo = (yo(k) + Δyk)[1]
         Hfortrans = Hh -> hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
-        return [Hfortrans(Hi)  Hfortrans(Hni)]
+
+        # Remove "dt" by scaling velocities for https://github.com/avikde/robobee3d/issues/110
+        # Only scale the inertial term
+        dtold = param[end]
+        Hdti = Hfortrans(Hi) * dtold
+
+        return [Hdti  Hfortrans(Hni)]
     end
     
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
