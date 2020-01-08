@@ -223,7 +223,8 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
         # With new nonlinear transmission need to break apart H
         σo = (yo(k) + Δyk)[1]
         Hfortrans = Hh -> hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
-        return [Hfortrans(Hi)  Hfortrans(Hni)]
+        dtold = param[end]
+        return [Hfortrans(Hi)*dtold  Hfortrans(Hni)]
     end
     
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
