@@ -28,8 +28,8 @@ function getpt(m::Model, p)
 	τ1, τ2 = Tarr
 	# Nonlinear transmission: see https://github.com/avikde/robobee3d/pull/92
 	ptWithTransmission = [pb*τ1; pb*τ2/τ1^2; 1/τ1; τ2/τ1^4]
-	# Adding dt: https://github.com/avikde/robobee3d/pull/102
-	return [ptWithTransmission; dt*ptWithTransmission], Tarr
+	# Adding dt: https://github.com/avikde/robobee3d/pull/102; inertial term /dt https://github.com/avikde/robobee3d/issues/110
+	return [ptWithTransmission/dt; dt*ptWithTransmission], Tarr
 end
 
 "Helper function for nonlinear transmission change to H"
@@ -72,6 +72,16 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, 
 	# println("Test that the lower rows dyn constraint worked ", vcat([Bperp * Hk(k, Δyk(k), Δyk(k+1)) * ptnew for k=1:N]...) - eval_g_ret(prob.x))
 
 	return traj2
+end
+
+"velocity scaling for https://github.com/avikde/robobee3d/issues/110"
+function trajVelFix(m::Model, opt::OptOptions, traj, dtold, dtnew)
+	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+	nq = ny÷2
+	trajy = reshape(traj[1:(N+1)*ny], ny, N+1) # nyx(N+1); lower rows vel
+	trajy[nq+1:end,:] = trajy[nq+1:end,:]*dtold/dtnew
+	trajy2 = reshape(trajy, ny*(N+1))
+	return vcat(trajy2, traj[(N+1)*ny+1:end])
 end
 
 "A more lightweight version of reconstructTrajFromΔy that sets Δy=0"
@@ -452,6 +462,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	status = Ipopt.solveProblem(prob)
 	pnew = prob.x[1:np]
 	trajnew = reconstructTrajFromΔy(m, opt, traj, yo, Hk, B, prob.x[np+1:np+nΔy], pnew)
+	trajnew = trajVelFix(m, opt, trajnew, param[end], pnew[end])
 
 	if testTrajReconstruction
 		# Test traj reconstruction:
