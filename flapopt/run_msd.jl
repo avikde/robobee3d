@@ -36,7 +36,7 @@ POPTS = cu.ParamOptOpts(
 	τinds=[1,4], 
 	R=(zeros(2,2), 0, 1.0*I), 
 	plimsL = [0.1, 0.1, 0.1, 0.0, 0.04],
-	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 0.4],
+	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 10],
 	uinfnorm = false
 )
 
