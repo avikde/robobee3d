@@ -408,7 +408,7 @@ end
 - σamax -- actuator strain limit. This is used to constrain the transmission coeffs s.t. the actuator displacement is limited to σamax. The form of the actuator constraint depends on bTrCon.
 - Cp, dp -- polytope constraint for params. Can pass Cp=ones(0,X) to not include.
 "
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::ParamOptOpts, mode::Int, σamax; test=false, testTrajReconstruction=false, Cp::Matrix=ones(0,1), dp::Vector=ones(0), scaleTraj=1.0, kwargs...)
+function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::ParamOptOpts, mode::Int, σamax; test=false, testTrajReconstruction=false, Cp::Matrix=ones(0,1), dp::Vector=ones(0), scaleTraj=1.0, dtFix=false, kwargs...)
 	if test
 		affineTest(m, opt, traj, param, POPTS) # this does not need to be here TODO: remove
 	end
@@ -441,6 +441,9 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	xlimsU[1:np] = POPTS.plimsU
 	if uinfnorm
 		fill!(xlimsL[np+nΔy+1:np+nΔy+nu], 0)
+	end
+	if dtFix # constrain dt to be the same as it is now
+		xlimsL[np] = xlimsU[np] = param[np]
 	end
 	
 	# IPOPT setup using helper functions
