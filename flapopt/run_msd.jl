@@ -12,7 +12,7 @@ includet("MassSpringDamper.jl")
 # create an instance
 m = MassSpringDamperModel(6, # ma
 	150, # ka
-	500, # mo
+	4500, # mo
 	100) # umax
 ny, nu = cu.dims(m)
 opt = cu.OptOptions(false, false, 0.1, 1, :none, 1e-8, false)
