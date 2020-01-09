@@ -119,13 +119,14 @@ end
 listOfParamTraj(rets...) = [ret["param"] for ret in rets], [ret["traj"] for ret in rets]
 
 """Debug components in a traj"""
-function debugComponentsPlot(ret)
+function debugComponentsPlot(m, opt, POPTS, ret)
 	traj1, param1 = ret["traj"], ret["param"]
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, ret["traj"])
 
 	# Get the components
 	yo, HMnc, HMc, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj1, param1, POPTS; debugComponents=true)
 	pt0, Tnew = cu.getpt(m, param1)
+	dt = param1[end] # need this for H after #110
 	inertial = zeros(2,N)
 	inertialc = similar(inertial)
 	coriolis = similar(inertial)
@@ -137,8 +138,8 @@ function debugComponentsPlot(ret)
 
 	for k=1:N
 		σo = yo(k)[1]
-		inertial[:,k] = [cu.Hτ(HMnc(yo(k), yo(k+1)) - HMnc(yo(k), yo(k)), σo)  H0] * pt0
-		inertialc[:,k] = [cu.Hτ(HMc(yo(k), yo(k+1)) - HMc(yo(k), yo(k)), σo)  cu.Hτ(HC(yo(k)), σo)] * pt0
+		inertial[:,k] = [cu.Hτ(HMnc(yo(k), yo(k+1)) - HMnc(yo(k), yo(k)), σo)*dt  H0] * pt0
+		inertialc[:,k] = [cu.Hτ(HMc(yo(k), yo(k+1)) - HMc(yo(k), yo(k)), σo)*dt  cu.Hτ(HC(yo(k)), σo)] * pt0
 		stiffdamp[:,k] = [H0  cu.Hτ(Hg(yo(k)), σo)] * pt0
 		stiffdampa[:,k] = [H0  cu.Hτ(Hgact(yo(k)), σo)] * pt0
 		coriolis[:,k] = [H0  cu.Hτ(HC(yo(k)), σo)] * pt0
@@ -148,7 +149,7 @@ function debugComponentsPlot(ret)
 	# # get the instantaneous transmission ratio at time k
 	# Tvec = [cu.transmission(m, yo(k), param1; o2a=true)[2] for k=1:N]
 
-	t2 = trajt[1:end-1]
+	t2 = collect(1:N)*dt
 
 	function plotComponents(i, ylbl)
 		# grav+inertial -- ideally they would "cancel" at "resonance"

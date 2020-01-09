@@ -168,7 +168,7 @@ ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.9)#; print_level=3, max_iter=10000
 # plot(pl1...)
 
 # ---------
-pls = debugComponentsPlot(ret2)
+pls = debugComponentsPlot(m, opt, POPTS, ret2)
 plot(pls..., size=(800,600))
 
 # # -----------------
