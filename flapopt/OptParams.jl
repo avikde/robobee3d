@@ -46,42 +46,43 @@ end
 
 
 "Helper function to reconstruct the traj (also test it)."
-function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, yo, Hk, B, Δy, pnew; test::Bool=false)
+function reconstructTrajFromΔy(m::Model, opt::OptOptions, traj::AbstractArray, yo, Hk, B, Δy, paramold, pnew; test::Bool=false)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
+	nq = ny÷2
 	np = length(pnew)
 	Δyk = k -> Δy[(k-1)*ny+1 : k*ny]
+	dtold = paramold[end] # dt is the last param
+	dtnew = pnew[end]
 
 	# Also convert the output traj with the Δy, new T, and inputs
 	traj2 = copy(traj)
+	traj2yk = k -> traj2[(k-1)*ny+1:k*ny]
+	traj2uk = k -> traj2[(N+1)*ny+(k-1)*nu+1:(N+1)*ny+(k)*nu]
 	# Calculate the new traj (which is in act coordinates, so needs scaling by T)
 	ptnew, Tnew = getpt(m, pnew)
 	for k=1:N+1
 		if opt.trajAct
 			# Go from output to act coords
 			ya, Tk = transmission(m, yo(k) + Δyk(k), pnew; o2a=true)[1:2]
-			traj2[liy[:,k]] = ya
+			yknew = ya
 		else
-			traj2[liy[:,k]] = yo(k) + Δyk(k)
+			yknew = yo(k) + Δyk(k)
 		end
+		# velocity scaling for https://github.com/avikde/robobee3d/issues/110 FIXME: after Δy?
+		if abs(dtold/dtnew - 1.0) > 0.001
+			yknew[nq+1:end] = yknew[nq+1:end]*dtold/dtnew
+		end
+		traj2[(k-1)*ny+1:k*ny] = yknew
+
 		# Calculate the new inputs
 		if k <= N
-			traj2[liu[:,k]] = 1 / δt * B' * Hk(k, Δyk(k), Δyk(k+1)) * ptnew # compare to the "test" equation above
+			traj2[(N+1)*ny+(k-1)*nu+1:(N+1)*ny+(k)*nu] = 1 / dtnew * B' * Hk(k, Δyk(k), Δyk(k+1)) * ptnew # compare to the "test" equation above
 		end
 	end
 
 	# println("Test that the lower rows dyn constraint worked ", vcat([Bperp * Hk(k, Δyk(k), Δyk(k+1)) * ptnew for k=1:N]...) - eval_g_ret(prob.x))
 
 	return traj2
-end
-
-"velocity scaling for https://github.com/avikde/robobee3d/issues/110"
-function trajVelFix(m::Model, opt::OptOptions, traj, dtold, dtnew)
-	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
-	nq = ny÷2
-	trajy = reshape(traj[1:(N+1)*ny], ny, N+1) # nyx(N+1); lower rows vel
-	trajy[nq+1:end,:] = trajy[nq+1:end,:]*dtold/dtnew
-	trajy2 = reshape(trajy, ny*(N+1))
-	return vcat(trajy2, traj[(N+1)*ny+1:end])
 end
 
 "A more lightweight version of reconstructTrajFromΔy that sets Δy=0"
@@ -410,7 +411,7 @@ end
 "
 function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::ParamOptOpts, mode::Int, σamax; test=false, testTrajReconstruction=false, Cp::Matrix=ones(0,1), dp::Vector=ones(0), scaleTraj=1.0, dtFix=false, kwargs...)
 	if test
-		affineTest(m, opt, traj, param, POPTS) # this does not need to be here TODO: remove
+		affineTest(m, opt, traj, param, POPTS)
 	end
 	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
@@ -479,8 +480,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	prob.x = [copy(param); zeros(nx - np)]
 	status = Ipopt.solveProblem(prob)
 	pnew = prob.x[1:np]
-	trajnew = reconstructTrajFromΔy(m, opt, traj, yo, Hk, B, prob.x[np+1:np+nΔy], pnew)
-	trajnew = trajVelFix(m, opt, trajnew, param[end], pnew[end])
+	trajnew = reconstructTrajFromΔy(m, opt, traj, yo, Hk, B, prob.x[np+1:np+nΔy], param, pnew)
 
 	if testTrajReconstruction
 		# Test traj reconstruction:
