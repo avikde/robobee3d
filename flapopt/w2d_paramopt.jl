@@ -92,7 +92,7 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 	# append unactErr
 	ret["unactErr"] = ret["eval_g"](ret["x"])[1:N] # 1 unact DOF
 	ret["al"] = avgLift(m, opt, ret["traj"], ret["param"])
-	uu = ret["traj"][(N+1)*ny:end]/ret["param"][end]
+	uu = ret["traj"][(N+1)*ny:end]
 	ret["u∞"] = norm(uu, Inf)
 	if testAfter
 		cu.affineTest(m, opt, ret["traj"], ret["param"], POPTS)
@@ -145,11 +145,11 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 		plot!(pl, t2, stiffdamp[i,:] / dt, linewidth=2, label="g")
 		plot!(pl, t2, stiffdampa[i,:] / dt, linewidth=2, label="ga")
 		# plot!(pl, t2, aero[i,:], linewidth=2, label="a")
-		# plot!(pl, t2, traj1[(N+1)*ny+1:end]/dt, linewidth=2, label="act")
+		plot!(pl, t2, traj1[(N+1)*ny+1:end], linewidth=2)
 		plot!(pl, t2, tot/dt, linewidth=2, linestyle=:dash, label="act") # checked; this matches the row above ^
 
 		pl2 = plot(t2, aero[i,:] / dt, linewidth=2, label="-dr", legend=:outertopright)
-		plot!(pl2, t2, traj1[(N+1)*ny+1:end]/dt, linewidth=2, label="act")
+		plot!(pl2, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="act")
 		plot!(pl2, t2, coriolis[i,:] / dt, linewidth=2, label="cor")
 		plot!(pl2, t2, inertiastiff / dt, linewidth=2, label="is")
 		
