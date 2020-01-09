@@ -79,7 +79,6 @@ function trajVelFix(m::Model, opt::OptOptions, traj, dtold, dtnew)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
 	trajy = reshape(traj[1:(N+1)*ny], ny, N+1) # nyx(N+1); lower rows vel
-	println("FIXING ", dtold, " ", dtnew)
 	trajy[nq+1:end,:] = trajy[nq+1:end,:]*dtold/dtnew
 	trajy2 = reshape(trajy, ny*(N+1))
 	return vcat(trajy2, traj[(N+1)*ny+1:end])
