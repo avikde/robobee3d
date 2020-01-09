@@ -85,8 +85,8 @@ function debugComponentsPlot(traj, param)
 
 	for k=1:N
 		σo = yo(k)[1]
-		inertialo[k] = [cu.Hτ(Hio(yo(k), yo(k+1)), σo)  H0] ⋅ pt0
-		inertiala[k] = [cu.Hτ(Hia(yo(k), yo(k+1)), σo)  H0] ⋅ pt0
+		inertialo[k] = [cu.Hτ(Hio(yo(k), yo(k+1)), σo)*dt  H0] ⋅ pt0
+		inertiala[k] = [cu.Hτ(Hia(yo(k), yo(k+1)), σo)*dt  H0] ⋅ pt0
 		stiffo[k] = [H0  cu.Hτ(Hstiffo(yo(k)), σo)] ⋅ pt0
 		stiffa[k] = [H0  cu.Hτ(Hstiffa(yo(k)), σo)] ⋅ pt0
 		damp[k] = [H0  cu.Hτ(Hdamp(yo(k)), σo)] ⋅ pt0
