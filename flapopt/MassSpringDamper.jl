@@ -171,7 +171,7 @@ end
 function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::cu.ParamOptOpts, scaleTraj=1.0; debugComponents=false)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 
-    yo = k -> traj[liy[:,k]] * scaleTraj # traj is in output coords already
+    yo = k -> traj[liy[:,k]]*scaleTraj # traj is in output coords already
     uk = k -> @view traj[liu[:,k]]
 
     # Param stuff
@@ -179,13 +179,13 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
 
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
     function HMqTo(ypos, yvel)
-        σo, σ̇odum = ypos
-        σodum, σ̇o = yvel
+        σo, σ̇odum = ypos * scaleTraj
+        σodum, σ̇o = yvel * scaleTraj
         return [σ̇o*m.mo   0   0   0   0]
     end
     function HMqTa(ypos, yvel)
-        σo, σ̇odum = ypos
-        σodum, σ̇o = yvel
+        σo, σ̇odum = ypos * scaleTraj
+        σodum, σ̇o = yvel * scaleTraj
         return [0   0   0   σ̇o*m.ma   σ̇o*m.ma*(-σo^2)]
     end
     HMqT(ypos, yvel) = HMqTo(ypos, yvel) + HMqTa(ypos, yvel)
@@ -193,15 +193,15 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     Hia = (y, ynext) -> HMqTa(y, ynext) - HMqTa(y, y)
 
     function Hstiffo(y)
-        σo, σ̇o = y
+        σo, σ̇o = y * scaleTraj
         return [0   σo   0   0   0]
     end
     function Hstiffa(y)
-        σo, σ̇o = y
+        σo, σ̇o = y * scaleTraj
         return [0   0   0   m.ka*σo   m.ka*(-σo^3/3)]
     end
     function Hdamp(y)
-        σo, σ̇o = y
+        σo, σ̇o = y * scaleTraj
         return [0   0   σ̇o   0    0]
     end
     HCgJT(y) = Hstiffo(y) + Hstiffa(y) + Hdamp(y)

@@ -46,7 +46,7 @@ end
 
 
 "Helper function to reconstruct the traj (also test it)."
-function reconstructTrajFromΔy(m::Model, opt::OptOptions, POPTS, traj::AbstractArray, yo, Δy, paramold, pnew, scaleTraj; test::Bool=false)
+function reconstructTrajFromΔy(m::Model, opt::OptOptions, POPTS, traj::AbstractArray, yo, Δy, paramold, pnew; test::Bool=false)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
 	np = length(pnew)
@@ -73,8 +73,8 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, POPTS, traj::Abstract
 		traj2[(k-1)*ny+1:k*ny] = yknew
 	end
 
-	# Need to get the affine form again to get the new u
-	Hk, yo, umeas, B, N = paramAffine(m, opt, traj2, pnew, POPTS, scaleTraj)
+	# Need to get the affine form again to get the new u. scaleTraj not needed since the yo had it built in
+	Hk, yo, umeas, B, N = paramAffine(m, opt, traj2, pnew, POPTS)
 	dely0 = zeros(ny)
 	for k=1:N
 		# Calculate the new inputs
@@ -483,7 +483,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	prob.x = [copy(param); zeros(nx - np)]
 	status = Ipopt.solveProblem(prob)
 	pnew = prob.x[1:np]
-	trajnew = reconstructTrajFromΔy(m, opt, POPTS, traj, yo, prob.x[np+1:np+nΔy], param, pnew, scaleTraj)
+	trajnew = reconstructTrajFromΔy(m, opt, POPTS, traj, yo, prob.x[np+1:np+nΔy], param, pnew)
 
 	if testTrajReconstruction
 		# Test traj reconstruction:
