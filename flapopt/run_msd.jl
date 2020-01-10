@@ -36,7 +36,7 @@ POPTS = cu.ParamOptOpts(
 	τinds=[1,4], 
 	R=(zeros(2,2), 0, 1.0*I), 
 	plimsL = [0.1, 0.1, 0.1, 0.0, 0.04],
-	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 10],
+	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 0.5],
 	uinfnorm = false
 )
 
@@ -107,7 +107,7 @@ function debugComponentsPlot(traj, param)
 
 		pl2 = plot(tvec, tot/dt, linewidth=2, label="act(tot)", legend=:outertopright)
 		plot!(pl2, tvec, ret1["traj"][(N+1)*ny+1:end], linewidth=2, linestyle=:dash, label="act")
-		plot!(pl2, tvec, damp, linewidth=2, label="damp")
+		plot!(pl2, tvec, damp/dt, linewidth=2, label="damp")
 		return pl, pl2
 	end
 
