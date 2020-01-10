@@ -193,8 +193,8 @@ function costFor(scaleTraj, dtmax)
 	return ret1["u∞"]#[ret1["u∞"]; ret1["param"]]
 end
 
-scales = 0.1:0.2:2.0
-dtmaxs = 0.05:0.05:0.5
+scales = 0.05:0.1:1.0
+dtmaxs = 0.5:0.1:1.5
 pl = contour(scales, dtmaxs, costFor, fill=true, seriescolor=cgrad(:bluesreds), xlabel="st", ylabel="dt")
 plot(pl)
 
