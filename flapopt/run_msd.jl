@@ -181,8 +181,8 @@ function actForceForHeightsPlot()
 		return ret1["u∞"]#[ret1["u∞"]; ret1["param"]]
 	end
 
-	heights = 10:2:30
-	dtmaxs = 0.5:0.2:1.5
+	heights = 20:2:40
+	dtmaxs = 0.2:0.2:1.0
 
 	pl = contour(heights, dtmaxs, costFor, fill=true, seriescolor=cgrad(:bluesreds), xlabel="Height [mm]", ylabel="dt")
 	# # TODO: figure out how to draw two sets of contours in Julia
@@ -193,10 +193,8 @@ end
 
 # One-off ID or opt ---------
 
-# first optimization to get better params - closer to resonance
-# ret1 = opt1(traj0, param0, 1, 0.1, 0.2)
-POPTS.plimsU[end] = 0.7
-trajScale = 0.9
+POPTS.plimsU[end] = 0.4
+trajScale = 0.56
 ret1 = opt1(traj0, param0, 1, trajScale, 0.2)
 display(ret1["param"]')
 
@@ -204,7 +202,7 @@ display(ret1["param"]')
 pls = debugComponentsPlot(ret1["traj"], ret1["param"]; refScale=trajScale)
 plot(pls..., size=(800,400))
 
-# ---------
+# # ---------
 # actForceForHeightsPlot()
 
 # pls = plotNonlinBenefit() # SLOW
