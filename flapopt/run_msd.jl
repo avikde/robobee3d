@@ -105,7 +105,7 @@ function debugComponentsPlot(traj, param)
     	plot!(pl, tvec, T*keq*post.(tvec), color=:red, linestyle=:dash, lw=2, label="k*x")
     	plot!(pl, tvec, T*bo*velt.(tvec), color=:green, linestyle=:dash, lw=2, label="b*dx")
 
-		pl2 = plot(tvec, tot, linewidth=2, label="act(tot)", legend=:outertopright)
+		pl2 = plot(tvec, tot/dt, linewidth=2, label="act(tot)", legend=:outertopright)
 		plot!(pl2, tvec, ret1["traj"][(N+1)*ny+1:end], linewidth=2, linestyle=:dash, label="act")
 		plot!(pl2, tvec, damp, linewidth=2, label="damp")
 		return pl, pl2
