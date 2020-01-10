@@ -195,7 +195,7 @@ end
 
 scales = 0.05:0.1:1.0
 dtmaxs = 0.5:0.1:1.5
-pl = contour(scales, dtmaxs, costFor, fill=true, seriescolor=cgrad(:bluesreds), xlabel="st", ylabel="dt")
+pl = contour(scales, dtmaxs, costFor, fill=true, seriescolor=cgrad(:bluesreds), xlabel="Amplitude", ylabel="dt")
 plot(pl)
 
 # llabels = [
