@@ -50,6 +50,9 @@ function opt1(traj, param, mode, scaleTraj, bkratio=1.0, τ21ratiolim=2.0; testA
 		-τ21ratiolim  0  0  1  0]
 	dp = zeros(2)
 	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, scaleTraj=scaleTraj, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
+	# # need to scale the traj
+	# ret["traj"][1:(N+1)*ny] = scaleTraj*ret["traj"][1:(N+1)*ny]
+
 	uu = ret["traj"][(N+1)*ny:end]
 	ret["u∞"] = norm(uu, Inf)
 	if testAfter
@@ -194,12 +197,12 @@ end
 
 # first optimization to get better params - closer to resonance
 # ret1 = opt1(traj0, param0, 1, 0.1, 0.2)
-POPTS.plimsU[end] = 0.75
+POPTS.plimsU[end] = 0.7
 ret1 = opt1(traj0, param0, 1, 0.91, 0.2)
 display(ret1["param"]')
 
 # debug components ---
-pls = debugComponentsPlot(ret1["traj"], ret1["param"])
+pls = debugComponentsPlot(ret1["traj"], ret1["param"], 0.91)
 plot(pls..., size=(800,400))
 
 # ---------
