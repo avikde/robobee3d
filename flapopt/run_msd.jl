@@ -55,7 +55,8 @@ function opt1(traj, param, mode, scaleTraj, bkratio=1.0, τ21ratiolim=2.0; testA
 	if testAfter
 		cu.affineTest(m, opt, ret["traj"], ret["param"], POPTS)
 	end
-	println(ret["status"], ", ", round.(ret["param"]', digits=3), ", fHz=", round(1000/(N*ret["param"][end]), digits=1), ", u∞=", round(ret["u∞"], digits=1), ", J=", round(ret["eval_f"](ret["x"]), digits=1))
+
+	println("st ", scaleTraj, ": ", ret["status"], ", ", round.(ret["param"]', digits=3), ", fHz=", round(1000/(N*ret["param"][end]), digits=1), ", u∞=", round(ret["u∞"], digits=1), ", J=", round(ret["eval_f"](ret["x"]), digits=1))
 	return ret
 end
 
@@ -166,46 +167,52 @@ function paramTest(p, s)
 	println("Obj: ", paramObj(xtest), " should be ", norm(unew, Inf)^2)
 end
 
+function actForceForHeightsPlot()
+	function costFor(height, dt)
+		STROKE_AMP = 10 # [mm]
+		G_CONST = 9.81e-3 # [mm/ms^2]
+		loVel = sqrt(2*G_CONST*height)
+		# loVel = STROKE_AMP*omega = STROKE_AMP*scale*2*pi/(N*dt)
+		scaleTraj = loVel*dt*N/(STROKE_AMP*2*pi)
+		# Tmin = 10.08799170499444*scaleTraj/σamax
+		POPTS.plimsU[end] = dt
+		ret1 = opt1(traj0, param0, 1, scaleTraj, 0.2)
+		return ret1["u∞"]#[ret1["u∞"]; ret1["param"]]
+	end
+
+	heights = 10:2:30
+	dtmaxs = 0.5:0.2:1.5
+
+	pl = contour(heights, dtmaxs, costFor, fill=true, seriescolor=cgrad(:bluesreds), xlabel="Height [mm]", ylabel="dt")
+	# # TODO: figure out how to draw two sets of contours in Julia
+	# f2(a,b)=a/b
+	# pl2 = contour(heights, dtmaxs, f2, seriescolor=cgrad(:bluesreds), fill=true, xlabel="Amplitude", ylabel="dt")
+	plot(pl)
+end
+
 # One-off ID or opt ---------
 
-# # first optimization to get better params - closer to resonance
+# first optimization to get better params - closer to resonance
 # ret1 = opt1(traj0, param0, 1, 0.1, 0.2)
-# display(ret1["param"]')
-# # param1 = idealparams(param1)
+POPTS.plimsU[end] = 0.75
+ret1 = opt1(traj0, param0, 1, 0.91, 0.2)
+display(ret1["param"]')
 
-# # debug components ---
-# pls = debugComponentsPlot(ret1["traj"], ret1["param"])
-# plot(pls..., size=(800,400))
+# debug components ---
+pls = debugComponentsPlot(ret1["traj"], ret1["param"])
+plot(pls..., size=(800,400))
+
+# ---------
+# actForceForHeightsPlot()
 
 # pls = plotNonlinBenefit() # SLOW
 # plot(pls...)
 
-# 
+
 # Δτ1s = collect(0:0.1:15)
 # unorms = unormΔτ1.(Δτ1s)
 
 # # many sims (scale) --------------
-
-function costFor(height, dt)
-	STROKE_AMP = 10 # [mm]
-	G_CONST = 9.81e-3 # [mm/ms^2]
-	loVel = sqrt(2*G_CONST*height)
-	# loVel = STROKE_AMP*omega = STROKE_AMP*scale*2*pi/(N*dt)
-	scaleTraj = loVel*dt*N/(STROKE_AMP*2*pi)
-	# Tmin = 10.08799170499444*scaleTraj/σamax
-	POPTS.plimsU[end] = dt
-	ret1 = opt1(traj0, param0, 1, scaleTraj, 0.2)
-	return ret1["u∞"]#[ret1["u∞"]; ret1["param"]]
-end
-
-heights = 10:2:30
-dtmaxs = 0.5:0.2:1.5
-
-pl = contour(heights, dtmaxs, costFor, fill=true, seriescolor=cgrad(:bluesreds), xlabel="Height [mm]", ylabel="dt")
-# # TODO: figure out how to draw two sets of contours in Julia
-# f2(a,b)=a/b
-# pl2 = contour(heights, dtmaxs, f2, seriescolor=cgrad(:bluesreds), fill=true, xlabel="Amplitude", ylabel="dt")
-plot(pl)
 
 # llabels = [
 # 	"T",
