@@ -103,7 +103,7 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
     return trajt, traj, trajt
 end
 
-function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t, params, trajs; ulim=nothing, fdes=0.1)
+function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t, params, trajs; ulim=nothing, fdes=0.1, refScale=1.0)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
     Ny = (N+1)*ny
     Nt = length(trajs)
@@ -134,9 +134,9 @@ function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t, params, traj
         plot!(ut, t, [traj[@view liu[1,:]];NaN], linewidth=2)
         # also plot the des pos and vel to make sure the initial traj is "OK"
         post, velt = refTraj(m, fdes)
-        plot!(σt, t, post.(t), color=:blue, linestyle=:dash, lw=2)
+        plot!(σt, t, refScale*post.(t), color=:blue, linestyle=:dash, lw=2)
         # FIXME: this factor seems like it is related to the freq. initial dt=0.1; if the dt is changed so that new dt=0.3; this needs to be newdt/olddt. Why??
-        plot!(dσt, t, velt.(t), color=:blue, linestyle=:dash, lw=2)
+        plot!(dσt, t, refScale*velt.(t), color=:blue, linestyle=:dash, lw=2)
     end
 
     # Combine the subplots
@@ -171,7 +171,7 @@ end
 function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::cu.ParamOptOpts, scaleTraj=1.0; debugComponents=false)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 
-    yo = k -> @view traj[liy[:,k]] # traj is in output coords already
+    yo = k -> traj[liy[:,k]] * scaleTraj # traj is in output coords already
     uk = k -> @view traj[liu[:,k]]
 
     # Param stuff
@@ -179,13 +179,13 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
 
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
     function HMqTo(ypos, yvel)
-        σo, σ̇odum = ypos * scaleTraj
-        σodum, σ̇o = yvel * scaleTraj
+        σo, σ̇odum = ypos
+        σodum, σ̇o = yvel
         return [σ̇o*m.mo   0   0   0   0]
     end
     function HMqTa(ypos, yvel)
-        σo, σ̇odum = ypos * scaleTraj
-        σodum, σ̇o = yvel * scaleTraj
+        σo, σ̇odum = ypos
+        σodum, σ̇o = yvel
         return [0   0   0   σ̇o*m.ma   σ̇o*m.ma*(-σo^2)]
     end
     HMqT(ypos, yvel) = HMqTo(ypos, yvel) + HMqTa(ypos, yvel)
@@ -193,15 +193,15 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     Hia = (y, ynext) -> HMqTa(y, ynext) - HMqTa(y, y)
 
     function Hstiffo(y)
-        σo, σ̇o = y * scaleTraj
+        σo, σ̇o = y
         return [0   σo   0   0   0]
     end
     function Hstiffa(y)
-        σo, σ̇o = y * scaleTraj
+        σo, σ̇o = y
         return [0   0   0   m.ka*σo   m.ka*(-σo^3/3)]
     end
     function Hdamp(y)
-        σo, σ̇o = y * scaleTraj
+        σo, σ̇o = y
         return [0   0   σ̇o   0    0]
     end
     HCgJT(y) = Hstiffo(y) + Hstiffa(y) + Hdamp(y)

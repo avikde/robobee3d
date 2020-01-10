@@ -64,7 +64,7 @@ function opt1(traj, param, mode, scaleTraj, bkratio=1.0, τ21ratiolim=2.0; testA
 end
 
 """Debug components in a traj. Assumes traj, param are feasible together here."""
-function debugComponentsPlot(traj, param)
+function debugComponentsPlot(traj, param; refScale=1.0)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
     τ1, ko, bo, τ2, dt = param
 	tvec = dt*collect(0:(N-1)) # was trajt[1:N]
@@ -105,9 +105,9 @@ function debugComponentsPlot(traj, param)
 		plot!(pl, tvec, tot/dt, linewidth=2, linestyle=:dash, label="tot")
 		# test what I think they should be
 		y2, T, τfun, τifun = cu.transmission(m, traj, param; o2a=true)
-    	plot!(pl, tvec, T*meq*acct.(tvec), color=:blue, linestyle=:dash, lw=2, label="m*a")
-    	plot!(pl, tvec, T*keq*post.(tvec), color=:red, linestyle=:dash, lw=2, label="k*x")
-    	plot!(pl, tvec, T*bo*velt.(tvec), color=:green, linestyle=:dash, lw=2, label="b*dx")
+    	plot!(pl, tvec, refScale*T*meq*acct.(tvec), color=:blue, linestyle=:dash, lw=2, label="m*a")
+    	plot!(pl, tvec, refScale*T*keq*post.(tvec), color=:red, linestyle=:dash, lw=2, label="k*x")
+    	plot!(pl, tvec, refScale*T*bo*velt.(tvec), color=:green, linestyle=:dash, lw=2, label="b*dx")
 
 		pl2 = plot(tvec, tot/dt, linewidth=2, label="act(tot)", legend=:outertopright)
 		plot!(pl2, tvec, ret1["traj"][(N+1)*ny+1:end], linewidth=2, linestyle=:dash, label="act")
@@ -115,7 +115,7 @@ function debugComponentsPlot(traj, param)
 		return pl, pl2
 	end
 
-	pl1 = plotTrajs(m, opt, trajt, [param], [traj]; fdes=freq)
+	pl1 = plotTrajs(m, opt, trajt, [param], [traj]; fdes=freq, refScale=refScale)
 	pls, plcomp = plotComponents("c")
 
 	return pl1..., pls, plcomp
@@ -198,11 +198,12 @@ end
 # first optimization to get better params - closer to resonance
 # ret1 = opt1(traj0, param0, 1, 0.1, 0.2)
 POPTS.plimsU[end] = 0.7
-ret1 = opt1(traj0, param0, 1, 0.91, 0.2)
+trajScale = 0.95
+ret1 = opt1(traj0, param0, 1, trajScale, 0.2)
 display(ret1["param"]')
 
 # debug components ---
-pls = debugComponentsPlot(ret1["traj"], ret1["param"], 0.91)
+pls = debugComponentsPlot(ret1["traj"], ret1["param"]; refScale=trajScale)
 plot(pls..., size=(800,400))
 
 # ---------
