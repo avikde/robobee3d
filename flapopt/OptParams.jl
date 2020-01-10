@@ -56,8 +56,6 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, POPTS, traj::Abstract
 
 	# Also convert the output traj with the Δy, new T, and inputs
 	traj2 = copy(traj)
-	traj2yk = k -> traj2[(k-1)*ny+1:k*ny]
-	traj2uk = k -> traj2[(N+1)*ny+(k-1)*nu+1:(N+1)*ny+(k)*nu]
 	# Calculate the new traj (which is in act coordinates, so needs scaling by T)
 	ptnew, Tnew = getpt(m, pnew)
 	for k=1:N+1
