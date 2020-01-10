@@ -35,7 +35,7 @@ traj0 = traj0orig
 POPTS = cu.ParamOptOpts(
 	τinds=[1,4], 
 	R=(zeros(2,2), 0, 1.0*I), 
-	plimsL = [0.1, 0.1, 0.1, 0.0, 0.04],
+	plimsL = [0.1, 0.1, 0.1, 0.0, 0.01],
 	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 0.5],
 	uinfnorm = false
 )
@@ -168,14 +168,14 @@ end
 
 # One-off ID or opt ---------
 
-# first optimization to get better params - closer to resonance
-ret1 = opt1(traj0, param0, 1, 0.1, 0.2)
-display(ret1["param"]')
-# param1 = idealparams(param1)
+# # first optimization to get better params - closer to resonance
+# ret1 = opt1(traj0, param0, 1, 0.1, 0.2)
+# display(ret1["param"]')
+# # param1 = idealparams(param1)
 
-# debug components ---
-pls = debugComponentsPlot(ret1["traj"], ret1["param"])
-plot(pls..., size=(800,400))
+# # debug components ---
+# pls = debugComponentsPlot(ret1["traj"], ret1["param"])
+# plot(pls..., size=(800,400))
 
 # pls = plotNonlinBenefit() # SLOW
 # plot(pls...)
@@ -186,16 +186,18 @@ plot(pls..., size=(800,400))
 
 # # many sims (scale) --------------
 
-# function paramsFor(σamax, scaleTraj)
-# 	Tmin = 10.08799170499444*scaleTraj/σamax
-# 	plimsL = [Tmin, 0.1, 0.1]
-# 	plimsU = [1000.0, 1000.0, 1000.0]
-# 	param1, _, traj1, _ = cu.optAffine(m, opt, traj0, param0, 1, R_WTS, 0.1, plimsL, plimsU, scaleTraj; Fext_pdep=true, test=false, testTrajReconstruction=false, print_level=1, max_iter=100)
-# 	return [param1; norm(traj1[(N+1)*ny:end], Inf)]
-# end
+function costFor(scaleTraj, dtmax)
+	# Tmin = 10.08799170499444*scaleTraj/σamax
+	POPTS.plimsU[end] = dtmax
+	ret1 = opt1(traj0, param0, 1, scaleTraj, 0.2)
+	return ret1["u∞"]#[ret1["u∞"]; ret1["param"]]
+end
 
-# scales = 0.1:0.2:2.0
-# σamaxs = 0.1:1:20
+scales = 0.1:0.2:2.0
+dtmaxs = 0.05:0.05:0.5
+pl = contour(scales, dtmaxs, costFor, fill=true, seriescolor=cgrad(:bluesreds), xlabel="st", ylabel="dt")
+plot(pl)
+
 # llabels = [
 # 	"T",
 # 	"k",
