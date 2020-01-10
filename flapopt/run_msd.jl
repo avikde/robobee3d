@@ -12,7 +12,7 @@ includet("MassSpringDamper.jl")
 # create an instance
 m = MassSpringDamperModel(6, # ma
 	150, # ka
-	4500, # mo
+	2000, # mo
 	100) # umax
 ny, nu = cu.dims(m)
 opt = cu.OptOptions(false, false, 0.1, 1, :none, 1e-8, false)
@@ -186,16 +186,25 @@ end
 
 # # many sims (scale) --------------
 
-function costFor(scaleTraj, dtmax)
+function costFor(height, dt)
+	STROKE_AMP = 10 # [mm]
+	G_CONST = 9.81e-3 # [mm/ms^2]
+	loVel = sqrt(2*G_CONST*height)
+	# loVel = STROKE_AMP*omega = STROKE_AMP*scale*2*pi/(N*dt)
+	scaleTraj = loVel*dt*N/(STROKE_AMP*2*pi)
 	# Tmin = 10.08799170499444*scaleTraj/σamax
-	POPTS.plimsU[end] = dtmax
+	POPTS.plimsU[end] = dt
 	ret1 = opt1(traj0, param0, 1, scaleTraj, 0.2)
 	return ret1["u∞"]#[ret1["u∞"]; ret1["param"]]
 end
 
-scales = 0.05:0.1:1.0
-dtmaxs = 0.5:0.1:1.5
-pl = contour(scales, dtmaxs, costFor, fill=true, seriescolor=cgrad(:bluesreds), xlabel="Amplitude", ylabel="dt")
+heights = 10:2:30
+dtmaxs = 0.5:0.2:1.5
+
+pl = contour(heights, dtmaxs, costFor, fill=true, seriescolor=cgrad(:bluesreds), xlabel="Height [mm]", ylabel="dt")
+# # TODO: figure out how to draw two sets of contours in Julia
+# f2(a,b)=a/b
+# pl2 = contour(heights, dtmaxs, f2, seriescolor=cgrad(:bluesreds), fill=true, xlabel="Amplitude", ylabel="dt")
 plot(pl)
 
 # llabels = [
