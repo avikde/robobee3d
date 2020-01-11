@@ -168,7 +168,7 @@ function paramTest(p, s)
 	println("Obj: ", paramObj(xtest), " should be ", norm(unew, Inf)^2)
 end
 
-function actForceForHeightsPlot()
+function actForceForHeightsPlot(bkratio)
 	function costFor(height, dt)
 		STROKE_AMP = 10 # [mm]
 		G_CONST = 9.81e-3 # [mm/ms^2]
@@ -177,7 +177,7 @@ function actForceForHeightsPlot()
 		scaleTraj = loVel*dt*N/(STROKE_AMP*2*pi)
 		# Tmin = 10.08799170499444*scaleTraj/σamax
 		POPTS.plimsU[end] = dt
-		ret1 = opt1(traj0, param0, 1, scaleTraj, 0.2)
+		ret1 = opt1(traj0, param0, 1, scaleTraj, bkratio)
 		return ret1["u∞"]#[ret1["u∞"]; ret1["param"]]
 	end
 
@@ -195,7 +195,7 @@ end
 
 POPTS.plimsU[end] = 0.4
 trajScale = 0.56
-ret1 = opt1(traj0, param0, 1, trajScale, 0.2)
+ret1 = opt1(traj0, param0, 1, trajScale, 0.1)
 display(ret1["param"]')
 
 # debug components ---
@@ -203,7 +203,7 @@ pls = debugComponentsPlot(ret1["traj"], ret1["param"]; refScale=trajScale)
 plot(pls..., size=(800,400))
 
 # # ---------
-# actForceForHeightsPlot()
+# actForceForHeightsPlot(0.1)
 
 # pls = plotNonlinBenefit() # SLOW
 # plot(pls...)
