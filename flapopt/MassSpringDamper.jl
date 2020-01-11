@@ -41,7 +41,7 @@ end
 "Continuous dynamics second order model"
 function cu.dydt(m::MassSpringDamperModel, y::AbstractArray, u::AbstractArray, param::Vector)::AbstractArray
     # unpack
-    τ1, ko, bo, τ2 = param
+    τ1, ko, bo, τ2, dt = param
     ya, T, τfun, τifun = cu.transmission(m, y, param; o2a=true)
     σo, dσo = y
     ddy = 1.0/(m.mo + m.ma/T^2) * (-(ko*σo + m.ka/T*τifun(σo)) - (bo)*dσo + u[1]/T)
@@ -103,31 +103,42 @@ function createInitialTraj(m::MassSpringDamperModel, opt::cu.OptOptions, N::Int,
     return trajt, traj, trajt
 end
 
-function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t, params, trajs; ulim=nothing, fdes=0.1)
+function plotTrajs(m::MassSpringDamperModel, opt::cu.OptOptions, t, params, trajs; ulim=nothing, fdes=0.1, refScale=1.0)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
     Ny = (N+1)*ny
-    # If plot is given a matrix each column becomes a different line
-    σt = plot(t, hcat([traj[@view liy[1,:]] for traj in trajs]...), linewidth=2, ylabel="stroke [mm]", title="δt=$(round(δt; sigdigits=4))ms")
-    dσt = plot(t, hcat([traj[@view liy[2,:]] for traj in trajs]...), linewidth=2, ylabel="stroke vel [mm/ms]", legend=false)
+    Nt = length(trajs)
     
-    ut = plot(t, hcat([[traj[@view liu[1,:]];NaN] for traj in trajs]...), linewidth=2, legend=false, ylabel="stroke force [mN]")
+    # Empty versions of all the subplots
+    σt = plot(ylabel="stroke [mm]")
+    dσt = plot(ylabel="stroke vel [mm/ms]")
+    σat = plot(ylabel="stroke act [mm]")
+    ut = plot(ylabel="stroke force [mN]")
     if !isnothing(ulim)
         ylims!(ut, (-ulim, ulim))
     end
     
     # actuator displacement
     function actdisp(traj, param)
-        τ1, ko, bo, τ2 = param
+        τ1, ko, bo, τ2, dt = param
         y2, T, τfun, τifun = cu.transmission(m, traj, param; o2a=true)
         return τifun.(traj[@view liy[1,:]])
     end
-    σat = plot(t, hcat([actdisp(trajs[i], params[i]) for i=1:length(trajs)]...), linewidth=2, ylabel="act stroke [mm]")
 
-    # also plot the des pos and vel to make sure the initial traj is "OK"
-    post, velt = refTraj(m, fdes)
-    plot!(σt, t, post.(t), color=:black, linestyle=:dash)
-    plot!(dσt, t, velt.(t), color=:black, linestyle=:dash)
-    
+    for i=1:Nt
+        traj, param = trajs[i], params[i]
+        dt = param[end]
+        t = 0:dt:(N)*dt
+        plot!(σt, t, traj[1:ny:(N+1)*ny], linewidth=2)
+        plot!(dσt, t, traj[2:ny:(N+1)*ny], linewidth=2)
+        plot!(σat, t, actdisp(traj, param), linewidth=2)
+        plot!(ut, t, [traj[@view liu[1,:]];NaN], linewidth=2)
+        # also plot the des pos and vel to make sure the initial traj is "OK"
+        post, velt = refTraj(m, fdes)
+        plot!(σt, t, refScale*post.(t), color=:blue, linestyle=:dash, lw=2)
+        # FIXME: this factor seems like it is related to the freq. initial dt=0.1; if the dt is changed so that new dt=0.3; this needs to be newdt/olddt. Why??
+        plot!(dσt, t, refScale*velt.(t), color=:blue, linestyle=:dash, lw=2)
+    end
+
     # Combine the subplots
 	return (σt, dσt, σat, ut)
 end
@@ -135,8 +146,8 @@ end
 # ---------------------- Param opt -----------------------------
 
 function cu.paramLumped(m::MassSpringDamperModel, param::AbstractArray)
-    τ1, ko, bo, τ2 = param
-    return [1, ko, bo], [τ1, τ2]
+    τ1, ko, bo, τ2, dt = param
+    return [1, ko, bo], [τ1, τ2], dt
 end
 
 function cu.transmission(m::MassSpringDamperModel, y::AbstractArray, _param::Vector; o2a=false)
@@ -160,11 +171,11 @@ end
 function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::cu.ParamOptOpts, scaleTraj=1.0; debugComponents=false)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 
-    yo = k -> @view traj[liy[:,k]] # traj is in output coords already
+    yo = k -> traj[liy[:,k]]*scaleTraj # traj is in output coords already
     uk = k -> @view traj[liu[:,k]]
 
     # Param stuff
-    τ1, ko, bo, τ2 = param
+    τ1, ko, bo, τ2, dt = param
 
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
     function HMqTo(ypos, yvel)
@@ -183,17 +194,17 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
 
     function Hstiffo(y)
         σo, σ̇o = y * scaleTraj
-        return δt*[0   σo   0   0   0]
+        return [0   σo   0   0   0]
     end
     function Hstiffa(y)
         σo, σ̇o = y * scaleTraj
-        return δt*[0   0   0   m.ka*σo   m.ka*(-σo^3/3)]
+        return [0   0   0   m.ka*σo   m.ka*(-σo^3/3)]
     end
     function Hdamp(y)
         σo, σ̇o = y * scaleTraj
-        return δt*[0   0   σ̇o   0    0]
+        return [0   0   σ̇o   0    0]
     end
-    HCgJTδt(y) = Hstiffo(y) + Hstiffa(y) + Hdamp(y)
+    HCgJT(y) = Hstiffo(y) + Hstiffa(y) + Hdamp(y)
 
     if debugComponents
         return yo, Hio, Hia, Hstiffo, Hstiffa, Hdamp
@@ -201,15 +212,19 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     # ----------------
 
     # 1st order integration
-    Htil = (y, ynext) -> HMqT(y, ynext) - HMqT(y, y) + HCgJTδt(y)
+    Htili = (y, ynext) -> HMqT(y, ynext) - HMqT(y, y)
+    Htilni = HCgJT
     
     # Functions to output
     "Takes in a Δy in output coords"
     function Hk(k, Δyk, Δykp1)
-        Hh = Htil(yo(k) + Δyk, yo(k+1) + Δykp1)
+        Hi = Htili(yo(k) + Δyk, yo(k+1) + Δykp1)
+        Hni = Htilni(yo(k) + Δyk)
         # With new nonlinear transmission need to break apart H
         σo = (yo(k) + Δyk)[1]
-        return hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
+        Hfortrans = Hh -> hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
+        dtold = param[end]
+        return [Hfortrans(Hi)*dtold  Hfortrans(Hni)]
     end
     
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
