@@ -60,25 +60,33 @@ function predictedTransmission(tau1, tau2, ycp)
 	return tau, Dtau
 end
 
+# Predicted transmission functions
+tau1 = 15.98
+tau2 = 31.959
+ycp = 9.1
+tau, Dtau = predictedTransmission(tau1, tau2, ycp)
+taul, Dtaul = predictedTransmission(tau1, 0, ycp)
+
+# Load data
 alldata = vcat(transmissionStaticProcessCSV("poke1.csv"), transmissionStaticProcessCSV("poke2.csv"), transmissionStaticProcessCSV("poke3.csv"), transmissionStaticProcessCSV("poke4.csv"))
 alldata = dataFilter(alldata)
 
 mx, my, stdy, ycenter = discretize(alldata[:,1], alldata[:,2])
 alldata[:,2] .-= ycenter
 
+# Scatter plot of data
 pl1 = scatter(alldata[:,1], alldata[:,2], xlabel="act", ylabel="tau")
 plot!(pl1, mx, my, lw=2)
 
 # println(my)
 
-pl2 = plot(mx, my, grid=true, lw=2, ribbon=stdy, fillalpha=.5)
-tau1 = 15.98
-tau2 = 31.959
-ycp = 9.1
-tau, Dtau = predictedTransmission(tau1, tau2, ycp)
-taul, Dtaul = predictedTransmission(tau1, 0, ycp)
+# Overlaid with predicted
 xx = -0.35:0.01:0.35
-plot!(pl2, xx, -tau.(xx), lw=2)
-plot!(pl2, xx, -taul.(xx), lw=2)
+pl2 = plot(xx, -tau.(xx), lw=2, title="Transmission function", xlabel="act disp [mm]", ylabel="output [rad]", label="Nonlin")
+plot!(pl2, xx, -taul.(xx), lw=2, label="Lin")
+plot!(pl2, mx, my, grid=true, lw=2, ribbon=stdy, fillalpha=.3, label="Meas")
 
-plot(pl2)
+pl3 = plot(xx, Dtau.(xx), lw=2, title="Instantaneous tr. ratio", xlabel="act disp [mm]", ylabel="dwing/dact [rad/mm]", label="Nonlin")
+plot!(pl3, xx, Dtaul.(xx), lw=2, label="Lin")
+
+plot(pl2, pl3)
