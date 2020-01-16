@@ -60,21 +60,9 @@ function predictedTransmission(tau1, tau2, ycp)
 	return tau, Dtau
 end
 
-function measDtau(x, fx)
-	# DSP.jl
-	# myfilter = digitalfilter(Lowpass(1), Butterworth(10))
-	# fy = filtfilt(myfilter, y)
-	# A_x = 1.:2.:40.
-	# A = [log(x) for x in A_x]
-
-	# # Interpolations.jl
-	# itp = interpolate(fx, BSpline(Cubic(Line(OnGrid()))))
-	# sitp = scale(itp, x)
-	# g = vcat([Interpolations.gradient(sitp, xi) for xi in x]...)
-	# return sitp.(x), g
-
+function measDtau(x, fx, s=0.0)
 	# using Dierckx.jl
-	spl = Spline1D(x, fx)
+	spl = Spline1D(x, fx, s=s)
 	Df = [derivative(spl, xi) for xi in x]
 	
 	return spl.(x), Df
@@ -83,7 +71,7 @@ end
 # Predicted transmission functions
 tau1 = 15.98
 tau2 = 31.959
-ycp = 9.1
+ycp = 9.7
 tau, Dtau = predictedTransmission(tau1, tau2, ycp)
 taul, Dtaul = predictedTransmission(tau1, 0, ycp)
 
@@ -93,7 +81,7 @@ alldata = dataFilter(alldata)
 
 mx, my, stdy, ycenter = discretize(alldata[:,1], alldata[:,2])
 alldata[:,2] .-= ycenter
-itpy, itpDy = measDtau(mx, my)
+itpy, itpDy = measDtau(mx, my, 0.0068)
 
 # Scatter plot of data
 pl1 = scatter(alldata[:,1], alldata[:,2], xlabel="act", ylabel="tau")
@@ -105,11 +93,11 @@ plot!(pl1, mx, my, lw=2)
 xx = -0.3:0.01:0.3
 pl2 = plot(xx, -tau.(xx), grid=true, lw=2, title="Transmission function", xlabel="act disp [mm]", ylabel="output [rad]", label="Nonlin")
 plot!(pl2, xx, -taul.(xx), lw=2, label="Lin")
+plot!(pl2, mx, itpy, lw=2, label="Fit")
 plot!(pl2, mx, my, lw=2, ribbon=stdy, fillalpha=.3, label="Meas")
-plot!(pl2, mx, itpy, lw=2, label="itp")
 
 pl3 = plot(xx, Dtau.(xx), lw=2, title="Instantaneous tr. ratio", xlabel="act disp [mm]", ylabel="dwing/dact [rad/mm]", label="Nonlin")
 plot!(pl3, xx, Dtaul.(xx), lw=2, label="Lin")
-plot!(pl3, mx, -itpDy, lw=2, label="itp")
+plot!(pl3, mx, -itpDy, lw=2, label="Fit")
 
 plot(pl2, pl3)
