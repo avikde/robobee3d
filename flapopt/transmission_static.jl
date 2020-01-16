@@ -52,9 +52,10 @@ function discretize(xdata, ydata, nbins=30)
 	return bincenters, means, stds, ycenter
 end
 
-function predictedTransmission(tau1, tau2)
-	tau(sigmaa) = tau1*sigmaa + tau2*sigmaa^3/3
-	Dtau(sigmaa) = tau1 + tau2*sigmaa^2
+function predictedTransmission(tau1, tau2, ycp)
+	# tau1,tau2 for the 2D model; need to divide by ycp
+	tau(sigmaa) = (tau1*sigmaa + tau2*sigmaa^3/3)/ycp
+	Dtau(sigmaa) = (tau1 + tau2*sigmaa^2)/ycp
 
 	return tau, Dtau
 end
@@ -68,20 +69,16 @@ alldata[:,2] .-= ycenter
 pl1 = scatter(alldata[:,1], alldata[:,2], xlabel="act", ylabel="tau")
 plot!(pl1, mx, my, lw=2)
 
-println(my)
+# println(my)
 
-# xs = range(1,stop=100, length=50)
-# μs = log.(xs)
-# σs = rand(length(xs))
+pl2 = plot(mx, my, grid=true, lw=2, ribbon=stdy, fillalpha=.5)
+tau1 = 15.98
+tau2 = 31.959
+ycp = 9.1
+tau, Dtau = predictedTransmission(tau1, tau2, ycp)
+taul, Dtaul = predictedTransmission(tau1, 0, ycp)
+xx = -0.35:0.01:0.35
+plot!(pl2, xx, -tau.(xx), lw=2)
+plot!(pl2, xx, -taul.(xx), lw=2)
 
-pl2 = plot(mx, my, grid=true, ribbon=stdy, fillalpha=.5)
-tau1 = 1.8
-tau2 = 3.6
-# tau1 = 15.98
-# tau2 = 31.959
-tau, Dtau = predictedTransmission(tau1, tau2)
-taul, Dtaul = predictedTransmission(tau1, 0)
-plot!(pl2, mx, -tau.(mx))
-plot!(pl2, mx, -taul.(mx))
-
-plot(pl1, pl2)
+plot(pl2)
