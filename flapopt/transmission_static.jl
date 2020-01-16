@@ -71,7 +71,7 @@ end
 # Predicted transmission functions
 tau1 = 15.98
 tau2 = 31.959
-ycp = 9.7
+ycp = 9.3
 tau, Dtau = predictedTransmission(tau1, tau2, ycp)
 taul, Dtaul = predictedTransmission(tau1, 0, ycp)
 
@@ -100,4 +100,4 @@ pl3 = plot(xx, Dtau.(xx), lw=2, title="Instantaneous tr. ratio", xlabel="act dis
 plot!(pl3, xx, Dtaul.(xx), lw=2, label="Lin")
 plot!(pl3, mx, -itpDy, lw=2, label="Fit")
 
-plot(pl2, pl3)
+plot(pl2, pl3, layout=(2,1), size=(400,500))
