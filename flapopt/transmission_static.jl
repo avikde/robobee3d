@@ -1,4 +1,4 @@
-using DelimitedFiles, Plots, LinearAlgebra, Statistics, Interpolations
+using DelimitedFiles, Plots, LinearAlgebra, Statistics, Dierckx
 
 fname = "poke1.csv"
 
@@ -61,18 +61,23 @@ function predictedTransmission(tau1, tau2, ycp)
 end
 
 function measDtau(x, fx)
-	# DSP
+	# DSP.jl
 	# myfilter = digitalfilter(Lowpass(1), Butterworth(10))
 	# fy = filtfilt(myfilter, y)
 	# A_x = 1.:2.:40.
 	# A = [log(x) for x in A_x]
-	itp = interpolate(fx, BSpline(Cubic(Line(OnGrid()))))
-	sitp = scale(itp, x)
-	g = vcat([Interpolations.gradient(sitp, xi) for xi in x]...)
 
-	# sitp(3.) # exactly log(3.)
-	# sitp(3.5) # approximately log(3.5)
-	return sitp.(x), g
+	# # Interpolations.jl
+	# itp = interpolate(fx, BSpline(Cubic(Line(OnGrid()))))
+	# sitp = scale(itp, x)
+	# g = vcat([Interpolations.gradient(sitp, xi) for xi in x]...)
+	# return sitp.(x), g
+
+	# using Dierckx.jl
+	spl = Spline1D(x, fx)
+	Df = [derivative(spl, xi) for xi in x]
+	
+	return spl.(x), Df
 end
 
 # Predicted transmission functions
