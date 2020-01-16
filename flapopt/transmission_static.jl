@@ -52,6 +52,13 @@ function discretize(xdata, ydata, nbins=30)
 	return bincenters, means, stds, ycenter
 end
 
+function predictedTransmission(tau1, tau2)
+	tau(sigmaa) = tau1*sigmaa + tau2*sigmaa^3/3
+	Dtau(sigmaa) = tau1 + tau2*sigmaa^2
+
+	return tau, Dtau
+end
+
 alldata = vcat(transmissionStaticProcessCSV("poke1.csv"), transmissionStaticProcessCSV("poke2.csv"), transmissionStaticProcessCSV("poke3.csv"), transmissionStaticProcessCSV("poke4.csv"))
 alldata = dataFilter(alldata)
 
@@ -68,5 +75,13 @@ println(my)
 # σs = rand(length(xs))
 
 pl2 = plot(mx, my, grid=true, ribbon=stdy, fillalpha=.5)
+tau1 = 1.8
+tau2 = 3.6
+# tau1 = 15.98
+# tau2 = 31.959
+tau, Dtau = predictedTransmission(tau1, tau2)
+taul, Dtaul = predictedTransmission(tau1, 0)
+plot!(pl2, mx, -tau.(mx))
+plot!(pl2, mx, -taul.(mx))
 
 plot(pl1, pl2)
