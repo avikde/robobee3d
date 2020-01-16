@@ -1,4 +1,4 @@
-using DelimitedFiles, Plots, LinearAlgebra, Statistics
+using DelimitedFiles, Plots, LinearAlgebra, Statistics, Interpolations
 
 fname = "poke1.csv"
 
@@ -60,6 +60,21 @@ function predictedTransmission(tau1, tau2, ycp)
 	return tau, Dtau
 end
 
+function measDtau(x, fx)
+	# DSP
+	# myfilter = digitalfilter(Lowpass(1), Butterworth(10))
+	# fy = filtfilt(myfilter, y)
+	# A_x = 1.:2.:40.
+	# A = [log(x) for x in A_x]
+	itp = interpolate(fx, BSpline(Cubic(Line(OnGrid()))))
+	sitp = scale(itp, x)
+	g = vcat([Interpolations.gradient(sitp, xi) for xi in x]...)
+
+	# sitp(3.) # exactly log(3.)
+	# sitp(3.5) # approximately log(3.5)
+	return sitp.(x), g
+end
+
 # Predicted transmission functions
 tau1 = 15.98
 tau2 = 31.959
@@ -73,6 +88,7 @@ alldata = dataFilter(alldata)
 
 mx, my, stdy, ycenter = discretize(alldata[:,1], alldata[:,2])
 alldata[:,2] .-= ycenter
+itpy, itpDy = measDtau(mx, my)
 
 # Scatter plot of data
 pl1 = scatter(alldata[:,1], alldata[:,2], xlabel="act", ylabel="tau")
@@ -81,12 +97,14 @@ plot!(pl1, mx, my, lw=2)
 # println(my)
 
 # Overlaid with predicted
-xx = -0.35:0.01:0.35
-pl2 = plot(xx, -tau.(xx), lw=2, title="Transmission function", xlabel="act disp [mm]", ylabel="output [rad]", label="Nonlin")
+xx = -0.3:0.01:0.3
+pl2 = plot(xx, -tau.(xx), grid=true, lw=2, title="Transmission function", xlabel="act disp [mm]", ylabel="output [rad]", label="Nonlin")
 plot!(pl2, xx, -taul.(xx), lw=2, label="Lin")
-plot!(pl2, mx, my, grid=true, lw=2, ribbon=stdy, fillalpha=.3, label="Meas")
+plot!(pl2, mx, my, lw=2, ribbon=stdy, fillalpha=.3, label="Meas")
+plot!(pl2, mx, itpy, lw=2, label="itp")
 
 pl3 = plot(xx, Dtau.(xx), lw=2, title="Instantaneous tr. ratio", xlabel="act disp [mm]", ylabel="dwing/dact [rad/mm]", label="Nonlin")
 plot!(pl3, xx, Dtaul.(xx), lw=2, label="Lin")
+plot!(pl3, mx, -itpDy, lw=2, label="itp")
 
 plot(pl2, pl3)
