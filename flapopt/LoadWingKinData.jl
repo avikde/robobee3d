@@ -133,7 +133,7 @@ function loadVideoData(fname; dC=5.345, dD=4.047, vidX=250, trialFreq=165, makeg
 		return atan(-cΦ/sΦ) + π # no coord frame in tracker (pixel coords)
 	end
 
-	function find_Ψ(pBi, pCi, pDi, p0, Φi)
+	function find_Ψ(pBi, p0, Φi, pCi, pDi=nothing)
 		# First some helper functions
 		Rot = Φ -> [cos(Φ) -sin(Φ); sin(Φ) cos(Φ)]
 
@@ -145,10 +145,13 @@ function loadVideoData(fname; dC=5.345, dD=4.047, vidX=250, trialFreq=165, makeg
 		end
 
 		c = find_proj_dist(pBi, pCi, p0, Φi)
-		d = find_proj_dist(pBi, pDi, p0, Φi)
-
-		# sine of the hinge angle appears in these projections
-		sΨ = [dC; dD] \ [c;d]
+		if !isnothing(pDi)
+			d = find_proj_dist(pBi, pDi, p0, Φi)
+			# sine of the hinge angle appears in these projections
+			sΨ = [dC; dD] \ [c;d]
+		else
+			sΨ = c/dC
+		end
 		return asin(sΨ)
 	end
 
@@ -162,15 +165,23 @@ function loadVideoData(fname; dC=5.345, dD=4.047, vidX=250, trialFreq=165, makeg
 	pA, pB, pC, pD = [xy_at_t(i; k=1) for i=1:4] # Nx2 x 4
 	Np = length(tq)
 
-	Φ = [findStrokeFromWingBase(pA[i,:], pB[i,:]) for i=1:Np]
-	plot(tq, Φ)
+	spl = Spline1D(tq,[findStrokeFromWingBase(pA[i,:], pB[i,:]) for i=1:Np], s=0.01)
+	Φ = spl.(tq)
+	spl2 = Spline1D(tq,[findStrokeFromWingBase(pA[i,:], pC[i,:]; trackedPerpToWing=false) for i=1:Np], s=0.01)
+	Φ2 = spl2.(tq)
+	Ψ = [find_Ψ(pC[i,:], pA[i,:], Φ[i], pC[i,:]) for i=1:Np]
+	println(Ψ)
+	p1 = plot(tq, Φ)
+	plot!(p1, tq, Φ2)
+	p2 = plot(tq, Ψ)
+	plot(p1, p2)
 	gui()
 	error("hi")
 
 	p0 = find_p0(pA, pB)
 	# println("p0 = ", p0)
 	Φ = [find_Φ(pA[i,:], pB[i,:], p0) for i=1:Np]
-	Ψ = [find_Ψ(pB[i,:], pC[i,:], pD[i,:], p0, Φ[i]) for i=1:Np]
+	Ψ = [find_Ψ(pB[i,:], p0, Φ[i], pC[i,:], pD[i,:]) for i=1:Np]
 	
 	# Trim to tms=1000/trialFreq
 	ind_1cyc = findfirst(x -> x >= 1000/trialFreq, tms)
