@@ -84,7 +84,7 @@ dC, dD = (perp) distances of those points from the wing spar (this is the only m
 vidX = vid sample rate / 30 (or whatever was chosen when exporting avi). e.g. 7500fps -> 30 => vidX = 250
 trialFreq = freq of flapping (used *only* to trim to 1 flap)
 """
-function loadVideoData(fname; dC=5.345, dD=4.047, vidX=250, trialFreq=165, makegif=false)
+function loadVideoData(fname; dC=5.345, dD=4.047, vidX=250, trialFreq=165, makegif=false, tracktype=1)
 	dat = readdlm(fname, ',', Float64, skipstart=2)
 	# Should be an Nx12 array, for mass A (t, x, y), ... mass D
 	# Use the first col as the time vector
@@ -165,23 +165,19 @@ function loadVideoData(fname; dC=5.345, dD=4.047, vidX=250, trialFreq=165, makeg
 	pA, pB, pC, pD = [xy_at_t(i; k=1) for i=1:4] # Nx2 x 4
 	Np = length(tq)
 
-	spl = Spline1D(tq,[findStrokeFromWingBase(pA[i,:], pB[i,:]) for i=1:Np], s=0.01)
-	Φ = spl.(tq)
-	spl2 = Spline1D(tq,[findStrokeFromWingBase(pA[i,:], pC[i,:]; trackedPerpToWing=false) for i=1:Np], s=0.01)
-	Φ2 = spl2.(tq)
-	Ψ = [find_Ψ(pC[i,:], pA[i,:], Φ[i], pC[i,:]) for i=1:Np]
-	println(Ψ)
-	p1 = plot(tq, Φ)
-	plot!(p1, tq, Φ2)
-	p2 = plot(tq, Ψ)
-	plot(p1, p2)
-	gui()
-	error("hi")
-
-	p0 = find_p0(pA, pB)
-	# println("p0 = ", p0)
-	Φ = [find_Φ(pA[i,:], pB[i,:], p0) for i=1:Np]
-	Ψ = [find_Ψ(pB[i,:], p0, Φ[i], pC[i,:], pD[i,:]) for i=1:Np]
+	if tracktype == 2
+		# spl = Spline1D(tq,[findStrokeFromWingBase(pA[i,:], pB[i,:]) for i=1:Np], s=0.01)
+		# Φ = spl.(tq)
+		spl2 = Spline1D(tq,[findStrokeFromWingBase(pA[i,:], pC[i,:]; trackedPerpToWing=false) for i=1:Np], s=0.01)
+		Φ = spl2.(tq)
+		spl3 = Spline1D(tq, [find_Ψ(pC[i,:], pA[i,:], Φ[i], pD[i,:]) for i=1:Np], s=0.07)
+		Ψ = spl3.(tq)
+	else
+		p0 = find_p0(pA, pB)
+		# println("p0 = ", p0)
+		Φ = [find_Φ(pA[i,:], pB[i,:], p0) for i=1:Np]
+		Ψ = [find_Ψ(pB[i,:], p0, Φ[i], pC[i,:], pD[i,:]) for i=1:Np]
+	end
 	
 	# Trim to tms=1000/trialFreq
 	ind_1cyc = findfirst(x -> x >= 1000/trialFreq, tms)
