@@ -92,8 +92,15 @@ function loadVideoData(fname; dC=5.345, dD=4.047, vidX=250, trialFreq=165, makeg
 
 	"i = massid between 1 and 4"
 	function xy_at_t(i; kwargs...)
-		splx = Spline1D(dat[:,3*i-2], dat[:,3*i-1]; kwargs...)
-		sply = Spline1D(dat[:,3*i-2], dat[:,3*i]; kwargs...)
+		if size(dat,2) < 12
+			# only one t column at the beginning (total 9 columns). t,x,y,x,y,...
+			splx = Spline1D(dat[:,1], dat[:,2*i]; kwargs...)
+			sply = Spline1D(dat[:,1], dat[:,2*i+1]; kwargs...)
+		else
+			# t,x,y,t,x,y...
+			splx = Spline1D(dat[:,3*i-2], dat[:,3*i-1]; kwargs...)
+			sply = Spline1D(dat[:,3*i-2], dat[:,3*i]; kwargs...)
+		end
 		return [splx(tq) sply(tq)]
 	end
 
