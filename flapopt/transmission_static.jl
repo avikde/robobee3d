@@ -2,7 +2,7 @@ using DelimitedFiles, Plots, LinearAlgebra, Statistics, Dierckx
 
 fname = "poke1.csv"
 
-function transmissionStaticProcessCSV(fname)
+function transmissionStaticProcessCSV(fname; trackedPerpToWing=false)
 	dat = readdlm(string("data/transmission/",fname), ',', Float64, skipstart=2)
 	# cols are t, Ax,Ay, Bx,By, Cx,Cy
 	# Ax is the x pos of the actuator [mm]
@@ -13,7 +13,7 @@ function transmissionStaticProcessCSV(fname)
 	wingAngs = zeros(Np)
 	for i=1:Np
 		wingVec = dat[i,6:7] - dat[i,4:5]
-		wingAngs[i] = atan(wingVec[2]/wingVec[1])
+		wingAngs[i] = atan(trackedPerpToWing ? wingVec[1]/wingVec[2] : -wingVec[2]/wingVec[1])
 	end
 
 	return hcat(dat[:,2], wingAngs)
@@ -71,33 +71,38 @@ end
 # Predicted transmission functions
 tau1 = 15.98
 tau2 = 31.959
-ycp = 9.3
+ycp = 11
 tau, Dtau = predictedTransmission(tau1, tau2, ycp)
 taul, Dtaul = predictedTransmission(tau1, 0, ycp)
 
 # Load data
-alldata = vcat(transmissionStaticProcessCSV("poke1.csv"), transmissionStaticProcessCSV("poke2.csv"), transmissionStaticProcessCSV("poke3.csv"), transmissionStaticProcessCSV("poke4.csv"))
+# alldata = vcat(transmissionStaticProcessCSV("poke1.csv"), transmissionStaticProcessCSV("poke2.csv"), transmissionStaticProcessCSV("poke3.csv"), transmissionStaticProcessCSV("poke4.csv"))
+alldata = vcat(transmissionStaticProcessCSV("155hz.csv"; trackedPerpToWing=true), transmissionStaticProcessCSV("poke3.csv"), transmissionStaticProcessCSV("poke2.csv"))
 alldata = dataFilter(alldata)
+
+# scatter(alldata[:,1], alldata[:,2])
 
 mx, my, stdy, ycenter = discretize(alldata[:,1], alldata[:,2])
 alldata[:,2] .-= ycenter
-itpy, itpDy = measDtau(mx, my, 0.0068)
+itpy, itpDy = measDtau(mx, my, 0.0045)
 
-# Scatter plot of data
-pl1 = scatter(alldata[:,1], alldata[:,2], xlabel="act", ylabel="tau")
-plot!(pl1, mx, my, lw=2)
+# # Scatter plot of data
+# pl1 = scatter(alldata[:,1], alldata[:,2], xlabel="act", ylabel="tau", legend=:topleft)
+# plot!(pl1, mx, my, lw=2)
 
 # println(my)
 
 # Overlaid with predicted
-xx = -0.3:0.01:0.3
-pl2 = plot(xx, -tau.(xx), grid=true, lw=2, title="Transmission function", xlabel="act disp [mm]", ylabel="output [rad]", label="Nonlin")
-plot!(pl2, xx, -taul.(xx), lw=2, label="Lin")
+xx = -0.2:0.01:0.2
+pl2 = plot([], [], title="Transmission function", xlabel="act disp [mm]", ylabel="output [rad]", legend=:topleft, label="")
+# plot!(pl2, xx, tau.(xx), grid=true, lw=2, label="Nonlin")
+# plot!(pl2, xx, taul.(xx), lw=2, label="Lin")
 plot!(pl2, mx, itpy, lw=2, label="Fit")
 plot!(pl2, mx, my, lw=2, ribbon=stdy, fillalpha=.3, label="Meas")
 
-pl3 = plot(xx, Dtau.(xx), lw=2, title="Instantaneous tr. ratio", xlabel="act disp [mm]", ylabel="dwing/dact [rad/mm]", label="Nonlin")
-plot!(pl3, xx, Dtaul.(xx), lw=2, label="Lin")
-plot!(pl3, mx, -itpDy, lw=2, label="Fit")
+pl3 = plot([], [], title="Instantaneous tr. ratio", xlabel="act disp [mm]", ylabel="dwing/dact [rad/mm]", label="")
+# plot!(pl3, xx, Dtau.(xx), lw=2, label="Nonlin")
+# plot!(pl3, xx, Dtaul.(xx), lw=2, label="Lin")
+plot!(pl3, mx, itpDy, lw=2, label="Fit")
 
-plot(pl2, pl3, layout=(2,1), size=(400,500))
+plot(pl2, pl3, layout=(2,1), size=(300,400))
