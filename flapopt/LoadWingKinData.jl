@@ -152,10 +152,21 @@ function loadVideoData(fname; dC=5.345, dD=4.047, vidX=250, trialFreq=165, makeg
 		return asin(sΨ)
 	end
 
+	function findStrokeFromWingBase(pAi, pBi; trackedPerpToWing=true)
+		wingVec = pBi - pAi
+		return atan(trackedPerpToWing ? wingVec[1]/wingVec[2] : -wingVec[2]/wingVec[1])
+	end
+
 	# get time in ms
 	tms = 1000*tq/vidX
 	pA, pB, pC, pD = [xy_at_t(i; k=1) for i=1:4] # Nx2 x 4
 	Np = length(tq)
+
+	Φ = [findStrokeFromWingBase(pA[i,:], pB[i,:]) for i=1:Np]
+	plot(tq, Φ)
+	gui()
+	error("hi")
+
 	p0 = find_p0(pA, pB)
 	# println("p0 = ", p0)
 	Φ = [find_Φ(pA[i,:], pB[i,:], p0) for i=1:Np]
