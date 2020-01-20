@@ -250,7 +250,7 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs)
     end
     # Plot of aero forces at each instant
     function aeroPlotVec(_traj::Vector, _param, ind)
-        cbar, τ1, mwing, kΨ, bΨ, τ2 = _param
+        cbar, τ1, mwing, wΨ, τ2, Aw, dt  = _param
         Faerok = k -> w2daero(m, cu.transmission(m, _traj[@view liy[:,k]], _param)[1], _param)[end] * 1000 / 9.81 # to mg
         Faeros = hcat([Faerok(k) for k=1:N]...)
         return [Faeros[ind,:]' NaN]'

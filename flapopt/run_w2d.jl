@@ -64,8 +64,8 @@ dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
 	R=(zeros(4,4), 0, 1.0*I), 
-	plimsL = [0.1, 10, 0.1, 0.1, 0, 20.0, dtlims[1]],
-	plimsU = [1000.0, 1000.0, 100.0, 100.0, 100.0, 150.0, dtlims[2]],
+	plimsL = [0.1, 10, 0.1, 0.5, 0, 20.0, dtlims[1]],
+	plimsU = [1000.0, 1000.0, 100.0, 20.0, 100.0, 150.0, dtlims[2]],
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
 	uinfnorm = true
 )
@@ -154,28 +154,28 @@ end
 # ID
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
-# 2. Try to optimize
-ret2 = opt1(ret1["traj"], ret1["param"], 1, 0.9)#; print_level=3, max_iter=10000)
+# # 2. Try to optimize
+# ret2 = opt1(ret1["traj"], ret1["param"], 1, 0.9)#; print_level=3, max_iter=10000)
 
-# testManyShifts(ret1, [0], 0.6)
+# # testManyShifts(ret1, [0], 0.6)
 
-# retTest = Dict("traj"=>ret2["traj"], "param"=>ret2["param"])
-# retTest["param"][2]
+# # retTest = Dict("traj"=>ret2["traj"], "param"=>ret2["param"])
+# # retTest["param"][2]
 
-# pl1 = plotTrajs(m, opt, listOfParamTraj(ret1, ret2)...)
-# plot(pl1...)
+# # pl1 = plotTrajs(m, opt, listOfParamTraj(ret1, ret2)...)
+# # plot(pl1...)
 
-# ---------
-pls = debugComponentsPlot(m, opt, POPTS, ret2)
-plot(pls..., size=(800,600))
+# # ---------
+# pls = debugComponentsPlot(m, opt, POPTS, ret2)
+# plot(pls..., size=(800,600))
 
 # # -----------------
 # pls = plotNonlinBenefit(ret1) # SLOW
 # plot(pls...)
 
-# # ----------------
-# pls = scaleParamsForlift(ret1, 1.5:0.1:2.2, 2)
-# plot(pls...)
+# ----------------
+pls = scaleParamsForlift(ret1, 0.5:0.1:1.2, 2)
+plot(pls...)
 
 # # traj opt ------------------------------------
 
