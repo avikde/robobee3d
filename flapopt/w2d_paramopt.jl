@@ -1,6 +1,7 @@
 
 import controlutils
 cu = controlutils
+using ForwardDiff
 using Plots; gr()
 include("Wing2DOF.jl")
 include("LoadWingKinData.jl")
@@ -72,6 +73,16 @@ function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, sta
 	return N, trajt, traj0, opt, avgLift0
 end
 
+"""Linear approx of wing AR constraint at cbar https://github.com/avikde/robobee3d/issues/113. Returns a,b s.t. dot(a, [cb,Aw]) <= b is the constraint"""
+function wingARconstraintLin(cbar; maxAR=4)
+	# AR<=4: see https://github.com/avikde/robobee3d/pull/105#issuecomment-562761586 originally
+	fwingAR(cbAw::Vector) = -maxAR*cbAw[1]^2+cbAw[2]
+	ptang(cb) = [cb, -fwingAR([cb, 0])]
+	p0 = ptang(cbar)
+	Dfwing(x) = ForwardDiff.gradient(fwingAR, x)
+	return Dfwing(p0), dot(Dfwing(p0),p0)
+end
+
 """One-off ID or opt"""
 function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1)
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
@@ -80,13 +91,14 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
     # cbar, τ1, mwing, kΨ, bΨ, τ2, Aw, dt = param
 	# Poly constraint
 	rholims = estimateWingDensity()
+	wARa, wARb = wingARconstraintLin(5.0)
 	Cp = Float64[0  0  0  0  0  0  -1  0; # min lift => Aw >= ?
 		0  -τ21ratiolim  0  0  0  1  0  0; # transmission nonlinearity τ2 <= τ21ratiolim * τ1
 		0   0  -1  0  0  0  rholims[1]  0; # wing density mw >= Aw*ρ1
 		0   0  1  0  0  0  -rholims[2]  0; # wing density mw <= Aw*ρ2
-		-1   0  0  0  0  0  0.025  0] # AR<=4: see https://github.com/avikde/robobee3d/pull/105#issuecomment-562761586
+		wARa[1]   0  0  0  0  0  wARa[2]  0] # wing AR
 	Awmin = minAvgLift -> param0[7] * minAvgLift / avgLift0
-	dp = [-Awmin(minal); 0; 0; 0; -2.5]
+	dp = [-Awmin(minal); 0; 0; 0; wARb]
 
 	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
 	# append unactErr
