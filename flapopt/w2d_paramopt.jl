@@ -84,14 +84,14 @@ function wingARconstraintLin(cbar; maxAR=4)
 end
 
 """One-off ID or opt"""
-function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1)
+function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1, wARconstraintLinCbar=5.0)
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
 	print(mode==2 ? "ID" : "Opt", " minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
 
     # cbar, τ1, mwing, kΨ, bΨ, τ2, Aw, dt = param
 	# Poly constraint
 	rholims = estimateWingDensity()
-	wARa, wARb = wingARconstraintLin(5.0)
+	wARa, wARb = wingARconstraintLin(wARconstraintLinCbar)
 	Cp = Float64[0  0  0  0  0  0  -1  0; # min lift => Aw >= ?
 		0  -τ21ratiolim  0  0  0  1  0  0; # transmission nonlinearity τ2 <= τ21ratiolim * τ1
 		0   0  -1  0  0  0  rholims[1]  0; # wing density mw >= Aw*ρ1
