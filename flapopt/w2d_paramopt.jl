@@ -6,6 +6,11 @@ using Plots; gr()
 include("Wing2DOF.jl")
 include("LoadWingKinData.jl")
 
+# Indices into param array
+const cb_idx = 1
+const mw_idx = 3
+const Aw_idx = 6
+
 """From Chen (2016) IROS, find a usable estimate of the wing density to use as a bound."""
 function estimateWingDensity(test=false)
 	# Copy-pasted data from [Chen (2016)]. Each of these should presumably be a different "density" (instantiated by dspar).
@@ -28,7 +33,7 @@ function estimateWingDensity(test=false)
 		hline!(p2, rholims)
 		plot(p1, p2)
 		gui()
-		error("rholims", rholims, " from param0 ", param0[3]/param0[7])
+		error("rholims", rholims, " from param0 ", param0[mw_idx]/param0[Aw_idx])
 	end
 	
 	# return param0[3]/param0[1] <- 0.16
@@ -97,7 +102,7 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 		0   0  -1  0  0  rholims[1]  0; # wing density mw >= Aw*ρ1
 		0   0  1  0  0  -rholims[2]  0; # wing density mw <= Aw*ρ2
 		wARa[1]   0  0  0  0  wARa[2]  0] # wing AR
-	Awmin = minAvgLift -> param0[7] * minAvgLift / avgLift0
+	Awmin = minAvgLift -> param0[Aw_idx] * minAvgLift / avgLift0
 	dp = [-Awmin(minal); 0; 0; 0; wARb]
 
 	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
@@ -109,7 +114,7 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 	if testAfter
 		cu.affineTest(m, opt, ret["traj"], ret["param"], POPTS)
 	end
-	println(ret["status"], ", ", round.(ret["param"]', digits=3), ", fHz=", round(1000/(N*ret["param"][end]), digits=1), ", al[mg]=", round(ret["al"] * 1000/9.81, digits=1), ", u∞=", round(ret["u∞"], digits=1), ", J=", round(ret["eval_f"](ret["x"]), digits=1), ", AR=", round(ret["param"][7]/ret["param"][1]^2, digits=1))
+	println(ret["status"], ", ", round.(ret["param"]', digits=3), ", fHz=", round(1000/(N*ret["param"][end]), digits=1), ", al[mg]=", round(ret["al"] * 1000/9.81, digits=1), ", u∞=", round(ret["u∞"], digits=1), ", J=", round(ret["eval_f"](ret["x"]), digits=1), ", AR=", round(ret["param"][Aw_idx]/ret["param"][cb_idx]^2, digits=1))
 	return ret
 end
 
