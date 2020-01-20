@@ -73,6 +73,11 @@ function cu.limitsTimestep(m::Wing2DOFModel)::Tuple{Float64, Float64}
 	return 0.01, 0.07
 end
 
+"Tried going directly from Doshi model-driven, but haven't been able to get that to match up"
+function hingeParams(wΨ)
+    # kΨ [mN-mm/rad], bΨ [mN-mm/(rad/ms)]
+    return [2.0, 1.2]*wΨ
+end
 
 "Returns paero [mm], Jaero, Faero [mN]. Takes in y in *output coordinates*"
 function w2daero(m::Wing2DOFModel, yo::AbstractArray, param::Vector)
@@ -82,7 +87,8 @@ function w2daero(m::Wing2DOFModel, yo::AbstractArray, param::Vector)
     ρ = 1.225e-3 # [mg/(mm^3)]
     
     # unpack
-    cbar, τ1, mwing, kΨ, bΨ, τ2, Aw, dt = param
+    cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
+    kΨ, bΨ = hingeParams(wΨ)
     σ, Ψ, σ̇, Ψ̇ = yo # [mm, rad, mm/ms, rad/ms]
     cΨ = cos(Ψ)
     sΨ = sin(Ψ)
@@ -115,7 +121,8 @@ end
 "Continuous dynamics second order model"
 function cu.dydt(m::Wing2DOFModel, y::AbstractArray, u::AbstractArray, param::Vector)::AbstractArray
     # unpack
-    cbar, τ1, mwing, kΨ, bΨ, τ2, Aw, dt = param
+    cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
+    kΨ, bΨ = hingeParams(wΨ)
     yo, T, τfun, τifun = cu.transmission(m, y, param)
     σ, Ψ, σ̇, Ψ̇ = yo
     # NOTE: for optimizing transmission ratio
@@ -235,7 +242,8 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs)
     Nt = length(trajs)
     # stroke "angle" = T*y[1] / R
     function strokeAng(traj, param)
-        cbar, τ1, mwing, kΨ, bΨ, τ2, Aw, dt = param
+        cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
+        kΨ, bΨ = hingeParams(wΨ)
         σo = [cu.transmission(m, traj[@view liy[:,k]], param; o2a=false)[1][1] for k=1:N+1]
         # σo = traj[1:ny:(N+1)*ny]
         return σo / (Aw/(2*cbar))
@@ -283,7 +291,8 @@ function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 	Ny = (N+1)*ny
 	# stroke "angle" = T*y[1] / R
-    cbar, τ1, mwing, kΨ, bΨ, τ2, Aw, dt = param
+    cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
+    kΨ, bΨ = hingeParams(wΨ)
     # Plot of aero forces at each instant
     function aeroPlotVec(_traj::Vector, _param, i)
         Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end]
@@ -303,7 +312,8 @@ function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param
 end
 
 function drawFrame(m::Wing2DOFModel, yk, uk, param; Faeroscale=1.0)
-    cbar, τ1, mwing, kΨ, bΨ, τ2, Aw, dt = param
+    cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
+    kΨ, bΨ = hingeParams(wΨ)
     yo, T, _, _ = cu.transmission(m, yk, param)
     paero, _, Faero = w2daero(m, yo, param)
     wing1 = [yo[1];0] # wing tip
@@ -417,7 +427,8 @@ function cu.robj(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, para
 	yk = k -> @view traj[liy[:,k]]
 	uk = k -> @view traj[liu[:,k]]
     
-    cbar, τ1, mwing, kΨ, bΨ, τ2, Aw, dt = param
+    cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
+    kΨ, bΨ = hingeParams(wΨ)
 
     Favg = @SVector zeros(2)
     for k = 1:N
@@ -451,7 +462,8 @@ function cu.transmission(m::Wing2DOFModel, y::AbstractArray, _param::Vector; o2a
 end
 
 function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
-    cbar, τ1, mwing, kΨ, bΨ, τ2, Aw, dt = param
+    cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
+    kΨ, bΨ = hingeParams(wΨ)
     Tarr = [τ1, τ2]
     return [1, kΨ, bΨ, Aw, cbar*Aw, mwing, mwing*cbar, mwing*cbar^2], Tarr, dt
 end
@@ -463,7 +475,8 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     uk = k -> @view traj[liu[:,k]]
 
     # Param stuff
-    cbar, τ1, mwing, kΨ, bΨ, τ2, Aw, dt = param
+    cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
+    kΨ, bΨ = hingeParams(wΨ)
     # Need the original T to use output coords
     yo = k -> cu.transmission(m, yk(k), param)[1]
 
@@ -573,7 +586,8 @@ function avgLift(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, para
     yk = k -> @view traj[liy[:,k]]
     uk = k -> @view traj[liu[:,k]]
 
-    cbar, τ1, mwing, kΨ, bΨ, τ2, Aw, dt = param
+    cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
+    kΨ, bΨ = hingeParams(wΨ)
     aa = 0
     for k=1:N
         _, _, Faero = w2daero(m, cu.transmission(m, yk(k), param)[1], param)

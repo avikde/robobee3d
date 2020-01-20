@@ -32,8 +32,7 @@ function getInitialParams(itype=0)
 		return 70, [3.2,  # cbar[mm] (area/R)
 			28.33, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
 			0.52, # mwing[mg]
-			5, # kΨ [mN-mm/rad]
-			3, # bΨ [mN-mm/(rad/ms)]
+			2.5, # wΨ [mm]
 			0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
 			54.4, # Aw = 3.2*17 [mm^2] (Jafferis 2016)
 			0.135 # dt
@@ -43,8 +42,7 @@ function getInitialParams(itype=0)
 		return 100, [5.411,  # cbar[mm] (area/R)
 			18.681, # τ1
 			0.866, # mwing[mg]
-			22.633, # kΨ [mN-mm/rad]
-			12.037, # bΨ [mN-mm/(rad/ms)]
+			11.0, # wΨ [mm]
 			0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92,
 			91.987, # Aw [mm^2] (Jafferis 2016)
 			0.109 # dt
@@ -66,8 +64,8 @@ dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS = cu.ParamOptOpts(
 	τinds=[2,6], 
 	R=(zeros(4,4), 0, 1.0*I), 
-	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0, 84.0, dtlims[1]],
-	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0, 150.0, dtlims[2]],
+	plimsL = [0.1, 10, 0.1, 0.1, 0, 20.0, dtlims[1]],
+	plimsU = [1000.0, 1000.0, 100.0, 100.0, 100.0, 150.0, dtlims[2]],
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
 	uinfnorm = true
 )

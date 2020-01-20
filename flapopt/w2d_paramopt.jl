@@ -92,11 +92,11 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 	# Poly constraint
 	rholims = estimateWingDensity()
 	wARa, wARb = wingARconstraintLin(wARconstraintLinCbar)
-	Cp = Float64[0  0  0  0  0  0  -1  0; # min lift => Aw >= ?
-		0  -τ21ratiolim  0  0  0  1  0  0; # transmission nonlinearity τ2 <= τ21ratiolim * τ1
-		0   0  -1  0  0  0  rholims[1]  0; # wing density mw >= Aw*ρ1
-		0   0  1  0  0  0  -rholims[2]  0; # wing density mw <= Aw*ρ2
-		wARa[1]   0  0  0  0  0  wARa[2]  0] # wing AR
+	Cp = Float64[0  0  0  0  0  -1  0; # min lift => Aw >= ?
+		0  -τ21ratiolim  0  0  1  0  0; # transmission nonlinearity τ2 <= τ21ratiolim * τ1
+		0   0  -1  0  0  rholims[1]  0; # wing density mw >= Aw*ρ1
+		0   0  1  0  0  -rholims[2]  0; # wing density mw <= Aw*ρ2
+		wARa[1]   0  0  0  0  wARa[2]  0] # wing AR
 	Awmin = minAvgLift -> param0[7] * minAvgLift / avgLift0
 	dp = [-Awmin(minal); 0; 0; 0; wARb]
 
