@@ -77,7 +77,7 @@ end
 "Tried going directly from Doshi model-driven, but haven't been able to get that to match up"
 function hingeParams(wΨ)
     # kΨ [mN-mm/rad], bΨ [mN-mm/(rad/ms)]
-    return 2.0*wΨ, 1.2*wΨ
+    return 5, 3#2.0*wΨ, 1.2*wΨ
 end
 
 "Returns paero [mm], Jaero, Faero [mN]. Takes in y in *output coordinates*"
@@ -248,7 +248,7 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     return trajt .- trajt[1], traj0
 end
 
-function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs)
+function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs; legends=true)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
 	Ny = (N+1)*ny
     Nt = length(trajs)
@@ -266,12 +266,13 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs)
     end
 
     # Empty versions of all the subplots
-    stroket = plot(ylabel="stroke ang [r]", ylims=(-pi/4,pi/4))# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
-    Ψt = plot(ylabel="hinge ang [r]")
-    ut = plot(ylabel="stroke force [mN]")
-    liftt = plot(ylabel="lift [mg]")
-    dragt = plot(ylabel="drag [mg]")
-    actt = plot(ylabel="act disp [mm]", ylims=(-0.3,0.3))
+    stroket = plot(ylabel="stroke ang [r]", ylims=(-pi/4,pi/4), legend=legends)# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
+    Ψt = plot(ylabel="hinge ang [r]", legend=legends)
+    ut = plot(ylabel="stroke force [mN]", legend=legends)
+    liftt = plot(ylabel="lift [mg]", legend=legends)
+    dragt = plot(ylabel="drag [mg]", legend=legends)
+    actt = plot(ylabel="act disp [mm]", ylims=(-0.3,0.3), legend=legends)
+    phaset = plot(ylabel="Phase offs", legend=legends)
     for i=1:Nt
         traj, param = trajs[i], params[i]
         dt = param[end]
@@ -282,9 +283,10 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs)
         plot!(ut, t, [traj[@view liu[1,:]];NaN], linewidth=2)
         plot!(liftt, t, aeroPlotVec(traj, param, 2), linewidth=2)
         plot!(dragt, t, aeroPlotVec(traj, param, 1), linewidth=2)
+        plot!(phaset, traj[@view liy[3,:]], traj[@view liy[2,:]], linewidth=2)
     end
     # Return tuple
-	return (stroket, Ψt, ut, liftt, dragt, actt)
+	return (stroket, Ψt, ut, liftt, dragt, actt, phaset)
 end
 
 function plotParamImprovement(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs, paramObj::Function)

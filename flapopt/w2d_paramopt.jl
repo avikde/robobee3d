@@ -65,7 +65,7 @@ function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, sta
 	end
 
 	if makeplot
-		pl1 = plotTrajs(m, opt, [param0], [traj0])
+		pl1 = plotTrajs(m, opt, [param0], [traj0]; legends=false)
 		# pl1 = compareTrajToDAQ(m, opt, trajt, param0, traj0, lift, drag)
 		plot(pl1...)
 		gui()

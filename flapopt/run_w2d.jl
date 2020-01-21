@@ -29,7 +29,7 @@ ny, nu = cu.dims(m)
 
 function getInitialParams()
 	# robobee scale
-	return 70, [3.2,  # cbar[mm] (area/R)
+	return 75, [3.2,  # cbar[mm] (area/R)
 		3.3333, # τ1 (from 3333 rad/m, [Jafferis (2016)])
 		0.52, # mwing[mg]
 		2.5, # wΨ [mm]
