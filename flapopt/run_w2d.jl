@@ -66,7 +66,7 @@ POPTS = cu.ParamOptOpts(
 	R=(zeros(4,4), 0, 1.0*I), 
 	plimsL = [0.1, 10, 0.1, 0.5, 0, 20.0, dtlims[1]],
 	plimsU = [1000.0, 1000.0, 100.0, 20.0, 100.0, 150.0, dtlims[2]],
-	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
+	εunact = 0.5, # 0.1 default. Do this for now to iterate faster
 	uinfnorm = true
 )
 includet("w2d_shift.jl")
@@ -79,7 +79,7 @@ function scaleParamsForlift(ret, minlifts, τ21ratiolim; kwargs...)
 		r = opt1(traj, param, 1, al, τ21ratiolim; kwargs...)
 		# kΨ, bΨ = param2[4:5]
 		uu = r["traj"][(N+1)*ny:end]
-		return [r["param"]; norm(uu, Inf); norm(r["unactErr"], Inf); norm(uu, 2)/N]
+		return [r["param"]; norm(uu, Inf); norm(r["unactErr"], Inf); norm(uu, 2)/N; r["al"]]
 	end
 	llabels = [
 		"chord",
@@ -96,11 +96,12 @@ function scaleParamsForlift(ret, minlifts, τ21ratiolim; kwargs...)
 	res = hcat(maxuForMinAvgLift.(minlifts)...)'
 	display(res)
 	np = length(param0)
-	p1 = plot(minliftsmg, res[:,POPTS.τinds], xlabel="min avg lift [mg]", label=llabels[POPTS.τinds], ylabel="T1,T2", linewidth=2, legend=:topleft)
-	p2 = plot(minliftsmg, [res[:,np+1]  res[:,np+3]], xlabel="min avg lift [mg]", ylabel="umin [mN]", linewidth=2, legend=:topleft, label=["inf","2"])
+	actualliftsmg = res[:,np+4] * 1000/9.81
+	p1 = plot(actualliftsmg, res[:,POPTS.τinds], xlabel="avg lift [mg]", label=llabels[POPTS.τinds], ylabel="T1,T2", linewidth=2, legend=:topleft)
+	p2 = plot(actualliftsmg, [res[:,np+1]  res[:,np+3]], xlabel="avg lift [mg]", ylabel="umin [mN]", linewidth=2, legend=:topleft, label=["inf","2","al"])
 	hline!(p2, [75], linestyle=:dash, color=:black, label="robobee act")
-	p3 = plot(minliftsmg, 1000 ./ (N*res[:,np]), xlabel="min avg lift [mg]", ylabel="Cycle freq [Hz]", linewidth=2, legend=false)
-	p4 = plot(minliftsmg, res[:,np+2], xlabel="min avg lift [mg]", ylabel="unact err", linewidth=2, legend=false)
+	p3 = plot(actualliftsmg, 1000 ./ (N*res[:,np]), xlabel="avg lift [mg]", ylabel="Cycle freq [Hz]", linewidth=2, legend=false)
+	p4 = plot(actualliftsmg, res[:,np+2], xlabel="avg lift [mg]", ylabel="unact err", linewidth=2, legend=false)
 
 	return p1, p2, p3, p4
 end
