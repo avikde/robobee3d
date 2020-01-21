@@ -77,7 +77,7 @@ end
 "Tried going directly from Doshi model-driven, but haven't been able to get that to match up"
 function hingeParams(wΨ)
     # kΨ [mN-mm/rad], bΨ [mN-mm/(rad/ms)]
-    return 5, 3#2.0*wΨ, 1.2*wΨ
+    return 2.0*wΨ, 1.2*wΨ
 end
 
 "Returns paero [mm], Jaero, Faero [mN]. Takes in y in *output coordinates*"
