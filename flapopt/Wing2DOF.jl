@@ -130,10 +130,13 @@ function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::V
     cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
     R = Aw/cbar
     ycp = R*m.r1h # approx as in [Chen (2016)]
+    # These next two are "wingsubs" from the "Incorporate R" notes
+    Ixx = 0
+    Izz = cbar^2*γ^2*mwing
     kΨ, bΨ = hingeParams(wΨ)
     φ, Ψ, dφ, Ψ̇ = yo # [rad, rad, rad/ms, rad/ms]
     
-    ya, T, τfun, τifun = cu.transmission(m, y, param; o2a=true)
+    ya, T, τfun, τifun = cu.transmission(m, yo, param; o2a=true)
 
     # Lagrangian terms - from Mathematica
     M = [Ixx + mwing*ycp^2 + 1/2*cbar^2*mwing*γ^2*(1-cos(2*Ψ)) + m.ma/T^2   γ*cbar*mwing*ycp*cos(Ψ);  
@@ -144,7 +147,7 @@ function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::V
     corgrav = [(m.kσ*ycp^2*φ + m.ka/T*τifun(φ)), kΨ*Ψ] + (m.bCoriolis ? cor1 : zeros(2))
 
     # non-lagrangian terms
-    τdamp = [-(m.bσ + m.ba/T^2) * σ̇, -bΨ * Ψ̇]
+    τdamp = [-(m.bσ + m.ba/T^2) * dφ, -bΨ * Ψ̇]
     _, Jaero, Faero = w2daero(m, yo, param)
     τaero = Jaero' * Faero # units of [mN, mN-mm]
     # input
@@ -152,7 +155,7 @@ function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::V
 
     ddq = inv(M) * (-corgrav + τdamp + τaero + τinp)
     # return ddq
-    return [y[3], y[4], ddq[1], ddq[2]]
+    return [yo[3:4]; ddq]
 end
 
 # Create an initial traj --------------
