@@ -88,19 +88,25 @@ function w2daero(m::Wing2DOFModel, yo::AbstractArray, param::Vector)
     
     # unpack
     cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
-    kΨ, bΨ = hingeParams(wΨ)
-    σ, Ψ, σ̇, Ψ̇ = yo # [mm, rad, mm/ms, rad/ms]
+    R = Aw/cbar
+    # kΨ, bΨ = hingeParams(wΨ)
+    φ, Ψ, dφ, Ψ̇ = yo # [mm, rad, mm/ms, rad/ms]
     cΨ = cos(Ψ)
     sΨ = sin(Ψ)
 
     # CoP kinematics
-    wing1 = @SVector [σ, 0]
-    RΨ = @SMatrix [cΨ -sΨ; sΨ cΨ] # Ψ > 0 => hinge looks like \; Ψ < 0 => hinge looks like /
+    # Ψ > 0 => hinge looks like \; Ψ < 0 => hinge looks like /
     α = π/2 - Ψ # AoA
     rcopnondim = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
-    paero = wing1 + RΨ * @SVector [0, -rcopnondim*cbar]
-    # approx don't include the variation in COP in this
-    Jaero = @SMatrix [1 rcopnondim*cbar * cΨ; 0 rcopnondim*cbar * sΨ]
+    
+    # From Mathematica
+    paero = [-ycp*sin(φ) - cbar*rcopnondim*cos(φ)*sin(Ψ), ycp*cos(φ) - cbar*rcopnondim*sin(φ)*sin(Ψ), -cbar*rcopnondim*cos(Ψ)]
+    Jaero = [-ycp*cos(φ) + cbar*rcopnondim*sin(φ)*sin(Ψ)    -cbar*rcopnondim*cos(φ)*cos(Ψ);
+            -ycp*sin(φ) - cbar*rcopnondim*cos(φ)*sin(Ψ)    -cbar*rcopnondim*cos(Ψ)*sin(φ);
+            0     cbar*rcopnondim*sin(Ψ)]
+    # drag/lift direction (normalized)
+    eD = [-dφ*cos(φ), -dφ*sin(φ), 0]/(abs(dφ) + 1e-4) # so it is well-defined
+    eL = [0, 0, 1]
     
     # Aero force
     #=
@@ -112,8 +118,8 @@ function w2daero(m::Wing2DOFModel, yo::AbstractArray, param::Vector)
         {((CDmax + CD0)/2 - (CDmax - CD0)/2*Cos[2 \[Alpha]]), CLmax Sin[2 \[Alpha]]} Sign[-d\[Sigma]]}],
     {d\[Sigma], -1, 1}, {\[Psi], -\[Pi]/2, \[Pi]/2}]
     =#
-    Caero = @SVector [((CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2α)), CLmax * sin(2α)]
-    Faero = 1/2 * ρ * Aw * m.r2hr1h2 * σ̇^2 * Caero * sign(-σ̇) # [mN]
+    Caero = [((CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2α)), CLmax * sin(2α)]
+    Faero = 1/2 * ρ * dφ^2 * cbar * R^3 * m.r2h2 * (Caero[1]*eD + Caero[2]*eL*sign(-dφ)) # [mN]
 
     return paero, Jaero, Faero
 end
