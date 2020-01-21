@@ -195,7 +195,7 @@ end
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, posctrl=false)
+function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, thcoeff=0.0, posctrl=false)
     # Create a traj
     σampl = 0.6 # output, only used if posctrl=true
     tend = 100.0 # [ms]
@@ -206,14 +206,15 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
             dσdes = σampl * freq * 2 * π * cos(freq * 2 * π * t)
             return posGains[1] * (σdes - y[1]) + posGains[2] * (dσdes - y[3])
         else
-            return uampl * cos(freq * 2 * π * t)
+            ph = freq * 2 * π * t
+            return uampl * ((1+thcoeff)*cos(ph) - thcoeff*sin(3*ph))
         end
     end
     vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
     # OL traj1
     simdt = opt.fixedδt # [ms]
     teval = collect(0:simdt:tend) # [ms]
-    prob = ODEProblem(vf, [0.2,0.,0.,0.], (teval[1], teval[end]))
+    prob = ODEProblem(vf, [0.,0.01,0.01,0.], (teval[1], teval[end]))
     sol = solve(prob, saveat=teval)
 
     # # Animate whole traj
@@ -281,7 +282,7 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs; legends=
         plot!(actt, t, actAng(traj, param), linewidth=2)
         plot!(Ψt, t, traj[@view liy[2,:]], linewidth=2)
         plot!(ut, t, [traj[@view liu[1,:]];NaN], linewidth=2)
-        plot!(liftt, t, aeroPlotVec(traj, param, 2), linewidth=2)
+        plot!(liftt, t, aeroPlotVec(traj, param, 3), linewidth=2)
         plot!(dragt, t, aeroPlotVec(traj, param, 1), linewidth=2)
         plot!(phaset, traj[@view liy[3,:]], traj[@view liy[2,:]], linewidth=2)
     end
