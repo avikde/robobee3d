@@ -17,11 +17,11 @@ includet("Wing2DOF.jl")
 # For T=20, get ka = 240.
 # To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
-	0.4#= 1.5 =#, #k output
+	40.0, #k output
 	0, #b output
 	6, # ma
 	0, # ba
-	90#= 0 =#, # ka
+	150, # ka
 	true, # bCoriolis
 	0.49, # r1h [Chen (2016)]
 	0.551) # r2h insect wings [Whitney (2010)] 0.929 * 0.49^0.732
