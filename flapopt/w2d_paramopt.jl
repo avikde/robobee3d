@@ -89,6 +89,20 @@ function wingARconstraintLin(cbar; maxAR=4)
 	return Dfwing(p0), dot(Dfwing(p0),p0)
 end
 
+"""Linear approx of wing AR constraint at cbar https://github.com/avikde/robobee3d/issues/113. Returns a,b s.t. dot(a, [cb,Aw]) <= b is the constraint"""
+function minLiftConstraintLin(minlift, param0, avgLift0)
+	# Lift ~ Aw/dt^2 => fcons = Awdt2min - Aw/dt^2
+	# Awdt2min = param0[Aw_idx]/param0[end]^2 * minlift / avgLift0
+	Awdt2min = param0[Aw_idx] * minlift / avgLift0
+	# println("hehe", Awdt2min)
+	fminlift(Awdt::Vector) = Awdt2min - Awdt[1]#/Awdt[2]^2
+	p0 = [param0[Aw_idx], param0[end]]
+	Dfminlift(x) = ForwardDiff.gradient(fminlift, x)
+	mla, mlb = Dfminlift(p0), dot(Dfminlift(p0),p0)
+	# println("HI ", avgLift0, mla, mlb)
+	return mla, mlb
+end
+
 """One-off ID or opt"""
 function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1, wARconstraintLinCbar=4.0)
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
@@ -98,13 +112,14 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 	# Poly constraint
 	rholims = estimateWingDensity()
 	wARa, wARb = wingARconstraintLin(wARconstraintLinCbar)
-	Cp = Float64[0  0  0  0  0  -1  0; # min lift => Aw >= ?
+	mla, mlb = minLiftConstraintLin(minal, param0, avgLift0)
+	# Polytope constraint
+	Cp = Float64[0  0  0  0  0  mla[1]  mla[2]; # min lift
 		0  -τ21ratiolim  0  0  1  0  0; # transmission nonlinearity τ2 <= τ21ratiolim * τ1
 		0   0  -1  0  0  rholims[1]  0; # wing density mw >= Aw*ρ1
 		0   0  1  0  0  -rholims[2]  0; # wing density mw <= Aw*ρ2
 		wARa[1]   0  0  0  0  wARa[2]  0] # wing AR
-	Awmin = minAvgLift -> param0[Aw_idx] * minAvgLift / avgLift0
-	dp = [-Awmin(minal); 0; 0; 0; wARb]
+	dp = [mlb; 0; 0; 0; wARb]
 
 	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
 	# append unactErr
