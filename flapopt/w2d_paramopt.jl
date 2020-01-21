@@ -95,10 +95,10 @@ function minLiftConstraintLin(minlift, param0, avgLift0)
 	# Awdt2min = param0[Aw_idx]/param0[end]^2 * minlift / avgLift0
 	Awdt2min = param0[Aw_idx] * minlift / avgLift0
 	# println("hehe", Awdt2min)
-	fminlift(Awdt::Vector) = Awdt2min - Awdt[1]#/Awdt[2]^2
+	fminlift(Awdt::Vector) = -Awdt[1]#/Awdt[2]^2
 	p0 = [param0[Aw_idx], param0[end]]
 	Dfminlift(x) = ForwardDiff.gradient(fminlift, x)
-	mla, mlb = Dfminlift(p0), dot(Dfminlift(p0),p0)
+	mla, mlb = Dfminlift(p0), -Awdt2min#dot(Dfminlift(p0),p0)
 	# println("HI ", avgLift0, mla, mlb)
 	return mla, mlb
 end
