@@ -145,7 +145,7 @@ end
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-# ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.0)#; print_level=3, max_iter=10000)
+ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.2)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 
@@ -156,7 +156,7 @@ ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2
 # plot(pl1...)
 
 # ---------
-pls = debugComponentsPlot(m, opt, POPTS, ret1)
+pls = debugComponentsPlot(m, opt, POPTS, ret2)
 plot(pls..., size=(800,600))
 
 # # -----------------
