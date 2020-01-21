@@ -164,7 +164,7 @@ plot(pls..., size=(800,600))
 # plot(pls...)
 
 # # ----------------
-# pls = scaleParamsForlift(ret1, 0.5:0.2:2.1, 2)
+# pls = scaleParamsForlift(ret1, 0.6:0.2:2.0, 2)
 # plot(pls...)
 
 # # traj opt ------------------------------------
