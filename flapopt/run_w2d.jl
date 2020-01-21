@@ -17,11 +17,11 @@ includet("Wing2DOF.jl")
 # For T=20, get ka = 240.
 # To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
-	0.55#= 1.5 =#, #k output
+	0.4#= 1.5 =#, #k output
 	0, #b output
 	6, # ma
 	0, # ba
-	150#= 0 =#, # ka
+	90#= 0 =#, # ka
 	true, # bCoriolis
 	4/3) # r2hr1h2
 ny, nu = cu.dims(m)
@@ -32,8 +32,7 @@ function getInitialParams(itype=0)
 		return 70, [3.2,  # cbar[mm] (area/R)
 			28.33, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
 			0.52, # mwing[mg]
-			5, # kΨ [mN-mm/rad]
-			3, # bΨ [mN-mm/(rad/ms)]
+			2.5, # wΨ [mm]
 			0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
 			54.4, # Aw = 3.2*17 [mm^2] (Jafferis 2016)
 			0.135 # dt
@@ -43,8 +42,7 @@ function getInitialParams(itype=0)
 		return 100, [5.411,  # cbar[mm] (area/R)
 			18.681, # τ1
 			0.866, # mwing[mg]
-			22.633, # kΨ [mN-mm/rad]
-			12.037, # bΨ [mN-mm/(rad/ms)]
+			11.0, # wΨ [mm]
 			0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92,
 			91.987, # Aw [mm^2] (Jafferis 2016)
 			0.109 # dt
@@ -64,10 +62,10 @@ N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE; uampl=uampl)
 cycleFreqLims = [0.4, 0.03] # [KHz]
 dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS = cu.ParamOptOpts(
-	τinds=[2,6], 
+	τinds=[2,5], 
 	R=(zeros(4,4), 0, 1.0*I), 
-	plimsL = [0.1, 10, 0.1, 0.1, 0.1, 0, 84.0, dtlims[1]],
-	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 100.0, 100.0, 150.0, dtlims[2]],
+	plimsL = [0.1, 10, 0.1, 0.5, 0, 20.0, dtlims[1]],
+	plimsU = [1000.0, 1000.0, 100.0, 20.0, 100.0, 150.0, dtlims[2]],
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
 	uinfnorm = true
 )
@@ -81,7 +79,7 @@ function scaleParamsForlift(ret, minlifts, τ21ratiolim; kwargs...)
 		r = opt1(traj, param, 1, al, τ21ratiolim; kwargs...)
 		# kΨ, bΨ = param2[4:5]
 		uu = r["traj"][(N+1)*ny:end]
-		return [r["param"]; norm(uu, Inf); norm(r["unactErr"], Inf); norm(uu, 2)/N]
+		return [r["param"]; norm(uu, Inf); norm(r["unactErr"], Inf); norm(uu, 2)/N; r["al"]]
 	end
 	llabels = [
 		"chord",
@@ -98,11 +96,12 @@ function scaleParamsForlift(ret, minlifts, τ21ratiolim; kwargs...)
 	res = hcat(maxuForMinAvgLift.(minlifts)...)'
 	display(res)
 	np = length(param0)
-	p1 = plot(minliftsmg, res[:,POPTS.τinds], xlabel="min avg lift [mg]", label=llabels[POPTS.τinds], ylabel="T1,T2", linewidth=2, legend=:topleft)
-	p2 = plot(minliftsmg, [res[:,np+1]  res[:,np+3]], xlabel="min avg lift [mg]", ylabel="umin [mN]", linewidth=2, legend=:topleft, label=["inf","2"])
+	actualliftsmg = res[:,np+4] * 1000/9.81
+	p1 = plot(actualliftsmg, res[:,POPTS.τinds], xlabel="avg lift [mg]", label=llabels[POPTS.τinds], ylabel="T1,T2", linewidth=2, legend=:topleft)
+	p2 = plot(actualliftsmg, [res[:,np+1]  res[:,np+3]], xlabel="avg lift [mg]", ylabel="umin [mN]", linewidth=2, legend=:topleft, label=["inf","2","al"])
 	hline!(p2, [75], linestyle=:dash, color=:black, label="robobee act")
-	p3 = plot(minliftsmg, 1000 ./ (N*res[:,np]), xlabel="min avg lift [mg]", ylabel="Cycle freq [Hz]", linewidth=2, legend=false)
-	p4 = plot(minliftsmg, res[:,np+2], xlabel="min avg lift [mg]", ylabel="unact err", linewidth=2, legend=false)
+	p3 = plot(actualliftsmg, 1000 ./ (N*res[:,np]), xlabel="avg lift [mg]", ylabel="Cycle freq [Hz]", linewidth=2, legend=false)
+	p4 = plot(actualliftsmg, res[:,np+2], xlabel="avg lift [mg]", ylabel="unact err", linewidth=2, legend=false)
 
 	return p1, p2, p3, p4
 end
@@ -157,7 +156,7 @@ end
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.9)#; print_level=3, max_iter=10000)
+ret2 = opt1(ret1["traj"], ret1["param"], 1, 2.0)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 
@@ -176,7 +175,7 @@ plot(pls..., size=(800,600))
 # plot(pls...)
 
 # # ----------------
-# pls = scaleParamsForlift(ret1, 1.5:0.1:2.2, 2)
+# pls = scaleParamsForlift(ret1, 0.5:0.2:2.1, 2)
 # plot(pls...)
 
 # # traj opt ------------------------------------

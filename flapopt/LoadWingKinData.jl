@@ -84,7 +84,7 @@ dC, dD = (perp) distances of those points from the wing spar (this is the only m
 vidX = vid sample rate / 30 (or whatever was chosen when exporting avi). e.g. 7500fps -> 30 => vidX = 250
 trialFreq = freq of flapping (used *only* to trim to 1 flap)
 """
-function loadVideoData(fname; dC=5.345, dD=4.047, vidX=250, trialFreq=165, makegif=false)
+function loadVideoData(fname; dC=5.345, dD=4.047, vidX=250, trialFreq=165, makegif=false, tracktype=1)
 	dat = readdlm(fname, ',', Float64, skipstart=2)
 	# Should be an Nx12 array, for mass A (t, x, y), ... mass D
 	# Use the first col as the time vector
@@ -92,8 +92,15 @@ function loadVideoData(fname; dC=5.345, dD=4.047, vidX=250, trialFreq=165, makeg
 
 	"i = massid between 1 and 4"
 	function xy_at_t(i; kwargs...)
-		splx = Spline1D(dat[:,3*i-2], dat[:,3*i-1]; kwargs...)
-		sply = Spline1D(dat[:,3*i-2], dat[:,3*i]; kwargs...)
+		if size(dat,2) < 12
+			# only one t column at the beginning (total 9 columns). t,x,y,x,y,...
+			splx = Spline1D(dat[:,1], dat[:,2*i]; kwargs...)
+			sply = Spline1D(dat[:,1], dat[:,2*i+1]; kwargs...)
+		else
+			# t,x,y,t,x,y...
+			splx = Spline1D(dat[:,3*i-2], dat[:,3*i-1]; kwargs...)
+			sply = Spline1D(dat[:,3*i-2], dat[:,3*i]; kwargs...)
+		end
 		return [splx(tq) sply(tq)]
 	end
 
@@ -126,7 +133,7 @@ function loadVideoData(fname; dC=5.345, dD=4.047, vidX=250, trialFreq=165, makeg
 		return atan(-cΦ/sΦ) + π # no coord frame in tracker (pixel coords)
 	end
 
-	function find_Ψ(pBi, pCi, pDi, p0, Φi)
+	function find_Ψ(pBi, p0, Φi, pCi, pDi=nothing)
 		# First some helper functions
 		Rot = Φ -> [cos(Φ) -sin(Φ); sin(Φ) cos(Φ)]
 
@@ -138,21 +145,39 @@ function loadVideoData(fname; dC=5.345, dD=4.047, vidX=250, trialFreq=165, makeg
 		end
 
 		c = find_proj_dist(pBi, pCi, p0, Φi)
-		d = find_proj_dist(pBi, pDi, p0, Φi)
-
-		# sine of the hinge angle appears in these projections
-		sΨ = [dC; dD] \ [c;d]
+		if !isnothing(pDi)
+			d = find_proj_dist(pBi, pDi, p0, Φi)
+			# sine of the hinge angle appears in these projections
+			sΨ = [dC; dD] \ [c;d]
+		else
+			sΨ = c/dC
+		end
 		return asin(sΨ)
+	end
+
+	function findStrokeFromWingBase(pAi, pBi; trackedPerpToWing=true)
+		wingVec = pBi - pAi
+		return atan(trackedPerpToWing ? wingVec[1]/wingVec[2] : -wingVec[2]/wingVec[1])
 	end
 
 	# get time in ms
 	tms = 1000*tq/vidX
 	pA, pB, pC, pD = [xy_at_t(i; k=1) for i=1:4] # Nx2 x 4
 	Np = length(tq)
-	p0 = find_p0(pA, pB)
-	# println("p0 = ", p0)
-	Φ = [find_Φ(pA[i,:], pB[i,:], p0) for i=1:Np]
-	Ψ = [find_Ψ(pB[i,:], pC[i,:], pD[i,:], p0, Φ[i]) for i=1:Np]
+
+	if tracktype == 2
+		# spl = Spline1D(tq,[findStrokeFromWingBase(pA[i,:], pB[i,:]) for i=1:Np], s=0.01)
+		# Φ = spl.(tq)
+		spl2 = Spline1D(tq,[findStrokeFromWingBase(pA[i,:], pC[i,:]; trackedPerpToWing=false) for i=1:Np], s=0.01)
+		Φ = spl2.(tq)
+		spl3 = Spline1D(tq, [find_Ψ(pC[i,:], pA[i,:], Φ[i], pD[i,:]) for i=1:Np], s=0.07)
+		Ψ = spl3.(tq)
+	else
+		p0 = find_p0(pA, pB)
+		# println("p0 = ", p0)
+		Φ = [find_Φ(pA[i,:], pB[i,:], p0) for i=1:Np]
+		Ψ = [find_Ψ(pB[i,:], p0, Φ[i], pC[i,:], pD[i,:]) for i=1:Np]
+	end
 	
 	# Trim to tms=1000/trialFreq
 	ind_1cyc = findfirst(x -> x >= 1000/trialFreq, tms)

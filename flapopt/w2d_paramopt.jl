@@ -1,9 +1,15 @@
 
 import controlutils
 cu = controlutils
+using ForwardDiff
 using Plots; gr()
 include("Wing2DOF.jl")
 include("LoadWingKinData.jl")
+
+# Indices into param array
+const cb_idx = 1
+const mw_idx = 3
+const Aw_idx = 6
 
 """From Chen (2016) IROS, find a usable estimate of the wing density to use as a bound."""
 function estimateWingDensity(test=false)
@@ -27,7 +33,7 @@ function estimateWingDensity(test=false)
 		hline!(p2, rholims)
 		plot(p1, p2)
 		gui()
-		error("rholims", rholims, " from param0 ", param0[3]/param0[7])
+		error("rholims", rholims, " from param0 ", param0[mw_idx]/param0[Aw_idx])
 	end
 	
 	# return param0[3]/param0[1] <- 0.16
@@ -45,7 +51,8 @@ function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, sta
 		trajt, traj0 = createInitialTraj(m, opt, N, 0.165, [1e3, 1e2], param0, starti; uampl=uampl)
 	elseif kinType==0
 		# Load data
-    	cbar, τ1, mwing, kΨ, bΨ, τ2, R, dt = param0
+		cbar, τ1, mwing, wΨ, τ2, Aw, dt = param0
+		R = Aw/cbar
 		opt = cu.OptOptions(true, false, 0.135, 1, :none, 1e-8, false) # real
 		# N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
 		N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; sigi=1, strokeSign=1, strokeMult=R/(2*τ1), ForcePerVolt=75/100, vidSF=7320, Ψshift=Ψshift) # 75mN unidirectional at 200Vpp (from Noah)
@@ -72,21 +79,47 @@ function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, sta
 	return N, trajt, traj0, opt, avgLift0
 end
 
+"""Linear approx of wing AR constraint at cbar https://github.com/avikde/robobee3d/issues/113. Returns a,b s.t. dot(a, [cb,Aw]) <= b is the constraint"""
+function wingARconstraintLin(cbar; maxAR=4)
+	# AR<=4: see https://github.com/avikde/robobee3d/pull/105#issuecomment-562761586 originally
+	fwingAR(cbAw::Vector) = -maxAR*cbAw[1]^2+cbAw[2]
+	ptang(cb) = [cb, -fwingAR([cb, 0])]
+	p0 = ptang(cbar)
+	Dfwing(x) = ForwardDiff.gradient(fwingAR, x)
+	return Dfwing(p0), dot(Dfwing(p0),p0)
+end
+
+"""Linear approx of wing AR constraint at cbar https://github.com/avikde/robobee3d/issues/113. Returns a,b s.t. dot(a, [cb,Aw]) <= b is the constraint"""
+function minLiftConstraintLin(minlift, param0, avgLift0)
+	# Lift ~ Aw/dt^2 => fcons = Awdt2min - Aw/dt^2
+	# Awdt2min = param0[Aw_idx]/param0[end]^2 * minlift / avgLift0
+	Awdt2min = param0[Aw_idx] * minlift / avgLift0
+	# println("hehe", Awdt2min)
+	fminlift(Awdt::Vector) = -Awdt[1]#/Awdt[2]^2
+	p0 = [param0[Aw_idx], param0[end]]
+	Dfminlift(x) = ForwardDiff.gradient(fminlift, x)
+	mla, mlb = Dfminlift(p0), -Awdt2min#dot(Dfminlift(p0),p0)
+	# println("HI ", avgLift0, mla, mlb)
+	return mla, mlb
+end
+
 """One-off ID or opt"""
-function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1)
+function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1, wARconstraintLinCbar=4.0)
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
 	print(mode==2 ? "ID" : "Opt", " minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
 
-    # cbar, τ1, mwing, kΨ, bΨ, τ2, Aw, dt = param
+    # cbar, τ1, mwing, wΨ, τ2, Aw, dt  = param
 	# Poly constraint
 	rholims = estimateWingDensity()
-	Cp = Float64[0  0  0  0  0  0  -1  0; # min lift => Aw >= ?
-		0  -τ21ratiolim  0  0  0  1  0  0; # transmission nonlinearity τ2 <= τ21ratiolim * τ1
-		0   0  -1  0  0  0  rholims[1]  0; # wing density mw >= Aw*ρ1
-		0   0  1  0  0  0  -rholims[2]  0; # wing density mw <= Aw*ρ2
-		-1   0  0  0  0  0  0.025  0] # AR<=4: see https://github.com/avikde/robobee3d/pull/105#issuecomment-562761586
-	Awmin = minAvgLift -> param0[7] * minAvgLift / avgLift0
-	dp = [-Awmin(minal); 0; 0; 0; -2.5]
+	wARa, wARb = wingARconstraintLin(wARconstraintLinCbar; maxAR=4)
+	mla, mlb = minLiftConstraintLin(minal, param0, avgLift0)
+	# Polytope constraint
+	Cp = Float64[0  0  0  0  0  mla[1]  mla[2]; # min lift
+		0  -τ21ratiolim  0  0  1  0  0; # transmission nonlinearity τ2 <= τ21ratiolim * τ1
+		0   0  -1  0  0  rholims[1]  0; # wing density mw >= Aw*ρ1
+		0   0  1  0  0  -rholims[2]  0; # wing density mw <= Aw*ρ2
+		wARa[1]   0  0  0  0  wARa[2]  0] # wing AR
+	dp = [mlb; 0; 0; 0; wARb]
 
 	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
 	# append unactErr
@@ -97,7 +130,7 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 	if testAfter
 		cu.affineTest(m, opt, ret["traj"], ret["param"], POPTS)
 	end
-	println(ret["status"], ", ", round.(ret["param"]', digits=3), ", fHz=", round(1000/(N*ret["param"][end]), digits=1), ", al[mg]=", round(ret["al"] * 1000/9.81, digits=1), ", u∞=", round(ret["u∞"], digits=1), ", J=", round(ret["eval_f"](ret["x"]), digits=1), ", AR=", round(ret["param"][7]/ret["param"][1]^2, digits=1))
+	println(ret["status"], ", ", round.(ret["param"]', digits=3), ", fHz=", round(1000/(N*ret["param"][end]), digits=1), ", al[mg]=", round(ret["al"] * 1000/9.81, digits=1), ", u∞=", round(ret["u∞"], digits=1), ", J=", round(ret["eval_f"](ret["x"]), digits=1), ", AR=", round(ret["param"][Aw_idx]/ret["param"][cb_idx]^2, digits=1))
 	return ret
 end
 
