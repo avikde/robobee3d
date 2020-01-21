@@ -80,6 +80,8 @@ function hingeParams(wΨ)
     return 2.0*wΨ, 1.2*wΨ
 end
 
+rcopnondim(Ψ) = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
+
 "Returns paero [mm], Jaero, Faero [mN]. Takes in y in *output coordinates*"
 function w2daero(m::Wing2DOFModel, yo::AbstractArray, param::Vector)
     CLmax = 1.8
@@ -96,13 +98,13 @@ function w2daero(m::Wing2DOFModel, yo::AbstractArray, param::Vector)
     # CoP kinematics
     # Ψ > 0 => hinge looks like \; Ψ < 0 => hinge looks like /
     α = π/2 - Ψ # AoA
-    rcopnondim = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
     
     # From Mathematica
-    paero = [-ycp*sin(φ) - cbar*rcopnondim*cos(φ)*sin(Ψ), ycp*cos(φ) - cbar*rcopnondim*sin(φ)*sin(Ψ), -cbar*rcopnondim*cos(Ψ)]
-    Jaero = [-ycp*cos(φ) + cbar*rcopnondim*sin(φ)*sin(Ψ)    -cbar*rcopnondim*cos(φ)*cos(Ψ);
-            -ycp*sin(φ) - cbar*rcopnondim*cos(φ)*sin(Ψ)    -cbar*rcopnondim*cos(Ψ)*sin(φ);
-            0     cbar*rcopnondim*sin(Ψ)]
+    rcnd = rcopnondim(Ψ)
+    paero = [-ycp*sin(φ) - cbar*rcnd*cos(φ)*sin(Ψ), ycp*cos(φ) - cbar*rcnd*sin(φ)*sin(Ψ), -cbar*rcnd*cos(Ψ)]
+    Jaero = [-ycp*cos(φ) + cbar*rcnd*sin(φ)*sin(Ψ)    -cbar*rcnd*cos(φ)*cos(Ψ);
+            -ycp*sin(φ) - cbar*rcnd*cos(φ)*sin(Ψ)    -cbar*rcnd*cos(Ψ)*sin(φ);
+            0     cbar*rcnd*sin(Ψ)]
     # drag/lift direction (normalized)
     eD = [dφ*cos(φ), dφ*sin(φ), 0]/(abs(dφ) + 1e-4) # so it is well-defined
     eL = [0, 0, 1]
@@ -474,87 +476,83 @@ end
 function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
     cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
     kΨ, bΨ = hingeParams(wΨ)
+    R = Aw/cbar
+    ycp = R*m.r1h # approx as in [Chen (2016)]
     Tarr = [τ1, τ2]
-    return [1, kΨ, bΨ, Aw, cbar*Aw, mwing, mwing*cbar, mwing*cbar^2], Tarr, dt
+    return [ycp^2, kΨ, bΨ, cbar*R^3, mwing*ycp^2, mwing*cbar*ycp, mwing*cbar^2], Tarr, dt
 end
 
 function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::cu.ParamOptOpts, scaleTraj=1.0; debugComponents::Bool=false)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 
-    yk = k -> @view traj[liy[:,k]]
+    yo = k -> traj[liy[:,k]]*scaleTraj # traj is in output coords already
     uk = k -> @view traj[liu[:,k]]
 
     # Param stuff
     cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
-    # Need the original T to use output coords
-    yo = k -> cu.transmission(m, yk(k), param)[1]
+    R = Aw/cbar
 
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
+    # Implicitly use Ixx=0, Izz=cbar^2 mw gamma^2
     """Inertial"""
     function HMqTWithoutCoupling(ypos, yvel)
-        σo, Ψ, σ̇odum, Ψ̇dum = ypos
-        σodum, Ψdum, σ̇o, Ψ̇ = yvel
-        return [0   0   0   0   0   σ̇o   0   0   σ̇o*m.ma   σ̇o*m.ma*(-σo^2);
-        0   0   0   0   0   0   0   2*Ψ̇*γ^2    0   0]
+        φ, Ψ = ypos[1:2]
+        dφ, Ψ̇ = yvel[3:4]
+        return [0   0   0   0   dφ   0  1/2*γ^2*(1-cos(2*Ψ))*dφ     dφ*m.ma   dφ*m.ma*(-φ^2);
+                0   0   0   0   0   0   2*Ψ̇*γ^2    0   0]
     end
     function HMqTCoupling(ypos, yvel)
-        σo, Ψ, σ̇odum, Ψ̇dum = ypos
-        σodum, Ψdum, σ̇o, Ψ̇ = yvel
-        return [0   0   0   0   0   0   γ*Ψ̇*cos(Ψ)   0   0   0;
-        0   0   0   0   0   0   γ*σ̇o*cos(Ψ)   0    0   0]
+        φ, Ψ = ypos[1:2]
+        dφ, Ψ̇ = yvel[3:4]
+        return [0   0   0   0   0   γ*Ψ̇*cos(Ψ)   0   0   0;
+        0   0   0   0   0   γ*dφ*cos(Ψ)   0    0   0]
     end
     HMqT(ypos, yvel) = HMqTWithoutCoupling(ypos, yvel) + HMqTCoupling(ypos, yvel)
 
     """Coriolis"""
     function HC(y)
-        σo, Ψ, σ̇o, Ψ̇ = y
-        return [0   0   0   0   0   0   (m.bCoriolis ? -γ*Ψ̇^2*sin(Ψ) : 0)   0    0   0;
-        0   0   0    0   0   0   0   0   0   0]
+        # cor1 = [cbar^2*mwing*γ^2*sin(2*Ψ)*dφ*Ψ̇ - γ*cbar*mwing*ycp*sin(Ψ)*Ψ̇^2, 
+        #     -cbar^2*mwing*γ^2*cos(Ψ)*sin(Ψ)*dφ^2]
+        φ, Ψ, dφ, Ψ̇ = y
+        return m.bCoriolis ? [0   0   0   0   0   -γ*Ψ̇^2*sin(Ψ)   γ^2*sin(2*Ψ)*dφ*Ψ̇    0   0;
+        0   0   0   0   0   0   -γ^2*cos(Ψ)*sin(Ψ)*dφ^2   0   0]  : zeros(2,8)
     end
     """Stiffness/damping output"""
     function Hg(y)
-        σo, Ψ, σ̇o, Ψ̇ = y
-        return [m.kσ*σo+m.bσ*σ̇o   0   0   0   0   0   0   0    0   0;
-        0   Ψ   Ψ̇    0   0   0   0   0   0   0]
+        # [(m.kσ*ycp^2*φ + m.ka/T*τifun(φ)), kΨ*Ψ]
+        # τdamp = [-(m.bσ + m.ba/T^2) * dφ, -bΨ * Ψ̇]
+        φ, Ψ, dφ, Ψ̇ = y
+        return [m.kσ*φ + m.bσ*dφ   0   0   0   0   0   0    0   0;
+        0   Ψ   Ψ̇    0   0   0   0   0   0]
     end
     """Stiffness/damping actuator"""
     function Hgact(y)
-        σo, Ψ, σ̇o, Ψ̇ = y
-        return [0   0   0   0   0   0   0   0    m.ba*σ̇o+m.ka*σo   m.ba*σ̇o*(-σo^2)+m.ka*(-σo^3/3);
-        0   0   0    0   0   0   0   0   0   0]
+        φ, Ψ, dφ, Ψ̇ = y
+        return [0   0   0   0   0   0   0    m.ba*dφ+m.ka*φ   m.ba*dφ*(-φ^2)+m.ka*(-φ^3/3);
+        0   0   0   0   0   0   0   0   0]
     end
     """Ext force (aero)"""
-    function HF(y, F)
+    function HF(y, tauaero)
         σo, Ψ, σ̇o, Ψ̇ = y
         # See notes: this F stuff is w2d specific
-        rcop = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
+        rcop = rcopnondim(Ψ)
+        # Only keeping Fext_pdep=true version, and approximating only Faero propto this (ignore dependence of COP moving)
+        tautil = -tauaero/(cbar*R^3)
 
-        if POPTS.Fext_pdep
-            Ftil = -F/Aw
-
-            # FIXME: this orig version probably has a negative sign error on the dynamics terms
-            # return [0   -m.kσ*σa-m.bσ*σ̇a   Ftil[1]   0   0;
-            # -m.kΨ*Ψ-m.bΨ*Ψ̇   0   0   -σ̇a*Ψ̇*m.mwing*sin(Ψ)   rcopnondim*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))]
-            # 1st order version
-            return [0   0   0   Ftil[1]   0   0   0   0   0   0;
-            0   0   0    0   rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0   0]
-        else
-            Ftil = -F
-            # 1st order version
-            return [Ftil[1]   0   0   0   0   0   0   0    0   0;
-            0   0   0    rcop*(Ftil[1]*cos(Ψ) + Ftil[2]*sin(Ψ))   0   0   0   0   0   0]
-        end
+        # 1st order version
+        return [0   0   0   tautil[1]   0   0   0   0   0;
+        0   0   0   tautil[2]   0   0   0   0   0]
     end
     function HF2(y)
-        _, _, Faero = w2daero(m, y, param)
-        return HF(y, Faero)
+        _, Jaero, Faero = w2daero(m, y, param)
+        return HF(y, Jaero'*Faero)
     end
 
     if debugComponents
         return yo, HMqTWithoutCoupling, HMqTCoupling, HC, Hg, Hgact, HF2
     end
 
-    HCgJT(y, F) = HC(y) + Hg(y) + Hgact(y) + HF(y, F)
+    HCgJT(y, tauaero) = HC(y) + Hg(y) + Hgact(y) + HF(y, tauaero)
     # ----------------
 
     # this is OK - see notes
@@ -567,10 +565,10 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     "Takes in a Δy in output coords"
     function Hk(k, Δyk, Δykp1)
         # Same Faero as before?
-        _, _, Faero = w2daero(m, yo(k) + Δyk, param)
+        _, Jaero, Faero = w2daero(m, yo(k) + Δyk, param)
         # NOTE: it uses param *only for Faero*. Add same F as the traj produced
         Hi = Htili(yo(k) + Δyk, yo(k+1) + Δykp1)
-        Hni = Htilni(yo(k) + Δyk, Faero)
+        Hni = Htilni(yo(k) + Δyk, Jaero'*Faero)
         # Hh = Hi + δt*Hni # inertial and non-inertial components
         # With nonlinear transmission need to break apart H
         σo = (yo(k) + Δyk)[1]
