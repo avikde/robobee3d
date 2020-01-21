@@ -137,8 +137,6 @@ function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::V
     φ, Ψ, dφ, Ψ̇ = yo # [rad, rad, rad/ms, rad/ms]
     
     ya, T, τfun, τifun = cu.transmission(m, yo, param; o2a=true)
-    T = τ1 # FIXME:
-    τifun = x->x/τ1
 
     # Lagrangian terms - from Mathematica
     M = [Ixx + mwing*ycp^2 + 1/2*cbar^2*mwing*γ^2*(1-cos(2*Ψ)) + m.ma/T^2   γ*cbar*mwing*ycp*cos(Ψ);  
@@ -457,7 +455,7 @@ end
 # param opt stuff ------------------------
 
 function cu.transmission(m::Wing2DOFModel, y::AbstractArray, _param::Vector; o2a=false)
-    cbar, τ1, mwing, kΨ, bΨ, τ2 = _param
+    cbar, τ1, mwing, wΨ, τ2, Aw, dt = _param
     τfun = σa -> τ1*σa + τ2/3*σa^3
     # Series from Mathematica
     τifun = φo -> φo/τ1 - τ2*φo^3/(3*τ1^4) # + O[φo^4]
