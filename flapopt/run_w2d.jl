@@ -17,11 +17,11 @@ includet("Wing2DOF.jl")
 # For T=20, get ka = 240.
 # To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
-	0.55#= 1.5 =#, #k output
+	0.4#= 1.5 =#, #k output
 	0, #b output
 	6, # ma
 	0, # ba
-	150#= 0 =#, # ka
+	90#= 0 =#, # ka
 	true, # bCoriolis
 	4/3) # r2hr1h2
 ny, nu = cu.dims(m)
@@ -156,7 +156,7 @@ end
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # # 2. Try to optimize
-# ret2 = opt1(ret1["traj"], ret1["param"], 1, 0.9)#; print_level=3, max_iter=10000)
+# ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.4)#; print_level=3, max_iter=10000)
 
 # # testManyShifts(ret1, [0], 0.6)
 
@@ -175,7 +175,7 @@ ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2
 # plot(pls...)
 
 # ----------------
-pls = scaleParamsForlift(ret1, 0.5:0.1:1.2, 2)
+pls = scaleParamsForlift(ret1, 0.5:0.2:2.1, 2)
 plot(pls...)
 
 # # traj opt ------------------------------------

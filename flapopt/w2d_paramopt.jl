@@ -111,7 +111,7 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
     # cbar, τ1, mwing, wΨ, τ2, Aw, dt  = param
 	# Poly constraint
 	rholims = estimateWingDensity()
-	wARa, wARb = wingARconstraintLin(wARconstraintLinCbar)
+	wARa, wARb = wingARconstraintLin(wARconstraintLinCbar; maxAR=4)
 	mla, mlb = minLiftConstraintLin(minal, param0, avgLift0)
 	# Polytope constraint
 	Cp = Float64[0  0  0  0  0  mla[1]  mla[2]; # min lift
