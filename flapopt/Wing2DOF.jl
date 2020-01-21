@@ -592,8 +592,8 @@ function avgLift(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, para
     cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
     aa = 0
     for k=1:N
-        _, _, Faero = w2daero(m, cu.transmission(m, yk(k), param)[1], param)
-        aa += Faero[3] * δt # eZ component (3d ambient)
+        _, _, Faero = w2daero(m, yk(k), param)
+        aa += Faero[3] # eZ component (3d ambient)
     end
-    return aa / (N*δt)
+    return aa / (N)
 end
