@@ -97,7 +97,7 @@ function getTrajU(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstrac
 	return vcat([B' * Hk(k, Δy0, Δy0) * ptnew for k=1:N]...)
 end
 
-function affineTest(m, opt, traj, param, POPTS::ParamOptOpts)
+function affineTest(m, opt, traj, param, POPTS::ParamOptOpts; fixTraj=false)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
 	ptTEST, TTEST = getpt(m, param) # NOTE the actual param values are only needed for the test mode
@@ -112,6 +112,10 @@ function affineTest(m, opt, traj, param, POPTS::ParamOptOpts)
 		Bu[:,k] = dt * B * umeas(k)[1]
 	end
 	display(Hpb - Bu)
+	# plot of u
+	pls = [plot(1:N, [Hpb[i,:]   Bu[i,:]], lw=2)  for i=1:nq]
+	plot(pls...)
+	gui()
 	error("Tested")
 end
 
