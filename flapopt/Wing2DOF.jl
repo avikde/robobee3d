@@ -516,7 +516,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         #     -cbar^2*mwing*γ^2*cos(Ψ)*sin(Ψ)*dφ^2]
         φ, Ψ, dφ, Ψ̇ = y
         return m.bCoriolis ? [0   0   0   0   0   -γ*Ψ̇^2*sin(Ψ)   γ^2*sin(2*Ψ)*dφ*Ψ̇    0   0;
-        0   0   0   0   0   0   -γ^2*cos(Ψ)*sin(Ψ)*dφ^2   0   0]  : zeros(2,8)
+        0   0   0   0   0   0   -γ^2*cos(Ψ)*sin(Ψ)*dφ^2   0   0]  : zeros(2,9)
     end
     """Stiffness/damping output"""
     function Hg(y)
