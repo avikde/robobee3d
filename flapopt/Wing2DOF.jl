@@ -42,7 +42,8 @@ struct Wing2DOFModel <: controlutils.Model
     ba::Float64 # [mN/(mm/ms)]
     ka::Float64 # [mN/mm]
     bCoriolis::Bool # true to include hinge->stroke Coriolis term or leave out for testing
-    r2hr1h2::Float64 # (r2hat/r1hat)^2 where those are the first and second moments -- see [Whitney (2010)]
+    r1h::Float64 # r1hat first moment -- see [Whitney (2010)]
+    r2h::Float64 # r2hat second moment -- see [Whitney (2010)]
 end
 
 # Fixed params -----------------
@@ -124,32 +125,34 @@ function w2daero(m::Wing2DOFModel, yo::AbstractArray, param::Vector)
 end
 
 "Continuous dynamics second order model"
-function cu.dydt(m::Wing2DOFModel, y::AbstractArray, u::AbstractArray, param::Vector)::AbstractArray
+function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::Vector)::AbstractArray
     # unpack
     cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
+    R = Aw/cbar
+    ycp = R*m.r1h # approx as in [Chen (2016)]
     kΨ, bΨ = hingeParams(wΨ)
-    yo, T, τfun, τifun = cu.transmission(m, y, param)
-    σ, Ψ, σ̇, Ψ̇ = yo
-    # NOTE: for optimizing transmission ratio
-    # Thinking of y = (sigma_actuator, psi, dsigma_actuator, dpsi)
-    # u = (tau_actuator)
-    # sigma = sigma_actuator * T; tau = tau_actuator / T
-    cΨ = cos(Ψ)
-    sΨ = sin(Ψ)
+    φ, Ψ, dφ, Ψ̇ = yo # [rad, rad, rad/ms, rad/ms]
+    
+    ya, T, τfun, τifun = cu.transmission(m, y, param; o2a=true)
 
-    # inertial terms
-    M = @SMatrix [mwing + m.ma/T^2   γ*cbar*mwing*cΨ;  γ*cbar*mwing*cΨ   2*cbar^2*γ^2*mwing]
-    corgrav = @SVector [(m.kσ*σ + m.ka/T*τifun(σ)) + (m.bCoriolis ? -γ*cbar*mwing*sΨ*Ψ̇^2 : 0), kΨ*Ψ]
+    # Lagrangian terms - from Mathematica
+    M = [Ixx + mwing*ycp^2 + 1/2*cbar^2*mwing*γ^2*(1-cos(2*Ψ)) + m.ma/T^2   γ*cbar*mwing*ycp*cos(Ψ);  
+        γ*cbar*mwing*ycp*cos(Ψ)     Izz+cbar^2*γ^2*mwing]
+    cor1 = [cbar^2*mwing*γ^2*sin(2*Ψ)*dφ*Ψ̇ - γ*cbar*mwing*ycp*sin(Ψ)*Ψ̇^2, 
+        -cbar^2*mwing*γ^2*cos(Ψ)*sin(Ψ)*dφ^2]
+    # NOTE: dropping τinv'' term
+    corgrav = [(m.kσ*ycp^2*φ + m.ka/T*τifun(φ)), kΨ*Ψ] + (m.bCoriolis ? cor1 : zeros(2))
+
     # non-lagrangian terms
-    τdamp = @SVector [-(m.bσ + m.ba/T^2) * σ̇, -bΨ * Ψ̇]
+    τdamp = [-(m.bσ + m.ba/T^2) * σ̇, -bΨ * Ψ̇]
     _, Jaero, Faero = w2daero(m, yo, param)
     τaero = Jaero' * Faero # units of [mN, mN-mm]
     # input
-    τinp = @SVector [u[1]/T, 0]
+    τinp = [u[1]/T, 0]
 
     ddq = inv(M) * (-corgrav + τdamp + τaero + τinp)
     # return ddq
-    return [y[3], y[4], ddq[1] / T, ddq[2]]
+    return [y[3], y[4], ddq[1], ddq[2]]
 end
 
 # Create an initial traj --------------
