@@ -103,8 +103,10 @@ function affineTest(m, opt, traj, param, POPTS::ParamOptOpts; fixTraj=false)
 	ptTEST, TTEST = getpt(m, param) # NOTE the actual param values are only needed for the test mode
 	dt = param[end]
 
+	traj1 = fixTraj ? fixTrajWithDynConst(m, opt, traj, param) : traj
+
 	# Quadratic form matrix
-	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, POPTS)
+	Hk, yo, umeas, B, N = paramAffine(m, opt, traj1, param, POPTS)
 	Hpb = zeros(nq, N)
 	Bu = similar(Hpb)
 	for k=1:N

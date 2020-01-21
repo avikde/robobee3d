@@ -60,7 +60,7 @@ POPTS = cu.ParamOptOpts(
 )
 includet("w2d_shift.jl")
 
-cu.affineTest(m, opt, traj0, param0, POPTS)
+cu.affineTest(m, opt, traj0, param0, POPTS; fixTraj=true)
 # FUNCTIONS GO HERE -------------------------------------------------------------
 
 """Run many opts to get the best params for a desired min lift"""
