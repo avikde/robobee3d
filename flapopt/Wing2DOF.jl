@@ -137,6 +137,8 @@ function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::V
     φ, Ψ, dφ, Ψ̇ = yo # [rad, rad, rad/ms, rad/ms]
     
     ya, T, τfun, τifun = cu.transmission(m, yo, param; o2a=true)
+    T = τ1 # FIXME:
+    τifun = x->x/τ1
 
     # Lagrangian terms - from Mathematica
     M = [Ixx + mwing*ycp^2 + 1/2*cbar^2*mwing*γ^2*(1-cos(2*Ψ)) + m.ma/T^2   γ*cbar*mwing*ycp*cos(Ψ);  
@@ -575,9 +577,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         # Remove "dt" by scaling velocities for https://github.com/avikde/robobee3d/issues/110
         # Only scale the inertial term
         dtold = param[end]
-        Hdti = Hfortrans(Hi) * dtold
-
-        return [Hdti  Hfortrans(Hni)]
+        return [Hfortrans(Hi) * dtold  Hfortrans(Hni)]
     end
     
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
