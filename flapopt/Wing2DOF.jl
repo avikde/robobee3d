@@ -91,7 +91,6 @@ function w2daero(m::Wing2DOFModel, yo::AbstractArray, param::Vector)
     cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
     R = Aw/cbar
     ycp = R*m.r1h # approx as in [Chen (2016)]
-    # kΨ, bΨ = hingeParams(wΨ)
     φ, Ψ, dφ, Ψ̇ = yo # [rad, rad, rad/ms, rad/ms]
 
     # CoP kinematics
@@ -306,7 +305,6 @@ function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param
 	Ny = (N+1)*ny
 	# stroke "angle" = T*y[1] / R
     cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
-    kΨ, bΨ = hingeParams(wΨ)
     # Plot of aero forces at each instant
     function aeroPlotVec(_traj::Vector, _param, i)
         Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end]
@@ -327,7 +325,6 @@ end
 
 function drawFrame(m::Wing2DOFModel, yk, uk, param; Faeroscale=1.0)
     cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
-    kΨ, bΨ = hingeParams(wΨ)
     yo, T, _, _ = cu.transmission(m, yk, param)
     paero, _, Faero = w2daero(m, yo, param)
     wing1 = [yo[1];0] # wing tip
@@ -434,26 +431,25 @@ end
 
 # "Cost function components" ------------------
 
-"Objective to minimize"
-function cu.robj(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray)::AbstractArray
-    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+# "Objective to minimize"
+# function cu.robj(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray)::AbstractArray
+#     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
     
-	yk = k -> @view traj[liy[:,k]]
-	uk = k -> @view traj[liu[:,k]]
+# 	yk = k -> @view traj[liy[:,k]]
+# 	uk = k -> @view traj[liu[:,k]]
     
-    cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
-    kΨ, bΨ = hingeParams(wΨ)
+#     cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
 
-    Favg = @SVector zeros(2)
-    for k = 1:N
-        paero, _, Faero = w2daero(m, cu.transmission(m, yk(k), param)[1], param)
-        Favg += Faero
-    end
-    # Divide by the total time
-    Favg /= (N) # [mN]
-    # avg lift
-    return [Favg[2] - 100]
-end
+#     Favg = @SVector zeros(2)
+#     for k = 1:N
+#         paero, _, Faero = w2daero(m, cu.transmission(m, yk(k), param)[1], param)
+#         Favg += Faero
+#     end
+#     # Divide by the total time
+#     Favg /= (N) # [mN]
+#     # avg lift
+#     return [Favg[3] - 100]
+# end
 
 # param opt stuff ------------------------
 
@@ -490,7 +486,6 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
 
     # Param stuff
     cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
-    kΨ, bΨ = hingeParams(wΨ)
     # Need the original T to use output coords
     yo = k -> cu.transmission(m, yk(k), param)[1]
 
@@ -601,11 +596,10 @@ function avgLift(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, para
     uk = k -> @view traj[liu[:,k]]
 
     cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
-    kΨ, bΨ = hingeParams(wΨ)
     aa = 0
     for k=1:N
         _, _, Faero = w2daero(m, cu.transmission(m, yk(k), param)[1], param)
-        aa += Faero[2] * δt
+        aa += Faero[3] * δt # eZ component (3d ambient)
     end
     return aa / (N*δt)
 end
