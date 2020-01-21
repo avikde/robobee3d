@@ -7,7 +7,7 @@ cu = controlutils
 
 """
 2DOF wing model config:
-- q[1] = actuator displacement (in mm)
+- q[1] = stroke angle (in rad)
 - q[2] = hinge angle (in rad)
 - y = (q, dq)
 - u = [τ], where τ = actuator force in (mN)
@@ -26,17 +26,16 @@ Reasonable limits:
 
 Params:
 - cbar = wing chord
-- T = transmission ratio. i.e. wing spar displacement σ = T q[1].
+- T = transmission ratio
 - R = wing length. This is irrelevant for the 2DOF model, but choosing one for now from [Jafferis (2016)]. This is used to (a) calculate the aero force, and (b) in the plotting to show the "stroke angle" as a more intuitive version of σ.
 
 NOTE:
-- The "T" above is unitless. You can intuitively think of a wing "stroke angle" ~= T q[1] / (R / 2) (using σ as the arc length and "R/2" as the radius). This is distinct from the Toutput (in rad/m), and they are related as T ~= Toutput ⋅ (R / 2).
-- Reasonable values: Toutput = 2666 rad/m in the current two-wing vehicle; 2150 rad/m in X-Wing; 3333 rad/m in Kevin Ma's older vehicles. With the R above, this suggests T ~= 20-30.
+- Reasonable values: Toutput = 2666 rad/m in the current two-wing vehicle; 2150 rad/m in X-Wing; 3333 rad/m in Kevin Ma's older vehicles.
 """
 struct Wing2DOFModel <: controlutils.Model
     # params
-    kσ::Float64 # [mN/mm]
-    bσ::Float64 # [mN/(mm/ms)]
+    ko::Float64 # [mN/mm]
+    bo::Float64 # [mN/(mm/ms)]
     # Actuator params
     ma::Float64 # [mg]; effective
     ba::Float64 # [mN/(mm/ms)]
@@ -145,10 +144,10 @@ function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::V
     cor1 = [cbar^2*mwing*γ^2*sin(2*Ψ)*dφ*Ψ̇ - γ*cbar*mwing*ycp*sin(Ψ)*Ψ̇^2, 
         -cbar^2*mwing*γ^2*cos(Ψ)*sin(Ψ)*dφ^2]
     # NOTE: dropping τinv'' term
-    corgrav = [(m.kσ*φ + m.ka/T*τifun(φ)), kΨ*Ψ] + (m.bCoriolis ? cor1 : zeros(2))
+    corgrav = [(m.ko*φ + m.ka/T*τifun(φ)), kΨ*Ψ] + (m.bCoriolis ? cor1 : zeros(2))
 
     # non-lagrangian terms
-    τdamp = [-(m.bσ + m.ba/T^2) * dφ, -bΨ * Ψ̇]
+    τdamp = [-(m.bo + m.ba/T^2) * dφ, -bΨ * Ψ̇]
     _, Jaero, Faero = w2daero(m, yo, param)
     τaero = Jaero' * Faero # units of [mN, mN-mm]
     # input
@@ -198,14 +197,14 @@ Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
 function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, thcoeff=0.0, posctrl=false)
     # Create a traj
-    σampl = 0.6 # output, only used if posctrl=true
+    φampl = 0.6 # output, only used if posctrl=true
     tend = 100.0 # [ms]
     function controller(y, t)
         if posctrl
             # Stroke pos control
-            σdes = σampl * sin(freq * 2 * π * t)
-            dσdes = σampl * freq * 2 * π * cos(freq * 2 * π * t)
-            return posGains[1] * (σdes - y[1]) + posGains[2] * (dσdes - y[3])
+            φdes = φampl * sin(freq * 2 * π * t)
+            dφdes = φampl * freq * 2 * π * cos(freq * 2 * π * t)
+            return posGains[1] * (φdes - y[1]) + posGains[2] * (dφdes - y[3])
         else
             ph = freq * 2 * π * t
             return uampl * ((1+thcoeff)*cos(ph) - thcoeff*sin(3*ph))
@@ -459,16 +458,16 @@ function cu.transmission(m::Wing2DOFModel, y::AbstractArray, _param::Vector; o2a
     cbar, τ1, mwing, kΨ, bΨ, τ2 = _param
     τfun = σa -> τ1*σa + τ2/3*σa^3
     # Series from Mathematica
-    τifun = σo -> σo/τ1 - τ2*σo^3/(3*τ1^4) # + O[σo^4]
+    τifun = φo -> φo/τ1 - τ2*φo^3/(3*τ1^4) # + O[φo^4]
     if !o2a
         Dτfun = σa -> τ1 + τ2*σa^2
         T = Dτfun(y[1]) # "gear ratio"
 
         y2 = [τfun(y[1]), y[2], T*y[3], y[4]] # [mm, rad, mm/ms, rad/ms]
     else
-        σo = y[1]
-        T = τ1 + σo^2*τ2/τ1^2
-        y2 = [τifun(σo), y[2], y[3]/T, y[4]] # [mm, rad, mm/ms, rad/ms]
+        φo = y[1]
+        T = τ1 + φo^2*τ2/τ1^2
+        y2 = [τifun(φo), y[2], y[3]/T, y[4]] # [mm, rad, mm/ms, rad/ms]
     end
     return y2, T, τfun, τifun
 end
@@ -479,7 +478,7 @@ function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
     R = Aw/cbar
     ycp = R*m.r1h # approx as in [Chen (2016)]
     Tarr = [τ1, τ2]
-    return [ycp^2, kΨ, bΨ, cbar*R^3, mwing*ycp^2, mwing*cbar*ycp, mwing*cbar^2], Tarr, dt
+    return [1, kΨ, bΨ, cbar*R^3, mwing*ycp^2, mwing*cbar*ycp, mwing*cbar^2], Tarr, dt
 end
 
 function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::cu.ParamOptOpts, scaleTraj=1.0; debugComponents::Bool=false)
@@ -521,10 +520,10 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     end
     """Stiffness/damping output"""
     function Hg(y)
-        # [(m.kσ*ycp^2*φ + m.ka/T*τifun(φ)), kΨ*Ψ]
-        # τdamp = [-(m.bσ + m.ba/T^2) * dφ, -bΨ * Ψ̇]
+        # [(m.ko*φ + m.ka/T*τifun(φ)), kΨ*Ψ]
+        # τdamp = [-(m.bo + m.ba/T^2) * dφ, -bΨ * Ψ̇]
         φ, Ψ, dφ, Ψ̇ = y
-        return [m.kσ*φ + m.bσ*dφ   0   0   0   0   0   0    0   0;
+        return [m.ko*φ + m.bo*dφ   0   0   0   0   0   0    0   0;
         0   Ψ   Ψ̇    0   0   0   0   0   0]
     end
     """Stiffness/damping actuator"""
@@ -535,9 +534,6 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     end
     """Ext force (aero)"""
     function HF(y, tauaero)
-        σo, Ψ, σ̇o, Ψ̇ = y
-        # See notes: this F stuff is w2d specific
-        rcop = rcopnondim(Ψ)
         # Only keeping Fext_pdep=true version, and approximating only Faero propto this (ignore dependence of COP moving)
         tautil = -tauaero/(cbar*R^3)
 
@@ -573,8 +569,8 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         Hni = Htilni(yo(k) + Δyk, Jaero'*Faero)
         # Hh = Hi + δt*Hni # inertial and non-inertial components
         # With nonlinear transmission need to break apart H
-        σo = (yo(k) + Δyk)[1]
-        Hfortrans = Hh -> hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
+        φo = (yo(k) + Δyk)[1]
+        Hfortrans = Hh -> hcat(Hh[:,1:end-2], Hh[:,1:end-2]*φo^2, Hh[:,end-1:end])
 
         # Remove "dt" by scaling velocities for https://github.com/avikde/robobee3d/issues/110
         # Only scale the inertial term
