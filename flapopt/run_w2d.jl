@@ -31,7 +31,7 @@ function getInitialParams()
 	# robobee scale
 	return 75, [3.2,  # cbar[mm] (area/R)
 		2.6666, # τ1 (from 3333 rad/m, [Jafferis (2016)])
-		0.52, # mwing[mg]
+		1.2, # mwing[mg]
 		2.5, # wΨ [mm]
 		0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
 		54.4, # Aw = 3.2*17 [mm^2] (Jafferis 2016)
@@ -144,8 +144,8 @@ end
 # ID
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
-# 2. Try to optimize
-ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.2)#; print_level=3, max_iter=10000)
+# # 2. Try to optimize
+# ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.2)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 
@@ -156,7 +156,7 @@ ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.2)#; print_level=3, max_iter=10000
 # plot(pl1...)
 
 # ---------
-pls = debugComponentsPlot(m, opt, POPTS, ret2)
+pls = debugComponentsPlot(m, opt, POPTS, ret1)
 plot(pls..., size=(800,600))
 
 # # -----------------
