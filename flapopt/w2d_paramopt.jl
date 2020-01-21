@@ -25,7 +25,7 @@ function estimateWingDensity(test=false)
 	# meanpred = mwings2 ./ cbar0
 	# FIXME: for robobee design this is producing torques that are too high
 	# rholims = [meanpred[1] * cbar0, meanpred[end] * cbar0]
-	rholims = [0.01, 0.04] # from param0 = 0.52/54.4
+	rholims = [0.013, 0.02] # from param0 = 0.7/54.4
 
 	if test
 		p1 = plot(dspar, mwings, ylabel="mwing from Ixx", lw=2)
