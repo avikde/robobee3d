@@ -76,7 +76,7 @@ end
 "Tried going directly from Doshi model-driven, but haven't been able to get that to match up"
 function hingeParams(wΨ)
     # kΨ [mN-mm/rad], bΨ [mN-mm/(rad/ms)]
-    return 4.0*wΨ, 2.4*wΨ
+    return 3.0*wΨ, 1.8*wΨ
 end
 
 rcopnondim(Ψ) = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]

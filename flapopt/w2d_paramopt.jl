@@ -44,7 +44,7 @@ end
 kinType -- 0 => ID'ed real data, 1 => openloop sim with param0 then truncate, 2 => generate kinematics(t)
 fix -- Make traj satisfy dyn constraint with these params?
 """
-function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, starti=172)
+function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, starti=165)
 	if kinType==1
 		opt = cu.OptOptions(false, false, 0.135, 1, :none, 1e-8, false) # sim
 		N = opt.boundaryConstraint == :symmetric ? 23 : 45
@@ -176,10 +176,12 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 
 		pl = plot(t2, (inertial[i,:] + inertialc[i,:]) / dt, linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
 		plot!(pl, t2, stiffdamp[i,:] / dt, linewidth=2, label="g")
-		plot!(pl, t2, stiffdampa[i,:] / dt, linewidth=2, label="ga")
 		# plot!(pl, t2, aero[i,:], linewidth=2, label="a")
-		plot!(pl, t2, traj1[(N+1)*ny+1:end], linewidth=2)
 		plot!(pl, t2, tot/dt, linewidth=2, linestyle=:dash, label="act") # checked; this matches the row above ^
+		if i==1
+			plot!(pl, t2, stiffdampa[i,:] / dt, linewidth=2, label="ga")
+			plot!(pl, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="")
+		end
 
 		pl2 = plot(t2, aero[i,:] / dt, linewidth=2, label="-dr", legend=:outertopright)
 		plot!(pl2, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="act")
