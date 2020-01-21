@@ -432,13 +432,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, POPTS, scaleTraj)
 	# IPOPT ---------------------------
 	# Options on the types of constraints to include
-	nonlinTransmission = true # add a transmission constraint in g()? TODO: remove
-	# Transmission limits imposed by actuator
-	σomax = norm([yo(k)[1] for k=1:N], Inf)
-	τ1min = σomax/σamax
-	if !nonlinTransmission
-		POPTS.plimsL[POPTS.τinds[1]] = τ1min
-	end
+	σomax = norm([yo(k)[1] for k=1:N], Inf) # Transmission limits imposed by actuator
 
 	"Variables for IPOPT:
 	x = [param; Δy] where Δy is the necessary traj modification for passive dynamics matching. 
