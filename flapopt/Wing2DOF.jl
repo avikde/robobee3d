@@ -271,19 +271,20 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs)
     ut = plot(ylabel="stroke force [mN]")
     liftt = plot(ylabel="lift [mg]")
     dragt = plot(ylabel="drag [mg]")
+    actt = plot(ylabel="act disp [mm]", ylims=(-0.3,0.3))
     for i=1:Nt
         traj, param = trajs[i], params[i]
         dt = param[end]
         t = 0:dt:(N)*dt
         plot!(stroket, t, traj[@view liy[1,:]], linewidth=2)
-        plot!(stroket, t, actAng(traj, param), linewidth=2, ls=:dash)
+        plot!(actt, t, actAng(traj, param), linewidth=2)
         plot!(Ψt, t, traj[@view liy[2,:]], linewidth=2)
         plot!(ut, t, [traj[@view liu[1,:]];NaN], linewidth=2)
         plot!(liftt, t, aeroPlotVec(traj, param, 2), linewidth=2)
         plot!(dragt, t, aeroPlotVec(traj, param, 1), linewidth=2)
     end
     # Return tuple
-	return (stroket, Ψt, ut, liftt, dragt)
+	return (stroket, Ψt, ut, liftt, dragt, actt)
 end
 
 function plotParamImprovement(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs, paramObj::Function)
