@@ -200,5 +200,5 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 
 	# Note that gamma is here
 	# println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2)
-	return pl1[[1,2,4,5]]..., pls, plh, plcomp, plis, plih
+	return pl1[[1,2,4,6]]..., pls, plh, plcomp, plis, plih
 end
