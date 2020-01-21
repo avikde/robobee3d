@@ -17,39 +17,28 @@ includet("Wing2DOF.jl")
 # For T=20, get ka = 240.
 # To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
-	0.4#= 1.5 =#, #k output
+	40.0, #k output
 	0, #b output
 	6, # ma
 	0, # ba
-	90#= 0 =#, # ka
+	240, # ka
 	true, # bCoriolis
-	4/3) # r2hr1h2
+	0.49, # r1h [Chen (2016)]
+	0.551) # r2h insect wings [Whitney (2010)] 0.929 * 0.49^0.732
 ny, nu = cu.dims(m)
 
-function getInitialParams(itype=0)
-	if itype==0
-		# robobee scale
-		return 70, [3.2,  # cbar[mm] (area/R)
-			28.33, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
-			0.52, # mwing[mg]
-			2.5, # wΨ [mm]
-			0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
-			54.4, # Aw = 3.2*17 [mm^2] (Jafferis 2016)
-			0.135 # dt
-		]
-	elseif itype==1
-		# scaled up
-		return 100, [5.411,  # cbar[mm] (area/R)
-			18.681, # τ1
-			0.866, # mwing[mg]
-			11.0, # wΨ [mm]
-			0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92,
-			91.987, # Aw [mm^2] (Jafferis 2016)
-			0.109 # dt
-		]
-	end
+function getInitialParams()
+	# robobee scale
+	return 75, [3.2,  # cbar[mm] (area/R)
+		2.6666, # τ1 (from 3333 rad/m, [Jafferis (2016)])
+		0.7, # mwing[mg] ~=Izz/(mwing*ycp^2). with ycp=8.5, Izz=51.1 [Jafferis (2016)], get
+		2.5, # wΨ [mm]
+		0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
+		54.4, # Aw = 3.2*17 [mm^2] (Jafferis 2016)
+		0.135 # dt
+	]
 end
-uampl, param0 = getInitialParams(1)
+uampl, param0 = getInitialParams()
 σamax = 0.3 # [mm] constant? for robobee actuators
 
 includet("w2d_paramopt.jl")
@@ -64,7 +53,7 @@ dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
 	R=(zeros(4,4), 0, 1.0*I), 
-	plimsL = [0.1, 10, 0.1, 0.5, 0, 20.0, dtlims[1]],
+	plimsL = [0.1, 2.0, 0.1, 0.5, 0, 20.0, dtlims[1]],
 	plimsU = [1000.0, 1000.0, 100.0, 20.0, 100.0, 150.0, dtlims[2]],
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
 	uinfnorm = true
@@ -156,7 +145,7 @@ end
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-ret2 = opt1(ret1["traj"], ret1["param"], 1, 2.0)#; print_level=3, max_iter=10000)
+ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.2)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 
@@ -175,7 +164,7 @@ plot(pls..., size=(800,600))
 # plot(pls...)
 
 # # ----------------
-# pls = scaleParamsForlift(ret1, 0.5:0.2:2.1, 2)
+# pls = scaleParamsForlift(ret1, 0.6:0.2:2.0, 2)
 # plot(pls...)
 
 # # traj opt ------------------------------------

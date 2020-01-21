@@ -97,14 +97,16 @@ function getTrajU(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstrac
 	return vcat([B' * Hk(k, Δy0, Δy0) * ptnew for k=1:N]...)
 end
 
-function affineTest(m, opt, traj, param, POPTS::ParamOptOpts)
+function affineTest(m, opt, traj, param, POPTS::ParamOptOpts; fixTraj=false)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
 	ptTEST, TTEST = getpt(m, param) # NOTE the actual param values are only needed for the test mode
 	dt = param[end]
 
+	traj1 = fixTraj ? fixTrajWithDynConst(m, opt, traj, param) : traj
+
 	# Quadratic form matrix
-	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, POPTS)
+	Hk, yo, umeas, B, N = paramAffine(m, opt, traj1, param, POPTS)
 	Hpb = zeros(nq, N)
 	Bu = similar(Hpb)
 	for k=1:N
@@ -112,6 +114,10 @@ function affineTest(m, opt, traj, param, POPTS::ParamOptOpts)
 		Bu[:,k] = dt * B * umeas(k)[1]
 	end
 	display(Hpb - Bu)
+	# plot of u
+	pls = [plot(1:N, [Hpb[i,:]   Bu[i,:]], lw=2)  for i=1:nq]
+	plot(pls...)
+	gui()
 	error("Tested")
 end
 
@@ -426,13 +432,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, POPTS, scaleTraj)
 	# IPOPT ---------------------------
 	# Options on the types of constraints to include
-	nonlinTransmission = true # add a transmission constraint in g()? TODO: remove
-	# Transmission limits imposed by actuator
-	σomax = norm([yo(k)[1] for k=1:N], Inf)
-	τ1min = σomax/σamax
-	if !nonlinTransmission
-		POPTS.plimsL[POPTS.τinds[1]] = τ1min
-	end
+	σomax = norm([yo(k)[1] for k=1:N], Inf) # Transmission limits imposed by actuator
 
 	"Variables for IPOPT:
 	x = [param; Δy] where Δy is the necessary traj modification for passive dynamics matching. 

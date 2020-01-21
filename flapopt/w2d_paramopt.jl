@@ -25,7 +25,7 @@ function estimateWingDensity(test=false)
 	# meanpred = mwings2 ./ cbar0
 	# FIXME: for robobee design this is producing torques that are too high
 	# rholims = [meanpred[1] * cbar0, meanpred[end] * cbar0]
-	rholims = [0.01, 0.04] # from param0 = 0.52/54.4
+	rholims = [0.013, 0.02] # from param0 = 0.7/54.4
 
 	if test
 		p1 = plot(dspar, mwings, ylabel="mwing from Ixx", lw=2)
@@ -44,16 +44,16 @@ end
 kinType -- 0 => ID'ed real data, 1 => openloop sim with param0 then truncate, 2 => generate kinematics(t)
 fix -- Make traj satisfy dyn constraint with these params?
 """
-function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, starti=170)
+function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, starti=165)
 	if kinType==1
-		opt = cu.OptOptions(true, false, 0.135, 1, :none, 1e-8, false) # sim
+		opt = cu.OptOptions(false, false, 0.135, 1, :none, 1e-8, false) # sim
 		N = opt.boundaryConstraint == :symmetric ? 23 : 45
 		trajt, traj0 = createInitialTraj(m, opt, N, 0.165, [1e3, 1e2], param0, starti; uampl=uampl)
 	elseif kinType==0
 		# Load data
 		cbar, τ1, mwing, wΨ, τ2, Aw, dt = param0
 		R = Aw/cbar
-		opt = cu.OptOptions(true, false, 0.135, 1, :none, 1e-8, false) # real
+		opt = cu.OptOptions(false, false, 0.135, 1, :none, 1e-8, false) # real
 		# N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
 		N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; sigi=1, strokeSign=1, strokeMult=R/(2*τ1), ForcePerVolt=75/100, vidSF=7320, Ψshift=Ψshift) # 75mN unidirectional at 200Vpp (from Noah)
 	else
@@ -65,7 +65,7 @@ function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, sta
 	end
 
 	if makeplot
-		pl1 = plotTrajs(m, opt, [param0], [traj0])
+		pl1 = plotTrajs(m, opt, [param0], [traj0]; legends=false)
 		# pl1 = compareTrajToDAQ(m, opt, trajt, param0, traj0, lift, drag)
 		plot(pl1...)
 		gui()
@@ -176,10 +176,12 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 
 		pl = plot(t2, (inertial[i,:] + inertialc[i,:]) / dt, linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
 		plot!(pl, t2, stiffdamp[i,:] / dt, linewidth=2, label="g")
-		plot!(pl, t2, stiffdampa[i,:] / dt, linewidth=2, label="ga")
 		# plot!(pl, t2, aero[i,:], linewidth=2, label="a")
-		plot!(pl, t2, traj1[(N+1)*ny+1:end], linewidth=2)
 		plot!(pl, t2, tot/dt, linewidth=2, linestyle=:dash, label="act") # checked; this matches the row above ^
+		if i==1
+			plot!(pl, t2, stiffdampa[i,:] / dt, linewidth=2, label="ga")
+			plot!(pl, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="")
+		end
 
 		pl2 = plot(t2, aero[i,:] / dt, linewidth=2, label="-dr", legend=:outertopright)
 		plot!(pl2, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="act")
@@ -200,5 +202,5 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 
 	# Note that gamma is here
 	# println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2)
-	return pl1[[1,2,4,5]]..., pls, plh, plcomp, plis, plih
+	return pl1[[1,2,4,6]]..., pls, plh, plcomp, plis, plih
 end
