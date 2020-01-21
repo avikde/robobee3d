@@ -27,37 +27,25 @@ m = Wing2DOFModel(
 	0.929 * 0.49^0.732) # r2h insect wings [Whitney (2010)]
 ny, nu = cu.dims(m)
 
-function getInitialParams(itype=0)
-	if itype==0
-		# robobee scale
-		return 70, [3.2,  # cbar[mm] (area/R)
-			28.33, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
-			0.52, # mwing[mg]
-			2.5, # wΨ [mm]
-			0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
-			54.4, # Aw = 3.2*17 [mm^2] (Jafferis 2016)
-			0.135 # dt
-		]
-	elseif itype==1
-		# scaled up
-		return 100, [5.411,  # cbar[mm] (area/R)
-			18.681, # τ1
-			0.866, # mwing[mg]
-			11.0, # wΨ [mm]
-			0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92,
-			91.987, # Aw [mm^2] (Jafferis 2016)
-			0.109 # dt
-		]
-	end
+function getInitialParams()
+	# robobee scale
+	return 70, [3.2,  # cbar[mm] (area/R)
+		3.3333, # τ1 (from 3333 rad/m, [Jafferis (2016)])
+		0.52, # mwing[mg]
+		2.5, # wΨ [mm]
+		0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
+		54.4, # Aw = 3.2*17 [mm^2] (Jafferis 2016)
+		0.135 # dt
+	]
 end
-uampl, param0 = getInitialParams(1)
+uampl, param0 = getInitialParams()
 σamax = 0.3 # [mm] constant? for robobee actuators
 
 includet("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
-N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE; uampl=uampl)
+N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE; uampl=uampl, makeplot=true)
 
 # Param opt init
 cycleFreqLims = [0.4, 0.03] # [KHz]

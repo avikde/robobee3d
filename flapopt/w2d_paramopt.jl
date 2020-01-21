@@ -46,14 +46,14 @@ fix -- Make traj satisfy dyn constraint with these params?
 """
 function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, starti=170)
 	if kinType==1
-		opt = cu.OptOptions(true, false, 0.135, 1, :none, 1e-8, false) # sim
+		opt = cu.OptOptions(false, false, 0.135, 1, :none, 1e-8, false) # sim
 		N = opt.boundaryConstraint == :symmetric ? 23 : 45
 		trajt, traj0 = createInitialTraj(m, opt, N, 0.165, [1e3, 1e2], param0, starti; uampl=uampl)
 	elseif kinType==0
 		# Load data
 		cbar, τ1, mwing, wΨ, τ2, Aw, dt = param0
 		R = Aw/cbar
-		opt = cu.OptOptions(true, false, 0.135, 1, :none, 1e-8, false) # real
+		opt = cu.OptOptions(false, false, 0.135, 1, :none, 1e-8, false) # real
 		# N, trajt, traj0, lift, drag = loadAlignedData("data/Test 22, 02-Sep-2016-11-39.mat", "data/lateral_windFri Sep 02 2016 18 45 18.344 193 utc.csv", 2.2445; strokeMult=m.R/(2*param0[2]), ForcePerVolt=0.8)
 		N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; sigi=1, strokeSign=1, strokeMult=R/(2*τ1), ForcePerVolt=75/100, vidSF=7320, Ψshift=Ψshift) # 75mN unidirectional at 200Vpp (from Noah)
 	else

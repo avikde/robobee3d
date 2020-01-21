@@ -197,7 +197,7 @@ Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
 function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, posctrl=false)
     # Create a traj
-    σampl = 0.2#cu.limits(m)[end][1]
+    σampl = 0.6 # output, only used if posctrl=true
     tend = 100.0 # [ms]
     function controller(y, t)
         if posctrl
@@ -224,9 +224,10 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     #     drawFrame(m, yk, uk, params)
     # end
     # # Plot
-    # σt = plot(sol, vars=3, ylabel="act vel [m/s]")
+    # phit = plot(sol, vars=1, ylabel="stroke [rad]")
+    # dphit = plot(sol, vars=3, ylabel="stroke vel [rad/ms]")
     # Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
-    # plot(σt, Ψt, layout=(2,1))
+    # plot(phit, dphit, Ψt, layout=(3,1))
     # gui()
 
     # expectedInterval = opt.boundaryConstraint == cu.SYMMETRIC ? 1/(2*freq) : 1/freq # [ms]
@@ -252,23 +253,20 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs)
 	Ny = (N+1)*ny
     Nt = length(trajs)
     # stroke "angle" = T*y[1] / R
-    function strokeAng(traj, param)
-        cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
-        kΨ, bΨ = hingeParams(wΨ)
-        σo = [cu.transmission(m, traj[@view liy[:,k]], param; o2a=false)[1][1] for k=1:N+1]
-        # σo = traj[1:ny:(N+1)*ny]
-        return σo / (Aw/(2*cbar))
+    function actAng(traj, param)
+        σa = [cu.transmission(m, traj[@view liy[:,k]], param; o2a=true)[1][1] for k=1:N+1]
+        return σa
     end
     # Plot of aero forces at each instant
     function aeroPlotVec(_traj::Vector, _param, ind)
         cbar, τ1, mwing, wΨ, τ2, Aw, dt  = _param
-        Faerok = k -> w2daero(m, cu.transmission(m, _traj[@view liy[:,k]], _param)[1], _param)[end] * 1000 / 9.81 # to mg
+        Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end] * 1000 / 9.81 # to mg
         Faeros = hcat([Faerok(k) for k=1:N]...)
         return [Faeros[ind,:]' NaN]'
     end
 
     # Empty versions of all the subplots
-    σt = plot(ylabel="stroke ang [r]", ylims=(-0.8,0.8))# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
+    stroket = plot(ylabel="stroke ang [r]", ylims=(-pi/4,pi/4))# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
     Ψt = plot(ylabel="hinge ang [r]")
     ut = plot(ylabel="stroke force [mN]")
     liftt = plot(ylabel="lift [mg]")
@@ -277,14 +275,15 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs)
         traj, param = trajs[i], params[i]
         dt = param[end]
         t = 0:dt:(N)*dt
-        plot!(σt, t, strokeAng(traj, param), linewidth=2)
+        plot!(stroket, t, traj[@view liy[1,:]], linewidth=2)
+        plot!(stroket, t, actAng(traj, param), linewidth=2, ls=:dash)
         plot!(Ψt, t, traj[@view liy[2,:]], linewidth=2)
         plot!(ut, t, [traj[@view liu[1,:]];NaN], linewidth=2)
         plot!(liftt, t, aeroPlotVec(traj, param, 2), linewidth=2)
         plot!(dragt, t, aeroPlotVec(traj, param, 1), linewidth=2)
     end
     # Return tuple
-	return (σt, Ψt, ut, liftt, dragt)
+	return (stroket, Ψt, ut, liftt, dragt)
 end
 
 function plotParamImprovement(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs, paramObj::Function)
