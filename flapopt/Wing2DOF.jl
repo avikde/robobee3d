@@ -145,7 +145,7 @@ function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::V
     cor1 = [cbar^2*mwing*γ^2*sin(2*Ψ)*dφ*Ψ̇ - γ*cbar*mwing*ycp*sin(Ψ)*Ψ̇^2, 
         -cbar^2*mwing*γ^2*cos(Ψ)*sin(Ψ)*dφ^2]
     # NOTE: dropping τinv'' term
-    corgrav = [(m.kσ*ycp^2*φ + m.ka/T*τifun(φ)), kΨ*Ψ] + (m.bCoriolis ? cor1 : zeros(2))
+    corgrav = [(m.kσ*φ + m.ka/T*τifun(φ)), kΨ*Ψ] + (m.bCoriolis ? cor1 : zeros(2))
 
     # non-lagrangian terms
     τdamp = [-(m.bσ + m.ba/T^2) * dφ, -bΨ * Ψ̇]
@@ -493,8 +493,10 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     R = Aw/cbar
 
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
-    # Implicitly use Ixx=0, Izz=cbar^2 mw gamma^2
     """Inertial"""
+    # M = [Ixx + mwing*ycp^2 + 1/2*cbar^2*mwing*γ^2*(1-cos(2*Ψ)) + m.ma/T^2   γ*cbar*mwing*ycp*cos(Ψ);  
+        # γ*cbar*mwing*ycp*cos(Ψ)     Izz+cbar^2*γ^2*mwing]
+    # Implicitly use Ixx=0, Izz=cbar^2 mw gamma^2
     function HMqTWithoutCoupling(ypos, yvel)
         φ, Ψ = ypos[1:2]
         dφ, Ψ̇ = yvel[3:4]
