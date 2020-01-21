@@ -89,10 +89,9 @@ function w2daero(m::Wing2DOFModel, yo::AbstractArray, param::Vector)
     # unpack
     cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
     R = Aw/cbar
+    ycp = R*m.r1h # approx as in [Chen (2016)]
     # kΨ, bΨ = hingeParams(wΨ)
-    φ, Ψ, dφ, Ψ̇ = yo # [mm, rad, mm/ms, rad/ms]
-    cΨ = cos(Ψ)
-    sΨ = sin(Ψ)
+    φ, Ψ, dφ, Ψ̇ = yo # [rad, rad, rad/ms, rad/ms]
 
     # CoP kinematics
     # Ψ > 0 => hinge looks like \; Ψ < 0 => hinge looks like /
@@ -105,7 +104,7 @@ function w2daero(m::Wing2DOFModel, yo::AbstractArray, param::Vector)
             -ycp*sin(φ) - cbar*rcopnondim*cos(φ)*sin(Ψ)    -cbar*rcopnondim*cos(Ψ)*sin(φ);
             0     cbar*rcopnondim*sin(Ψ)]
     # drag/lift direction (normalized)
-    eD = [-dφ*cos(φ), -dφ*sin(φ), 0]/(abs(dφ) + 1e-4) # so it is well-defined
+    eD = [dφ*cos(φ), dφ*sin(φ), 0]/(abs(dφ) + 1e-4) # so it is well-defined
     eL = [0, 0, 1]
     
     # Aero force
@@ -119,7 +118,7 @@ function w2daero(m::Wing2DOFModel, yo::AbstractArray, param::Vector)
     {d\[Sigma], -1, 1}, {\[Psi], -\[Pi]/2, \[Pi]/2}]
     =#
     Caero = [((CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2α)), CLmax * sin(2α)]
-    Faero = 1/2 * ρ * dφ^2 * cbar * R^3 * m.r2h2 * (Caero[1]*eD + Caero[2]*eL*sign(-dφ)) # [mN]
+    Faero = 1/2 * ρ * dφ^2 * cbar * R^3 * m.r2h^2 * (Caero[1]*eD + Caero[2]*eL*sign(-dφ)) # [mN]
 
     return paero, Jaero, Faero
 end

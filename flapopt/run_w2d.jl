@@ -23,7 +23,8 @@ m = Wing2DOFModel(
 	0, # ba
 	90#= 0 =#, # ka
 	true, # bCoriolis
-	4/3) # r2hr1h2
+	0.49, # r1h [Chen (2016)]
+	0.929 * 0.49^0.732) # r2h insect wings [Whitney (2010)]
 ny, nu = cu.dims(m)
 
 function getInitialParams(itype=0)
