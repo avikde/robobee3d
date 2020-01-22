@@ -80,8 +80,9 @@ function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, sta
 end
 
 """Linear approx of wing AR constraint at cbar https://github.com/avikde/robobee3d/issues/113. Returns a,b s.t. dot(a, [cb,Aw]) <= b is the constraint"""
-function wingARconstraintLin(cbar; maxAR=4)
-	# AR<=4: see https://github.com/avikde/robobee3d/pull/105#issuecomment-562761586 originally
+function wingARconstraintLin(cbar; maxAR=6)
+	# AR<=?: see https://github.com/avikde/robobee3d/pull/105#issuecomment-562761586 originally
+	# Note initial AR from Jafferis 2016 = 17/(54.59/17) ~= 5.3. should try to keep this
 	fwingAR(cbAw::Vector) = -maxAR*cbAw[1]^2+cbAw[2]
 	ptang(cb) = [cb, -fwingAR([cb, 0])]
 	p0 = ptang(cbar)
@@ -104,7 +105,7 @@ function minLiftConstraintLin(minlift, param0, avgLift0)
 end
 
 """One-off ID or opt"""
-function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1, wARconstraintLinCbar=4.0)
+function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1, wARconstraintLinCbar=3.2)
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
 	print(mode==2 ? "ID" : "Opt", " minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
 
