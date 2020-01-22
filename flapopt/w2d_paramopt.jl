@@ -90,18 +90,13 @@ function wingARconstraintLin(cbar; maxAR=6)
 	return Dfwing(p0), dot(Dfwing(p0),p0)
 end
 
-"""Linear approx of wing AR constraint at cbar https://github.com/avikde/robobee3d/issues/113. Returns a,b s.t. dot(a, [cb,Aw]) <= b is the constraint"""
+"""Min lift involves Aw, cbar, dt. For now approx by fixing wing AR https://github.com/avikde/robobee3d/pull/119#issuecomment-577253382"""
 function minLiftConstraintLin(minlift, param0, avgLift0)
-	# Lift ~ Aw/dt^2 => fcons = Awdt2min - Aw/dt^2
-	# Awdt2min = param0[Aw_idx]/param0[end]^2 * minlift / avgLift0
-	Awdt2min = param0[Aw_idx] * minlift / avgLift0
-	# println("hehe", Awdt2min)
-	fminlift(Awdt::Vector) = -Awdt[1]#/Awdt[2]^2
-	p0 = [param0[Aw_idx], param0[end]]
-	Dfminlift(x) = ForwardDiff.gradient(fminlift, x)
-	mla, mlb = Dfminlift(p0), -Awdt2min#dot(Dfminlift(p0),p0)
-	# println("HI ", avgLift0, mla, mlb)
-	return mla, mlb
+	# Lift ~ (Aw/dt)^2 => calculate k needed
+	cbar, τ1, mwing, wΨ, τ2, Aw, dt = param0
+	Aw_dtmin = (Aw/dt)*sqrt(minlift/avgLift0)
+	# constraint is already linear: -Aw + Aw_dtmin*dt <= 0
+	return [-1.0, Aw_dtmin], 0
 end
 
 """One-off ID or opt"""
@@ -185,7 +180,9 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 		end
 
 		pl2 = plot(t2, aero[i,:] / dt, linewidth=2, label="-dr", legend=:outertopright)
-		plot!(pl2, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="act")
+		if i==1
+			plot!(pl2, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="act")
+		end
 		plot!(pl2, t2, coriolis[i,:] / dt, linewidth=2, label="cor")
 		plot!(pl2, t2, inertiastiff / dt, linewidth=2, label="is")
 		
