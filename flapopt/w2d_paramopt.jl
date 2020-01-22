@@ -138,7 +138,7 @@ function debugComponentsPlot(m, opt, POPTS, ret)
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, ret["traj"])
 
 	# Get the components
-	yo, HMnc, HMc, HC, Hg, Hgact, HF = cu.paramAffine(m, opt, traj1, param1, POPTS; debugComponents=true)
+	yo, HMnc, HMc, HC, Hg, Hgact, HF, Hdamp = cu.paramAffine(m, opt, traj1, param1, POPTS; debugComponents=true)
 	pt0, Tnew = cu.getpt(m, param1)
 	dt = param1[end] # need this for H after #110
 	inertial = zeros(2,N)
@@ -151,15 +151,16 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 	H0 = zeros(size(inertial,1),length(pt0)÷3)
 
 	for k=1:N
-		σo = yo(k)[1]
 		y = yo(k)
 		yn = yo(k+1)
-		inertial[:,k] = [cu.Hτ(HMnc(y,yn) - HMnc(y,y), σo)  H0  H0] * pt0
-		inertialc[:,k] = [cu.Hτ(HMc(y,yn) - HMc(y,y) + HC(y), σo)  H0  H0] * pt0
-		stiffdamp[:,k] = [H0  H0  cu.Hτ(Hg(y), σo)] * pt0 # damping missing
-		stiffdampa[:,k] = [H0  H0  cu.Hτ(Hgact(y), σo)] * pt0
-		coriolis[:,k] = [cu.Hτ(HC(y), σo)  H0  H0] * pt0
-		aero[:,k] = [cu.Hτ(HF(y), σo)  H0  H0] * pt0
+		Ht(Hi) = cu.Hτ(Hi, y[1])
+		# Divided up like this https://github.com/avikde/robobee3d/pull/119#issuecomment-577350049
+		inertial[:,k] = [Ht(HMnc(y,yn) - HMnc(y,y))   H0  H0] * pt0
+		inertialc[:,k] = [Ht(HMc(y,yn) - HMc(y,y) + HC(y))   H0  H0] * pt0
+		stiffdamp[:,k] = [H0  Ht(Hdamp(y))  Ht(Hg(y))] * pt0
+		stiffdampa[:,k] = [H0  H0  Ht(Hgact(y))] * pt0
+		coriolis[:,k] = [Ht(HC(y))  H0  H0] * pt0
+		aero[:,k] = [Ht(HF(y))  H0  H0] * pt0
 	end
 
 	# # get the instantaneous transmission ratio at time k
@@ -172,24 +173,24 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 		inertiastiff = inertial[i,:]+inertialc[i,:]+stiffdamp[i,:]+stiffdampa[i,:]
 		tot = inertiastiff+aero[i,:]
 
-		pl = plot(t2, (inertial[i,:] + inertialc[i,:]) / dt, linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
-		plot!(pl, t2, stiffdamp[i,:] / dt, linewidth=2, label="g")
+		pl = plot(t2, (inertial[i,:] + inertialc[i,:]), linewidth=2, label="i", ylabel=ylbl, legend=:outertopright)
+		plot!(pl, t2, stiffdamp[i,:], linewidth=2, label="g")
 		# plot!(pl, t2, aero[i,:], linewidth=2, label="a")
-		plot!(pl, t2, tot/dt, linewidth=2, linestyle=:dash, label="act") # checked; this matches the row above ^
+		plot!(pl, t2, tot, linewidth=2, linestyle=:dash, label="act") # checked; this matches the row above ^
 		if i==1
-			plot!(pl, t2, stiffdampa[i,:] / dt, linewidth=2, label="ga")
+			plot!(pl, t2, stiffdampa[i,:], linewidth=2, label="ga")
 			plot!(pl, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="")
 		end
 
-		pl2 = plot(t2, aero[i,:] / dt, linewidth=2, label="-dr", legend=:outertopright)
+		pl2 = plot(t2, aero[i,:], linewidth=2, label="-dr", legend=:outertopright)
 		plot!(pl2, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="act")
-		plot!(pl2, t2, coriolis[i,:] / dt, linewidth=2, label="cor")
-		plot!(pl2, t2, inertiastiff / dt, linewidth=2, label="is")
+		plot!(pl2, t2, coriolis[i,:], linewidth=2, label="cor")
+		plot!(pl2, t2, inertiastiff, linewidth=2, label="is")
 		
-		pl3 = plot(t2, inertial[i,:] / dt, linewidth=2, label="inc", legend=:outertopright)
-		plot!(pl3, t2, inertialc[i,:] / dt, linewidth=2, label="ic")
-		plot!(pl3, t2, (inertial[i,:] + inertialc[i,:]) / dt, linewidth=2, linestyle=:dash, label="itot")
-		plot!(pl3, t2, -(stiffdamp[i,:] + stiffdampa[i,:]) / dt, linewidth=2, label="-gtot")
+		pl3 = plot(t2, inertial[i,:], linewidth=2, label="inc", legend=:outertopright)
+		plot!(pl3, t2, inertialc[i,:], linewidth=2, label="ic")
+		plot!(pl3, t2, (inertial[i,:] + inertialc[i,:]), linewidth=2, linestyle=:dash, label="itot")
+		plot!(pl3, t2, -(stiffdamp[i,:] + stiffdampa[i,:]), linewidth=2, label="-gtot")
 
 		return pl, pl2, pl3
 	end
