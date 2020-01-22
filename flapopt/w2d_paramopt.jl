@@ -180,9 +180,7 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 		end
 
 		pl2 = plot(t2, aero[i,:] / dt, linewidth=2, label="-dr", legend=:outertopright)
-		if i==1
-			plot!(pl2, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="act")
-		end
+		plot!(pl2, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="act")
 		plot!(pl2, t2, coriolis[i,:] / dt, linewidth=2, label="cor")
 		plot!(pl2, t2, inertiastiff / dt, linewidth=2, label="is")
 		
