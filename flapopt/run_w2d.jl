@@ -59,8 +59,6 @@ POPTS = cu.ParamOptOpts(
 	uinfnorm = true
 )
 includet("w2d_shift.jl")
-
-cu.affineTest(m, opt, traj0, param0, POPTS; fixTraj=true)
 # FUNCTIONS GO HERE -------------------------------------------------------------
 
 """Run many opts to get the best params for a desired min lift"""
@@ -146,8 +144,8 @@ end
 # ID
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
-# 2. Try to optimize
-ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.5)#; print_level=3, max_iter=10000)
+# # 2. Try to optimize
+# ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.5)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 
@@ -158,7 +156,7 @@ ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.5)#; print_level=3, max_iter=10000
 # plot(pl1...)
 
 # ---------
-pls = debugComponentsPlot(m, opt, POPTS, ret2)
+pls = debugComponentsPlot(m, opt, POPTS, ret1)
 plot(pls..., size=(800,600))
 
 # # -----------------

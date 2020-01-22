@@ -148,16 +148,18 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 	stiffdampa = similar(inertial)
 	aero = similar(inertial)
 	# to fill in for (non) inertial half of H https://github.com/avikde/robobee3d/pull/102
-	H0 = zeros(size(inertial,1),length(pt0)÷2)
+	H0 = zeros(size(inertial,1),length(pt0)÷3)
 
 	for k=1:N
 		σo = yo(k)[1]
-		inertial[:,k] = [cu.Hτ(HMnc(yo(k), yo(k+1)) - HMnc(yo(k), yo(k)), σo)*dt  H0] * pt0
-		inertialc[:,k] = [cu.Hτ(HMc(yo(k), yo(k+1)) - HMc(yo(k), yo(k)), σo)*dt  cu.Hτ(HC(yo(k)), σo)] * pt0
-		stiffdamp[:,k] = [H0  cu.Hτ(Hg(yo(k)), σo)] * pt0
-		stiffdampa[:,k] = [H0  cu.Hτ(Hgact(yo(k)), σo)] * pt0
-		coriolis[:,k] = [H0  cu.Hτ(HC(yo(k)), σo)] * pt0
-		aero[:,k] = [H0  cu.Hτ(HF(yo(k)), σo)] * pt0
+		y = yo(k)
+		yn = yo(k+1)
+		inertial[:,k] = [cu.Hτ(HMnc(y,yn) - HMnc(y,y), σo)  H0  H0] * pt0
+		inertialc[:,k] = [cu.Hτ(HMc(y,yn) - HMc(y,y) + HC(y), σo)  H0  H0] * pt0
+		stiffdamp[:,k] = [H0  H0  cu.Hτ(Hg(y), σo)] * pt0 # damping missing
+		stiffdampa[:,k] = [H0  H0  cu.Hτ(Hgact(y), σo)] * pt0
+		coriolis[:,k] = [cu.Hτ(HC(y), σo)  H0  H0] * pt0
+		aero[:,k] = [cu.Hτ(HF(y), σo)  H0  H0] * pt0
 	end
 
 	# # get the instantaneous transmission ratio at time k
