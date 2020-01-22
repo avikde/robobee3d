@@ -488,23 +488,24 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     uk = k -> @view traj[liu[:,k]]
 
     # Param stuff
-    cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
+    cbar, τ1, mwing, wΨ, τ2, Aw, dtold = param
     R = Aw/cbar
 
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
+    # Nondimensionalize (wrt time) the velocities https://github.com/avikde/robobee3d/pull/119#issuecomment-577350049
     """Inertial"""
     # M = [Ixx + mwing*ycp^2 + 1/2*cbar^2*mwing*γ^2*(1-cos(2*Ψ)) + m.ma/T^2   γ*cbar*mwing*ycp*cos(Ψ);  
         # γ*cbar*mwing*ycp*cos(Ψ)     Izz+cbar^2*γ^2*mwing]
     # Implicitly use Ixx=0, Izz=cbar^2 mw gamma^2
     function HMqTWithoutCoupling(ypos, yvel)
         φ, Ψ = ypos[1:2]
-        dφ, Ψ̇ = yvel[3:4]
+        dφ, Ψ̇ = yvel[3:4] * dtold
         return [0   0   0   0   dφ   0  1/2*γ^2*(1-cos(2*Ψ))*dφ     dφ*m.ma   dφ*m.ma*(-φ^2);
                 0   0   0   0   0   0   2*Ψ̇*γ^2    0   0]
     end
     function HMqTCoupling(ypos, yvel)
         φ, Ψ = ypos[1:2]
-        dφ, Ψ̇ = yvel[3:4]
+        dφ, Ψ̇ = yvel[3:4] * dtold
         return [0   0   0   0   0   γ*Ψ̇*cos(Ψ)   0   0   0;
         0   0   0   0   0   γ*dφ*cos(Ψ)   0    0   0]
     end
@@ -514,28 +515,36 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     function HC(y)
         # cor1 = [cbar^2*mwing*γ^2*sin(2*Ψ)*dφ*Ψ̇ - γ*cbar*mwing*ycp*sin(Ψ)*Ψ̇^2, 
         #     -cbar^2*mwing*γ^2*cos(Ψ)*sin(Ψ)*dφ^2]
-        φ, Ψ, dφ, Ψ̇ = y
+        φ, Ψ = y[1:2]
+        dφ, Ψ̇ = y[3:4] * dtold
         return m.bCoriolis ? [0   0   0   0   0   -γ*Ψ̇^2*sin(Ψ)   γ^2*sin(2*Ψ)*dφ*Ψ̇    0   0;
         0   0   0   0   0   0   -γ^2*cos(Ψ)*sin(Ψ)*dφ^2   0   0]  : zeros(2,9)
     end
-    """Stiffness/damping output"""
+    """Stiffness output"""
     function Hg(y)
         # [(m.ko*φ + m.ka/T*τifun(φ)), kΨ*Ψ]
         # τdamp = [-(m.bo + m.ba/T^2) * dφ, -bΨ * Ψ̇]
-        φ, Ψ, dφ, Ψ̇ = y
-        return [m.ko*φ + m.bo*dφ   0   0   0   0   0   0    0   0;
-        0   Ψ   Ψ̇    0   0   0   0   0   0]
+        φ, Ψ = y[1:2]
+        return [m.ko*φ   0   0   0   0   0   0    0   0;
+        0   Ψ   0    0   0   0   0   0   0]
     end
-    """Stiffness/damping actuator"""
+    """Stiffness actuator"""
     function Hgact(y)
-        φ, Ψ, dφ, Ψ̇ = y
-        return [0   0   0   0   0   0   0    m.ba*dφ+m.ka*φ   m.ba*dφ*(-φ^2)+m.ka*(-φ^3/3);
+        φ, Ψ = y[1:2]
+        return [0   0   0   0   0   0   0    m.ka*φ   m.ka*(-φ^3/3);
         0   0   0   0   0   0   0   0   0]
+    end
+    """Damping"""
+    function Hdamp(y)
+        φ, Ψ = y[1:2]
+        dφ, Ψ̇ = y[3:4] * dtold
+        return [m.bo*dφ   0   0   0   0   0   0    m.ba*dφ   m.ba*dφ*(-φ^2);
+        0   0   Ψ̇   0   0   0   0   0   0]
     end
     """Ext force (aero)"""
     function HF(y, tauaero)
         # Only keeping Fext_pdep=true version, and approximating only Faero propto this (ignore dependence of COP moving)
-        tautil = -tauaero/(cbar*R^3)
+        tautil = -tauaero*dtold^2/(cbar*R^3)
 
         # 1st order version
         return [0   0   0   tautil[1]   0   0   0   0   0;
@@ -549,33 +558,23 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     if debugComponents
         return yo, HMqTWithoutCoupling, HMqTCoupling, HC, Hg, Hgact, HF2
     end
-
-    HCgJT(y, tauaero) = HC(y) + Hg(y) + Hgact(y) + HF(y, tauaero)
-    # ----------------
-
-    # this is OK - see notes
-    # Htil = (y, ynext, F) -> HMq(ynext) - HMq(y) + δt*HCgJ(y, F)
-    # 1st order integration mods
-    Htili = (y, ynext) -> HMqT(y, ynext) - HMqT(y, y)
-    Htilni = HCgJT
     
     # Functions to output
     "Takes in a Δy in output coords"
     function Hk(k, Δyk, Δykp1)
+        y = yo(k) + Δyk
+        ynext = yo(k+1) + Δykp1
         # Same Faero as before?
-        _, Jaero, Faero = w2daero(m, yo(k) + Δyk, param)
+        _, Jaero, Faero = w2daero(m, y, param)
         # NOTE: it uses param *only for Faero*. Add same F as the traj produced
-        Hi = Htili(yo(k) + Δyk, yo(k+1) + Δykp1)
-        Hni = Htilni(yo(k) + Δyk, Jaero'*Faero)
-        # Hh = Hi + δt*Hni # inertial and non-inertial components
+        # Divide up by dt-dependence https://github.com/avikde/robobee3d/pull/119#issuecomment-577350049
+        H_dt2 = HMqT(y, ynext) - HMqT(y, y) + HC(y) + HF(y, Jaero'*Faero)
+        H_dt1 = Hdamp(y)
+        H_dt0 = Hg(y) + Hgact(y)
         # With nonlinear transmission need to break apart H
         φo = (yo(k) + Δyk)[1]
         Hfortrans = Hh -> hcat(Hh[:,1:end-2], Hh[:,1:end-2]*φo^2, Hh[:,end-1:end])
-
-        # Remove "dt" by scaling velocities for https://github.com/avikde/robobee3d/issues/110
-        # Only scale the inertial term
-        dtold = param[end]
-        return [Hfortrans(Hi) * dtold  Hfortrans(Hni)]
+        return [Hfortrans(H_dt2)  Hfortrans(H_dt1)   Hfortrans(H_dt0)]
     end
     
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k

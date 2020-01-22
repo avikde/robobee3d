@@ -28,8 +28,8 @@ function getpt(m::Model, p)
 	τ1, τ2 = Tarr
 	# Nonlinear transmission: see https://github.com/avikde/robobee3d/pull/92
 	ptWithTransmission = [pb*τ1; pb*τ2/τ1^2; 1/τ1; τ2/τ1^4]
-	# Adding dt: https://github.com/avikde/robobee3d/pull/102; inertial term /dt https://github.com/avikde/robobee3d/issues/110
-	return [ptWithTransmission/dt; dt*ptWithTransmission], Tarr
+	# Proper nondim wrt. time  https://github.com/avikde/robobee3d/pull/119#issuecomment-577350049
+	return [ptWithTransmission/dt^2; ptWithTransmission/dt; ptWithTransmission], Tarr
 end
 
 "Helper function for nonlinear transmission change to H"
@@ -111,7 +111,7 @@ function affineTest(m, opt, traj, param, POPTS::ParamOptOpts; fixTraj=false)
 	Bu = similar(Hpb)
 	for k=1:N
 		Hpb[:,k] = Hk(k, zeros(ny), zeros(ny)) * ptTEST
-		Bu[:,k] = dt * B * umeas(k)[1]
+		Bu[:,k] = B * umeas(k)[1]
 	end
 	display(Hpb - Bu)
 	# plot of u
