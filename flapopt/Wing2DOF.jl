@@ -573,8 +573,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         H_dt0 = Hg(y) + Hgact(y)
         # With nonlinear transmission need to break apart H
         φo = (yo(k) + Δyk)[1]
-        Hfortrans = Hh -> hcat(Hh[:,1:end-2], Hh[:,1:end-2]*φo^2, Hh[:,end-1:end])
-        return [Hfortrans(H_dt2)  Hfortrans(H_dt1)   Hfortrans(H_dt0)]
+        return [cu.Hτ(H_dt2, φo)  cu.Hτ(H_dt1, φo)   cu.Hτ(H_dt0, φo)]
     end
     
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
