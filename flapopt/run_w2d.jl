@@ -48,7 +48,7 @@ KINTYPE = 1
 N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE; uampl=uampl)
 
 # Param opt init
-cycleFreqLims = [0.166,0.164]#[0.4, 0.03] # [KHz]
+cycleFreqLims = [0.3,0.1]#[0.165,0.165]#[0.4, 0.03] # [KHz]
 dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
