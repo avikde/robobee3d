@@ -79,7 +79,7 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, POPTS, traj::Abstract
 	for k=1:N
 		# Calculate the new inputs
 		if k <= N
-			traj2[(N+1)*ny+(k-1)*nu+1:(N+1)*ny+(k)*nu] = 1/dtnew * B' * Hk(k, dely0, dely0) * ptnew
+			traj2[(N+1)*ny+(k-1)*nu+1:(N+1)*ny+(k)*nu] = B' * Hk(k, dely0, dely0) * ptnew
 		end
 	end
 
