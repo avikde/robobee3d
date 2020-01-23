@@ -40,8 +40,6 @@ POPTS = cu.ParamOptOpts(
 	uinfnorm = false
 )
 
-cu.affineTest(m, opt, traj0, param0, POPTS; fixTraj=true)
-
 σamax = 0.3 # [mm] constant? for robobee actuators
 # σamax = 100 # [mm] constant? test EM
 
