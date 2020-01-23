@@ -48,13 +48,13 @@ KINTYPE = 1
 N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE; uampl=uampl)
 
 # Param opt init
-cycleFreqLims = [0.4, 0.03] # [KHz]
+cycleFreqLims = [0.3,0.1]#[0.165,0.165]#[0.4, 0.03] # [KHz]
 dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
 	R=(zeros(4,4), 0, 1.0*I), 
 	plimsL = [0.1, 2.0, 0.1, 0.5, 0, 20.0, dtlims[1]],
-	plimsU = [1000.0, 1000.0, 100.0, 20.0, 100.0, 150.0, dtlims[2]],
+	plimsU = [4.0, 1000.0, 100.0, 20.0, 100.0, 150.0, dtlims[2]],
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
 	uinfnorm = true
 )
@@ -145,7 +145,7 @@ end
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.2)#; print_level=3, max_iter=10000)
+ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.5)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 
