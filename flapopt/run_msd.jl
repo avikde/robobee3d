@@ -200,6 +200,8 @@ trajScale = 0.56
 ret1 = opt1(traj0, param0, 1, trajScale, 0.1)
 display(ret1["param"]')
 
+println("Test 1st order bug ", ret1["param"][2]*ret1["param"][end]/2 - ret1["param"][3])
+
 # debug components ---
 pls = debugComponentsPlot(ret1["traj"], ret1["param"]; refScale=trajScale)
 plot(pls..., size=(800,400))
