@@ -189,8 +189,8 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
         return [0   0   0   σ̇o*m.ma   σ̇o*m.ma*(-σo^2)]
     end
     HMqT(ypos, yvel) = HMqTo(ypos, yvel) + HMqTa(ypos, yvel)
-    Hio = (y, ynext) -> HMqTo(y, ynext) - HMqTo(y, y)
-    Hia = (y, ynext) -> HMqTa(y, ynext) - HMqTa(y, y)
+    Hio = (y, ynext) -> HMqTo(ynext, ynext) - HMqTo(y, y)
+    Hia = (y, ynext) -> HMqTa(ynext, ynext) - HMqTa(y, y)
 
     function Hstiffo(y)
         σo = y[1] * scaleTraj
