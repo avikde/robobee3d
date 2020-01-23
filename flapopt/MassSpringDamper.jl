@@ -175,17 +175,17 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     uk = k -> @view traj[liu[:,k]]
 
     # Param stuff
-    τ1, ko, bo, τ2, dt = param
+    τ1, ko, bo, τ2, dtold = param
 
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
     function HMqTo(ypos, yvel)
-        σo, σ̇odum = ypos * scaleTraj
-        σodum, σ̇o = yvel * scaleTraj
+        σo = ypos[1] * scaleTraj
+        σ̇o = yvel[2] * scaleTraj * dtold
         return [σ̇o*m.mo   0   0   0   0]
     end
     function HMqTa(ypos, yvel)
-        σo, σ̇odum = ypos * scaleTraj
-        σodum, σ̇o = yvel * scaleTraj
+        σo = ypos[1] * scaleTraj
+        σ̇o = yvel[2] * scaleTraj * dtold
         return [0   0   0   σ̇o*m.ma   σ̇o*m.ma*(-σo^2)]
     end
     HMqT(ypos, yvel) = HMqTo(ypos, yvel) + HMqTa(ypos, yvel)
@@ -193,38 +193,34 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     Hia = (y, ynext) -> HMqTa(y, ynext) - HMqTa(y, y)
 
     function Hstiffo(y)
-        σo, σ̇o = y * scaleTraj
+        σo = y[1] * scaleTraj
         return [0   σo   0   0   0]
     end
     function Hstiffa(y)
-        σo, σ̇o = y * scaleTraj
+        σo = y[1] * scaleTraj
         return [0   0   0   m.ka*σo   m.ka*(-σo^3/3)]
     end
     function Hdamp(y)
-        σo, σ̇o = y * scaleTraj
+        σ̇o = y[2] * scaleTraj * dtold
         return [0   0   σ̇o   0    0]
     end
-    HCgJT(y) = Hstiffo(y) + Hstiffa(y) + Hdamp(y)
-
+    
     if debugComponents
         return yo, Hio, Hia, Hstiffo, Hstiffa, Hdamp
     end
     # ----------------
-
-    # 1st order integration
-    Htili = (y, ynext) -> HMqT(y, ynext) - HMqT(y, y)
-    Htilni = HCgJT
     
     # Functions to output
     "Takes in a Δy in output coords"
     function Hk(k, Δyk, Δykp1)
-        Hi = Htili(yo(k) + Δyk, yo(k+1) + Δykp1)
-        Hni = Htilni(yo(k) + Δyk)
+        y = yo(k) + Δyk
+        ynext = yo(k+1) + Δykp1
+        H_dt2 = HMqT(y, ynext) - HMqT(y, y)
+        H_dt1 = Hdamp(y)
+        H_dt0 = Hstiffo(y) + Hstiffa(y)
         # With new nonlinear transmission need to break apart H
-        σo = (yo(k) + Δyk)[1]
-        Hfortrans = Hh -> hcat(Hh[:,1:end-2], Hh[:,1:end-2]*σo^2, Hh[:,end-1:end])
-        dtold = param[end]
-        return [Hfortrans(Hi)*dtold  Hfortrans(Hni)]
+        σo = y[1]
+        return [cu.Hτ(H_dt2, σo)  cu.Hτ(H_dt1, σo)   cu.Hτ(H_dt0, σo)]
     end
     
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
