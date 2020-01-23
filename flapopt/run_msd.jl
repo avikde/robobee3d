@@ -195,14 +195,13 @@ end
 
 # One-off ID or opt ---------
 
-# POPTS.plimsU[end] = 0.4
-# trajScale = 0.56
-# ret1 = opt1(traj0, param0, 1, trajScale, 0.1)
-# display(ret1["param"]')
+POPTS.plimsU[end] = 0.4
+trajScale = 0.56
+ret1 = opt1(traj0, param0, 1, trajScale, 0.1)
+display(ret1["param"]')
 
 # debug components ---
-# pls = debugComponentsPlot(ret1["traj"], ret1["param"]; refScale=trajScale)
-pls = debugComponentsPlot(traj0, param0)
+pls = debugComponentsPlot(ret1["traj"], ret1["param"]; refScale=trajScale)
 plot(pls..., size=(800,400))
 
 # # ---------
