@@ -89,20 +89,14 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, POPTS, traj::Abstract
 end
 
 """Compute the states at the collocation times tc1 between t1, t2, etc. Note that it uses param provided to evaluate dynamics."""
-function collocationStates(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray)
-	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
-	yk = k -> traj[liy[:,k]]
-	uk = k -> traj[liu[:,k]]
-
-	# get dt (USES PARAM)
-	dt = paramLumped(m, param)[end]
-	
+function collocationStates(m::Model, opt::OptOptions, y, ynext, u, unext, param, dt)
 	# precompute state derivatives evaluating the dynamics (USES PARAM)
-	ydots = [dydt(m, yk(k), uk(min(k, N)), param) for k=1:N+1]
+	dy = dydt(m, y, u, param)
+	dynext = dydt(m, ynext, unext, param)
 
 	# Using the formulae in http://underactuated.mit.edu/underactuated.html?chapter=trajopt
-	yc = [1/2 * (yk(k) + yk(k+1)) + dt/8 * (ydots[k] - ydots[k+1]) for k=1:N]
-	dyc = [-3/(2*dt) * (yk(k) - yk(k+1)) - 1/4 * (ydots[k] + ydots[k+1]) for k=1:N]
+	yc = 1/2 * (y + ynext) + dt/8 * (dy - dynext)
+	dyc = -3/(2*dt) * (y - ynext) - 1/4 * (dy + dynext)
 
 	return yc, dyc
 end

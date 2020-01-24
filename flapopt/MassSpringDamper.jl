@@ -177,8 +177,6 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     # Param stuff
     τ1, ko, bo, τ2, dtold = param
 
-    yc, dyc = cu.collocationStates(m, opt, traj, param)
-
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
     function HMqTo(ypos, yvel)
         σo = ypos[1] * scaleTraj
@@ -217,6 +215,8 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     function Hk(k, Δyk, Δykp1)
         y = yo(k) + Δyk
         ynext = yo(k+1) + Δykp1
+        # This is inefficient since dydt is being called twice but fix later TODO:
+        yc, dyc = cu.collocationStates(m, opt, y, ynext, uk(k), uk(min(k+1,N)), param, dtold)
         H_dt2 = HMqT(y, ynext) - HMqT(y, y)
         H_dt1 = Hdamp(y)
         H_dt0 = Hstiffo(y) + Hstiffa(y)
