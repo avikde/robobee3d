@@ -148,17 +148,20 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	Quu = zeros(npt, npt)
 	Qyu = zeros(npt, npt) # quadratic for mech pow https://github.com/avikde/robobee3d/issues/123
 	qyu = zeros(npt) # linear (used for ID)
+
+	npt1 = npt÷3 # each of the 3 segments for nondim time https://github.com/avikde/robobee3d/pull/119
 	
 	# Matrices that contain sum of running actuator cost
 	for k=1:N
 		Hh = Hk(k, zeros(ny), zeros(ny)) #Hk(k, Δyk(k), Δyk(k+1))
-		yok = yo(k)# + Δyk(k)
+		yok = yo(k)# + Δyk(k) # FIXME: this is not non-dimensionalized
 		if mode == 1
 			Quu += Hh' * Ruu * Hh
 			# Mech pow https://github.com/avikde/robobee3d/issues/123. ASSUMING 1 ACTUATED DOF
 			σo = yok[1]
 			dσo = yok[nq+1]
-			Qyu = dσo * [zeros(npt-2); 1; -σo^2] * Ryu * B' * Hh
+			# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
+			Qyu = dσo * [zeros(2*npt1-2); 1; -σo^2; zeros(npt1)] * Ryu * B' * Hh
 			# qyu += Ryu * (Hh' * [B * B'  zeros(ny-nq, ny-nq)] * yok)
 		elseif mode == 2
 			# Need to consider the unactuated rows too
