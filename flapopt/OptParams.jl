@@ -143,28 +143,25 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	nact = size(B, 2)
 	nΔy = (N+1)*ny
 	
-	if !uinfnorm
-		Ryy, Ryu, Ruu = POPTS.R # NOTE Ryu is just weight on mech. power
-		# TODO: this is NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179
-		Quu = zeros(npt, npt)
-		qyu = zeros(npt)
-		qyy = 0
-		
-		# Matrices that contain sum of running actuator cost
-		for k=1:N
-			Hh = Hk(k, zeros(ny), zeros(ny)) #Hk(k, Δyk(k), Δyk(k+1))
-			yok = yo(k)# + Δyk(k)
-			if mode == 1
-				Quu += Hh' * Ruu * Hh
-				# Need output coords
-				qyu += Ryu * (Hh' * [B * B'  zeros(ny-nq, ny-nq)] * yok)
-				qyy += yok' * Ryy * yok # qyy * T^(-2)
-			elseif mode == 2
-				# Need to consider the unactuated rows too
-				Quu += Hh' * Ruu * Hh
-				# For ID, need uk
-				qyu += (-Hh' * Ruu * (δt * B * umeas(k)))
-			end
+	Ryy, Ryu, Ruu = POPTS.R # NOTE Ryu is just weight on mech. power
+	# TODO: this is NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179
+	Quu = zeros(npt, npt)
+	Qyu = zeros(npt, npt) # quadratic for mech pow https://github.com/avikde/robobee3d/issues/123
+	qyu = zeros(npt) # linear (used for ID)
+	
+	# Matrices that contain sum of running actuator cost
+	for k=1:N
+		Hh = Hk(k, zeros(ny), zeros(ny)) #Hk(k, Δyk(k), Δyk(k+1))
+		yok = yo(k)# + Δyk(k)
+		if mode == 1
+			Quu += Hh' * Ruu * Hh
+			# Mech pow TODO:
+			# qyu += Ryu * (Hh' * [B * B'  zeros(ny-nq, ny-nq)] * yok)
+		elseif mode == 2
+			# Need to consider the unactuated rows too
+			Quu += Hh' * Ruu * Hh
+			# For ID, need uk
+			qyu += (-Hh' * Ruu * (δt * B * umeas(k)))
 		end
 	end
 		
@@ -176,14 +173,8 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		if uinfnorm
 			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
 			J += dot(s, s)
-		else
-			if mode == 1
-				# FIXME: took out qyy component for nonlinear transmission
-				J += 1/2 * (pt' * Quu * pt) + qyu' * pt# + qyy * T^(-2)) 
-			elseif mode == 2
-				J += 1/2 * (pt' * Quu * pt) + qyu' * pt
-			end
 		end
+		J += 1/2 * pt' * (Quu + Qyu) * pt + qyu' * pt
 
 		return J
 	end
