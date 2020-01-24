@@ -155,7 +155,10 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		yok = yo(k)# + Δyk(k)
 		if mode == 1
 			Quu += Hh' * Ruu * Hh
-			# Mech pow TODO:
+			# Mech pow https://github.com/avikde/robobee3d/issues/123. ASSUMING 1 ACTUATED DOF
+			σo = yok[1]
+			dσo = yok[nq+1]
+			Qyu = dσo * [zeros(npt-2); 1; -σo^2] * Ryu * B' * Hh
 			# qyu += Ryu * (Hh' * [B * B'  zeros(ny-nq, ny-nq)] * yok)
 		elseif mode == 2
 			# Need to consider the unactuated rows too
