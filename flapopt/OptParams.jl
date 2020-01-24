@@ -79,7 +79,7 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, POPTS, traj::Abstract
 	for k=1:N
 		# Calculate the new inputs
 		if k <= N
-			traj2[(N+1)*ny+(k-1)*nu+1:(N+1)*ny+(k)*nu] = B' * Hk(k, dely0, dely0) * ptnew
+			traj2[(N+1)*ny+(k-1)*nu+1:(N+1)*ny+(k)*nu] = B' * Hk(k, dely0, dely0)[1] * ptnew
 		end
 	end
 
@@ -107,7 +107,7 @@ function getTrajU(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstrac
 	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, POPTS)
 	ptnew, Tnew = getpt(m, param)
 	Δy0 = zeros(ny)
-	return vcat([B' * Hk(k, Δy0, Δy0) * ptnew for k=1:N]...)
+	return vcat([B' * Hk(k, Δy0, Δy0)[1] * ptnew for k=1:N]...)
 end
 
 function affineTest(m, opt, traj, param, POPTS::ParamOptOpts; fixTraj=false)
@@ -123,7 +123,7 @@ function affineTest(m, opt, traj, param, POPTS::ParamOptOpts; fixTraj=false)
 	Hpb = zeros(nq, N)
 	Bu = similar(Hpb)
 	for k=1:N
-		Hpb[:,k] = Hk(k, zeros(ny), zeros(ny)) * ptTEST
+		Hpb[:,k] = Hk(k, zeros(ny), zeros(ny))[1] * ptTEST
 		Bu[:,k] = B * umeas(k)[1]
 	end
 	display(Hpb - Bu)
@@ -156,28 +156,29 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	nact = size(B, 2)
 	nΔy = (N+1)*ny
 	
-	if !uinfnorm
-		Ryy, Ryu, Ruu = POPTS.R # NOTE Ryu is just weight on mech. power
-		# TODO: this is NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179
-		Quu = zeros(npt, npt)
-		qyu = zeros(npt)
-		qyy = 0
-		
-		# Matrices that contain sum of running actuator cost
-		for k=1:N
-			Hh = Hk(k, zeros(ny), zeros(ny)) #Hk(k, Δyk(k), Δyk(k+1))
-			yok = yo(k)# + Δyk(k)
-			if mode == 1
-				Quu += Hh' * Ruu * Hh
-				# Need output coords
-				qyu += Ryu * (Hh' * [B * B'  zeros(ny-nq, ny-nq)] * yok)
-				qyy += yok' * Ryy * yok # qyy * T^(-2)
-			elseif mode == 2
-				# Need to consider the unactuated rows too
-				Quu += Hh' * Ruu * Hh
-				# For ID, need uk
-				qyu += (-Hh' * Ruu * (δt * B * umeas(k)))
-			end
+	Ryy, Ryu, Ruu = POPTS.R # NOTE Ryu is just weight on mech. power
+	# TODO: this is NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179
+	Quu = zeros(npt, npt)
+	Qyu = zeros(npt, npt) # quadratic for mech pow https://github.com/avikde/robobee3d/issues/123
+	qyu = zeros(npt) # linear (used for ID)
+
+	npt1 = npt÷3 # each of the 3 segments for nondim time https://github.com/avikde/robobee3d/pull/119
+	
+	# Matrices that contain sum of running actuator cost
+	for k=1:N
+		Hh, Hvel = Hk(k, zeros(ny), zeros(ny)) #Hk(k, Δyk(k), Δyk(k+1))
+		# yok = yo(k)# + Δyk(k)
+		if mode == 1
+			Quu += Hh' * Ruu * Hh
+			# Mech pow https://github.com/avikde/robobee3d/issues/123. ASSUMING 1 ACTUATED DOF
+			# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
+			Qyu = [zeros(npt1); Hvel'; zeros(npt1)] * Ryu * B' * Hh
+			# qyu += Ryu * (Hh' * [B * B'  zeros(ny-nq, ny-nq)] * yok)
+		elseif mode == 2
+			# Need to consider the unactuated rows too
+			Quu += Hh' * Ruu * Hh
+			# For ID, need uk
+			qyu += (-Hh' * Ruu * (δt * B * umeas(k)))
 		end
 	end
 		
@@ -189,14 +190,8 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		if uinfnorm
 			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
 			J += dot(s, s)
-		else
-			if mode == 1
-				# FIXME: took out qyy component for nonlinear transmission
-				J += 1/2 * (pt' * Quu * pt) + qyu' * pt# + qyy * T^(-2)) 
-			elseif mode == 2
-				J += 1/2 * (pt' * Quu * pt) + qyu' * pt
-			end
 		end
+		J += 1/2 * pt' * (Quu + Qyu) * pt + qyu' * pt
 
 		return J
 	end
@@ -234,10 +229,10 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	nΔy = (N+1)*ny
 	τ1min = σomax/σamax
 
-	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1) * (getpt(m, p)[1])
+	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1)[1] * (getpt(m, p)[1])
 	if uinfnorm
 		Δy0 = zeros(ny)
-		ukpred(k, p) = B' * Hk(k, Δy0, Δy0) * (getpt(m, p)[1])
+		ukpred(k, p) = B' * Hk(k, Δy0, Δy0)[1] * (getpt(m, p)[1])
 	end
 
 	function eval_g_ret(x)
@@ -501,7 +496,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	if testTrajReconstruction
 		# Test traj reconstruction:
 		Hk, yo, umeas, B, N = paramAffine(m, opt, trajnew, pnew, POPTS)
-		eval_g_ret2(p) = vcat([Bperp * Hk(k, zeros(ny), zeros(ny)) * (getpt(m, p)[1]) for k=1:N]...)
+		Hh = Hk(k, zeros(ny), zeros(ny))[1]
+		eval_g_ret2(p) = vcat([Bperp * Hh * (getpt(m, p)[1]) for k=1:N]...)
 		display(eval_g_ret2(pnew)')
 		error("Tested")
 	end

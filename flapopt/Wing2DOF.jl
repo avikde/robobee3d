@@ -554,9 +554,15 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         _, Jaero, Faero = w2daero(m, y, param)
         return HF(y, Jaero'*Faero)
     end
+    function Hvel(y)
+        # Such that Hvel*pt[middle i.e./dt] = act. frame vel.
+        φ, Ψ = y[1:2]
+        dφ, Ψ̇ = y[3:4] * dtold
+        return [0   0   0   0   0   0   0    dφ   dφ*(-φ^2)]
+    end
 
     if debugComponents
-        return yo, HMqTWithoutCoupling, HMqTCoupling, HC, Hg, Hgact, HF2, Hdamp
+        return yo, HMqTWithoutCoupling, HMqTCoupling, HC, Hg, Hgact, HF2, Hdamp, Hvel
     end
     
     # Functions to output
@@ -573,7 +579,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         H_dt0 = Hg(y) + Hgact(y)
         # With nonlinear transmission need to break apart H
         φo = (yo(k) + Δyk)[1]
-        return [cu.Hτ(H_dt2, φo)  cu.Hτ(H_dt1, φo)   cu.Hτ(H_dt0, φo)]
+        return [cu.Hτ(H_dt2, φo)  cu.Hτ(H_dt1, φo)   cu.Hτ(H_dt0, φo)], cu.Hτ(Hvel(y), φo)
     end
     
     # For a traj, H(yk, ykp1, Fk) * pb = B uk for each k
