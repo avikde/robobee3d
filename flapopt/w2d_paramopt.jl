@@ -152,15 +152,15 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 	# to fill in for (non) inertial half of H https://github.com/avikde/robobee3d/pull/102
 	npt1 = length(pt0)÷3
 	H0 = zeros(size(inertial,1),npt1)
-	println("HELLO ", pt0[1:npt1])
+	println("HELLO ", pt0[1:npt1]) # FIXME:
 
 	for k=1:N
 		y = yo(k)
 		yn = yo(k+1)
-		uk = traj1[liu[:,k]]
 		Ht(Hi) = cu.Hτ(Hi, y[1])
 		# Divided up like this https://github.com/avikde/robobee3d/pull/119#issuecomment-577350049
 		inertial[:,k] = [Ht(HMnc(y,yn) - HMnc(y,y))   H0  H0] * pt0
+		# FIXME: TEST
 		if k == 8
 			display(Ht(HMnc(y,yn) - HMnc(y,y)))
 		end
@@ -169,10 +169,11 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 		stiffdampa[:,k] = [H0  H0  Ht(Hgact(y))] * pt0
 		coriolis[:,k] = [Ht(HC(y))  H0  H0] * pt0
 		aero[:,k] = [Ht(HF(y))  H0  H0] * pt0
-		# put act vel in both
-		mechpow[k] = dot([H0[1,:]  Ht(Hvel(y))'  H0[1,:]], pt0)
-		ya, T, τfun, τifun = cu.transmission(m, y, param1; o2a=true)
-		mechpowTEST[k] = traj1[liy[3,k]]/T
+		# put 
+		Hh = [Ht(HMnc(y,yn) + HMc(y,yn) - HMnc(y,y) - HMc(y,y) + HC(y) + HF(y))   Ht(Hdamp(y))   Ht(Hg(y) + Hgact(y))]
+		mechpow[k] = dot([H0[1,:]  Ht(Hvel(y))'  H0[1,:]], pt0) * dot(Hh[1,:], pt0)
+		T = cu.transmission(m, y, param1; o2a=true)[2]
+		mechpowTEST[k] = traj1[liy[3,k]]/T * traj1[liu[1,k]]
 	end
 
 	# # get the instantaneous transmission ratio at time k
