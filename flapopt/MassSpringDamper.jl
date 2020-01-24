@@ -177,6 +177,8 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     # Param stuff
     τ1, ko, bo, τ2, dtold = param
 
+    yc, dyc = cu.collocationStates(m, opt, traj, param)
+
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
     function HMqTo(ypos, yvel)
         σo = ypos[1] * scaleTraj
