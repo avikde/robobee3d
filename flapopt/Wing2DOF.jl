@@ -562,7 +562,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     end
 
     if debugComponents
-        return yo, HMqTWithoutCoupling, HMqTCoupling, HC, Hg, Hgact, HF2, Hdamp
+        return yo, HMqTWithoutCoupling, HMqTCoupling, HC, Hg, Hgact, HF2, Hdamp, Hvel
     end
     
     # Functions to output
