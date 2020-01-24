@@ -147,6 +147,7 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 	stiffdamp = similar(inertial)
 	stiffdampa = similar(inertial)
 	mechpow = zeros(N)
+	mechpowTEST = similar(mechpow)
 	aero = similar(inertial)
 	# to fill in for (non) inertial half of H https://github.com/avikde/robobee3d/pull/102
 	npt1 = length(pt0)÷3
@@ -156,6 +157,7 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 	for k=1:N
 		y = yo(k)
 		yn = yo(k+1)
+		uk = traj1[liu[:,k]]
 		Ht(Hi) = cu.Hτ(Hi, y[1])
 		# Divided up like this https://github.com/avikde/robobee3d/pull/119#issuecomment-577350049
 		inertial[:,k] = [Ht(HMnc(y,yn) - HMnc(y,y))   H0  H0] * pt0
@@ -167,7 +169,10 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 		stiffdampa[:,k] = [H0  H0  Ht(Hgact(y))] * pt0
 		coriolis[:,k] = [Ht(HC(y))  H0  H0] * pt0
 		aero[:,k] = [Ht(HF(y))  H0  H0] * pt0
+		# put act vel in both
 		mechpow[k] = dot([H0[1,:]  Ht(Hvel(y))'  H0[1,:]], pt0)
+		ya, T, τfun, τifun = cu.transmission(m, y, param1; o2a=true)
+		mechpowTEST[k] = traj1[liy[3,k]]/T
 	end
 
 	# # get the instantaneous transmission ratio at time k
@@ -206,6 +211,7 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 	pls, plcomp, plis = plotComponents(1, "stroke")
 	plh, _, plih = plotComponents(2, "hinge")
 	plmp = plot(t2, mechpow, label="mp", lw=2)
+	plot!(plmp, t2, mechpowTEST, lw=2, ls=:dash)
 
 	# Note that gamma is here
 	# println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2)
