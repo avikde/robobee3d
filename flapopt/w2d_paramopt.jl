@@ -99,6 +99,16 @@ function minLiftConstraintLin(minlift, param0, avgLift0)
 	return [-1.0, Aw_dtmin], 0
 end
 
+function trajMechPow(m, opt, traj, param)
+	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+	mechpow = zeros(N)
+	for k=1:N
+		T = cu.transmission(m, traj[liy[:,k]], param; o2a=true)[2]
+		mechpow[k] = traj[liy[3,k]]/T * traj[liu[1,k]]
+	end
+	return mechpow
+end
+
 """One-off ID or opt"""
 function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1, wARconstraintLinCbar=3.2)
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
@@ -126,7 +136,15 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 	if testAfter
 		cu.affineTest(m, opt, ret["traj"], ret["param"], POPTS)
 	end
-	println(ret["status"], ", ", round.(ret["param"]', digits=3), ", fHz=", round(1000/(N*ret["param"][end]), digits=1), ", al[mg]=", round(ret["al"] * 1000/9.81, digits=1), ", u∞=", round(ret["u∞"], digits=1), ", J=", round(ret["eval_f"](ret["x"]), digits=1), ", AR=", round(ret["param"][Aw_idx]/ret["param"][cb_idx]^2, digits=1))
+	# Calculate mechanical power
+	ret["mechPow"] = trajMechPow(m, opt, ret["traj"], ret["param"])
+	println(ret["status"], ", ", round.(ret["param"]', digits=3), 
+	", fHz=", round(1000/(N*ret["param"][end]), digits=1), 
+	", al[mg]=", round(ret["al"] * 1000/9.81, digits=1), 
+	", u∞=", round(ret["u∞"], digits=1), 
+	", pow=", round(mean(abs.(ret["mechPow"])), digits=1), 
+	", J=", round(ret["eval_f"](ret["x"]), digits=1), 
+	", AR=", round(ret["param"][Aw_idx]/ret["param"][cb_idx]^2, digits=1))
 	return ret
 end
 
@@ -146,8 +164,7 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 	coriolis = similar(inertial)
 	stiffdamp = similar(inertial)
 	stiffdampa = similar(inertial)
-	mechpow = zeros(N)
-	mechpowTEST = similar(mechpow)
+	mechpow = zeros(N) # calculate from affine
 	aero = similar(inertial)
 	# to fill in for (non) inertial half of H https://github.com/avikde/robobee3d/pull/102
 	npt1 = length(pt0)÷3
@@ -167,8 +184,6 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 		# put 
 		Hh = [Ht(HMnc(y,yn) + HMc(y,yn) - HMnc(y,y) - HMc(y,y) + HC(y) + HF(y))   Ht(Hdamp(y))   Ht(Hg(y) + Hgact(y))]
 		mechpow[k] = dot([H0[1,:]  Ht(Hvel(y))'  H0[1,:]], pt0) * dot(Hh[1,:], pt0)
-		T = cu.transmission(m, y, param1; o2a=true)[2]
-		mechpowTEST[k] = traj1[liy[3,k]]/T * traj1[liu[1,k]]
 	end
 
 	# # get the instantaneous transmission ratio at time k
@@ -207,7 +222,7 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 	pls, plcomp, plis = plotComponents(1, "stroke")
 	plh, _, plih = plotComponents(2, "hinge")
 	plot!(pl1[4], t2, 10*mechpow, label="mp", lw=2)
-	plot!(pl1[4], t2, 10*mechpowTEST, lw=2, ls=:dash, label="mpT")
+	plot!(pl1[4], t2, 10*ret["mechPow"], lw=2, ls=:dash, label="mpT")
 
 	# Note that gamma is here
 	# println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2)
