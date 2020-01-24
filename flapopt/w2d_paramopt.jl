@@ -152,7 +152,6 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 	# to fill in for (non) inertial half of H https://github.com/avikde/robobee3d/pull/102
 	npt1 = length(pt0)÷3
 	H0 = zeros(size(inertial,1),npt1)
-	println("HELLO ", pt0[1:npt1]) # FIXME:
 
 	for k=1:N
 		y = yo(k)
@@ -160,10 +159,6 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 		Ht(Hi) = cu.Hτ(Hi, y[1])
 		# Divided up like this https://github.com/avikde/robobee3d/pull/119#issuecomment-577350049
 		inertial[:,k] = [Ht(HMnc(y,yn) - HMnc(y,y))   H0  H0] * pt0
-		# FIXME: TEST
-		if k == 8
-			display(Ht(HMnc(y,yn) - HMnc(y,y)))
-		end
 		inertialc[:,k] = [Ht(HMc(y,yn) - HMc(y,y) + HC(y))   H0  H0] * pt0
 		stiffdamp[:,k] = [H0  Ht(Hdamp(y))  Ht(Hg(y))] * pt0
 		stiffdampa[:,k] = [H0  H0  Ht(Hgact(y))] * pt0
@@ -211,10 +206,10 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 	pl1 = plotTrajs(m, opt, listOfParamTraj(ret)...)
 	pls, plcomp, plis = plotComponents(1, "stroke")
 	plh, _, plih = plotComponents(2, "hinge")
-	plmp = plot(t2, mechpow, label="mp", lw=2)
-	plot!(plmp, t2, mechpowTEST, lw=2, ls=:dash)
+	plot!(pl1[4], t2, 10*mechpow, label="mp", lw=2)
+	plot!(pl1[4], t2, 10*mechpowTEST, lw=2, ls=:dash, label="mpT")
 
 	# Note that gamma is here
 	# println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2)
-	return pl1[[1,2,4,6]]..., pls, plh, plcomp, plis, plih, plmp
+	return pl1[[1,2,4,6]]..., pls, plh, plcomp, plis, plih
 end
