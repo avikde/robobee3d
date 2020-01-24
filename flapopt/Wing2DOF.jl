@@ -555,6 +555,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         return HF(y, Jaero'*Faero)
     end
     function Hvel(y)
+        # Such that Hvel*pt[middle i.e./dt] = act. frame vel.
         φ, Ψ = y[1:2]
         dφ, Ψ̇ = y[3:4] * dtold
         return [0   0   0   0   0   0   0    dφ   dφ*(-φ^2)]
