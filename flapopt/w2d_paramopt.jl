@@ -82,22 +82,23 @@ end
 """Generate plot like in [Jafferis (2016)] Fig. 4"""
 function openLoopPlot(m, opt, param0)
 	getResp(f, uamp) = createInitialTraj(m, opt, 0, f, [1e3, 1e2], param0, 0; uampl=uamp, trajstats=true, thcoeff=0.1)
-	fs = 0.05:0.01:0.25
+	fs = 0.03:0.01:0.25
 	mN_PER_V = 75/180
 
-	p1 = plot(ylabel="Norm. stroke ampl [deg/V]")
-	p2 = plot(xlabel="Freq [kHz]", ylabel="Hinge ampl [deg]", legend=false)
+	p1 = plot(ylabel="Norm. stroke ampl [deg/V]", ylims=(0,0.7))
+	p2 = plot(xlabel="Freq [kHz]", ylabel="Hinge ampl [deg]", legend=false, ylims=(0,100))
 
-	for Vamp=130:15:200
+	for Vamp=130:15:210
 		uamp = Vamp*mN_PER_V
 		amps = hcat(getResp.(fs, uamp)...)
 		amps *= 180/pi # to degrees
 		amps[1,:] /= (Vamp) # normalize
+		amps[2,:] /= 2.0 # hinge ampl one direction
 		# println(amps)
-		plot!(p1, fs, amps[1,:], markershape=:auto, label=string(Vamp,"V"))
-		plot!(p2, fs, amps[2,:], markershape=:auto, label=string(Vamp,"V"))
+		plot!(p1, fs, amps[1,:], lw=2, label=string(Vamp,"V"))
+		plot!(p2, fs, amps[2,:], lw=2, label=string(Vamp,"V"))
 	end
-	plot(p1, p2, layout=(2,1))
+	plot(p1, p2, layout=(2,1), size=(500,500))
 	gui()
 	error("Open loop plot")
 end
