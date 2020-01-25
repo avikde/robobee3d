@@ -82,13 +82,14 @@ end
 """Generate plot like in [Jafferis (2016)] Fig. 4"""
 function openLoopPlot(m, opt, param0)
 	getResp(f, uamp) = createInitialTraj(m, opt, 0, f, [1e3, 1e2], param0, 0; uampl=uamp, trajstats=true, thcoeff=0.1)
-	fs = 0.03:0.01:0.25
+	fs = 0.03:0.005:0.25
 	mN_PER_V = 75/180
 
 	p1 = plot(ylabel="Norm. stroke ampl [deg/V]", ylims=(0,0.7))
 	p2 = plot(xlabel="Freq [kHz]", ylabel="Hinge ampl [deg]", legend=false, ylims=(0,100))
 
 	for Vamp=130:15:210
+		println("Openloop @ ", Vamp, "V")
 		uamp = Vamp*mN_PER_V
 		amps = hcat(getResp.(fs, uamp)...)
 		amps *= 180/pi # to degrees
