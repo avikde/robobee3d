@@ -195,7 +195,7 @@ end
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, thcoeff=0.0, posctrl=false, makeplot=false)
+function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, thcoeff=0.0, posctrl=false, makeplot=false, trajstats=false)
     # Create a traj
     φampl = 0.6 # output, only used if posctrl=true
     tend = 100.0 # [ms]
@@ -224,6 +224,14 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     #     uk = [controller(yk, sol.t[k])]
     #     drawFrame(m, yk, uk, params)
     # end
+    #
+    if trajstats
+        # don't return dirtran traj; only traj stats
+        Nend = 100
+        solend = hcat(sol.u[end-Nend+1:end]...) # (ny,N) shaped
+        campl = k -> maximum(solend[k,:]) - minimum(solend[k,:])
+        return [campl(1), campl(3)] # stroke and hinge ampl
+    end
     if makeplot
         # Plot
         phit = plot(sol, vars=1, ylabel="stroke [rad]")

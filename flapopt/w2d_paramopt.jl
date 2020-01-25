@@ -81,7 +81,15 @@ end
 
 """Generate plot like in [Jafferis (2016)] Fig. 4"""
 function openLoopPlot(m, opt, param0)
-	trajt, traj0 = createInitialTraj(m, opt, 0, 0.165, [1e3, 1e2], param0, 0; uampl=60, makeplot=true)
+	getResp(f, uamp) = createInitialTraj(m, opt, 0, f, [1e3, 1e2], param0, 0; uampl=uamp, trajstats=true)
+	fs = 0.05:0.01:0.25
+	amps = hcat(getResp.(fs, 75)...)
+	println(amps)
+	p1 = plot(fs, amps[1,:], markershape=:auto)
+	p2 = plot(fs, amps[2,:], markershape=:auto)
+	plot(p1, p2, layout=(2,1))
+	gui()
+	error("hi")
 end
 
 """Linear approx of wing AR constraint at cbar https://github.com/avikde/robobee3d/issues/113. Returns a,b s.t. dot(a, [cb,Aw]) <= b is the constraint"""
