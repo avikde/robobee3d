@@ -79,6 +79,11 @@ function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, sta
 	return N, trajt, traj0, opt, avgLift0
 end
 
+"""Generate plot like in [Jafferis (2016)] Fig. 4"""
+function openLoopPlot(m, opt, param0)
+	trajt, traj0 = createInitialTraj(m, opt, 0, 0.165, [1e3, 1e2], param0, 0; uampl=60, makeplot=true)
+end
+
 """Linear approx of wing AR constraint at cbar https://github.com/avikde/robobee3d/issues/113. Returns a,b s.t. dot(a, [cb,Aw]) <= b is the constraint"""
 function wingARconstraintLin(cbar; maxAR=6)
 	# AR<=?: see https://github.com/avikde/robobee3d/pull/105#issuecomment-562761586 originally
