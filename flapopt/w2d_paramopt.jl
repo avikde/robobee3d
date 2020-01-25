@@ -85,7 +85,7 @@ function openLoopPlot(m, opt, param0)
 	fs = 0.03:0.005:0.25
 	mN_PER_V = 75/180
 
-	p1 = plot(ylabel="Norm. stroke ampl [deg/V]", ylims=(0,0.7))
+	p1 = plot(ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,0.7))
 	p2 = plot(xlabel="Freq [kHz]", ylabel="Hinge ampl [deg]", legend=false, ylims=(0,100))
 
 	for Vamp=130:15:210
