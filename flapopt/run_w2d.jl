@@ -25,7 +25,7 @@ m = Wing2DOFModel(
 	true, # bCoriolis
 	0.49, # r1h [Chen (2016)]
 	0.551, # r2h insect wings [Whitney (2010)] 0.929 * 0.49^0.732
-	false, # SEA
+	true, # SEA
 	1000) # kSEA
 ny, nu = cu.dims(m)
 

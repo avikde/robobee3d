@@ -163,7 +163,7 @@ function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::V
 
     ddq = inv(M) * (-corgrav + τdamp + τaero + τinp)
     # return ddq
-    return [yo[3:4]; ddq]
+    return [yo[nq+1:end]; ddq]
 end
 
 # Create an initial traj --------------
@@ -181,7 +181,8 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
             # Stroke pos control
             φdes = φampl * sin(freq * 2 * π * t)
             dφdes = φampl * freq * 2 * π * cos(freq * 2 * π * t)
-            return posGains[1] * (φdes - y[1]) + posGains[2] * (dφdes - y[3])
+            dφ = m.SEA ? y[4] : y[3]
+            return posGains[1] * (φdes - y[1]) + posGains[2] * (dφdes - dφ)
         else
             ph = freq * 2 * π * t
             return uampl * ((1+thcoeff)*cos(ph) - thcoeff*sin(3*ph))
@@ -191,7 +192,8 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     # OL traj1
     simdt = opt.fixedδt # [ms]
     teval = collect(0:simdt:tend) # [ms]
-    prob = ODEProblem(vf, [0.,0.01,0.01,0.], (teval[1], teval[end]))
+    y0 = m.SEA ? [0.,0.01,0.,0.01,0.,0.] : [0.,0.01,0.01,0.]
+    prob = ODEProblem(vf, y0, (teval[1], teval[end]))
     sol = solve(prob, saveat=teval)
 
     # # Animate whole traj
