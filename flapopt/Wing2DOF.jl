@@ -240,7 +240,8 @@ end
 
 function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs; legends=true)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
-	Ny = (N+1)*ny
+    Ny = (N+1)*ny
+    nq = ny÷2
     Nt = length(trajs)
     # stroke "angle" = T*y[1] / R
     function actAng(traj, param)
@@ -256,8 +257,8 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs; legends=
     end
 
     # Empty versions of all the subplots
-    stroket = plot(ylabel="stroke ang [r]", ylims=(-pi/4,pi/4), legend=legends)# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
-    Ψt = plot(ylabel="hinge ang [r]", legend=legends)
+    stroket = plot(ylabel="stroke ang [deg]", ylims=(-60,60), legend=legends)# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
+    Ψt = plot(ylabel="hinge ang [deg]", ylims=(-80,80), legend=legends)
     ut = plot(ylabel="stroke force [mN]", legend=legends)
     liftt = plot(ylabel="lift [mg]", legend=legends)
     dragt = plot(ylabel="drag [mg]", legend=legends)
@@ -267,13 +268,13 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs; legends=
         traj, param = trajs[i], params[i]
         dt = param[end]
         t = 0:dt:(N)*dt
-        plot!(stroket, t, traj[@view liy[1,:]], linewidth=2)
+        plot!(stroket, t, traj[@view liy[1,:]]*180/π, linewidth=2)
         plot!(actt, t, actAng(traj, param), linewidth=2)
-        plot!(Ψt, t, traj[@view liy[2,:]], linewidth=2)
+        plot!(Ψt, t, traj[@view liy[2,:]]*180/π, linewidth=2)
         plot!(ut, t, [traj[@view liu[1,:]];NaN], linewidth=2)
         plot!(liftt, t, aeroPlotVec(traj, param, 3), linewidth=2)
         plot!(dragt, t, aeroPlotVec(traj, param, 1), linewidth=2)
-        plot!(phaset, traj[@view liy[3,:]], traj[@view liy[2,:]], linewidth=2)
+        plot!(phaset, traj[@view liy[nq+1,:]], traj[@view liy[2,:]], linewidth=2)
     end
     # Return tuple
 	return (stroket, Ψt, ut, liftt, dragt, actt, phaset)
