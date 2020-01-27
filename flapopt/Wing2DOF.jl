@@ -136,7 +136,7 @@ function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::V
     cor1 = [cbar^2*mwing*γ^2*sin(2*Ψ)*dφ*dΨ - γ*cbar*mwing*ycp*sin(Ψ)*dΨ^2, 
         -cbar^2*mwing*γ^2*cos(Ψ)*sin(Ψ)*dφ^2]
     # NOTE: dropping τinv'' term
-    corgrav = [(m.ko*φ + m.ka/T*τifun(φ)), kΨ*Ψ] + (m.bCoriolis ? cor1 : zeros(2))
+    corgrav = [m.ko*φ, kΨ*Ψ] + (m.bCoriolis ? cor1 : zeros(2))
 
     # non-lagrangian terms
     τdamp = [-(m.bo + m.ba/T^2) * dφ, -bΨ * dΨ]
@@ -151,14 +151,15 @@ function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::V
         M = vcat(hcat(M,zeros(2)),zeros(1,3))
         M[3,3] = m.ma
         seaForce = m.kSEA*(τfun(δa) - φ)
-        append!(corgrav, T*seaForce)
+        append!(corgrav, T*seaForce + m.ka*δa)
         corgrav[1] -= seaForce
         append!(τdamp, 0)
         append!(τaero, 0)
         τinp = [0, 0, u[1]]
     else
-        # Add reflected inertia
+        # Add reflected actuator properties
         M[1,1] += m.ma/T^2
+        corgrav[1] += m.ka/T*τifun(φ)
     end
 
     ddq = inv(M) * (-corgrav + τdamp + τaero + τinp)
@@ -243,10 +244,14 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs; legends=
     Ny = (N+1)*ny
     nq = ny÷2
     Nt = length(trajs)
-    # stroke "angle" = T*y[1] / R
+    # Actuator coords
     function actAng(traj, param)
         σa = [cu.transmission(m, traj[@view liy[:,k]], param; o2a=true)[1][1] for k=1:N+1]
-        return σa
+        if m.SEA
+            return [σa  traj[liy[3,:]]]
+        else
+            return σa
+        end
     end
     # Plot of aero forces at each instant
     function aeroPlotVec(_traj::Vector, _param, ind)
@@ -262,7 +267,7 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs; legends=
     ut = plot(ylabel="stroke force [mN]", legend=legends)
     liftt = plot(ylabel="lift [mg]", legend=legends)
     dragt = plot(ylabel="drag [mg]", legend=legends)
-    actt = plot(ylabel="act disp [mm]", ylims=(-0.3,0.3), legend=legends)
+    actt = plot(ylabel="act disp [mm]", #= ylims=(-0.3,0.3), =# legend=legends)
     phaset = plot(ylabel="Phase offs", legend=legends)
     for i=1:Nt
         traj, param = trajs[i], params[i]
