@@ -43,35 +43,25 @@ struct Wing2DOFModel <: controlutils.Model
     bCoriolis::Bool # true to include hinge->stroke Coriolis term or leave out for testing
     r1h::Float64 # r1hat first moment -- see [Whitney (2010)]
     r2h::Float64 # r2hat second moment -- see [Whitney (2010)]
+    SEA::Bool # series-elastic
+    kSEA::Float64 # SEA spring const
 end
 
 # Fixed params -----------------
 const γ = 0.5 # location of mwing lumped mass is γ*cbar down from the spar
 
 function cu.dims(m::Wing2DOFModel)::Tuple{Int, Int}
-    return 4, 1
+    return m.SEA ? 6 : 4, 1
 end
 
-function cu.pdims(m::Wing2DOFModel)::Int
-    return 2
-end
-
-function cu.plimits(m::Wing2DOFModel)
-    return [0.1, 1.0], [5.0, 100.0]
-end
-
-function cu.limits(m::Wing2DOFModel)::Tuple{Vector, Vector, Vector, Vector}
-    # This is based on observing the OL trajectory. See note on units above.
-    umax = @SVector [75.0] # [mN]
-    umin = -umax
-    xmax = @SVector [300e-3, 1.5, 100, 100] # [mm, rad, mm/ms, rad/ms]
-    xmin = -xmax
-    return umin, umax, xmin, xmax
-end
-
-function cu.limitsTimestep(m::Wing2DOFModel)::Tuple{Float64, Float64}
-	return 0.01, 0.07
-end
+# function cu.limits(m::Wing2DOFModel)::Tuple{Vector, Vector, Vector, Vector}
+#     # This is based on observing the OL trajectory. See note on units above.
+#     umax = @SVector [75.0] # [mN]
+#     umin = -umax
+#     xmax = @SVector [300e-3, 1.5, 100, 100] # [mm, rad, mm/ms, rad/ms]
+#     xmin = -xmax
+#     return umin, umax, xmin, xmax
+# end
 
 "Tried going directly from Doshi model-driven, but haven't been able to get that to match up"
 function hingeParams(wΨ)
@@ -92,7 +82,8 @@ function w2daero(m::Wing2DOFModel, yo::AbstractArray, param::Vector)
     cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
     R = Aw/cbar
     ycp = R*m.r1h # approx as in [Chen (2016)]
-    φ, Ψ, dφ, Ψ̇ = yo # [rad, rad, rad/ms, rad/ms]
+    nq = length(yo)÷2
+    φ, Ψ, dφ, dΨ = yo[[1,2,nq+1,nq+2]] # [rad, rad]
 
     # CoP kinematics
     # Ψ > 0 => hinge looks like \; Ψ < 0 => hinge looks like /
@@ -134,24 +125,41 @@ function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::V
     Ixx = 0
     Izz = cbar^2*γ^2*mwing
     kΨ, bΨ = hingeParams(wΨ)
-    φ, Ψ, dφ, Ψ̇ = yo # [rad, rad, rad/ms, rad/ms]
+    nq = length(yo)÷2
+    φ, Ψ, dφ, dΨ = yo[[1,2,nq+1,nq+2]] # [rad, rad]
     
     ya, T, τfun, τifun = cu.transmission(m, yo, param; o2a=true)
 
     # Lagrangian terms - from Mathematica
-    M = [Ixx + mwing*ycp^2 + 1/2*cbar^2*mwing*γ^2*(1-cos(2*Ψ)) + m.ma/T^2   γ*cbar*mwing*ycp*cos(Ψ);  
+    M = [Ixx + mwing*ycp^2 + 1/2*cbar^2*mwing*γ^2*(1-cos(2*Ψ))   γ*cbar*mwing*ycp*cos(Ψ);  
         γ*cbar*mwing*ycp*cos(Ψ)     Izz+cbar^2*γ^2*mwing]
-    cor1 = [cbar^2*mwing*γ^2*sin(2*Ψ)*dφ*Ψ̇ - γ*cbar*mwing*ycp*sin(Ψ)*Ψ̇^2, 
+    cor1 = [cbar^2*mwing*γ^2*sin(2*Ψ)*dφ*dΨ - γ*cbar*mwing*ycp*sin(Ψ)*dΨ^2, 
         -cbar^2*mwing*γ^2*cos(Ψ)*sin(Ψ)*dφ^2]
     # NOTE: dropping τinv'' term
     corgrav = [(m.ko*φ + m.ka/T*τifun(φ)), kΨ*Ψ] + (m.bCoriolis ? cor1 : zeros(2))
 
     # non-lagrangian terms
-    τdamp = [-(m.bo + m.ba/T^2) * dφ, -bΨ * Ψ̇]
+    τdamp = [-(m.bo + m.ba/T^2) * dφ, -bΨ * dΨ]
     _, Jaero, Faero = w2daero(m, yo, param)
     τaero = Jaero' * Faero # units of [mN, mN-mm]
     # input
     τinp = [u[1]/T, 0]
+
+    if m.SEA
+        δa, dδa = yo[[3,nq+3]]
+        # Add the new DOF for the actuator SEA-decoupled from the stroke
+        M = vcat(hcat(M,zeros(2)),zeros(1,3))
+        M[3,3] = m.ma
+        seaForce = m.kSEA*(τfun(δa) - φ)
+        append!(corgrav, T*seaForce)
+        corgrav[1] -= seaForce
+        append!(τdamp, 0)
+        append!(τaero, 0)
+        τinp = [0, 0, u[1]]
+    else
+        # Add reflected inertia
+        M[1,1] += m.ma/T^2
+    end
 
     ddq = inv(M) * (-corgrav + τdamp + τaero + τinp)
     # return ddq
@@ -159,37 +167,6 @@ function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::V
 end
 
 # Create an initial traj --------------
-
-# "Simulate with an OL signal at a freq"
-# function openloopResponse(m::Wing2DOFModel, opt::cu.OptOptions, freq::Real, params::Vector)
-#     # Create a traj
-#     σmax = cu.limits(m)[end][1]
-#     tend = 100.0 # [ms]
-#     function controller(y, t)
-#         return 50.0 * sin(2*π*freq*t)
-#     end
-#     vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
-#     # OL traj1
-#     simdt = 0.1 # [ms]
-#     teval = collect(0:simdt:tend) # [ms]
-#     prob = ODEProblem(vf, [0.2,0.,0.,0.], (teval[1], teval[end]))
-#     sol = solve(prob, saveat=teval)
-    
-#     # Deduce metrics
-#     t = sol.t[end-100:end]
-#     y = hcat(sol.u[end-100:end]...)
-#     σmag = (maximum(y[1,:]) - minimum(y[1,:])) * params[2] / (m.R/2)
-#     Ψmag = maximum(y[2,:]) - minimum(y[2,:])
-#     # relative phase? Hilbert transform?
-
-#     # # Plot
-#     # σt = plot(sol, vars=3, ylabel="act vel [m/s]")
-#     # Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
-#     # plot(σt, Ψt, layout=(2,1))
-#     # gui()
-
-#     return [σmag, Ψmag]
-# end
 
 """
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
