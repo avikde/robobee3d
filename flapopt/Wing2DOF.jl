@@ -1,5 +1,5 @@
 
-using LinearAlgebra, StaticArrays, DifferentialEquations
+using LinearAlgebra, DifferentialEquations, Dierckx
 using Plots; gr()
 
 import controlutils
@@ -173,7 +173,7 @@ end
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, thcoeff=0.0, posctrl=false, makeplot=false, trajstats=false)
+function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, thcoeff=0.0, posctrl=false, makeplot=false, trajstats=false, simdt=0.02)
     # Create a traj
     φampl = 0.6 # output, only used if posctrl=true
     tend = 100.0 # [ms]
@@ -191,7 +191,6 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     end
     vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
     # OL traj1
-    simdt = opt.fixedδt # [ms]
     teval = collect(0:simdt:tend) # [ms]
     y0 = m.SEA ? [0.,0.01,0.,0.01,0.,0.] : [0.,0.01,0.01,0.]
     prob = ODEProblem(vf, y0, (teval[1], teval[end]))
@@ -224,12 +223,16 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     # expectedInterval = opt.boundaryConstraint == cu.SYMMETRIC ? 1/(2*freq) : 1/freq # [ms]
     # expectedPts = expectedInterval / simdt
 
-    olRange = starti:(starti + N)
-    trajt = sol.t[olRange]
+    # Get the traj timesteps to be correct using interp
+    trajt = (starti:(starti + N))*opt.fixedδt
+    soly = hcat(sol.u...) # ny,Nodesol
+    spl = [Spline1D(sol.t, soly[i,:]) for i=1:ny]
+    olTrajaa = hcat([spl[i](trajt) for i=1:ny]...) # ny arrays of size N each -> (N,ny)
+    olTraju = [controller(olTrajaa[k,:], trajt[k]) for k in 1:N] # get u1,...,uN
+    traj0 = [olTrajaa'[:]; olTraju] # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
+
+    # Some printing
     δt = trajt[2] - trajt[1]
-    olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)
-    olTraju = [controller(olTrajaa[i], trajt[i]) for i in 1:N] # get u1,...,uN
-    traj0 = [vcat(olTrajaa...); olTraju] # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
     if opt.vart
         traj0 = [traj0; δt]
     else
