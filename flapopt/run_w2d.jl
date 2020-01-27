@@ -8,7 +8,7 @@ using BenchmarkTools
 using Revise # while developing
 import controlutils
 cu = controlutils
-includet("Wing2DOF.jl")
+include("Wing2DOF.jl")
 
 # create an instance
 # From Patrick 300 mN-mm/rad. 1 rad => R/2 σ-displacement. The torque is applied with a lever arm of R/2 => force = torque / (R/2)
@@ -25,7 +25,7 @@ m = Wing2DOFModel(
 	true, # bCoriolis
 	0.49, # r1h [Chen (2016)]
 	0.551, # r2h insect wings [Whitney (2010)] 0.929 * 0.49^0.732
-	true, # SEA
+	false, # SEA
 	1000) # kSEA
 ny, nu = cu.dims(m)
 
@@ -43,11 +43,11 @@ end
 uampl, param0 = getInitialParams()
 σamax = 0.3 # [mm] constant? for robobee actuators
 
-includet("w2d_paramopt.jl")
+include("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
-N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE; uampl=uampl, makeplot=true)
+N, trajt, traj0, opt, avgLift0 = initTraj(param0, KINTYPE; uampl=uampl)
 # openLoopPlot(m, opt, param0)
 
 # Param opt init

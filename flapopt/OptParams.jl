@@ -1,6 +1,6 @@
 
 include("OptBase.jl") #< including this helps vscode reference the functions in there
-using Parameters
+using Parameters, ForwardDiff, LinearAlgebra, Ipopt
 
 @with_kw struct ParamOptOpts
 	τinds::Array{Int}
