@@ -79,7 +79,7 @@ function hingeParams(wΨ)
     return 3.0*wΨ, 1.8*wΨ
 end
 
-rcopnondim(Ψ) = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
+rcopnondim(Ψ) = 0.4#0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
 
 "Returns paero [mm], Jaero, Faero [mN]. Takes in y in *output coordinates*"
 function w2daero(m::Wing2DOFModel, yo::AbstractArray, param::Vector)
@@ -195,7 +195,7 @@ end
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, thcoeff=0.0, posctrl=false)
+function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, thcoeff=0.0, posctrl=false, makeplot=false, trajstats=false)
     # Create a traj
     φampl = 0.6 # output, only used if posctrl=true
     tend = 100.0 # [ms]
@@ -224,13 +224,23 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     #     uk = [controller(yk, sol.t[k])]
     #     drawFrame(m, yk, uk, params)
     # end
-    # # Plot
-    # phit = plot(sol, vars=1, ylabel="stroke [rad]")
-    # dphit = plot(sol, vars=3, ylabel="stroke vel [rad/ms]")
-    # Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
-    # plot(phit, dphit, Ψt, layout=(3,1))
-    # gui()
-
+    #
+    if trajstats
+        # don't return dirtran traj; only traj stats
+        Nend = 100
+        solend = hcat(sol.u[end-Nend+1:end]...) # (ny,N) shaped
+        campl = k -> maximum(solend[k,:]) - minimum(solend[k,:])
+        return [campl(1), campl(3)] # stroke and hinge ampl
+    end
+    if makeplot
+        # Plot
+        phit = plot(sol, vars=1, ylabel="stroke [rad]")
+        dphit = plot(sol, vars=3, ylabel="stroke vel [rad/ms]")
+        Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
+        plot(phit, dphit, Ψt, layout=(3,1))
+        gui()
+        error("createInitialTraj")
+    end
     # expectedInterval = opt.boundaryConstraint == cu.SYMMETRIC ? 1/(2*freq) : 1/freq # [ms]
     # expectedPts = expectedInterval / simdt
 
