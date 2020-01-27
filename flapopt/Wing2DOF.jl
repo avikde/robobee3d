@@ -122,8 +122,8 @@ function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::V
     R = Aw/cbar
     ycp = R*m.r1h # approx as in [Chen (2016)]
     # These next two are "wingsubs" from the "Incorporate R" notes
-    Ixx = 0
-    Izz = cbar^2*γ^2*mwing
+    Izz = 0
+    Ixx = cbar^2*γ^2*mwing
     kΨ, bΨ = hingeParams(wΨ)
     nq = length(yo)÷2
     φ, Ψ, dφ, dΨ = yo[[1,2,nq+1,nq+2]] # [rad, rad]
@@ -131,8 +131,8 @@ function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::V
     ya, T, τfun, τifun = cu.transmission(m, yo, param; o2a=true)
 
     # Lagrangian terms - from Mathematica
-    M = [Ixx + mwing*ycp^2 + 1/2*cbar^2*mwing*γ^2*(1-cos(2*Ψ))   γ*cbar*mwing*ycp*cos(Ψ);  
-        γ*cbar*mwing*ycp*cos(Ψ)     Izz+cbar^2*γ^2*mwing]
+    M = [Izz + mwing*ycp^2 + 1/2*cbar^2*mwing*γ^2*(1-cos(2*Ψ))   γ*cbar*mwing*ycp*cos(Ψ);  
+        γ*cbar*mwing*ycp*cos(Ψ)     Ixx+cbar^2*γ^2*mwing]
     cor1 = [cbar^2*mwing*γ^2*sin(2*Ψ)*dφ*dΨ - γ*cbar*mwing*ycp*sin(Ψ)*dΨ^2, 
         -cbar^2*mwing*γ^2*cos(Ψ)*sin(Ψ)*dφ^2]
     # NOTE: dropping τinv'' term
@@ -489,9 +489,9 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
     # Nondimensionalize (wrt time) the velocities https://github.com/avikde/robobee3d/pull/119#issuecomment-577350049
     """Inertial"""
-    # M = [Ixx + mwing*ycp^2 + 1/2*cbar^2*mwing*γ^2*(1-cos(2*Ψ)) + m.ma/T^2   γ*cbar*mwing*ycp*cos(Ψ);  
+    # M = [Izz + mwing*ycp^2 + 1/2*cbar^2*mwing*γ^2*(1-cos(2*Ψ)) + m.ma/T^2   γ*cbar*mwing*ycp*cos(Ψ);  
         # γ*cbar*mwing*ycp*cos(Ψ)     Izz+cbar^2*γ^2*mwing]
-    # Implicitly use Ixx=0, Izz=cbar^2 mw gamma^2
+    # Implicitly use Izz=0, Ixx=cbar^2 mw gamma^2
     function HMqTWithoutCoupling(ypos, yvel)
         φ, Ψ = ypos[1:2]
         dφ, Ψ̇ = yvel[3:4] * dtold
