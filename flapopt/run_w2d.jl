@@ -98,33 +98,37 @@ function scaling1disp(resarg)
 		append!(Phii, Phi)
 		append!(Lwi, Lw)
 		append!(xi, Phi*Lw)
-		append!(FLi, res[np+2])
+		append!(FLi, 1000/9.81*res[np+2])
 		append!(macti, res[np+1]*res[np+3]/(0.3*75)) # times Robobee act
 		append!(powi, res[np+4])
 		append!(freqi, 1000/(N*res[np]))
 	end
 
-	function contourFromUnstructured!(pl, xi, yi, zi, xpl, ypl)
+	function contourFromUnstructured!(pl, xi, yi, zi, xpl=nothing, ypl=nothing)
 		# Spline from unstructured data https://github.com/kbarbary/Dierckx.jl
 		# println("Total points = ", length(xi))
 		spl = Spline2D(xi, yi, zi; s=length(xi))
 		ff(x,y) = spl(x,y)
+		if isnothing(xpl)
+			xpl = range(minimum(xi), maximum(xi), length=50)
+			ypl = range(minimum(yi), maximum(yi), length=50)
+		end
 		return contourf!(pl, xpl, ypl, ff)
 	end
 
 	pl3 = contourf(title="mact", titlefontsize=10)
-	contourFromUnstructured!(pl3, xi, FLi, macti, 17.0:1.0:30.0, 1.1:0.1:1.5)
+	contourFromUnstructured!(pl3, xi, FLi, macti)
 	# pl4 = scatter3d(xi, FLi, macti, camera=(10,40))
 	
 	pl5 = contourf(title="mechpow", titlefontsize=10)
-	contourFromUnstructured!(pl5, xi, FLi, powi, 17.0:1.0:30.0, 1.1:0.1:1.5)
+	contourFromUnstructured!(pl5, xi, FLi, powi)
 	# pl6 = scatter3d(xi, FLi, powi, camera=(10,40))
 	
 	pl6 = contourf(title="Phi", titlefontsize=10)
-	contourFromUnstructured!(pl6, xi, FLi, rad2deg.(Phii), 17.0:1.0:30.0, 1.1:0.1:1.5)
+	contourFromUnstructured!(pl6, xi, FLi, rad2deg.(Phii))
 	
 	pl7 = contourf(title="freq", titlefontsize=10)
-	contourFromUnstructured!(pl7, xi, FLi, freqi, 17.0:1.0:30.0, 1.1:0.1:1.5)
+	contourFromUnstructured!(pl7, xi, FLi, freqi)
 
 	scatter!(pl1, Phii, Lwi)
 	scatter!(pl2, xi, FLi)
@@ -212,11 +216,11 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-# # resdict = scaling1(param0, collect(60.0:5.0:120.0), collect(1.4:0.05:1.9), 2)
-# pls = scaling1disp("scaling1.mat")#resdict)
-# plot(pls..., size=(1000,600), window_title="Scaling1")
-# gui()
-# error("i")
+# resdict = scaling1(param0, collect(60.0:5.0:120.0), collect(1.4:0.05:1.9), 2)
+pls = scaling1disp("scaling1.mat")#resdict)
+plot(pls..., size=(1000,600), window_title="Scaling1")
+gui()
+error("i")
 
 # ID
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
