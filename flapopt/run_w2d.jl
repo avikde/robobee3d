@@ -64,7 +64,7 @@ function scaling1(param, xs, minlifts, τ21ratiolim; kwargs...)
 		trajj = initTraj(m, param, KINTYPE; uampl=75, verbose=false)[3]
 		r = opt1(trajj, param, 1, minlift, τ21ratiolim; kwargs...)
 		δact = maximum(abs.(actAng(m, opt, r["traj"], r["param"])))
-		return [r["param"]; r["u∞"]; r["al"]; δact; norm(r["unactErr"], Inf)]
+		return [r["param"]; r["u∞"]; r["al"]; δact; r["mechPow"]; norm(r["unactErr"], Inf)]
 	end
 	results = [scaling1single(x, minlift) for minlift in minlifts, x in xs] # reversed
 	resdict = Dict(
