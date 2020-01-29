@@ -105,19 +105,26 @@ function scaling1disp(resarg)
 		append!(powi, res[np+4])
 	end
 
-	# Spline from unstructured data https://github.com/kbarbary/Dierckx.jl
-	println("Total points = ", length(xi))
-	splmact = Spline2D(xi, FLi, macti; s=143)
-	println(splmact(20, 1.3), " ", splmact(20, 1.4))
-	ff(x,y) = splmact(x,y)
-	pl3 = contourf(17.0:1.0:30.0, 1.1:0.1:1.5, ff)
+	function contourFromUnstructured!(pl, xi, yi, zi, xpl, ypl)
+		# Spline from unstructured data https://github.com/kbarbary/Dierckx.jl
+		println("Total points = ", length(xi))
+		spl = Spline2D(xi, yi, zi; s=143)
+		ff(x,y) = spl(x,y)
+		return contourf!(pl, xpl, ypl, ff)
+	end
 
+	pl3 = contourf()
+	contourFromUnstructured!(pl3, xi, FLi, macti, 17.0:1.0:30.0, 1.1:0.1:1.5)
 	pl4 = scatter3d(xi, FLi, macti, camera=(10,40))
+	
+	pl5 = contourf()
+	contourFromUnstructured!(pl5, xi, FLi, powi, 17.0:1.0:30.0, 1.1:0.1:1.5)
+	pl6 = scatter3d(xi, FLi, powi, camera=(10,40))
 
 	scatter!(pl1, Phii, Lwi)
 	scatter!(pl2, xi, FLi)
 	# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
-	return pl1, pl2, pl3, pl4
+	return pl1, pl2, pl3, pl4, pl5, pl6
 end
 
 """Run many opts to get the best params for a desired min lift"""
