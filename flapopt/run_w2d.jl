@@ -4,7 +4,7 @@
 # using Plots
 # Plots.scalefontsizes(0.7) # Only needs to be run once
 
-using BenchmarkTools, MAT
+using BenchmarkTools, MAT, Dierckx
 using Revise # while developing
 import controlutils
 cu = controlutils
@@ -83,15 +83,31 @@ function scaling1disp(resarg)
 	pl1 = scatter(xlabel="Phi", ylabel="Lw", legend=false)
 	pl2 = scatter(xlabel="x", ylabel="FL", legend=false)
 
+	# Produced unstructured xi,yi,zi data
+	xi = []
+	FLi = []
+	Phii = []
+	Lwi = []
+	macti = []
+	powi = []
 	for i=1:length(resdict["minlifts"]), j=1:length(resdict["Phis"])
 		res = resdict["results"][i,j]
 		minlift = resdict["minlifts"][i]
 		Phi = resdict["Phis"][j]
 		Lw = res[6]/res[1]
-		scatter!(pl1, [Phi], [Lw])
-		scatter!(pl2, [deg2rad(Phi)*Lw], [res[np+2]])
+
+		# Append to unstructured data
+		append!(Phii, deg2rad(Phi))
+		append!(Lwi, Lw)
+		append!(xi, deg2rad(Phi)*Lw)
+		append!(FLi, res[np+2])
+		append!(macti, res[np+1]*res[np+3])
 	end
 
+	# Spline from unstructured data
+
+	scatter!(pl1, Phii, Lwi)
+	scatter!(pl2, xi, FLi)
 	# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
 	return pl1, pl2
 end
@@ -176,7 +192,7 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-resdict = scaling1(param0, collect(60.0:5.0:120.0), collect(1.4:0.05:1.9), 2)
+# resdict = scaling1(param0, collect(60.0:5.0:120.0), collect(1.4:0.05:1.9), 2)
 pls = scaling1disp("scaling1.mat")#resdict)
 plot(pls...)
 gui()
