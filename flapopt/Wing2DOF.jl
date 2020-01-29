@@ -1,5 +1,5 @@
 
-using LinearAlgebra, DifferentialEquations, Dierckx
+using Parameters, LinearAlgebra, DifferentialEquations, Dierckx
 using Plots; gr()
 
 import controlutils
@@ -32,19 +32,20 @@ Params:
 NOTE:
 - Reasonable values: Toutput = 2666 rad/m in the current two-wing vehicle; 2150 rad/m in X-Wing; 3333 rad/m in Kevin Ma's older vehicles.
 """
-struct Wing2DOFModel <: controlutils.Model
+@with_kw struct Wing2DOFModel <: controlutils.Model
     # params
     ko::Float64 # [mN/mm]
-    bo::Float64 # [mN/(mm/ms)]
+    bo::Float64 = 0 # [mN/(mm/ms)]
     # Actuator params
     ma::Float64 # [mg]; effective
-    ba::Float64 # [mN/(mm/ms)]
+    ba::Float64 = 0 # [mN/(mm/ms)]
     ka::Float64 # [mN/mm]
-    bCoriolis::Bool # true to include hinge->stroke Coriolis term or leave out for testing
-    r1h::Float64 # r1hat first moment -- see [Whitney (2010)]
-    r2h::Float64 # r2hat second moment -- see [Whitney (2010)]
-    SEA::Bool # series-elastic
-    kSEA::Float64 # SEA spring const
+    bCoriolis::Bool = true # true to include hinge->stroke Coriolis term or leave out for testing
+    r1h::Float64 = 0.49 # r1hat first moment -- see [Whitney (2010)]. Default from [Chen (2016)]
+    r2h::Float64 = 0.551 # r2hat second moment -- see [Whitney (2010)]. Default from 0.929 * 0.49^0.732
+    SEA::Bool = false # series-elastic https://github.com/avikde/robobee3d/pull/126
+    kSEA::Float64 = 1000 # SEA spring const
+    Φ::Float64 = 0 # Stroke amplitude for the desired output kinematics (set to 0 to not use)
 end
 
 # Fixed params -----------------

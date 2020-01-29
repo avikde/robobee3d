@@ -11,22 +11,15 @@ cu = controlutils
 include("Wing2DOF.jl")
 
 # create an instance
-# From Patrick 300 mN-mm/rad. 1 rad => R/2 σ-displacement. The torque is applied with a lever arm of R/2 => force = torque / (R/2)
-# so overall, get 300 / (R/2)^2.
+# From Patrick ko = 300 mN-mm/rad but in input frame. This needs tuning...
 # Noah said lumped stiffness is ~60% transmission and 40% actuator => k = 1.5 = ko + ka/T^2.
 # For T=20, get ka = 240.
 # To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
-	30.0, #k output
-	0, #b output
-	6, # ma
-	0, # ba
-	240, # ka
-	true, # bCoriolis
-	0.49, # r1h [Chen (2016)]
-	0.551, # r2h insect wings [Whitney (2010)] 0.929 * 0.49^0.732
-	false, # SEA
-	1000) # kSEA
+	ko = 30.0,
+	ma = 6,
+	ka = 240,
+	Φ = 0)
 ny, nu = cu.dims(m)
 
 function getInitialParams()
