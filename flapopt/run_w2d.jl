@@ -84,12 +84,12 @@ function scaling1disp(resarg)
 	pl2 = scatter(xlabel="x", ylabel="FL", legend=false)
 
 	# Produced unstructured xi,yi,zi data
-	xi = []
-	FLi = []
-	Phii = []
-	Lwi = []
-	macti = []
-	powi = []
+	xi = Float64[]
+	FLi = Float64[]
+	Phii = Float64[]
+	Lwi = Float64[]
+	macti = Float64[]
+	powi = Float64[]
 	for i=1:length(resdict["minlifts"]), j=1:length(resdict["Phis"])
 		res = resdict["results"][i,j]
 		minlift = resdict["minlifts"][i]
@@ -101,15 +101,23 @@ function scaling1disp(resarg)
 		append!(Lwi, Lw)
 		append!(xi, deg2rad(Phi)*Lw)
 		append!(FLi, res[np+2])
-		append!(macti, res[np+1]*res[np+3])
+		append!(macti, res[np+1]*res[np+3]/(0.3*75)) # times Robobee act
+		append!(powi, res[np+4])
 	end
 
-	# Spline from unstructured data
+	# Spline from unstructured data https://github.com/kbarbary/Dierckx.jl
+	println("Total points = ", length(xi))
+	splmact = Spline2D(xi, FLi, macti; s=143)
+	println(splmact(20, 1.3), " ", splmact(20, 1.4))
+	ff(x,y) = splmact(x,y)
+	pl3 = contourf(17.0:1.0:30.0, 1.1:0.1:1.5, ff)
+
+	pl4 = scatter3d(xi, FLi, macti, camera=(10,40))
 
 	scatter!(pl1, Phii, Lwi)
 	scatter!(pl2, xi, FLi)
 	# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
-	return pl1, pl2
+	return pl1, pl2, pl3, pl4
 end
 
 """Run many opts to get the best params for a desired min lift"""
