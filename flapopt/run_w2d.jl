@@ -49,7 +49,7 @@ dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
 	R=(zeros(4,4), reshape([1.1e3],1,1), 0.0*I), 
-	plimsL = [0.1, 2.0, 0.1, 0.5, 0, 20.0, dtlims[1]],
+	plimsL = [0.1, 1.0, 0.1, 0.5, 0, 20.0, dtlims[1]],
 	plimsU = [4.0, 1000.0, 100.0, 20.0, 100.0, 150.0, dtlims[2]],
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
 	uinfnorm = true
@@ -88,6 +88,7 @@ function scaling1disp(resarg)
 	macti = similar(xi)
 	powi = similar(xi)
 	freqi = similar(xi)
+	Ti = similar(xi)
 	for i=1:length(resdict["minlifts"]), j=1:length(resdict["Phis"])
 		res = resdict["results"][i,j]
 		minlift = resdict["minlifts"][i]
@@ -102,6 +103,7 @@ function scaling1disp(resarg)
 		append!(macti, res[np+1]*res[np+3]/(0.3*75)) # times Robobee act
 		append!(powi, res[np+4])
 		append!(freqi, 1000/(N*res[np]))
+		append!(Ti, res[2])
 	end
 
 	function contourFromUnstructured!(pl, xi, yi, zi, xpl=nothing, ypl=nothing)
@@ -129,11 +131,14 @@ function scaling1disp(resarg)
 	
 	pl7 = contourf(title="freq", titlefontsize=10)
 	contourFromUnstructured!(pl7, xi, FLi, freqi)
+	
+	pl8 = contourf(title="T1", titlefontsize=10)
+	contourFromUnstructured!(pl8, xi, FLi, Ti)
 
 	scatter!(pl1, Phii, Lwi)
 	scatter!(pl2, xi, FLi)
 	# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
-	return pl1, pl2, pl3, pl5, pl6, pl7
+	return pl1, pl2, pl3, pl5, pl6, pl7, pl8
 end
 
 """Run many opts to get the best params for a desired min lift"""
@@ -216,17 +221,17 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-# resdict = scaling1(param0, collect(60.0:5.0:120.0), collect(1.4:0.05:1.9), 2)
-pls = scaling1disp("scaling1.mat")#resdict)
-plot(pls..., size=(1000,600), window_title="Scaling1")
-gui()
-error("i")
+# # resdict = scaling1(param0, collect(60.0:5.0:120.0), collect(1.4:0.05:1.9), 2)
+# pls = scaling1disp("scaling1.mat")#resdict)
+# plot(pls..., size=(1000,600), window_title="Scaling1")
+# gui()
+# error("i")
 
 # ID
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 1.5; Φ=120)#; print_level=3, max_iter=10000)
+ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 1.9; Φ=120)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 
