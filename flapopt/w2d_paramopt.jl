@@ -44,7 +44,7 @@ end
 kinType -- 0 => ID'ed real data, 1 => openloop sim with param0 then truncate, 2 => generate kinematics(t)
 fix -- Make traj satisfy dyn constraint with these params?
 """
-function initTraj(param0, kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, starti=165)
+function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, starti=165)
 	if kinType==1
 		opt = cu.OptOptions(false, false, 0.135, 1, :none, 1e-8, false) # sim
 		N = opt.boundaryConstraint == :symmetric ? 23 : 45
@@ -62,13 +62,11 @@ function initTraj(param0, kinType=0; fix=false, makeplot=false, Ψshift=0, uampl
 
 	@views tcoord(i) = traj0[i:ny:(N+1)*ny]
 	currentAmpl(i) = maximum(tcoord(i)) - minimum(tcoord(i))
-	if m.Φ != 0.0 # Set stroke amplitude https://github.com/avikde/robobee3d/pull/127
-		tcoord(1) .*= m.Φ/currentAmpl(1)
-		tcoord(3) .*= m.Φ/currentAmpl(1)
-	end
-	if m.Ψ != 0.0 # Set hinge amplitude https://github.com/avikde/robobee3d/pull/127
-		tcoord(2) .*= m.Ψ/currentAmpl(2)
-		tcoord(4) .*= m.Ψ/currentAmpl(2)
+	for i=1:2
+		if m.Amp[i] != 0.0 # Set stroke/hinge amplitude https://github.com/avikde/robobee3d/pull/127
+			tcoord(i) .*= m.Amp[i]/currentAmpl(i) # scale pos
+			tcoord(i+2) .*= m.Amp[i]/currentAmpl(i) # scale vel
+		end
 	end
 
 	if fix

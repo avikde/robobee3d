@@ -19,8 +19,7 @@ m = Wing2DOFModel(
 	ko = 30.0,
 	ma = 6,
 	ka = 240,
-	Φ = deg2rad(120),
-	Ψ = deg2rad(140))
+	Amp = deg2rad.([120, 140]))
 ny, nu = cu.dims(m)
 
 function getInitialParams()
@@ -41,7 +40,7 @@ include("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
-N, trajt, traj0, opt, avgLift0 = initTraj(param0, KINTYPE; uampl=uampl, makeplot=true)
+N, trajt, traj0, opt, avgLift0 = initTraj(m, param0, KINTYPE; uampl=uampl)
 # openLoopPlot(m, opt, param0)
 
 # Param opt init
@@ -57,6 +56,23 @@ POPTS = cu.ParamOptOpts(
 )
 includet("w2d_shift.jl")
 # FUNCTIONS GO HERE -------------------------------------------------------------
+
+function scaling1(param, xs, minlifts, τ21ratiolim; kwargs...)
+	function scaling1single(x)
+		m.Amp[1] = deg2rad(x)
+		al = 1.4
+		trajj = initTraj(m, param, KINTYPE; uampl=75)[3]
+		r = opt1(trajj, param, 1, al, τ21ratiolim; kwargs...)
+		# TODO: compute deltaact as well
+		return [r["param"]; r["u∞"]; r["al"]; norm(r["unactErr"], Inf)]
+	end
+
+	results = scaling1single.(xs)
+	np = length(param)
+
+	pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw")
+	return pl1
+end
 
 """Run many opts to get the best params for a desired min lift"""
 function scaleParamsForlift(ret, minlifts, τ21ratiolim; kwargs...)
@@ -137,6 +153,12 @@ function paramTest(p, paramConstraint)
 end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
+
+scaling1(param0, collect(60.0:5.0:90.0), 0, 2)
+plot(pl1)
+gui()
+
+error("i")
 
 # ID
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
