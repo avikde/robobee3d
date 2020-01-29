@@ -71,22 +71,23 @@ function scaling1(param, xs, minlifts, τ21ratiolim; kwargs...)
 		"xs" => xs, "minlifts" => minlifts, "results" => results
 	)
 	# ^ returns a 2D array result arrays
-	matwrite("scaling1.mat", resdict; compress = true)
+	matwrite("scaling1.mat", resdict; compress=true)
 
-	return results
+	return resdict
 end
 
 function scaling1disp(resarg)
 	resdict = typeof(resarg) == String ? matread(resarg) : resarg
-	display(resdict)
+	
+	pl1 = scatter(xlabel="Phi", ylabel="Lw", legend=false)
 
-	# for res in results
-	# 	println("hi ", res)
-	# end
+	for i=1:length(resdict["minlifts"]), j=1:length(resdict["xs"])
+		res = resdict["results"][i,j]
+		scatter!(pl1, [resdict["xs"][j]], [res[6]/res[1]])
+	end
 
 	# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
 	return [pl1]
-
 end
 
 """Run many opts to get the best params for a desired min lift"""
@@ -169,8 +170,8 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-results = scaling1(param0, collect(70.0:5.0:90.0), collect(1.4:0.05:1.6), 2)
-pls = scaling1disp(results)
+# resdict = scaling1(param0, collect(70.0:5.0:90.0), collect(1.4:0.05:1.55), 2)
+pls = scaling1disp("scaling1.mat")#resdict)
 plot(pls...)
 gui()
 
