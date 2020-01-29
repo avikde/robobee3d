@@ -85,11 +85,12 @@ function scaling1disp(resarg)
 
 	# Produced unstructured xi,yi,zi data
 	xi = Float64[]
-	FLi = Float64[]
-	Phii = Float64[]
-	Lwi = Float64[]
-	macti = Float64[]
-	powi = Float64[]
+	FLi = similar(xi)
+	Phii = similar(xi)
+	Lwi = similar(xi)
+	macti = similar(xi)
+	powi = similar(xi)
+	freqi = similar(xi)
 	for i=1:length(resdict["minlifts"]), j=1:length(resdict["Phis"])
 		res = resdict["results"][i,j]
 		minlift = resdict["minlifts"][i]
@@ -103,28 +104,32 @@ function scaling1disp(resarg)
 		append!(FLi, res[np+2])
 		append!(macti, res[np+1]*res[np+3]/(0.3*75)) # times Robobee act
 		append!(powi, res[np+4])
+		append!(freqi, 1000/(N*res[np]))
 	end
 
 	function contourFromUnstructured!(pl, xi, yi, zi, xpl, ypl)
 		# Spline from unstructured data https://github.com/kbarbary/Dierckx.jl
-		println("Total points = ", length(xi))
-		spl = Spline2D(xi, yi, zi; s=143)
+		# println("Total points = ", length(xi))
+		spl = Spline2D(xi, yi, zi; s=length(xi))
 		ff(x,y) = spl(x,y)
 		return contourf!(pl, xpl, ypl, ff)
 	end
 
-	pl3 = contourf()
+	pl3 = contourf(title="mact", titlefontsize=10)
 	contourFromUnstructured!(pl3, xi, FLi, macti, 17.0:1.0:30.0, 1.1:0.1:1.5)
-	pl4 = scatter3d(xi, FLi, macti, camera=(10,40))
+	# pl4 = scatter3d(xi, FLi, macti, camera=(10,40))
 	
-	pl5 = contourf()
+	pl5 = contourf(title="mechpow", titlefontsize=10)
 	contourFromUnstructured!(pl5, xi, FLi, powi, 17.0:1.0:30.0, 1.1:0.1:1.5)
 	pl6 = scatter3d(xi, FLi, powi, camera=(10,40))
+	
+	pl7 = contourf(title="freq", titlefontsize=10)
+	contourFromUnstructured!(pl7, xi, FLi, freqi, 17.0:1.0:30.0, 1.1:0.1:1.5)
 
 	scatter!(pl1, Phii, Lwi)
 	scatter!(pl2, xi, FLi)
 	# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
-	return pl1, pl2, pl3, pl4, pl5, pl6
+	return pl1, pl2, pl3, pl5, pl7
 end
 
 """Run many opts to get the best params for a desired min lift"""
@@ -209,7 +214,7 @@ end
 
 # resdict = scaling1(param0, collect(60.0:5.0:120.0), collect(1.4:0.05:1.9), 2)
 pls = scaling1disp("scaling1.mat")#resdict)
-plot(pls...)
+plot(pls..., size=(1000,600), window_title="Scaling1")
 gui()
 
 error("i")
