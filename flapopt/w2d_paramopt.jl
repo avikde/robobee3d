@@ -145,7 +145,7 @@ function trajMechPow(m, opt, traj, param)
 end
 
 """One-off ID or opt"""
-function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1, wARconstraintLinCbar=3.2)
+function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1, wARconstraintLinCbar=3.2, Φ=nothing)
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
 	print(mode==2 ? "ID" : "Opt", " minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
 
@@ -162,12 +162,19 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 		wARa[1]   0  0  0  0  wARa[2]  0] # wing AR
 	dp = [mlb; 0; 0; 0; wARb]
 
+	if !isnothing(Φ)
+		m.Amp[1] = deg2rad(Φ)
+		# get new input traj
+		traj = initTraj(m, param, KINTYPE; uampl=75, verbose=false)[3]
+	end
+
 	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
 	# append unactErr
 	ret["unactErr"] = ret["eval_g"](ret["x"])[1:N] # 1 unact DOF
 	ret["al"] = avgLift(m, opt, ret["traj"], ret["param"])
 	uu = ret["traj"][(N+1)*ny:end]
 	ret["u∞"] = norm(uu, Inf)
+	ret["δact"] = maximum(abs.(actAng(m, opt, ret["traj"], ret["param"])))
 	if testAfter
 		cu.affineTest(m, opt, ret["traj"], ret["param"], POPTS)
 	end

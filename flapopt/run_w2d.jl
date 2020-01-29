@@ -60,11 +60,8 @@ includet("w2d_shift.jl")
 function scaling1(param, xs, minlifts, τ21ratiolim; kwargs...)
 	np = length(param)
 	function scaling1single(x, minlift)
-		m.Amp[1] = deg2rad(x)
-		trajj = initTraj(m, param, KINTYPE; uampl=75, verbose=false)[3]
-		r = opt1(trajj, param, 1, minlift, τ21ratiolim; kwargs...)
-		δact = maximum(abs.(actAng(m, opt, r["traj"], r["param"])))
-		return [r["param"]; r["u∞"]; r["al"]; δact; r["mechPow"]; norm(r["unactErr"], Inf)]
+		r = opt1(m, trajj, param, 1, minlift, τ21ratiolim; Φ=x, kwargs...)
+		return [r["param"]; r["u∞"]; r["al"]; ret["δact"]; r["mechPow"]; norm(r["unactErr"], Inf)]
 	end
 	results = [scaling1single(x, minlift) for minlift in minlifts, x in xs] # reversed
 	resdict = Dict(
@@ -139,7 +136,7 @@ end
 function scaleParamsForlift(ret, minlifts, τ21ratiolim; kwargs...)
 	traj, param = ret["traj"], ret["param"]
 	function maxuForMinAvgLift(al)
-		r = opt1(traj, param, 1, al, τ21ratiolim; kwargs...)
+		r = opt1(m, traj, param, 1, al, τ21ratiolim; kwargs...)
 		# kΨ, bΨ = param2[4:5]
 		uu = r["traj"][(N+1)*ny:end]
 		return [r["param"]; norm(uu, Inf); norm(r["unactErr"], Inf); norm(uu, 2)/N; r["al"]]
@@ -181,7 +178,7 @@ function plotNonlinBenefit(ret)
 	]
 	
 	function maxu(τ21ratiolim, minal)
-		rr = opt1(ret["traj"], ret["param"], 1, minal, τ21ratiolim)
+		rr = opt1(m, ret["traj"], ret["param"], 1, minal, τ21ratiolim)
 		return rr["u∞"]
 	end
 
@@ -215,17 +212,17 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-# resdict = scaling1(param0, collect(60.0:5.0:120.0), collect(1.4:0.05:1.9), 2)
-pls = scaling1disp("scaling1.mat")#resdict)
-plot(pls..., size=(1000,600), window_title="Scaling1")
-gui()
-error("i")
+# # resdict = scaling1(param0, collect(60.0:5.0:120.0), collect(1.4:0.05:1.9), 2)
+# pls = scaling1disp("scaling1.mat")#resdict)
+# plot(pls..., size=(1000,600), window_title="Scaling1")
+# gui()
+# error("i")
 
 # ID
-ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
+ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.5)#; print_level=3, max_iter=10000)
+ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 1.5; Φ=120)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 
