@@ -174,7 +174,7 @@ end
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, thcoeff=0.0, posctrl=false, makeplot=false, trajstats=false, simdt=0.02)
+function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, thcoeff=0.0, posctrl=false, makeplot=false, trajstats=false, simdt=0.02, verbose=true)
     # Create a traj
     φampl = 0.6 # output, only used if posctrl=true
     tend = 100.0 # [ms]
@@ -236,7 +236,7 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     δt = trajt[2] - trajt[1]
     if opt.vart
         traj0 = [traj0; δt]
-    else
+    elseif verbose
         println("Initial traj δt=", round(δt, digits=4), ", opt.fixedδt=", opt.fixedδt)
     end
 

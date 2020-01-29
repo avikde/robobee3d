@@ -61,7 +61,7 @@ function scaling1(param, xs, minlifts, τ21ratiolim; kwargs...)
 	function scaling1single(x)
 		m.Amp[1] = deg2rad(x)
 		al = 1.4
-		trajj = initTraj(m, param, KINTYPE; uampl=75)[3]
+		trajj = initTraj(m, param, KINTYPE; uampl=75, verbose=false)[3]
 		r = opt1(trajj, param, 1, al, τ21ratiolim; kwargs...)
 		# TODO: compute deltaact as well
 		return [r["param"]; r["u∞"]; r["al"]; norm(r["unactErr"], Inf)]
@@ -70,8 +70,8 @@ function scaling1(param, xs, minlifts, τ21ratiolim; kwargs...)
 	results = scaling1single.(xs)
 	np = length(param)
 
-	pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw")
-	return pl1
+	pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
+	return [pl1]
 end
 
 """Run many opts to get the best params for a desired min lift"""
@@ -154,8 +154,8 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-scaling1(param0, collect(60.0:5.0:90.0), 0, 2)
-plot(pl1)
+pls = scaling1(param0, collect(70.0:5.0:120.0), 0, 2)
+plot(pls...)
 gui()
 
 error("i")

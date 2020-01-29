@@ -44,11 +44,11 @@ end
 kinType -- 0 => ID'ed real data, 1 => openloop sim with param0 then truncate, 2 => generate kinematics(t)
 fix -- Make traj satisfy dyn constraint with these params?
 """
-function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, starti=165)
+function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, starti=165, verbose=true)
 	if kinType==1
 		opt = cu.OptOptions(false, false, 0.135, 1, :none, 1e-8, false) # sim
 		N = opt.boundaryConstraint == :symmetric ? 23 : 45
-		trajt, traj0 = createInitialTraj(m, opt, N, 0.165, [1e3, 1e2], param0, starti; uampl=uampl)
+		trajt, traj0 = createInitialTraj(m, opt, N, 0.165, [1e3, 1e2], param0, starti; uampl=uampl, verbose=verbose)
 	elseif kinType==0
 		# Load data
 		cbar, τ1, mwing, wΨ, τ2, Aw, dt = param0
@@ -83,8 +83,9 @@ function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, ua
 	
 	# Constraint on cbar placed by minAvgLift
 	avgLift0 = avgLift(m, opt, traj0, param0)
-	println("Avg lift initial [mN]=", round(avgLift0, digits=4), ", in [mg]=", round(avgLift0*1000/9.81, digits=1))
-
+	if verbose
+		println("Avg lift initial [mN]=", round(avgLift0, digits=4), ", in [mg]=", round(avgLift0*1000/9.81, digits=1))
+	end
 	return N, trajt, traj0, opt, avgLift0
 end
 
