@@ -46,6 +46,7 @@ NOTE:
     SEA::Bool = false # series-elastic https://github.com/avikde/robobee3d/pull/126
     kSEA::Float64 = 1000 # SEA spring const
     Φ::Float64 = 0.0 # Stroke amplitude for the desired output kinematics (set to 0 to not use)
+    Ψ::Float64 = 0.0 # Hinge amplitude for the desired output kinematics (set to 0 to not use)
 end
 
 # Fixed params -----------------

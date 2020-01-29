@@ -60,12 +60,15 @@ function initTraj(param0, kinType=0; fix=false, makeplot=false, Ψshift=0, uampl
 		error("Not implemented")
 	end
 
+	@views tcoord(i) = traj0[i:ny:(N+1)*ny]
+	currentAmpl(i) = maximum(tcoord(i)) - minimum(tcoord(i))
 	if m.Φ != 0.0 # Set stroke amplitude https://github.com/avikde/robobee3d/pull/127
-		strokes = @view traj0[1:ny:(N+1)*ny]
-		dstrokes = @view traj0[3:ny:(N+1)*ny]
-		currentAmpl = maximum(strokes) - minimum(strokes)
-		strokes .*= m.Φ/currentAmpl
-		dstrokes .*= m.Φ/currentAmpl
+		tcoord(1) .*= m.Φ/currentAmpl(1)
+		tcoord(3) .*= m.Φ/currentAmpl(1)
+	end
+	if m.Ψ != 0.0 # Set hinge amplitude https://github.com/avikde/robobee3d/pull/127
+		tcoord(2) .*= m.Ψ/currentAmpl(2)
+		tcoord(4) .*= m.Ψ/currentAmpl(2)
 	end
 
 	if fix
