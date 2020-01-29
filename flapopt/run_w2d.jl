@@ -94,13 +94,13 @@ function scaling1disp(resarg)
 	for i=1:length(resdict["minlifts"]), j=1:length(resdict["Phis"])
 		res = resdict["results"][i,j]
 		minlift = resdict["minlifts"][i]
-		Phi = resdict["Phis"][j]
+		Phi = deg2rad(resdict["Phis"][j])
 		Lw = res[6]/res[1]
 
 		# Append to unstructured data
-		append!(Phii, deg2rad(Phi))
+		append!(Phii, Phi)
 		append!(Lwi, Lw)
-		append!(xi, deg2rad(Phi)*Lw)
+		append!(xi, Phi*Lw)
 		append!(FLi, res[np+2])
 		append!(macti, res[np+1]*res[np+3]/(0.3*75)) # times Robobee act
 		append!(powi, res[np+4])
@@ -121,7 +121,10 @@ function scaling1disp(resarg)
 	
 	pl5 = contourf(title="mechpow", titlefontsize=10)
 	contourFromUnstructured!(pl5, xi, FLi, powi, 17.0:1.0:30.0, 1.1:0.1:1.5)
-	pl6 = scatter3d(xi, FLi, powi, camera=(10,40))
+	# pl6 = scatter3d(xi, FLi, powi, camera=(10,40))
+	
+	pl6 = contourf(title="Phi", titlefontsize=10)
+	contourFromUnstructured!(pl6, xi, FLi, rad2deg.(Phii), 17.0:1.0:30.0, 1.1:0.1:1.5)
 	
 	pl7 = contourf(title="freq", titlefontsize=10)
 	contourFromUnstructured!(pl7, xi, FLi, freqi, 17.0:1.0:30.0, 1.1:0.1:1.5)
@@ -129,7 +132,7 @@ function scaling1disp(resarg)
 	scatter!(pl1, Phii, Lwi)
 	scatter!(pl2, xi, FLi)
 	# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
-	return pl1, pl2, pl3, pl5, pl7
+	return pl1, pl2, pl3, pl5, pl6, pl7
 end
 
 """Run many opts to get the best params for a desired min lift"""
@@ -216,7 +219,6 @@ end
 pls = scaling1disp("scaling1.mat")#resdict)
 plot(pls..., size=(1000,600), window_title="Scaling1")
 gui()
-
 error("i")
 
 # ID
