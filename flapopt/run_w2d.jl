@@ -4,7 +4,7 @@
 # using Plots
 # Plots.scalefontsizes(0.7) # Only needs to be run once
 
-using BenchmarkTools
+using BenchmarkTools, MAT
 using Revise # while developing
 import controlutils
 cu = controlutils
@@ -58,20 +58,35 @@ includet("w2d_shift.jl")
 # FUNCTIONS GO HERE -------------------------------------------------------------
 
 function scaling1(param, xs, minlifts, τ21ratiolim; kwargs...)
-	function scaling1single(x)
+	np = length(param)
+	function scaling1single(x, minlift)
 		m.Amp[1] = deg2rad(x)
-		al = 1.4
 		trajj = initTraj(m, param, KINTYPE; uampl=75, verbose=false)[3]
-		r = opt1(trajj, param, 1, al, τ21ratiolim; kwargs...)
+		r = opt1(trajj, param, 1, minlift, τ21ratiolim; kwargs...)
 		# TODO: compute deltaact as well
 		return [r["param"]; r["u∞"]; r["al"]; norm(r["unactErr"], Inf)]
 	end
+	results = [scaling1single(x, minlift) for minlift in minlifts, x in xs] # reversed
+	resdict = Dict(
+		"xs" => xs, "minlifts" => minlifts, "results" => results
+	)
+	# ^ returns a 2D array result arrays
+	matwrite("scaling1.mat", resdict; compress = true)
 
-	results = scaling1single.(xs)
-	np = length(param)
+	return results
+end
 
-	pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
+function scaling1disp(resarg)
+	resdict = typeof(resarg) == String ? matread(resarg) : resarg
+	display(resdict)
+
+	# for res in results
+	# 	println("hi ", res)
+	# end
+
+	# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
 	return [pl1]
+
 end
 
 """Run many opts to get the best params for a desired min lift"""
@@ -154,7 +169,8 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-pls = scaling1(param0, collect(70.0:5.0:120.0), 0, 2)
+results = scaling1(param0, collect(70.0:5.0:90.0), collect(1.4:0.05:1.6), 2)
+pls = scaling1disp(results)
 plot(pls...)
 gui()
 
