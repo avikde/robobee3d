@@ -45,7 +45,7 @@ NOTE:
     r2h::Float64 = 0.551 # r2hat second moment -- see [Whitney (2010)]. Default from 0.929 * 0.49^0.732
     SEA::Bool = false # series-elastic https://github.com/avikde/robobee3d/pull/126
     kSEA::Float64 = 1000 # SEA spring const
-    Φ::Float64 = 0 # Stroke amplitude for the desired output kinematics (set to 0 to not use)
+    Φ::Float64 = 0.0 # Stroke amplitude for the desired output kinematics (set to 0 to not use)
 end
 
 # Fixed params -----------------

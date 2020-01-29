@@ -60,6 +60,14 @@ function initTraj(param0, kinType=0; fix=false, makeplot=false, Ψshift=0, uampl
 		error("Not implemented")
 	end
 
+	if m.Φ != 0.0 # Set stroke amplitude https://github.com/avikde/robobee3d/pull/127
+		strokes = @view traj0[1:ny:(N+1)*ny]
+		dstrokes = @view traj0[3:ny:(N+1)*ny]
+		currentAmpl = maximum(strokes) - minimum(strokes)
+		strokes .*= m.Φ/currentAmpl
+		dstrokes .*= m.Φ/currentAmpl
+	end
+
 	if fix
 		traj0 = cu.fixTrajWithDynConst(m, opt, traj0, param0)
 	end
