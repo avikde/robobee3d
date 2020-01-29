@@ -63,12 +63,12 @@ function scaling1(param, xs, minlifts, τ21ratiolim; kwargs...)
 		m.Amp[1] = deg2rad(x)
 		trajj = initTraj(m, param, KINTYPE; uampl=75, verbose=false)[3]
 		r = opt1(trajj, param, 1, minlift, τ21ratiolim; kwargs...)
-		# TODO: compute deltaact as well
-		return [r["param"]; r["u∞"]; r["al"]; norm(r["unactErr"], Inf)]
+		δact = maximum(abs.(actAng(m, opt, r["traj"], r["param"])))
+		return [r["param"]; r["u∞"]; r["al"]; δact; norm(r["unactErr"], Inf)]
 	end
 	results = [scaling1single(x, minlift) for minlift in minlifts, x in xs] # reversed
 	resdict = Dict(
-		"xs" => xs, "minlifts" => minlifts, "results" => results
+		"Phis" => xs, "minlifts" => minlifts, "results" => results
 	)
 	# ^ returns a 2D array result arrays
 	matwrite("scaling1.mat", resdict; compress=true)
@@ -77,17 +77,23 @@ function scaling1(param, xs, minlifts, τ21ratiolim; kwargs...)
 end
 
 function scaling1disp(resarg)
+	np = length(param0)
 	resdict = typeof(resarg) == String ? matread(resarg) : resarg
 	
 	pl1 = scatter(xlabel="Phi", ylabel="Lw", legend=false)
+	pl2 = scatter(xlabel="x", ylabel="FL", legend=false)
 
-	for i=1:length(resdict["minlifts"]), j=1:length(resdict["xs"])
+	for i=1:length(resdict["minlifts"]), j=1:length(resdict["Phis"])
 		res = resdict["results"][i,j]
-		scatter!(pl1, [resdict["xs"][j]], [res[6]/res[1]])
+		minlift = resdict["minlifts"][i]
+		Phi = resdict["Phis"][j]
+		Lw = res[6]/res[1]
+		scatter!(pl1, [Phi], [Lw])
+		scatter!(pl2, [deg2rad(Phi)*Lw], [res[np+2]])
 	end
 
 	# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
-	return [pl1]
+	return pl1, pl2
 end
 
 """Run many opts to get the best params for a desired min lift"""
@@ -170,7 +176,7 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-# resdict = scaling1(param0, collect(70.0:5.0:90.0), collect(1.4:0.05:1.55), 2)
+resdict = scaling1(param0, collect(60.0:5.0:120.0), collect(1.4:0.05:1.9), 2)
 pls = scaling1disp("scaling1.mat")#resdict)
 plot(pls...)
 gui()

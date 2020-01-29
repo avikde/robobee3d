@@ -243,20 +243,22 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     return trajt .- trajt[1], traj0
 end
 
+# Actuator coords
+function actAng(m::Wing2DOFModel, opt::cu.OptOptions, traj, param)
+	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+    σa = [cu.transmission(m, traj[@view liy[:,k]], param; o2a=true)[1][1] for k=1:N+1]
+    if m.SEA
+        return [σa  traj[liy[3,:]]]
+    else
+        return σa
+    end
+end
+
 function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs; legends=true)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
     Ny = (N+1)*ny
     nq = ny÷2
     Nt = length(trajs)
-    # Actuator coords
-    function actAng(traj, param)
-        σa = [cu.transmission(m, traj[@view liy[:,k]], param; o2a=true)[1][1] for k=1:N+1]
-        if m.SEA
-            return [σa  traj[liy[3,:]]]
-        else
-            return σa
-        end
-    end
     # Plot of aero forces at each instant
     function aeroPlotVec(_traj::Vector, _param, ind)
         cbar, τ1, mwing, wΨ, τ2, Aw, dt  = _param
@@ -278,7 +280,7 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs; legends=
         dt = param[end]
         t = 0:dt:(N)*dt
         plot!(stroket, t, rad2deg.(traj[@view liy[1,:]]), linewidth=2)
-        plot!(actt, t, actAng(traj, param), linewidth=2)
+        plot!(actt, t, actAng(m, opt, traj, param), linewidth=2)
         plot!(Ψt, t, rad2deg.(traj[@view liy[2,:]]), linewidth=2)
         plot!(ut, t, [traj[@view liu[1,:]];NaN], linewidth=2)
         plot!(liftt, t, aeroPlotVec(traj, param, 3), linewidth=2)
