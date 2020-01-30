@@ -44,13 +44,13 @@ N, trajt, traj0, opt, avgLift0 = initTraj(m, param0, KINTYPE; uampl=uampl)
 # openLoopPlot(m, opt, param0)
 
 # Param opt init
-cycleFreqLims = [0.3,0.1]#[0.165,0.165]#[0.4, 0.03] # [KHz]
+cycleFreqLims = [0.3,0.01]#[0.165,0.165]#[0.4, 0.03] # [KHz]
 dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
 	R=(zeros(4,4), reshape([0.1e3#= 1.1e3 =#],1,1), 0.0*I), # middle one is mech pow
 	plimsL = [0.1, 1.0, 0.1, 0.5, 0, 20.0, dtlims[1]],
-	plimsU = [10.0, 3.5, 100.0, 20.0, 100.0, 150.0, dtlims[2]],
+	plimsU = [20.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]],
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
 	uinfnorm = true,
 	unactWeight = 1.0
@@ -75,7 +75,7 @@ function scaling1(m::Wing2DOFModel, opt, traj, param, xs, minlifts, τ21ratiolim
 	return resdict
 end
 
-function scaling1disp(resarg; useFDasFact=true)
+function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, ypl=nothing, s=nothing)
 	np = length(param0)
 	resdict = typeof(resarg) == String ? matread(resarg) : resarg
 	mactRobobee = 75σamax
@@ -108,44 +108,53 @@ function scaling1disp(resarg; useFDasFact=true)
 		append!(Ti, param[2])
 	end
 
-	# Plot range changes depending on opt results (see scatter)
-	# xpl = [minimum(xi), maximum(xi)]
-	# ypl = [minimum(yi), maximum(yi)]
-	xpl = [16,26]
-	ypl = [110,140]
-	X = range(xpl[1], xpl[2], length=50)
-	Y = range(ypl[1], ypl[2], length=50)
-
-	function contourFromUnstructured(xi, yi, zi; title="")
-		# Spline from unstructured data https://github.com/kbarbary/Dierckx.jl
-		# println("Total points = ", length(xi))
-		spl = Spline2D(xi, yi, zi; s=150)#length(xi))
-		ff(x,y) = spl(x,y)
-		return contour(X, Y, ff, 
-			titlefontsize=10, grid=false, lw=2, c=:bluesreds, 
-			xlabel="x [mm]", ylabel="FL [mg]", title=title,
-			xlims=xpl, ylims=ypl)
-	end
-
 	# Output the plots
 	pl1 = scatter(xlabel="Phi", ylabel="Lw", legend=false)
 	pl2 = scatter(xlabel="x", ylabel="FL", legend=false)
 	scatter!(pl1, Phii, Lwi)
 	scatter!(pl2, xi, FLi)
-	# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
 
-	plmact = contourFromUnstructured(xi, FLi, macti; title="mact")
-	plot!(plmact, X, 2860.0./X, lw=2, color=:black, ls=:dash, label="")
+	retpl = [pl1, pl2]
+
+	if !scatterOnly
+		# Plot range changes depending on opt results (see scatter)
+		if isnothing(xpl)
+			xpl = [minimum(xi), maximum(xi)]
+			ypl = [minimum(yi), maximum(yi)]
+		end
+		X = range(xpl[1], xpl[2], length=50)
+		Y = range(ypl[1], ypl[2], length=50)
+		if isnothing(s)
+			s = length(xi)
+		end
+
+		function contourFromUnstructured(xi, yi, zi; title="")
+			# Spline from unstructured data https://github.com/kbarbary/Dierckx.jl
+			# println("Total points = ", length(xi))
+			spl = Spline2D(xi, yi, zi; s=s)
+			ff(x,y) = spl(x,y)
+			return contour(X, Y, ff, 
+				titlefontsize=10, grid=false, lw=2, c=:bluesreds, 
+				xlabel="x [mm]", ylabel="FL [mg]", title=title,
+				xlims=xpl, ylims=ypl)
+		end
+
+		# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
+
+		plmact = contourFromUnstructured(xi, FLi, macti; title="mact")
+		plot!(plmact, X, 2860.0./X, lw=2, color=:black, ls=:dash, label="")
+
+		append!(retpl, [plmact, 
+			# scatter3d(xi, FLi, macti, camera=(90,40)),
+			contourFromUnstructured(xi, FLi, powi; title="mechpow"),
+			# scatter3d(xi, FLi, powi, camera=(10,40)),
+			contourFromUnstructured(xi, FLi, rad2deg.(Phii); title="Phi"), 
+			# contourFromUnstructured(xi, FLi, mli; title="ml"), 
+			contourFromUnstructured(xi, FLi, freqi; title="freq"), 
+			contourFromUnstructured(xi, FLi, Ti; title="T1")])
+	end
 	
-	return [pl1, pl2, 
-		plmact, 
-		# scatter3d(xi, FLi, macti, camera=(90,40)),
-		contourFromUnstructured(xi, FLi, powi; title="mechpow"),
-		# scatter3d(xi, FLi, powi, camera=(10,40)),
-		contourFromUnstructured(xi, FLi, rad2deg.(Phii); title="Phi"), 
-		# contourFromUnstructured(xi, FLi, mli; title="ml"), 
-		contourFromUnstructured(xi, FLi, freqi; title="freq"), 
-		contourFromUnstructured(xi, FLi, Ti; title="T1")]
+	return retpl
 end
 
 """Run many opts to get the best params for a desired min lift"""
@@ -228,8 +237,8 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-# resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(1.4:0.1:1.9), 2)
-pls = scaling1disp("scaling1_0.2e3.zip")
+# resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(2.2:0.2:4.0), 2)
+pls = scaling1disp("scaling1_0.1e3_hl.zip"; scatterOnly=false, xpl=[16,26], ypl=[130,180], s=1000)
 plot(pls..., size=(1000,600), window_title="Scaling1")
 gui()
 error("i")
@@ -238,7 +247,7 @@ error("i")
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 1.9; Φ=90)#; print_level=3, max_iter=10000)
+ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 3.0; Φ=120)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 
