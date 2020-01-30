@@ -19,7 +19,7 @@ m = Wing2DOFModel(
 	ko = 30.0,
 	ma = 6,
 	ka = 240,
-	Amp = deg2rad.([120, 140]))
+	Amp = deg2rad.([120, 140, 0]))
 ny, nu = cu.dims(m)
 
 function getInitialParams()
@@ -40,7 +40,7 @@ include("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
-N, trajt, traj0, opt, avgLift0 = initTraj(m, param0, KINTYPE; uampl=uampl)
+N, trajt, traj0, opt, avgLift0 = initTraj(m, param0, KINTYPE; uampl=uampl, makeplot=true)
 # openLoopPlot(m, opt, param0)
 
 # Param opt init
