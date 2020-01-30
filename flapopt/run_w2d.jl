@@ -62,7 +62,7 @@ function scaling1(m::Wing2DOFModel, opt, traj, param, xs, minlifts, τ21ratiolim
 	np = length(param)
 	function scaling1single(x, minlift)
 		r = opt1(m, traj, param, 1, minlift, τ21ratiolim; Φ=x, kwargs...)
-		return [r["param"]; r["u∞"]; r["al"]; r["δact"]; r["mechPow"]; r["FD∞"]; norm(r["unactErr"], Inf)]
+		return [x; minlift; r["param"]; r["u∞"]; r["al"]; r["δact"]; mean(abs.(r["mechPow"])); r["FD∞"]; norm(r["unactErr"], Inf)]
 	end
 	results = [scaling1single(x, minlift) for minlift in minlifts, x in xs] # reversed
 	resdict = Dict(
