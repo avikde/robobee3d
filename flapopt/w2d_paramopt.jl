@@ -192,15 +192,13 @@ end
 
 listOfParamTraj(rets...) = [ret["param"] for ret in rets], [ret["traj"] for ret in rets]
 
-"""Debug components in a traj"""
-function debugComponentsPlot(m, opt, POPTS, ret)
+function getComponents(m::Wing2DOFModel, opt, ret)
 	traj1, param1 = ret["traj"], ret["param"]
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, ret["traj"])
 
 	# Get the components
 	yo, HMnc, HMc, HC, Hg, Hgact, HF, Hdamp, Hvel = cu.paramAffine(m, opt, traj1, param1, POPTS; debugComponents=true)
 	pt0, Tnew = cu.getpt(m, param1)
-	dt = param1[end] # need this for H after #110
 	inertial = zeros(2,N)
 	inertialc = similar(inertial)
 	coriolis = similar(inertial)
@@ -227,10 +225,17 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 		Hh = [Ht(HMnc(y,yn) + HMc(y,yn) - HMnc(y,y) - HMc(y,y) + HC(y) + HF(y))   Ht(Hdamp(y))   Ht(Hg(y) + Hgact(y))]
 		mechpow[k] = dot([H0[1,:]  Ht(Hvel(y))'  H0[1,:]], pt0) * dot(Hh[1,:], pt0)
 	end
+	return inertial, inertialc, coriolis, stiffdamp, stiffdampa, aero, mechpow 
+end
 
-	# # get the instantaneous transmission ratio at time k
-	# Tvec = [cu.transmission(m, yo(k), param1; o2a=true)[2] for k=1:N]
+"""Debug components in a traj"""
+function debugComponentsPlot(m::Wing2DOFModel, opt, POPTS, ret)
+	traj1, param1 = ret["traj"], ret["param"]
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, ret["traj"])
+	
+	inertial, inertialc, coriolis, stiffdamp, stiffdampa, aero, mechpow = getComponents(m, opt, ret)
 
+	dt = param1[end]
 	t2 = collect(0:(N-1))*dt
 
 	function plotComponents(i, ylbl)
