@@ -481,6 +481,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	Ipopt.addOption(prob, "hessian_approximation", "limited-memory")
 
 	# Add options using kwargs
+	Ipopt.addOption(prob, "sb", "yes") # suppress banner
 	for (k,v) in pairs(kwargs)
 		# println(k, " => ", v)
 		Ipopt.addOption(prob, string(k), v)
