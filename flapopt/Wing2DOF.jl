@@ -1,5 +1,5 @@
 
-using LinearAlgebra, DifferentialEquations, Dierckx
+using Parameters, LinearAlgebra, DifferentialEquations, Dierckx
 using Plots; gr()
 
 import controlutils
@@ -32,19 +32,20 @@ Params:
 NOTE:
 - Reasonable values: Toutput = 2666 rad/m in the current two-wing vehicle; 2150 rad/m in X-Wing; 3333 rad/m in Kevin Ma's older vehicles.
 """
-struct Wing2DOFModel <: controlutils.Model
+@with_kw struct Wing2DOFModel <: controlutils.Model
     # params
     ko::Float64 # [mN/mm]
-    bo::Float64 # [mN/(mm/ms)]
+    bo::Float64 = 0 # [mN/(mm/ms)]
     # Actuator params
     ma::Float64 # [mg]; effective
-    ba::Float64 # [mN/(mm/ms)]
+    ba::Float64 = 0 # [mN/(mm/ms)]
     ka::Float64 # [mN/mm]
-    bCoriolis::Bool # true to include hinge->stroke Coriolis term or leave out for testing
-    r1h::Float64 # r1hat first moment -- see [Whitney (2010)]
-    r2h::Float64 # r2hat second moment -- see [Whitney (2010)]
-    SEA::Bool # series-elastic
-    kSEA::Float64 # SEA spring const
+    bCoriolis::Bool = true # true to include hinge->stroke Coriolis term or leave out for testing
+    r1h::Float64 = 0.49 # r1hat first moment -- see [Whitney (2010)]. Default from [Chen (2016)]
+    r2h::Float64 = 0.551 # r2hat second moment -- see [Whitney (2010)]. Default from 0.929 * 0.49^0.732
+    SEA::Bool = false # series-elastic https://github.com/avikde/robobee3d/pull/126
+    kSEA::Float64 = 1000 # SEA spring const
+    Amp::AbstractArray = [0.0,0.0] # Stroke, hinge amplitude for the desired output kinematics (set to 0 to not use)
 end
 
 # Fixed params -----------------
@@ -173,7 +174,7 @@ end
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, thcoeff=0.0, posctrl=false, makeplot=false, trajstats=false, simdt=0.02)
+function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, thcoeff=0.0, posctrl=false, makeplot=false, trajstats=false, simdt=0.02, verbose=true)
     # Create a traj
     φampl = 0.6 # output, only used if posctrl=true
     tend = 100.0 # [ms]
@@ -235,11 +236,32 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     δt = trajt[2] - trajt[1]
     if opt.vart
         traj0 = [traj0; δt]
-    else
+    elseif verbose
         println("Initial traj δt=", round(δt, digits=4), ", opt.fixedδt=", opt.fixedδt)
     end
 
     return trajt .- trajt[1], traj0
+end
+
+"Get actuator displacement from the output trajectory"
+function actAng(m::Wing2DOFModel, opt::cu.OptOptions, traj, param)
+	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+    σa = [cu.transmission(m, traj[@view liy[:,k]], param; o2a=true)[1][1] for k=1:N+1]
+    if m.SEA
+        return [σa  traj[liy[3,:]]]
+    else
+        return σa
+    end
+end
+"Get aero force components from the output trajectory. comp=:lift or :drag"
+function trajAero(m::Wing2DOFModel, opt::cu.OptOptions, _traj::Vector, _param, comp)
+	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, _traj)
+    cbar, τ1, mwing, wΨ, τ2, Aw, dt  = _param
+    Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end] * 1000 / 9.81 # to mg
+    Faeros = hcat([Faerok(k) for k=1:N]...)
+    trajAeroInd(ind) = [Faeros[ind,:];NaN] # need one more element
+    
+    return comp==:lift ? trajAeroInd(3) : sqrt.(trajAeroInd(1).^2 + trajAeroInd(2).^2) # drag has x,y components
 end
 
 function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs; legends=true)
@@ -247,22 +269,6 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs; legends=
     Ny = (N+1)*ny
     nq = ny÷2
     Nt = length(trajs)
-    # Actuator coords
-    function actAng(traj, param)
-        σa = [cu.transmission(m, traj[@view liy[:,k]], param; o2a=true)[1][1] for k=1:N+1]
-        if m.SEA
-            return [σa  traj[liy[3,:]]]
-        else
-            return σa
-        end
-    end
-    # Plot of aero forces at each instant
-    function aeroPlotVec(_traj::Vector, _param, ind)
-        cbar, τ1, mwing, wΨ, τ2, Aw, dt  = _param
-        Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end] * 1000 / 9.81 # to mg
-        Faeros = hcat([Faerok(k) for k=1:N]...)
-        return [Faeros[ind,:]' NaN]'
-    end
 
     # Empty versions of all the subplots
     stroket = plot(ylabel="stroke ang [deg]", ylims=(-60,60), legend=legends)# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
@@ -276,12 +282,12 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs; legends=
         traj, param = trajs[i], params[i]
         dt = param[end]
         t = 0:dt:(N)*dt
-        plot!(stroket, t, traj[@view liy[1,:]]*180/π, linewidth=2)
-        plot!(actt, t, actAng(traj, param), linewidth=2)
-        plot!(Ψt, t, traj[@view liy[2,:]]*180/π, linewidth=2)
+        plot!(stroket, t, rad2deg.(traj[@view liy[1,:]]), linewidth=2)
+        plot!(actt, t, actAng(m, opt, traj, param), linewidth=2)
+        plot!(Ψt, t, rad2deg.(traj[@view liy[2,:]]), linewidth=2)
         plot!(ut, t, [traj[@view liu[1,:]];NaN], linewidth=2)
-        plot!(liftt, t, aeroPlotVec(traj, param, 3), linewidth=2)
-        plot!(dragt, t, aeroPlotVec(traj, param, 1), linewidth=2)
+        plot!(liftt, t, trajAero(m, opt, traj, param, :lift), linewidth=2)
+        plot!(dragt, t, trajAero(m, opt, traj, param, :drag), linewidth=2)
         plot!(phaset, traj[@view liy[nq+1,:]], traj[@view liy[2,:]], linewidth=2)
     end
     # Return tuple
