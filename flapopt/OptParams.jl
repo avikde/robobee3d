@@ -1,6 +1,6 @@
 
 include("OptBase.jl") #< including this helps vscode reference the functions in there
-using Parameters, ForwardDiff, LinearAlgebra, Ipopt
+using Parameters, ForwardDiff, LinearAlgebra, Ipopt, DSP
 
 @with_kw struct ParamOptOpts
 	τinds::Array{Int}
@@ -45,15 +45,26 @@ function transmission(m::Model, y::AbstractArray, _param::Vector; o2a=false)
     return y2, T, τfun, τifun
 end
 
+"Some optimization numerical error is causing spiky oscillations in Δy
+https://github.com/avikde/robobee3d/pull/127#issuecomment-580050283"
+function smoothΔy(Δy, ny, N, dt; ord=2, cutoff_freq=0.5)
+	# For each coord, fit a spline
+	# tvec = collect(0:(N))*dt
+	myfilter = digitalfilter(Lowpass(cutoff_freq; fs=1/dt), Butterworth(ord))
+	smoothCoord(i) = filtfilt(myfilter, Δy[i:ny:(N+1)*ny])
+	trajNny = hcat([smoothCoord(i) for i=1:ny]...)
+	return trajNny'[:]
+end
 
 "Helper function to reconstruct the traj (also test it)."
 function reconstructTrajFromΔy(m::Model, opt::OptOptions, POPTS, traj::AbstractArray, yo, Δy, paramold, pnew; test::Bool=false)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
 	np = length(pnew)
-	Δyk = k -> Δy[(k-1)*ny+1 : k*ny]
 	dtold = paramold[end] # dt is the last param
 	dtnew = pnew[end]
+	Δy = smoothΔy(Δy, ny, N, dtnew)
+	Δyk = k -> Δy[(k-1)*ny+1 : k*ny]
 
 	# Also convert the output traj with the Δy, new T, and inputs
 	traj2 = copy(traj)
@@ -83,16 +94,6 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, POPTS, traj::Abstract
 			traj2[(N+1)*ny+(k-1)*nu+1:(N+1)*ny+(k)*nu] = B' * Hk(k, dely0, dely0)[1] * ptnew
 		end
 	end
-
-	p1 = plot(traj[2:ny:(N+1)*ny])
-	plot!(traj2[2:ny:(N+1)*ny])
-	plot!(Δy[2:ny:(N+1)*ny])
-	p2 = plot(traj[3:ny:(N+1)*ny])
-	plot!(traj2[3:ny:(N+1)*ny])
-	plot!(Δy[3:ny:(N+1)*ny])
-	plot(p1, p2)
-	gui()
-	error("HI")
 
 	# println("Test that the lower rows dyn constraint worked ", vcat([Bperp * Hk(k, Δyk(k), Δyk(k+1)) * ptnew for k=1:N]...) - eval_g_ret(prob.x))
 
