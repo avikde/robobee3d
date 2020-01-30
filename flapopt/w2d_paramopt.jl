@@ -44,7 +44,7 @@ end
 kinType -- 0 => ID'ed real data, 1 => openloop sim with param0 then truncate, 2 => generate kinematics(t)
 fix -- Make traj satisfy dyn constraint with these params?
 """
-function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, starti=1073, verbose=true, freq=0.165, N=80)
+function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, starti=1115, verbose=true, freq=0.165, N=80)
 	Ncyc = (m.Amp[3]!=0.0 ? 2 : 1)
 	N *= Ncyc
 	if kinType==1
@@ -79,6 +79,11 @@ function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, ua
 				tcoord(i+2) .*= m.Amp[i]/iampl # scale vel
 			end
 		end
+	end
+
+	if Ncyc > 1 && m.Amp[1] != m.Amp[3]
+		# need to smooth the traj
+		traj0[1:(N+1)*ny] = cu.smoothTraj(traj0, ny, N, initialdt; ord=2, cutoff_freq=0.5)
 	end
 
 	if fix
