@@ -46,8 +46,10 @@ fix -- Make traj satisfy dyn constraint with these params?
 """
 function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, starti=214, verbose=true, freq=0.165, N=80)
 	if kinType==1
-		opt = cu.OptOptions(false, false, 1/(N*freq), 1, :none, 1e-8, false) # sim
-		N = opt.boundaryConstraint == :symmetric ? N÷2 : N
+		Ncyc = (m.Amp[3]!=0.0 ? 2 : 1)
+		initialdt = 1/(N*freq)
+		opt = cu.OptOptions(false, false, initialdt, 1, :none, 1e-8, false) # sim
+		N = (opt.boundaryConstraint == :symmetric ? N÷2 : N)*Ncyc
 		trajt, traj0 = createInitialTraj(m, opt, N, freq, [1e3, 1e2], param0, starti; uampl=uampl, verbose=verbose)
 	elseif kinType==0
 		# Load data
