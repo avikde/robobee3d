@@ -62,9 +62,7 @@ function scaling1(m::Wing2DOFModel, opt, traj, param, xs, minlifts, τ21ratiolim
 	np = length(param)
 	function scaling1single(x, minlift)
 		r = opt1(m, traj, param, 1, minlift, τ21ratiolim; Φ=x, kwargs...)
-		# Also store drag (should be same as uinf for scaling but dynamics)
-		aero = getComponents(m, opt, r["traj"], r["param"])[6]
-		return [r["param"]; r["u∞"]; r["al"]; r["δact"]; r["mechPow"]; norm(aero[1,:], Inf); norm(r["unactErr"], Inf)]
+		return [r["param"]; r["u∞"]; r["al"]; r["δact"]; r["mechPow"]; r["FD∞"]; norm(r["unactErr"], Inf)]
 	end
 	results = [scaling1single(x, minlift) for minlift in minlifts, x in xs] # reversed
 	resdict = Dict(
@@ -100,7 +98,8 @@ function scaling1disp(resarg)
 		append!(Lwi, Lw)
 		append!(xi, Phi*Lw)
 		append!(FLi, 1000/9.81*res[np+2])
-		append!(macti, res[np+1]*res[np+3]/(0.3*75)) # times Robobee act
+		# append!(macti, res[np+1]*res[np+3]/(0.3*75)) # times Robobee act
+		append!(macti, res[np+1]*res[np+5]/(0.3*75)) # times Robobee act
 		append!(powi, res[np+4])
 		append!(freqi, 1000/(N*res[np]))
 		append!(Ti, res[2])
@@ -109,15 +108,15 @@ function scaling1disp(resarg)
 	# Plot range changes depending on opt results (see scatter)
 	# xpl = [minimum(xi), maximum(xi)]
 	# ypl = [minimum(yi), maximum(yi)]
-	xpl = [19,24]
-	ypl = [120,140]
+	xpl = [16,26]
+	ypl = [110,140]
 	X = range(xpl[1], xpl[2], length=50)
 	Y = range(ypl[1], ypl[2], length=50)
 
 	function contourFromUnstructured(xi, yi, zi; title="")
 		# Spline from unstructured data https://github.com/kbarbary/Dierckx.jl
 		# println("Total points = ", length(xi))
-		spl = Spline2D(xi, yi, zi; s=length(xi))
+		spl = Spline2D(xi, yi, zi; s=150)#length(xi))
 		ff(x,y) = spl(x,y)
 		return contour(X, Y, ff, 
 			titlefontsize=10, grid=false, lw=2, c=:bluesreds, 
@@ -225,17 +224,17 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-# resdict = scaling1(traj0, param0, collect(60.0:5.0:120.0), collect(1.4:0.05:1.9), 2)
-pls = scaling1disp("scaling1_d10.mat")#resdict)
-plot(pls..., size=(1000,600), window_title="Scaling1")
-gui()
-error("i")
+# # resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(1.4:0.1:1.9), 2)
+# pls = scaling1disp("scaling1.mat")#resdict)
+# plot(pls..., size=(1000,600), window_title="Scaling1")
+# gui()
+# error("i")
 
 # ID
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 1.9; Φ=120)#; print_level=3, max_iter=10000)
+ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 1.4; Φ=60)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 

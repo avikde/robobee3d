@@ -180,6 +180,9 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	end
 	# Calculate mechanical power
 	ret["mechPow"] = trajMechPow(m, opt, ret["traj"], ret["param"])
+	ret["comps"] = getComponents(m, opt, ret["traj"], ret["param"])
+	ret["FD∞"] = norm(ret["comps"][6][1,:], Inf) # Also store drag (should be same as uinf for scaling but dynamics)
+	
 	println(ret["status"], ", ", round.(ret["param"]', digits=3), 
 	", fHz=", round(1000/(N*ret["param"][end]), digits=1), 
 	", al[mg]=", round(ret["al"] * 1000/9.81, digits=1), 
@@ -231,8 +234,7 @@ end
 function debugComponentsPlot(m::Wing2DOFModel, opt, POPTS, ret)
 	traj1, param1 = ret["traj"], ret["param"]
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, ret["traj"])
-	
-	inertial, inertialc, coriolis, stiffdamp, stiffdampa, aero, mechpow = getComponents(m, opt, traj1, param1)
+	inertial, inertialc, coriolis, stiffdamp, stiffdampa, aero, mechpow = ret["comps"]
 
 	dt = param1[end]
 	t2 = collect(0:(N-1))*dt
@@ -255,6 +257,7 @@ function debugComponentsPlot(m::Wing2DOFModel, opt, POPTS, ret)
 		plot!(pl2, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="act")
 		plot!(pl2, t2, coriolis[i,:], linewidth=2, label="cor")
 		plot!(pl2, t2, inertiastiff, linewidth=2, label="is")
+		hline!(pl2, [-1,1]*ret["FD∞"], ls=:dash, color=:black)
 		
 		pl3 = plot(t2, inertial[i,:], linewidth=2, label="inc", legend=:outertopright)
 		plot!(pl3, t2, inertialc[i,:], linewidth=2, label="ic")
