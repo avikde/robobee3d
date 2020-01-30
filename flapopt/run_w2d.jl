@@ -34,7 +34,7 @@ function getInitialParams()
 	]
 end
 uampl, param0 = getInitialParams()
-σamax = 0.5#0.3 # [mm] constant? for robobee actuators
+σamax = 1.0#0.3 # [mm] constant? for robobee actuators
 
 include("w2d_paramopt.jl")
 
@@ -58,11 +58,11 @@ POPTS = cu.ParamOptOpts(
 includet("w2d_shift.jl")
 # FUNCTIONS GO HERE -------------------------------------------------------------
 
-function scaling1(param, xs, minlifts, τ21ratiolim; kwargs...)
+function scaling1(traj, param, xs, minlifts, τ21ratiolim; kwargs...)
 	np = length(param)
 	function scaling1single(x, minlift)
-		r = opt1(m, trajj, param, 1, minlift, τ21ratiolim; Φ=x, kwargs...)
-		return [r["param"]; r["u∞"]; r["al"]; ret["δact"]; r["mechPow"]; norm(r["unactErr"], Inf)]
+		r = opt1(m, traj, param, 1, minlift, τ21ratiolim; Φ=x, kwargs...)
+		return [r["param"]; r["u∞"]; r["al"]; r["δact"]; r["mechPow"]; norm(r["unactErr"], Inf)]
 	end
 	results = [scaling1single(x, minlift) for minlift in minlifts, x in xs] # reversed
 	resdict = Dict(
@@ -222,11 +222,11 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-# # resdict = scaling1(param0, collect(60.0:5.0:120.0), collect(1.4:0.05:1.9), 2)
-# pls = scaling1disp("scaling1.mat")#resdict)
-# plot(pls..., size=(1000,600), window_title="Scaling1")
-# gui()
-# error("i")
+resdict = scaling1(traj0, param0, collect(60.0:5.0:120.0), collect(1.4:0.05:1.9), 2)
+pls = scaling1disp("scaling1.mat")#resdict)
+plot(pls..., size=(1000,600), window_title="Scaling1")
+gui()
+error("i")
 
 # ID
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
