@@ -164,7 +164,7 @@ end
 """One-off ID or opt"""
 function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1, wARconstraintLinCbar=3.2, Φ=nothing)
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
-	print(mode==2 ? "ID" : "Opt", " Φ=", isnothing(Φ) ? "-" : Φ, ", minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
+	print(mode==2 ? "ID" : "Opt", " Φ=", isnothing(Φ) ? "-" : round.(Φ, digits=1), ", minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
 
     # cbar, τ1, mwing, wΨ, τ2, Aw, dt  = param
 	# Poly constraint
@@ -180,11 +180,16 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	dp = [mlb; 0; 0; 0; wARb]
 
 	if !isnothing(Φ)
-		m.Amp[1] = deg2rad(Φ)
+		if length(Φ) == 1
+			m.Amp[1] = deg2rad(Φ)
+		else
+			m.Amp[1] = deg2rad(Φ[1])
+			m.Amp[3] = deg2rad(Φ[2])
+		end
 		# get new input traj
 		traj = initTraj(m, param, KINTYPE; uampl=75, verbose=false)[3]
 	end
-
+	Ncyc = (m.Amp[3]!=0.0 ? 2 : 1)
 	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
 	# append unactErr
 	ret["unactErr"] = ret["eval_g"](ret["x"])[1:N] # 1 unact DOF
@@ -201,7 +206,7 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	ret["FD∞"] = norm(ret["comps"][6][1,:], Inf) # Also store drag (should be same as uinf for scaling but dynamics)
 	
 	println(ret["status"], ", ", round.(ret["param"]', digits=3), 
-	", fHz=", round(1000/(N*ret["param"][end]), digits=1), 
+	", fHz=", round(Ncyc*1000/(N*ret["param"][end]), digits=1), 
 	", al[mg]=", round(ret["al"] * 1000/9.81, digits=1), 
 	", u∞=", round(ret["u∞"], digits=1), 
 	", pow=", round(mean(abs.(ret["mechPow"])), digits=1), 
