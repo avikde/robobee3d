@@ -48,7 +48,7 @@ cycleFreqLims = [0.3,0.1]#[0.165,0.165]#[0.4, 0.03] # [KHz]
 dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
-	R=(zeros(4,4), reshape([0.2e3#= 1.1e3 =#],1,1), 0.0*I), # middle one is mech pow
+	R=(zeros(4,4), reshape([0.1e3#= 1.1e3 =#],1,1), 0.0*I), # middle one is mech pow
 	plimsL = [0.1, 1.0, 0.1, 0.5, 0, 20.0, dtlims[1]],
 	plimsU = [10.0, 3.5, 100.0, 20.0, 100.0, 150.0, dtlims[2]],
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
@@ -58,6 +58,7 @@ POPTS = cu.ParamOptOpts(
 includet("w2d_shift.jl")
 # FUNCTIONS GO HERE -------------------------------------------------------------
 
+const SCALING1_FNAME = "scaling1.zip"
 function scaling1(m::Wing2DOFModel, opt, traj, param, xs, minlifts, τ21ratiolim; kwargs...)
 	np = length(param)
 	function scaling1single(x, minlift)
@@ -69,7 +70,7 @@ function scaling1(m::Wing2DOFModel, opt, traj, param, xs, minlifts, τ21ratiolim
 		"Phis" => xs, "minlifts" => minlifts, "results" => results
 	)
 	# ^ returns a 2D array result arrays
-	matwrite("scaling1.mat", resdict; compress=true)
+	matwrite(SCALING1_FNAME, resdict; compress=true)
 
 	return resdict
 end
@@ -228,7 +229,7 @@ end
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
 # resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(1.4:0.1:1.9), 2)
-pls = scaling1disp("scaling1.zip")#resdict)
+pls = scaling1disp("scaling1_0.2e3.zip")
 plot(pls..., size=(1000,600), window_title="Scaling1")
 gui()
 error("i")
