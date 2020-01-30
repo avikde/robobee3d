@@ -75,13 +75,15 @@ function scaling1(m::Wing2DOFModel, opt, traj, param, xs, minlifts, τ21ratiolim
 	return resdict
 end
 
-function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, ypl=nothing, s=nothing)
+function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, ypl=nothing, s=nothing, Fnom=75, mactline=2860)
 	np = length(param0)
 	resdict = typeof(resarg) == String ? matread(resarg) : resarg
-	mactRobobee = 75σamax
+	mactRobobee = Fnom*σamax
 
 	# Produced unstructured xi,yi,zi data
 	xi = Float64[]
+	ARi = Float64[]
+	Awi = Float64[]
 	FLi = Float64[]
 	Phii = Float64[]
 	mli = Float64[]
@@ -100,6 +102,8 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 		append!(Phii, Phi)
 		append!(mli, res[2])
 		append!(Lwi, Lw)
+		append!(Awi, param[6])
+		append!(ARi, Lw/param[1])
 		append!(xi, Phi*Lw)
 		append!(FLi, 1000/9.81*stats[2])
 		append!(macti, stats[3] * (useFDasFact ? stats[5] : stats[1])/mactRobobee)
@@ -141,17 +145,19 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 
 		# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
 
-		plmact = contourFromUnstructured(xi, FLi, macti; title="mact")
-		plot!(plmact, X, 2860.0./X, lw=2, color=:black, ls=:dash, label="")
+		plmact = contourFromUnstructured(xi, FLi, macti; title="mact [x Robobee]")
+		plot!(plmact, X, mactline./X, lw=2, color=:black, ls=:dash, label="")
 
 		append!(retpl, [plmact, 
 			# scatter3d(xi, FLi, macti, camera=(90,40)),
-			contourFromUnstructured(xi, FLi, powi; title="mechpow"),
+			contourFromUnstructured(xi, FLi, powi; title="Avg mech pow [mW]"),
+			contourFromUnstructured(xi, FLi, Awi; title="Aw [mm^2]"),
+			contourFromUnstructured(xi, FLi, ARi; title="ARi"),
 			# scatter3d(xi, FLi, powi, camera=(10,40)),
-			contourFromUnstructured(xi, FLi, rad2deg.(Phii); title="Phi"), 
+			# contourFromUnstructured(xi, FLi, rad2deg.(Phii); title="Phi"), 
 			# contourFromUnstructured(xi, FLi, mli; title="ml"), 
-			contourFromUnstructured(xi, FLi, freqi; title="freq"), 
-			contourFromUnstructured(xi, FLi, Ti; title="T1")])
+			contourFromUnstructured(xi, FLi, freqi; title="freq [Hz]"), 
+			contourFromUnstructured(xi, FLi, Ti; title="T1 [rad/mm]")])
 	end
 	
 	return retpl
@@ -237,11 +243,11 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-# resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(2.2:0.2:4.0), 2)
-pls = scaling1disp("scaling1_0.1e3_hl.zip"; scatterOnly=false, xpl=[16,26], ypl=[130,180], s=1000)
-plot(pls..., size=(1000,600), window_title="Scaling1")
-gui()
-error("i")
+# # resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(2.2:0.2:4.0), 2)
+# pls = scaling1disp("scaling1_0.1e3_hl.zip"; scatterOnly=false, xpl=[16,26], ypl=[130,180], s=500, useFDasFact=true, Fnom=50) # Found this by setting useFDasFact=false, and checking magnitudes
+# plot(pls..., size=(1000,600), window_title="Scaling1")
+# gui()
+# error("i")
 
 # ID
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
