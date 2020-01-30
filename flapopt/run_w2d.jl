@@ -109,15 +109,18 @@ function scaling1disp(resarg)
 	# ypl = [minimum(yi), maximum(yi)]
 	xpl = [19,24]
 	ypl = [120,140]
+	X = range(xpl[1], xpl[2], length=50)
+	Y = range(ypl[1], ypl[2], length=50)
 
-	function contourFromUnstructured(xi, yi, zi; Npts=50, title="")
+	function contourFromUnstructured(xi, yi, zi; title="")
 		# Spline from unstructured data https://github.com/kbarbary/Dierckx.jl
 		# println("Total points = ", length(xi))
 		spl = Spline2D(xi, yi, zi; s=length(xi))
 		ff(x,y) = spl(x,y)
-		return contour(range(xpl[1], xpl[2], length=Npts), range(ypl[1], ypl[2], length=Npts), ff, 
-			titlefontsize=10, grid=false, lw=2, c=:rainbow, 
-			xlabel="x [mm]", ylabel="FL [mg]", title=title)
+		return contour(X, Y, ff, 
+			titlefontsize=10, grid=false, lw=2, c=:bluesreds, 
+			xlabel="x [mm]", ylabel="FL [mg]", title=title,
+			xlims=xpl, ylims=ypl)
 	end
 
 	# Output the plots
@@ -128,10 +131,10 @@ function scaling1disp(resarg)
 	# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
 
 	plmact = contourFromUnstructured(xi, FLi, macti; title="mact")
-	plot!(plmact, xpl, 1.0./xpl, lw=2, color=:black, ls=:dash)
+	plot!(plmact, X, 2860.0./X, lw=2, color=:black, ls=:dash, label="")
 	
 	return [pl1, pl2, 
-		contourFromUnstructured(xi, FLi, macti; title="mact"), 
+		plmact, 
 		# scatter3d(xi, FLi, macti, camera=(10,40)),
 		contourFromUnstructured(xi, FLi, powi; title="mechpow"),
 		# scatter3d(xi, FLi, powi, camera=(10,40)),
