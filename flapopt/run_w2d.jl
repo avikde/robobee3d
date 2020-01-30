@@ -19,7 +19,7 @@ m = Wing2DOFModel(
 	ko = 30.0,
 	ma = 6,
 	ka = 240,
-	Amp = deg2rad.([120, 140, 120]))
+	Amp = deg2rad.([120, 140, 60]))
 ny, nu = cu.dims(m)
 
 function getInitialParams()
