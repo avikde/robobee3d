@@ -243,7 +243,7 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     return trajt .- trajt[1], traj0
 end
 
-# Actuator coords
+"Get actuator displacement from the output trajectory"
 function actAng(m::Wing2DOFModel, opt::cu.OptOptions, traj, param)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
     σa = [cu.transmission(m, traj[@view liy[:,k]], param; o2a=true)[1][1] for k=1:N+1]
@@ -253,19 +253,22 @@ function actAng(m::Wing2DOFModel, opt::cu.OptOptions, traj, param)
         return σa
     end
 end
+"Get aero force components from the output trajectory. comp=:lift or :drag"
+function trajAero(m::Wing2DOFModel, opt::cu.OptOptions, _traj::Vector, _param, comp)
+	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, _traj)
+    cbar, τ1, mwing, wΨ, τ2, Aw, dt  = _param
+    Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end] * 1000 / 9.81 # to mg
+    Faeros = hcat([Faerok(k) for k=1:N]...)
+    trajAeroInd(ind) = [Faeros[ind,:];NaN] # need one more element
+    
+    return comp==:lift ? trajAeroInd(3) : sqrt.(trajAeroInd(1).^2 + trajAeroInd(2).^2) # drag has x,y components
+end
 
 function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs; legends=true)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
     Ny = (N+1)*ny
     nq = ny÷2
     Nt = length(trajs)
-    # Plot of aero forces at each instant
-    function aeroPlotVec(_traj::Vector, _param, ind)
-        cbar, τ1, mwing, wΨ, τ2, Aw, dt  = _param
-        Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end] * 1000 / 9.81 # to mg
-        Faeros = hcat([Faerok(k) for k=1:N]...)
-        return [Faeros[ind,:]' NaN]'
-    end
 
     # Empty versions of all the subplots
     stroket = plot(ylabel="stroke ang [deg]", ylims=(-60,60), legend=legends)# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
@@ -283,8 +286,8 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs; legends=
         plot!(actt, t, actAng(m, opt, traj, param), linewidth=2)
         plot!(Ψt, t, rad2deg.(traj[@view liy[2,:]]), linewidth=2)
         plot!(ut, t, [traj[@view liu[1,:]];NaN], linewidth=2)
-        plot!(liftt, t, aeroPlotVec(traj, param, 3), linewidth=2)
-        plot!(dragt, t, aeroPlotVec(traj, param, 1), linewidth=2)
+        plot!(liftt, t, trajAero(m, opt, traj, param, :lift), linewidth=2)
+        plot!(dragt, t, trajAero(m, opt, traj, param, :drag), linewidth=2)
         plot!(phaset, traj[@view liy[nq+1,:]], traj[@view liy[2,:]], linewidth=2)
     end
     # Return tuple
