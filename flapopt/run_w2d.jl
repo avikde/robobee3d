@@ -74,35 +74,37 @@ function scaling1(m::Wing2DOFModel, opt, traj, param, xs, minlifts, τ21ratiolim
 	return resdict
 end
 
-function scaling1disp(resarg)
+function scaling1disp(resarg; useFDasFact=true)
 	np = length(param0)
 	resdict = typeof(resarg) == String ? matread(resarg) : resarg
+	mactRobobee = 75σamax
 
 	# Produced unstructured xi,yi,zi data
 	xi = Float64[]
-	FLi = similar(xi)
-	Phii = similar(xi)
-	Lwi = similar(xi)
-	macti = similar(xi)
-	powi = similar(xi)
-	freqi = similar(xi)
-	Ti = similar(xi)
-	for i=1:length(resdict["minlifts"]), j=1:length(resdict["Phis"])
-		res = resdict["results"][i,j]
-		minlift = resdict["minlifts"][i]
-		Phi = deg2rad(resdict["Phis"][j])
-		Lw = res[6]/res[1]
+	FLi = Float64[]
+	Phii = Float64[]
+	mli = Float64[]
+	Lwi = Float64[]
+	macti = Float64[]  # times Robobee act
+	powi = Float64[]
+	freqi = Float64[]
+	Ti = Float64[]
+	for res in resdict["results"]
+		Phi = deg2rad(res[1])
+		param = res[2+1:2+np]
+		stats = res[2+np+1:end]
+		Lw = param[6]/param[1]
 
 		# Append to unstructured data
 		append!(Phii, Phi)
+		append!(mli, res[2])
 		append!(Lwi, Lw)
 		append!(xi, Phi*Lw)
-		append!(FLi, 1000/9.81*res[np+2])
-		# append!(macti, res[np+1]*res[np+3]/(0.3*75)) # times Robobee act
-		append!(macti, res[np+1]*res[np+5]/(0.3*75)) # times Robobee act
-		append!(powi, res[np+4])
-		append!(freqi, 1000/(N*res[np]))
-		append!(Ti, res[2])
+		append!(FLi, 1000/9.81*stats[2])
+		append!(macti, stats[3] * (useFDasFact ? stats[5] : stats[1])/mactRobobee)
+		append!(powi, stats[4])
+		append!(freqi, 1000/(N*param[np]))
+		append!(Ti, param[2])
 	end
 
 	# Plot range changes depending on opt results (see scatter)
@@ -136,10 +138,11 @@ function scaling1disp(resarg)
 	
 	return [pl1, pl2, 
 		plmact, 
-		# scatter3d(xi, FLi, macti, camera=(10,40)),
+		# scatter3d(xi, FLi, macti, camera=(90,40)),
 		contourFromUnstructured(xi, FLi, powi; title="mechpow"),
 		# scatter3d(xi, FLi, powi, camera=(10,40)),
 		contourFromUnstructured(xi, FLi, rad2deg.(Phii); title="Phi"), 
+		# contourFromUnstructured(xi, FLi, mli; title="ml"), 
 		contourFromUnstructured(xi, FLi, freqi; title="freq"), 
 		contourFromUnstructured(xi, FLi, Ti; title="T1")]
 end
@@ -224,17 +227,17 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-# # resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(1.4:0.1:1.9), 2)
-# pls = scaling1disp("scaling1.mat")#resdict)
-# plot(pls..., size=(1000,600), window_title="Scaling1")
-# gui()
-# error("i")
+# resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(1.4:0.1:1.9), 2)
+pls = scaling1disp("scaling1.zip")#resdict)
+plot(pls..., size=(1000,600), window_title="Scaling1")
+gui()
+error("i")
 
 # ID
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 1.4; Φ=60)#; print_level=3, max_iter=10000)
+ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 1.9; Φ=90)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 

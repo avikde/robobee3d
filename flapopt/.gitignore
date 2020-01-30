@@ -1,3 +1,4 @@
 logp
 *.npz
 *.mat
+*.zip
