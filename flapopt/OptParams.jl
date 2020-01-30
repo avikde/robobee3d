@@ -84,6 +84,16 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, POPTS, traj::Abstract
 		end
 	end
 
+	p1 = plot(traj[2:ny:(N+1)*ny])
+	plot!(traj2[2:ny:(N+1)*ny])
+	plot!(Δy[2:ny:(N+1)*ny])
+	p2 = plot(traj[3:ny:(N+1)*ny])
+	plot!(traj2[3:ny:(N+1)*ny])
+	plot!(Δy[3:ny:(N+1)*ny])
+	plot(p1, p2)
+	gui()
+	error("HI")
+
 	# println("Test that the lower rows dyn constraint worked ", vcat([Bperp * Hk(k, Δyk(k), Δyk(k+1)) * ptnew for k=1:N]...) - eval_g_ret(prob.x))
 
 	return traj2
