@@ -34,7 +34,7 @@ function getInitialParams()
 	]
 end
 uampl, param0 = getInitialParams()
-σamax = 1.0#0.3 # [mm] constant? for robobee actuators
+σamax = 0.3 # [mm] constant? for robobee actuators
 
 include("w2d_paramopt.jl")
 
@@ -48,12 +48,12 @@ cycleFreqLims = [0.3,0.1]#[0.165,0.165]#[0.4, 0.03] # [KHz]
 dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
-	R=(zeros(4,4), reshape([1.1e3],1,1), 0.0*I), 
+	R=(zeros(4,4), reshape([0.2e3#= 1.1e3 =#],1,1), 0.0*I), # middle one is mech pow
 	plimsL = [0.1, 1.0, 0.1, 0.5, 0, 20.0, dtlims[1]],
-	plimsU = [10.0, 1000.0, 100.0, 20.0, 100.0, 150.0, dtlims[2]],
+	plimsU = [10.0, 3.5, 100.0, 20.0, 100.0, 150.0, dtlims[2]],
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
 	uinfnorm = true,
-	unactWeight = 1e2
+	unactWeight = 1.0
 )
 includet("w2d_shift.jl")
 # FUNCTIONS GO HERE -------------------------------------------------------------
