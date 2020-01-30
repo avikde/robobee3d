@@ -30,7 +30,7 @@ function getInitialParams()
 		2.5, # wΨ [mm]
 		0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
 		54.4, # Aw = 3.2*17 [mm^2] (Jafferis 2016)
-		0.135 # dt
+		0.0758 # dt
 	]
 end
 uampl, param0 = getInitialParams()

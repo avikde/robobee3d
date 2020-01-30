@@ -11,6 +11,7 @@ using Parameters, ForwardDiff, LinearAlgebra, Ipopt
 	Fext_pdep::Bool = true
 	uinfnorm::Bool = false # only in mode 1
 	nonlintransmission::Bool = true # false for linear transmission; true for the cubic polynomial transmission function
+	unactWeight::Float64 = 1.0
 end
 
 # --------------
@@ -173,7 +174,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		pt, Tarr = getpt(m, x[1:np])
 		Δy = x[np+1 : np+nΔy]
 		# min Δy
-		J = dot(Δy, Δy)
+		J = POPTS.unactWeight * dot(Δy, Δy)
 		if uinfnorm
 			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
 			J += dot(s, s)
