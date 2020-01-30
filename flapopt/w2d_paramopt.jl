@@ -192,9 +192,8 @@ end
 
 listOfParamTraj(rets...) = [ret["param"] for ret in rets], [ret["traj"] for ret in rets]
 
-function getComponents(m::Wing2DOFModel, opt, ret)
-	traj1, param1 = ret["traj"], ret["param"]
-    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, ret["traj"])
+function getComponents(m::Wing2DOFModel, opt, traj1, param1)
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj1)
 
 	# Get the components
 	yo, HMnc, HMc, HC, Hg, Hgact, HF, Hdamp, Hvel = cu.paramAffine(m, opt, traj1, param1, POPTS; debugComponents=true)
@@ -233,7 +232,7 @@ function debugComponentsPlot(m::Wing2DOFModel, opt, POPTS, ret)
 	traj1, param1 = ret["traj"], ret["param"]
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, ret["traj"])
 	
-	inertial, inertialc, coriolis, stiffdamp, stiffdampa, aero, mechpow = getComponents(m, opt, ret)
+	inertial, inertialc, coriolis, stiffdamp, stiffdampa, aero, mechpow = getComponents(m, opt, traj1, param1)
 
 	dt = param1[end]
 	t2 = collect(0:(N-1))*dt

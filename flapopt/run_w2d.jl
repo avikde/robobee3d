@@ -58,11 +58,13 @@ POPTS = cu.ParamOptOpts(
 includet("w2d_shift.jl")
 # FUNCTIONS GO HERE -------------------------------------------------------------
 
-function scaling1(traj, param, xs, minlifts, τ21ratiolim; kwargs...)
+function scaling1(m::Wing2DOFModel, opt, traj, param, xs, minlifts, τ21ratiolim; kwargs...)
 	np = length(param)
 	function scaling1single(x, minlift)
 		r = opt1(m, traj, param, 1, minlift, τ21ratiolim; Φ=x, kwargs...)
-		return [r["param"]; r["u∞"]; r["al"]; r["δact"]; r["mechPow"]; norm(r["unactErr"], Inf)]
+		# Also store drag (should be same as uinf for scaling but dynamics)
+		aero = getComponents(m, opt, r["traj"], r["param"])[6]
+		return [r["param"]; r["u∞"]; r["al"]; r["δact"]; r["mechPow"]; norm(aero[1,:], Inf); norm(r["unactErr"], Inf)]
 	end
 	results = [scaling1single(x, minlift) for minlift in minlifts, x in xs] # reversed
 	resdict = Dict(
