@@ -77,9 +77,6 @@ end
 function scaling1disp(resarg)
 	np = length(param0)
 	resdict = typeof(resarg) == String ? matread(resarg) : resarg
-	
-	pl1 = scatter(xlabel="Phi", ylabel="Lw", legend=false)
-	pl2 = scatter(xlabel="x", ylabel="FL", legend=false)
 
 	# Produced unstructured xi,yi,zi data
 	xi = Float64[]
@@ -107,39 +104,40 @@ function scaling1disp(resarg)
 		append!(Ti, res[2])
 	end
 
-	function contourFromUnstructured!(pl, xi, yi, zi, xpl=nothing, ypl=nothing)
+	# Plot range changes depending on opt results (see scatter)
+	# xpl = [minimum(xi), maximum(xi)]
+	# ypl = [minimum(yi), maximum(yi)]
+	xpl = [19,24]
+	ypl = [120,140]
+
+	function contourFromUnstructured(xi, yi, zi; Npts=50, title="")
 		# Spline from unstructured data https://github.com/kbarbary/Dierckx.jl
 		# println("Total points = ", length(xi))
 		spl = Spline2D(xi, yi, zi; s=length(xi))
 		ff(x,y) = spl(x,y)
-		if isnothing(xpl)
-			xpl = range(minimum(xi), maximum(xi), length=50)
-			ypl = range(minimum(yi), maximum(yi), length=50)
-		end
-		return contourf!(pl, xpl, ypl, ff)
+		return contour(range(xpl[1], xpl[2], length=Npts), range(ypl[1], ypl[2], length=Npts), ff, 
+			titlefontsize=10, grid=false, lw=2, c=:rainbow, 
+			xlabel="x [mm]", ylabel="FL [mg]", title=title)
 	end
 
-	pl3 = contourf(title="mact", titlefontsize=10)
-	contourFromUnstructured!(pl3, xi, FLi, macti)
-	# pl4 = scatter3d(xi, FLi, macti, camera=(10,40))
-	
-	pl5 = contourf(title="mechpow", titlefontsize=10)
-	contourFromUnstructured!(pl5, xi, FLi, powi)
-	# pl6 = scatter3d(xi, FLi, powi, camera=(10,40))
-	
-	pl6 = contourf(title="Phi", titlefontsize=10)
-	contourFromUnstructured!(pl6, xi, FLi, rad2deg.(Phii))
-	
-	pl7 = contourf(title="freq", titlefontsize=10)
-	contourFromUnstructured!(pl7, xi, FLi, freqi)
-	
-	pl8 = contourf(title="T1", titlefontsize=10)
-	contourFromUnstructured!(pl8, xi, FLi, Ti)
-
+	# Output the plots
+	pl1 = scatter(xlabel="Phi", ylabel="Lw", legend=false)
+	pl2 = scatter(xlabel="x", ylabel="FL", legend=false)
 	scatter!(pl1, Phii, Lwi)
 	scatter!(pl2, xi, FLi)
 	# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
-	return pl1, pl2, pl3, pl5, pl6, pl7, pl8
+
+	plmact = contourFromUnstructured(xi, FLi, macti; title="mact")
+	plot!(plmact, xpl, 1.0./xpl, lw=2, color=:black, ls=:dash)
+	
+	return [pl1, pl2, 
+		contourFromUnstructured(xi, FLi, macti; title="mact"), 
+		# scatter3d(xi, FLi, macti, camera=(10,40)),
+		contourFromUnstructured(xi, FLi, powi; title="mechpow"),
+		# scatter3d(xi, FLi, powi, camera=(10,40)),
+		contourFromUnstructured(xi, FLi, rad2deg.(Phii); title="Phi"), 
+		contourFromUnstructured(xi, FLi, freqi; title="freq"), 
+		contourFromUnstructured(xi, FLi, Ti; title="T1")]
 end
 
 """Run many opts to get the best params for a desired min lift"""
@@ -222,8 +220,8 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-resdict = scaling1(traj0, param0, collect(60.0:5.0:120.0), collect(1.4:0.05:1.9), 2)
-pls = scaling1disp("scaling1.mat")#resdict)
+# resdict = scaling1(traj0, param0, collect(60.0:5.0:120.0), collect(1.4:0.05:1.9), 2)
+pls = scaling1disp("scaling1_d10.mat")#resdict)
 plot(pls..., size=(1000,600), window_title="Scaling1")
 gui()
 error("i")
