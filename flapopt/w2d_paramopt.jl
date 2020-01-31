@@ -44,11 +44,11 @@ end
 kinType -- 0 => ID'ed real data, 1 => openloop sim with param0 then truncate, 2 => generate kinematics(t)
 fix -- Make traj satisfy dyn constraint with these params?
 """
-function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, starti=165)
+function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, starti=214, verbose=true, freq=0.165, N=80)
 	if kinType==1
-		opt = cu.OptOptions(false, false, 0.135, 1, :none, 1e-8, false) # sim
-		N = opt.boundaryConstraint == :symmetric ? 23 : 45
-		trajt, traj0 = createInitialTraj(m, opt, N, 0.165, [1e3, 1e2], param0, starti; uampl=uampl)
+		opt = cu.OptOptions(false, false, 1/(N*freq), 1, :none, 1e-8, false) # sim
+		N = opt.boundaryConstraint == :symmetric ? N÷2 : N
+		trajt, traj0 = createInitialTraj(m, opt, N, freq, [1e3, 1e2], param0, starti; uampl=uampl, verbose=verbose)
 	elseif kinType==0
 		# Load data
 		cbar, τ1, mwing, wΨ, τ2, Aw, dt = param0
@@ -58,6 +58,15 @@ function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, sta
 		N, trajt, traj0 = loadAlignedData("data/Bee1_Static_165Hz_180V_10KSF.mat", "data/Bee1_Static_165Hz_180V_7500sf.csv", 1250; sigi=1, strokeSign=1, strokeMult=R/(2*τ1), ForcePerVolt=75/100, vidSF=7320, Ψshift=Ψshift) # 75mN unidirectional at 200Vpp (from Noah)
 	else
 		error("Not implemented")
+	end
+
+	@views tcoord(i) = traj0[i:ny:(N+1)*ny]
+	currentAmpl(i) = maximum(tcoord(i)) - minimum(tcoord(i))
+	for i=1:2
+		if m.Amp[i] != 0.0 # Set stroke/hinge amplitude https://github.com/avikde/robobee3d/pull/127
+			tcoord(i) .*= m.Amp[i]/currentAmpl(i) # scale pos
+			tcoord(i+2) .*= m.Amp[i]/currentAmpl(i) # scale vel
+		end
 	end
 
 	if fix
@@ -74,9 +83,49 @@ function initTraj(kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, sta
 	
 	# Constraint on cbar placed by minAvgLift
 	avgLift0 = avgLift(m, opt, traj0, param0)
-	println("Avg lift initial [mN]=", round(avgLift0, digits=4), ", in [mg]=", round(avgLift0*1000/9.81, digits=1))
-
+	if verbose
+		println("Avg lift initial [mN]=", round(avgLift0, digits=4), ", in [mg]=", round(avgLift0*1000/9.81, digits=1))
+	end
 	return N, trajt, traj0, opt, avgLift0
+end
+
+"""Generate plot like in [Jafferis (2016)] Fig. 4"""
+function openLoopPlot(m, opt, param0; save=false)
+	function getResp(f, uamp, nlt=false)
+		param = copy(param0)
+		param[5] = nlt ? 2*param[2] : 0.0
+		return createInitialTraj(m, opt, 0, f, [1e3, 1e2], param, 0; uampl=uamp, trajstats=true, thcoeff=0.1)
+	end
+	fs = 0.03:0.005:0.25
+	mN_PER_V = 75/160
+
+	p1 = plot(ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,0.8))
+	p2 = plot(xlabel="Freq [kHz]", ylabel="Hinge ampl [deg]", legend=false, ylims=(0,100))
+
+	function plotForTrans(nlt)
+		nltstr = nlt ? "N" : "L"
+		for Vamp=130:30:210
+			println("Openloop @ ", Vamp, "V ", nltstr)
+			uamp = Vamp*mN_PER_V
+			amps = hcat(getResp.(fs, uamp, nlt)...)
+			amps *= 180/pi # to degrees
+			amps[1,:] /= (Vamp) # normalize
+			amps[2,:] /= 2.0 # hinge ampl one direction
+			# println(amps)
+			plot!(p1, fs, amps[1,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt ? :solid : :dash)
+			plot!(p2, fs, amps[2,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt ? :solid : :dash)
+		end
+	end
+
+	plotForTrans(false)
+	plotForTrans(true)
+
+	plot(p1, p2, layout=(2,1), size=(500,500), dpi=200)
+	if save
+		savefig("olplot.png")
+	end
+	gui()
+	error("Open loop plot")
 end
 
 """Linear approx of wing AR constraint at cbar https://github.com/avikde/robobee3d/issues/113. Returns a,b s.t. dot(a, [cb,Aw]) <= b is the constraint"""
@@ -110,9 +159,9 @@ function trajMechPow(m, opt, traj, param)
 end
 
 """One-off ID or opt"""
-function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1, wARconstraintLinCbar=3.2)
+function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1, wARconstraintLinCbar=3.2, Φ=nothing)
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
-	print(mode==2 ? "ID" : "Opt", " minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
+	print(mode==2 ? "ID" : "Opt", " Φ=", isnothing(Φ) ? "-" : Φ, ", minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
 
     # cbar, τ1, mwing, wΨ, τ2, Aw, dt  = param
 	# Poly constraint
@@ -127,17 +176,27 @@ function opt1(traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, test
 		wARa[1]   0  0  0  0  wARa[2]  0] # wing AR
 	dp = [mlb; 0; 0; 0; wARb]
 
+	if !isnothing(Φ)
+		m.Amp[1] = deg2rad(Φ)
+		# get new input traj
+		traj = initTraj(m, param, KINTYPE; uampl=75, verbose=false)[3]
+	end
+
 	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
 	# append unactErr
 	ret["unactErr"] = ret["eval_g"](ret["x"])[1:N] # 1 unact DOF
 	ret["al"] = avgLift(m, opt, ret["traj"], ret["param"])
 	uu = ret["traj"][(N+1)*ny:end]
 	ret["u∞"] = norm(uu, Inf)
+	ret["δact"] = maximum(abs.(actAng(m, opt, ret["traj"], ret["param"])))
 	if testAfter
 		cu.affineTest(m, opt, ret["traj"], ret["param"], POPTS)
 	end
 	# Calculate mechanical power
 	ret["mechPow"] = trajMechPow(m, opt, ret["traj"], ret["param"])
+	ret["comps"] = getComponents(m, opt, ret["traj"], ret["param"])
+	ret["FD∞"] = norm(ret["comps"][6][1,:], Inf) # Also store drag (should be same as uinf for scaling but dynamics)
+	
 	println(ret["status"], ", ", round.(ret["param"]', digits=3), 
 	", fHz=", round(1000/(N*ret["param"][end]), digits=1), 
 	", al[mg]=", round(ret["al"] * 1000/9.81, digits=1), 
@@ -150,15 +209,12 @@ end
 
 listOfParamTraj(rets...) = [ret["param"] for ret in rets], [ret["traj"] for ret in rets]
 
-"""Debug components in a traj"""
-function debugComponentsPlot(m, opt, POPTS, ret)
-	traj1, param1 = ret["traj"], ret["param"]
-    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, ret["traj"])
+function getComponents(m::Wing2DOFModel, opt, traj1, param1)
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj1)
 
 	# Get the components
 	yo, HMnc, HMc, HC, Hg, Hgact, HF, Hdamp, Hvel = cu.paramAffine(m, opt, traj1, param1, POPTS; debugComponents=true)
 	pt0, Tnew = cu.getpt(m, param1)
-	dt = param1[end] # need this for H after #110
 	inertial = zeros(2,N)
 	inertialc = similar(inertial)
 	coriolis = similar(inertial)
@@ -185,10 +241,16 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 		Hh = [Ht(HMnc(y,yn) + HMc(y,yn) - HMnc(y,y) - HMc(y,y) + HC(y) + HF(y))   Ht(Hdamp(y))   Ht(Hg(y) + Hgact(y))]
 		mechpow[k] = dot([H0[1,:]  Ht(Hvel(y))'  H0[1,:]], pt0) * dot(Hh[1,:], pt0)
 	end
+	return inertial, inertialc, coriolis, stiffdamp, stiffdampa, aero, mechpow 
+end
 
-	# # get the instantaneous transmission ratio at time k
-	# Tvec = [cu.transmission(m, yo(k), param1; o2a=true)[2] for k=1:N]
+"""Debug components in a traj"""
+function debugComponentsPlot(m::Wing2DOFModel, opt, POPTS, ret)
+	traj1, param1 = ret["traj"], ret["param"]
+    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, ret["traj"])
+	inertial, inertialc, coriolis, stiffdamp, stiffdampa, aero, mechpow = ret["comps"]
 
+	dt = param1[end]
 	t2 = collect(0:(N-1))*dt
 
 	function plotComponents(i, ylbl)
@@ -209,6 +271,7 @@ function debugComponentsPlot(m, opt, POPTS, ret)
 		plot!(pl2, t2, traj1[(N+1)*ny+1:end], linewidth=2, label="act")
 		plot!(pl2, t2, coriolis[i,:], linewidth=2, label="cor")
 		plot!(pl2, t2, inertiastiff, linewidth=2, label="is")
+		hline!(pl2, [-1,1]*ret["FD∞"], ls=:dash, color=:black)
 		
 		pl3 = plot(t2, inertial[i,:], linewidth=2, label="inc", legend=:outertopright)
 		plot!(pl3, t2, inertialc[i,:], linewidth=2, label="ic")

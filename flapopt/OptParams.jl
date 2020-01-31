@@ -1,6 +1,6 @@
 
 include("OptBase.jl") #< including this helps vscode reference the functions in there
-using Parameters
+using Parameters, ForwardDiff, LinearAlgebra, Ipopt, DSP
 
 @with_kw struct ParamOptOpts
 	τinds::Array{Int}
@@ -11,6 +11,7 @@ using Parameters
 	Fext_pdep::Bool = true
 	uinfnorm::Bool = false # only in mode 1
 	nonlintransmission::Bool = true # false for linear transmission; true for the cubic polynomial transmission function
+	unactWeight::Float64 = 1.0
 end
 
 # --------------
@@ -44,15 +45,26 @@ function transmission(m::Model, y::AbstractArray, _param::Vector; o2a=false)
     return y2, T, τfun, τifun
 end
 
+"Some optimization numerical error is causing spiky oscillations in Δy
+https://github.com/avikde/robobee3d/pull/127#issuecomment-580050283"
+function smoothΔy(Δy, ny, N, dt; ord=2, cutoff_freq=0.5)
+	# For each coord, fit a spline
+	# tvec = collect(0:(N))*dt
+	myfilter = digitalfilter(Lowpass(cutoff_freq; fs=1/dt), Butterworth(ord))
+	smoothCoord(i) = filtfilt(myfilter, Δy[i:ny:(N+1)*ny])
+	trajNny = hcat([smoothCoord(i) for i=1:ny]...)
+	return trajNny'[:]
+end
 
 "Helper function to reconstruct the traj (also test it)."
 function reconstructTrajFromΔy(m::Model, opt::OptOptions, POPTS, traj::AbstractArray, yo, Δy, paramold, pnew; test::Bool=false)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
 	np = length(pnew)
-	Δyk = k -> Δy[(k-1)*ny+1 : k*ny]
 	dtold = paramold[end] # dt is the last param
 	dtnew = pnew[end]
+	Δy = smoothΔy(Δy, ny, N, dtnew)
+	Δyk = k -> Δy[(k-1)*ny+1 : k*ny]
 
 	# Also convert the output traj with the Δy, new T, and inputs
 	traj2 = copy(traj)
@@ -186,7 +198,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		pt, Tarr = getpt(m, x[1:np])
 		Δy = x[np+1 : np+nΔy]
 		# min Δy
-		J = dot(Δy, Δy)
+		J = POPTS.unactWeight * dot(Δy, Δy)
 		if uinfnorm
 			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
 			J += dot(s, s)
@@ -482,6 +494,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	Ipopt.addOption(prob, "hessian_approximation", "limited-memory")
 
 	# Add options using kwargs
+	Ipopt.addOption(prob, "sb", "yes") # suppress banner
 	for (k,v) in pairs(kwargs)
 		# println(k, " => ", v)
 		Ipopt.addOption(prob, string(k), v)

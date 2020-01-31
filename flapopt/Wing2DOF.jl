@@ -1,5 +1,5 @@
 
-using LinearAlgebra, StaticArrays, DifferentialEquations
+using Parameters, LinearAlgebra, DifferentialEquations, Dierckx
 using Plots; gr()
 
 import controlutils
@@ -32,46 +32,37 @@ Params:
 NOTE:
 - Reasonable values: Toutput = 2666 rad/m in the current two-wing vehicle; 2150 rad/m in X-Wing; 3333 rad/m in Kevin Ma's older vehicles.
 """
-struct Wing2DOFModel <: controlutils.Model
+@with_kw struct Wing2DOFModel <: controlutils.Model
     # params
     ko::Float64 # [mN/mm]
-    bo::Float64 # [mN/(mm/ms)]
+    bo::Float64 = 0 # [mN/(mm/ms)]
     # Actuator params
     ma::Float64 # [mg]; effective
-    ba::Float64 # [mN/(mm/ms)]
+    ba::Float64 = 0 # [mN/(mm/ms)]
     ka::Float64 # [mN/mm]
-    bCoriolis::Bool # true to include hinge->stroke Coriolis term or leave out for testing
-    r1h::Float64 # r1hat first moment -- see [Whitney (2010)]
-    r2h::Float64 # r2hat second moment -- see [Whitney (2010)]
+    bCoriolis::Bool = true # true to include hinge->stroke Coriolis term or leave out for testing
+    r1h::Float64 = 0.49 # r1hat first moment -- see [Whitney (2010)]. Default from [Chen (2016)]
+    r2h::Float64 = 0.551 # r2hat second moment -- see [Whitney (2010)]. Default from 0.929 * 0.49^0.732
+    SEA::Bool = false # series-elastic https://github.com/avikde/robobee3d/pull/126
+    kSEA::Float64 = 1000 # SEA spring const
+    Amp::AbstractArray = [0.0,0.0] # Stroke, hinge amplitude for the desired output kinematics (set to 0 to not use)
 end
 
 # Fixed params -----------------
 const γ = 0.5 # location of mwing lumped mass is γ*cbar down from the spar
 
 function cu.dims(m::Wing2DOFModel)::Tuple{Int, Int}
-    return 4, 1
+    return m.SEA ? 6 : 4, 1
 end
 
-function cu.pdims(m::Wing2DOFModel)::Int
-    return 2
-end
-
-function cu.plimits(m::Wing2DOFModel)
-    return [0.1, 1.0], [5.0, 100.0]
-end
-
-function cu.limits(m::Wing2DOFModel)::Tuple{Vector, Vector, Vector, Vector}
-    # This is based on observing the OL trajectory. See note on units above.
-    umax = @SVector [75.0] # [mN]
-    umin = -umax
-    xmax = @SVector [300e-3, 1.5, 100, 100] # [mm, rad, mm/ms, rad/ms]
-    xmin = -xmax
-    return umin, umax, xmin, xmax
-end
-
-function cu.limitsTimestep(m::Wing2DOFModel)::Tuple{Float64, Float64}
-	return 0.01, 0.07
-end
+# function cu.limits(m::Wing2DOFModel)::Tuple{Vector, Vector, Vector, Vector}
+#     # This is based on observing the OL trajectory. See note on units above.
+#     umax = @SVector [75.0] # [mN]
+#     umin = -umax
+#     xmax = @SVector [300e-3, 1.5, 100, 100] # [mm, rad, mm/ms, rad/ms]
+#     xmin = -xmax
+#     return umin, umax, xmin, xmax
+# end
 
 "Tried going directly from Doshi model-driven, but haven't been able to get that to match up"
 function hingeParams(wΨ)
@@ -79,7 +70,7 @@ function hingeParams(wΨ)
     return 3.0*wΨ, 1.8*wΨ
 end
 
-rcopnondim(Ψ) = 0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
+rcopnondim(Ψ) = 0.4#0.25 + 0.25 / (1 + exp(5.0*(1.0 - 4*(π/2 - abs(Ψ))/π))) # [(6), Chen (IROS2016)]
 
 "Returns paero [mm], Jaero, Faero [mN]. Takes in y in *output coordinates*"
 function w2daero(m::Wing2DOFModel, yo::AbstractArray, param::Vector)
@@ -92,7 +83,8 @@ function w2daero(m::Wing2DOFModel, yo::AbstractArray, param::Vector)
     cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
     R = Aw/cbar
     ycp = R*m.r1h # approx as in [Chen (2016)]
-    φ, Ψ, dφ, Ψ̇ = yo # [rad, rad, rad/ms, rad/ms]
+    nq = length(yo)÷2
+    φ, Ψ, dφ, dΨ = yo[[1,2,nq+1,nq+2]] # [rad, rad]
 
     # CoP kinematics
     # Ψ > 0 => hinge looks like \; Ψ < 0 => hinge looks like /
@@ -131,71 +123,58 @@ function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::V
     R = Aw/cbar
     ycp = R*m.r1h # approx as in [Chen (2016)]
     # These next two are "wingsubs" from the "Incorporate R" notes
-    Ixx = 0
-    Izz = cbar^2*γ^2*mwing
+    Izz = 0
+    Ixx = cbar^2*γ^2*mwing
     kΨ, bΨ = hingeParams(wΨ)
-    φ, Ψ, dφ, Ψ̇ = yo # [rad, rad, rad/ms, rad/ms]
+    nq = length(yo)÷2
+    φ, Ψ, dφ, dΨ = yo[[1,2,nq+1,nq+2]] # [rad, rad]
     
     ya, T, τfun, τifun = cu.transmission(m, yo, param; o2a=true)
 
     # Lagrangian terms - from Mathematica
-    M = [Ixx + mwing*ycp^2 + 1/2*cbar^2*mwing*γ^2*(1-cos(2*Ψ)) + m.ma/T^2   γ*cbar*mwing*ycp*cos(Ψ);  
-        γ*cbar*mwing*ycp*cos(Ψ)     Izz+cbar^2*γ^2*mwing]
-    cor1 = [cbar^2*mwing*γ^2*sin(2*Ψ)*dφ*Ψ̇ - γ*cbar*mwing*ycp*sin(Ψ)*Ψ̇^2, 
+    M = [Izz + mwing*ycp^2 + 1/2*cbar^2*mwing*γ^2*(1-cos(2*Ψ))   γ*cbar*mwing*ycp*cos(Ψ);  
+        γ*cbar*mwing*ycp*cos(Ψ)     Ixx+cbar^2*γ^2*mwing]
+    cor1 = [cbar^2*mwing*γ^2*sin(2*Ψ)*dφ*dΨ - γ*cbar*mwing*ycp*sin(Ψ)*dΨ^2, 
         -cbar^2*mwing*γ^2*cos(Ψ)*sin(Ψ)*dφ^2]
     # NOTE: dropping τinv'' term
-    corgrav = [(m.ko*φ + m.ka/T*τifun(φ)), kΨ*Ψ] + (m.bCoriolis ? cor1 : zeros(2))
+    corgrav = [m.ko*φ, kΨ*Ψ] + (m.bCoriolis ? cor1 : zeros(2))
 
     # non-lagrangian terms
-    τdamp = [-(m.bo + m.ba/T^2) * dφ, -bΨ * Ψ̇]
+    τdamp = [-(m.bo + m.ba/T^2) * dφ, -bΨ * dΨ]
     _, Jaero, Faero = w2daero(m, yo, param)
     τaero = Jaero' * Faero # units of [mN, mN-mm]
     # input
     τinp = [u[1]/T, 0]
 
+    if m.SEA
+        δa, dδa = yo[[3,nq+3]]
+        # Add the new DOF for the actuator SEA-decoupled from the stroke
+        M = vcat(hcat(M,zeros(2)),zeros(1,3))
+        M[3,3] = m.ma
+        seaForce = m.kSEA*(τfun(δa) - φ)
+        append!(corgrav, T*seaForce + m.ka*δa)
+        corgrav[1] -= seaForce
+        append!(τdamp, 0)
+        append!(τaero, 0)
+        τinp = [0, 0, u[1]]
+    else
+        # Add reflected actuator properties
+        M[1,1] += m.ma/T^2
+        corgrav[1] += m.ka/T*τifun(φ)
+    end
+
     ddq = inv(M) * (-corgrav + τdamp + τaero + τinp)
     # return ddq
-    return [yo[3:4]; ddq]
+    return [yo[nq+1:end]; ddq]
 end
 
 # Create an initial traj --------------
-
-# "Simulate with an OL signal at a freq"
-# function openloopResponse(m::Wing2DOFModel, opt::cu.OptOptions, freq::Real, params::Vector)
-#     # Create a traj
-#     σmax = cu.limits(m)[end][1]
-#     tend = 100.0 # [ms]
-#     function controller(y, t)
-#         return 50.0 * sin(2*π*freq*t)
-#     end
-#     vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
-#     # OL traj1
-#     simdt = 0.1 # [ms]
-#     teval = collect(0:simdt:tend) # [ms]
-#     prob = ODEProblem(vf, [0.2,0.,0.,0.], (teval[1], teval[end]))
-#     sol = solve(prob, saveat=teval)
-    
-#     # Deduce metrics
-#     t = sol.t[end-100:end]
-#     y = hcat(sol.u[end-100:end]...)
-#     σmag = (maximum(y[1,:]) - minimum(y[1,:])) * params[2] / (m.R/2)
-#     Ψmag = maximum(y[2,:]) - minimum(y[2,:])
-#     # relative phase? Hilbert transform?
-
-#     # # Plot
-#     # σt = plot(sol, vars=3, ylabel="act vel [m/s]")
-#     # Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
-#     # plot(σt, Ψt, layout=(2,1))
-#     # gui()
-
-#     return [σmag, Ψmag]
-# end
 
 """
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, thcoeff=0.0, posctrl=false)
+function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, thcoeff=0.0, posctrl=false, makeplot=false, trajstats=false, simdt=0.02, verbose=true)
     # Create a traj
     φampl = 0.6 # output, only used if posctrl=true
     tend = 100.0 # [ms]
@@ -204,7 +183,8 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
             # Stroke pos control
             φdes = φampl * sin(freq * 2 * π * t)
             dφdes = φampl * freq * 2 * π * cos(freq * 2 * π * t)
-            return posGains[1] * (φdes - y[1]) + posGains[2] * (dφdes - y[3])
+            dφ = m.SEA ? y[4] : y[3]
+            return posGains[1] * (φdes - y[1]) + posGains[2] * (dφdes - dφ)
         else
             ph = freq * 2 * π * t
             return uampl * ((1+thcoeff)*cos(ph) - thcoeff*sin(3*ph))
@@ -212,9 +192,9 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     end
     vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
     # OL traj1
-    simdt = opt.fixedδt # [ms]
     teval = collect(0:simdt:tend) # [ms]
-    prob = ODEProblem(vf, [0.,0.01,0.01,0.], (teval[1], teval[end]))
+    y0 = m.SEA ? [0.,0.01,0.,0.01,0.,0.] : [0.,0.01,0.01,0.]
+    prob = ODEProblem(vf, y0, (teval[1], teval[end]))
     sol = solve(prob, saveat=teval)
 
     # # Animate whole traj
@@ -224,67 +204,91 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     #     uk = [controller(yk, sol.t[k])]
     #     drawFrame(m, yk, uk, params)
     # end
-    # # Plot
-    # phit = plot(sol, vars=1, ylabel="stroke [rad]")
-    # dphit = plot(sol, vars=3, ylabel="stroke vel [rad/ms]")
-    # Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
-    # plot(phit, dphit, Ψt, layout=(3,1))
-    # gui()
-
+    #
+    if trajstats
+        # don't return dirtran traj; only traj stats
+        Nend = 1000
+        solend = hcat(sol.u[end-Nend+1:end]...) # (ny,N) shaped
+        campl = k -> maximum(solend[k,:]) - minimum(solend[k,:])
+        return [campl(1), campl(3)] # stroke and hinge ampl
+    end
+    if makeplot
+        # Plot
+        phit = plot(sol, vars=1, ylabel="stroke [rad]")
+        dphit = plot(sol, vars=3, ylabel="stroke vel [rad/ms]")
+        Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
+        plot(phit, dphit, Ψt, layout=(3,1))
+        gui()
+        error("createInitialTraj")
+    end
     # expectedInterval = opt.boundaryConstraint == cu.SYMMETRIC ? 1/(2*freq) : 1/freq # [ms]
     # expectedPts = expectedInterval / simdt
 
-    olRange = starti:(starti + N)
-    trajt = sol.t[olRange]
+    # Get the traj timesteps to be correct using interp
+    trajt = (starti:(starti + N))*opt.fixedδt
+    soly = hcat(sol.u...) # ny,Nodesol
+    spl = [Spline1D(sol.t, soly[i,:]) for i=1:ny]
+    olTrajaa = hcat([spl[i](trajt) for i=1:ny]...) # ny arrays of size N each -> (N,ny)
+    olTraju = [controller(olTrajaa[k,:], trajt[k]) for k in 1:N] # get u1,...,uN
+    traj0 = [olTrajaa'[:]; olTraju] # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
+
+    # Some printing
     δt = trajt[2] - trajt[1]
-    olTrajaa = sol.u[olRange] # 23-element Array{Array{Float64,1},1} (array of arrays)
-    olTraju = [controller(olTrajaa[i], trajt[i]) for i in 1:N] # get u1,...,uN
-    traj0 = [vcat(olTrajaa...); olTraju] # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
     if opt.vart
         traj0 = [traj0; δt]
-    else
+    elseif verbose
         println("Initial traj δt=", round(δt, digits=4), ", opt.fixedδt=", opt.fixedδt)
     end
 
     return trajt .- trajt[1], traj0
 end
 
-function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs; legends=true)
-	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
-	Ny = (N+1)*ny
-    Nt = length(trajs)
-    # stroke "angle" = T*y[1] / R
-    function actAng(traj, param)
-        σa = [cu.transmission(m, traj[@view liy[:,k]], param; o2a=true)[1][1] for k=1:N+1]
+"Get actuator displacement from the output trajectory"
+function actAng(m::Wing2DOFModel, opt::cu.OptOptions, traj, param)
+	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+    σa = [cu.transmission(m, traj[@view liy[:,k]], param; o2a=true)[1][1] for k=1:N+1]
+    if m.SEA
+        return [σa  traj[liy[3,:]]]
+    else
         return σa
     end
-    # Plot of aero forces at each instant
-    function aeroPlotVec(_traj::Vector, _param, ind)
-        cbar, τ1, mwing, wΨ, τ2, Aw, dt  = _param
-        Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end] * 1000 / 9.81 # to mg
-        Faeros = hcat([Faerok(k) for k=1:N]...)
-        return [Faeros[ind,:]' NaN]'
-    end
+end
+"Get aero force components from the output trajectory. comp=:lift or :drag"
+function trajAero(m::Wing2DOFModel, opt::cu.OptOptions, _traj::Vector, _param, comp)
+	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, _traj)
+    cbar, τ1, mwing, wΨ, τ2, Aw, dt  = _param
+    Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end] * 1000 / 9.81 # to mg
+    Faeros = hcat([Faerok(k) for k=1:N]...)
+    trajAeroInd(ind) = [Faeros[ind,:];NaN] # need one more element
+    
+    return comp==:lift ? trajAeroInd(3) : sqrt.(trajAeroInd(1).^2 + trajAeroInd(2).^2) # drag has x,y components
+end
+
+function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs; legends=true)
+	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
+    Ny = (N+1)*ny
+    nq = ny÷2
+    Nt = length(trajs)
 
     # Empty versions of all the subplots
-    stroket = plot(ylabel="stroke ang [r]", ylims=(-pi/4,pi/4), legend=legends)# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
-    Ψt = plot(ylabel="hinge ang [r]", legend=legends)
+    stroket = plot(ylabel="stroke ang [deg]", ylims=(-60,60), legend=legends)# title="δt=$(round(δt; sigdigits=4))ms; c=$(round(cbar; sigdigits=4))mm, T=$(round(T; sigdigits=4))")
+    Ψt = plot(ylabel="hinge ang [deg]", ylims=(-80,80), legend=legends)
     ut = plot(ylabel="stroke force [mN]", legend=legends)
     liftt = plot(ylabel="lift [mg]", legend=legends)
     dragt = plot(ylabel="drag [mg]", legend=legends)
-    actt = plot(ylabel="act disp [mm]", ylims=(-0.3,0.3), legend=legends)
+    actt = plot(ylabel="act disp [mm]", #= ylims=(-0.3,0.3), =# legend=legends)
     phaset = plot(ylabel="Phase offs", legend=legends)
     for i=1:Nt
         traj, param = trajs[i], params[i]
         dt = param[end]
         t = 0:dt:(N)*dt
-        plot!(stroket, t, traj[@view liy[1,:]], linewidth=2)
-        plot!(actt, t, actAng(traj, param), linewidth=2)
-        plot!(Ψt, t, traj[@view liy[2,:]], linewidth=2)
+        plot!(stroket, t, rad2deg.(traj[@view liy[1,:]]), linewidth=2)
+        plot!(actt, t, actAng(m, opt, traj, param), linewidth=2)
+        plot!(Ψt, t, rad2deg.(traj[@view liy[2,:]]), linewidth=2)
         plot!(ut, t, [traj[@view liu[1,:]];NaN], linewidth=2)
-        plot!(liftt, t, aeroPlotVec(traj, param, 3), linewidth=2)
-        plot!(dragt, t, aeroPlotVec(traj, param, 1), linewidth=2)
-        plot!(phaset, traj[@view liy[3,:]], traj[@view liy[2,:]], linewidth=2)
+        plot!(liftt, t, trajAero(m, opt, traj, param, :lift), linewidth=2)
+        plot!(dragt, t, trajAero(m, opt, traj, param, :drag), linewidth=2)
+        plot!(phaset, traj[@view liy[nq+1,:]], traj[@view liy[2,:]], linewidth=2)
     end
     # Return tuple
 	return (stroket, Ψt, ut, liftt, dragt, actt, phaset)
@@ -494,9 +498,9 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
     # Nondimensionalize (wrt time) the velocities https://github.com/avikde/robobee3d/pull/119#issuecomment-577350049
     """Inertial"""
-    # M = [Ixx + mwing*ycp^2 + 1/2*cbar^2*mwing*γ^2*(1-cos(2*Ψ)) + m.ma/T^2   γ*cbar*mwing*ycp*cos(Ψ);  
+    # M = [Izz + mwing*ycp^2 + 1/2*cbar^2*mwing*γ^2*(1-cos(2*Ψ)) + m.ma/T^2   γ*cbar*mwing*ycp*cos(Ψ);  
         # γ*cbar*mwing*ycp*cos(Ψ)     Izz+cbar^2*γ^2*mwing]
-    # Implicitly use Ixx=0, Izz=cbar^2 mw gamma^2
+    # Implicitly use Izz=0, Ixx=cbar^2 mw gamma^2
     function HMqTWithoutCoupling(ypos, yvel)
         φ, Ψ = ypos[1:2]
         dφ, Ψ̇ = yvel[3:4] * dtold

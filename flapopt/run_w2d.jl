@@ -4,68 +4,170 @@
 # using Plots
 # Plots.scalefontsizes(0.7) # Only needs to be run once
 
-using BenchmarkTools
+using BenchmarkTools, MAT, Dierckx
 using Revise # while developing
 import controlutils
 cu = controlutils
-includet("Wing2DOF.jl")
+include("Wing2DOF.jl")
 
 # create an instance
-# From Patrick 300 mN-mm/rad. 1 rad => R/2 σ-displacement. The torque is applied with a lever arm of R/2 => force = torque / (R/2)
-# so overall, get 300 / (R/2)^2.
+# From Patrick ko = 300 mN-mm/rad but in input frame. This needs tuning...
 # Noah said lumped stiffness is ~60% transmission and 40% actuator => k = 1.5 = ko + ka/T^2.
 # For T=20, get ka = 240.
 # To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
-	40.0, #k output
-	0, #b output
-	6, # ma
-	0, # ba
-	240, # ka
-	true, # bCoriolis
-	0.49, # r1h [Chen (2016)]
-	0.551) # r2h insect wings [Whitney (2010)] 0.929 * 0.49^0.732
+	ko = 30.0,
+	ma = 6,
+	ka = 240,
+	Amp = deg2rad.([90, 140]))
 ny, nu = cu.dims(m)
 
 function getInitialParams()
 	# robobee scale
 	return 75, [3.2,  # cbar[mm] (area/R)
 		2.6666, # τ1 (from 3333 rad/m, [Jafferis (2016)])
-		0.7, # mwing[mg] ~=Izz/(mwing*ycp^2). with ycp=8.5, Izz=51.1 [Jafferis (2016)], get
+		0.73, # mwing[mg] ~=Izz/(mwing*ycp^2). with ycp=8.5, Izz=51.1 [Jafferis (2016)], get
 		2.5, # wΨ [mm]
 		0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
 		54.4, # Aw = 3.2*17 [mm^2] (Jafferis 2016)
-		0.135 # dt
+		0.0758 # dt
 	]
 end
 uampl, param0 = getInitialParams()
 σamax = 0.3 # [mm] constant? for robobee actuators
 
-includet("w2d_paramopt.jl")
+include("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
-N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE; uampl=uampl)
+N, trajt, traj0, opt, avgLift0 = initTraj(m, param0, KINTYPE; uampl=uampl)
+# openLoopPlot(m, opt, param0; save=true)
 
 # Param opt init
-cycleFreqLims = [0.3,0.1]#[0.165,0.165]#[0.4, 0.03] # [KHz]
+cycleFreqLims = [0.3,0.01]#[0.165,0.165]#[0.4, 0.03] # [KHz]
 dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
-	R=(zeros(4,4), reshape([1.1e3],1,1), 0.0*I), 
-	plimsL = [0.1, 2.0, 0.1, 0.5, 0, 20.0, dtlims[1]],
-	plimsU = [4.0, 1000.0, 100.0, 20.0, 100.0, 150.0, dtlims[2]],
+	R=(zeros(4,4), reshape([0.1e3#= 1.1e3 =#],1,1), 0.0*I), # middle one is mech pow
+	plimsL = [0.1, 1.0, 0.1, 0.5, 0, 20.0, dtlims[1]],
+	plimsU = [20.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]],
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
-	uinfnorm = true
+	uinfnorm = true,
+	unactWeight = 1.0
 )
 includet("w2d_shift.jl")
 # FUNCTIONS GO HERE -------------------------------------------------------------
+
+const SCALING1_FNAME = "scaling1.zip"
+function scaling1(m::Wing2DOFModel, opt, traj, param, xs, minlifts, τ21ratiolim; kwargs...)
+	np = length(param)
+	function scaling1single(x, minlift)
+		r = opt1(m, traj, param, 1, minlift, τ21ratiolim; Φ=x, kwargs...)
+		return [x; minlift; r["param"]; r["u∞"]; r["al"]; r["δact"]; mean(abs.(r["mechPow"])); r["FD∞"]; norm(r["unactErr"], Inf)]
+	end
+	results = [scaling1single(x, minlift) for minlift in minlifts, x in xs] # reversed
+	resdict = Dict(
+		"Phis" => xs, "minlifts" => minlifts, "results" => results
+	)
+	# ^ returns a 2D array result arrays
+	matwrite(SCALING1_FNAME, resdict; compress=true)
+
+	return resdict
+end
+
+function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, ypl=nothing, s=nothing, Fnom=75, mactline=2860)
+	np = length(param0)
+	resdict = typeof(resarg) == String ? matread(resarg) : resarg
+	mactRobobee = Fnom*σamax
+
+	# Produced unstructured xi,yi,zi data
+	xi = Float64[]
+	ARi = Float64[]
+	Awi = Float64[]
+	FLi = Float64[]
+	Phii = Float64[]
+	mli = Float64[]
+	Lwi = Float64[]
+	macti = Float64[]  # times Robobee act
+	powi = Float64[]
+	freqi = Float64[]
+	Ti = Float64[]
+	for res in resdict["results"]
+		Phi = deg2rad(res[1])
+		param = res[2+1:2+np]
+		stats = res[2+np+1:end]
+		Lw = param[6]/param[1]
+
+		# Append to unstructured data
+		append!(Phii, Phi)
+		append!(mli, res[2])
+		append!(Lwi, Lw)
+		append!(Awi, param[6])
+		append!(ARi, Lw/param[1])
+		append!(xi, Phi*Lw)
+		append!(FLi, 1000/9.81*stats[2])
+		append!(macti, stats[3] * (useFDasFact ? stats[5] : stats[1])/mactRobobee)
+		append!(powi, stats[4])
+		append!(freqi, 1000/(N*param[np]))
+		append!(Ti, param[2])
+	end
+
+	# Output the plots
+	pl1 = scatter(xlabel="Phi", ylabel="Lw", legend=false)
+	pl2 = scatter(xlabel="x", ylabel="FL", legend=false)
+	scatter!(pl1, Phii, Lwi)
+	scatter!(pl2, xi, FLi)
+
+	retpl = [pl1, pl2]
+
+	if !scatterOnly
+		# Plot range changes depending on opt results (see scatter)
+		if isnothing(xpl)
+			xpl = [minimum(xi), maximum(xi)]
+			ypl = [minimum(yi), maximum(yi)]
+		end
+		X = range(xpl[1], xpl[2], length=50)
+		Y = range(ypl[1], ypl[2], length=50)
+		if isnothing(s)
+			s = length(xi)
+		end
+
+		function contourFromUnstructured(xi, yi, zi; title="")
+			# Spline from unstructured data https://github.com/kbarbary/Dierckx.jl
+			# println("Total points = ", length(xi))
+			spl = Spline2D(xi, yi, zi; s=s)
+			ff(x,y) = spl(x,y)
+			return contour(X, Y, ff, 
+				titlefontsize=10, grid=false, lw=2, c=:bluesreds, 
+				xlabel="x [mm]", ylabel="FL [mg]", title=title,
+				xlims=xpl, ylims=ypl)
+		end
+
+		# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
+
+		plmact = contourFromUnstructured(xi, FLi, macti; title="mact [x Robobee]")
+		plot!(plmact, X, mactline./X, lw=2, color=:black, ls=:dash, label="")
+
+		append!(retpl, [plmact, 
+			# scatter3d(xi, FLi, macti, camera=(90,40)),
+			contourFromUnstructured(xi, FLi, powi; title="Avg mech pow [mW]"),
+			contourFromUnstructured(xi, FLi, Awi; title="Aw [mm^2]"),
+			contourFromUnstructured(xi, FLi, ARi; title="ARi"),
+			# scatter3d(xi, FLi, powi, camera=(10,40)),
+			# contourFromUnstructured(xi, FLi, rad2deg.(Phii); title="Phi"), 
+			# contourFromUnstructured(xi, FLi, mli; title="ml"), 
+			contourFromUnstructured(xi, FLi, freqi; title="freq [Hz]"), 
+			contourFromUnstructured(xi, FLi, Ti; title="T1 [rad/mm]")])
+	end
+	
+	return retpl
+end
 
 """Run many opts to get the best params for a desired min lift"""
 function scaleParamsForlift(ret, minlifts, τ21ratiolim; kwargs...)
 	traj, param = ret["traj"], ret["param"]
 	function maxuForMinAvgLift(al)
-		r = opt1(traj, param, 1, al, τ21ratiolim; kwargs...)
+		r = opt1(m, traj, param, 1, al, τ21ratiolim; kwargs...)
 		# kΨ, bΨ = param2[4:5]
 		uu = r["traj"][(N+1)*ny:end]
 		return [r["param"]; norm(uu, Inf); norm(r["unactErr"], Inf); norm(uu, 2)/N; r["al"]]
@@ -95,36 +197,63 @@ function scaleParamsForlift(ret, minlifts, τ21ratiolim; kwargs...)
 	return p1, p2, p3, p4
 end
 
-function plotNonlinBenefit(ret)
-    # First plot the param landscape
-    pranges = [
-        0:0.3:3.0, # τ21ratiolim
-        0.6:0.15:1.6 # minal
-    ]
-    labels = [
-        "nonlin ratio",
-        "min avg lift [mN]"
-	]
-	
+NLBENEFIT_FNAME = "nonlin.zip"
+function nonlinBenefit(ret, Tratios, minals)
 	function maxu(τ21ratiolim, minal)
-		rr = opt1(ret["traj"], ret["param"], 1, minal, τ21ratiolim)
-		return rr["u∞"]
+		rr = opt1(m, ret["traj"], ret["param"], 1, minal, τ21ratiolim)
+		return [rr["u∞"]; rr["al"]; rr["FD∞"]; rr["param"]]
 	end
 
-	function plotSlice(i1, i2)
-		zgrid = [maxu(x,y) for y in pranges[i2], x in pranges[i1]] # reversed: see https://github.com/jheinen/GR.jl/blob/master/src/GR.jl
-		# to get the improvement, divide each metric by the performance at τ2=0
-		maxuatτ2_0 = zgrid[:,1]
-		zgrid = zgrid ./ repeat(maxuatτ2_0, 1, length(pranges[i1]))
+	res = [[T;al;maxu(T,al)] for T in Tratios, al in minals]
+	matwrite(NLBENEFIT_FNAME, Dict("res" => res); compress=true)
+	return res
+end
 
-		pl = contourf(pranges[i1], pranges[i2], zgrid, fill=true, seriescolor=cgrad(:bluesreds), xlabel=labels[i1], ylabel=labels[i2])
-        # just in case
-        xlims!(pl, (pranges[i1][1], pranges[i1][end]))
-        ylims!(pl, (pranges[i2][1], pranges[i2][end]))
-        return pl
-    end
+function plotNonlinBenefit(fname; s=100)
+	results = matread(fname)["res"]
+	
+	# Row 1 has Tratio=0 (res[1,:])
+	for r=size(results,1):-1:1
+		for c=1:size(results,2)
+			resT0 = results[1,c]
+			# normalize
+			results[r,c][3] /= resT0[3]
+			results[r,c][5] /= resT0[5]
+		end
+	end
+	xyzi = zeros(length(results[1,1]),0)
+	for res in results
+		xyzi = hcat(xyzi, res)
+	end
+	# lift to mg
+	xyzi[2,:] *= 1000/9.81
+	xyzi[4,:] *= 1000/9.81
+	params = xyzi[6:end,:]
+
+	xpl = [0,3]
+	ypl = [140, 170]
+	X = range(xpl[1], xpl[2], length=50)
+	Y = range(ypl[1], ypl[2], length=50)
+
+	function contourFromUnstructured(xi, yi, zi; title="")
+		# Spline from unstructured data https://github.com/kbarbary/Dierckx.jl
+		# println("Total points = ", length(xi))
+		spl = Spline2D(xi, yi, zi; s=s)
+		ff(x,y) = spl(x,y)
+		return contour(X, Y, ff, 
+			titlefontsize=10, grid=false, lw=2, c=:bluesreds, 
+			xlabel="T ratio", ylabel="FL [mg]", title=title,
+			xlims=xpl, ylims=ypl)
+	end
     
-    return (plotSlice(1, 2),)
+	return [
+		# scatter(xyzi[1,:], xyzi[4,:]),
+		# scatter3d(xyzi[1,:], xyzi[4,:], xyzi[3,:]),
+		contourFromUnstructured(xyzi[1,:], xyzi[4,:], xyzi[3,:]; title="Nonlinear transmission benefit []"),
+		contourFromUnstructured(xyzi[1,:], xyzi[4,:], params[2,:]; title="T1 [rad/mm]"),
+		contourFromUnstructured(xyzi[1,:], xyzi[4,:], params[6,:]; title="Aw [mm^2]"),
+		contourFromUnstructured(xyzi[1,:], xyzi[4,:], 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
+	]
 end
 
 # Test feasibility
@@ -141,11 +270,18 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
+# # resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(2.2:0.2:4.0), 2) # SLOW
+# pls = scaling1disp("scaling1_0.1e3_hl.zip"; scatterOnly=false, xpl=[16,26], ypl=[130,180], s=500, useFDasFact=true, Fnom=50) # Found this by setting useFDasFact=false, and checking magnitudes
+# plot(pls..., size=(1000,600), window_title="Scaling1", dpi=200)
+# savefig("scaling1.png")
+# gui()
+# error("i")
+
 # ID
-ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
+ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-ret2 = opt1(ret1["traj"], ret1["param"], 1, 1.5)#; print_level=3, max_iter=10000)
+ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 1.9)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 
@@ -160,8 +296,9 @@ pls = debugComponentsPlot(m, opt, POPTS, ret2)
 plot(pls..., size=(800,600))
 
 # # -----------------
-# pls = plotNonlinBenefit(ret1) # SLOW
-# plot(pls...)
+# # nonlinBenefit(ret1, 0:0.3:3.0, 1.6:0.2:2.6) # SLOW
+# pls = plotNonlinBenefit(NLBENEFIT_FNAME, s=500)
+# plot(pls..., dpi=200)
 
 # # ----------------
 # pls = scaleParamsForlift(ret1, 0.6:0.2:2.0, 2)
