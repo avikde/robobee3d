@@ -90,8 +90,10 @@ function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, ua
 end
 
 """Generate plot like in [Jafferis (2016)] Fig. 4"""
-function openLoopPlot(m, opt, param0)
-	getResp(f, uamp) = createInitialTraj(m, opt, 0, f, [1e3, 1e2], param0, 0; uampl=uamp, trajstats=true, thcoeff=0.1)
+function openLoopPlot(m, opt, param0; nlt=false)
+	param = copy(param0)
+	param[5] = nlt ? 2*param[2] : 0.0
+	getResp(f, uamp) = createInitialTraj(m, opt, 0, f, [1e3, 1e2], param, 0; uampl=uamp, trajstats=true, thcoeff=0.1)
 	fs = 0.03:0.005:0.25
 	mN_PER_V = 75/180
 

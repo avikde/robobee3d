@@ -41,7 +41,7 @@ include("w2d_paramopt.jl")
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
 N, trajt, traj0, opt, avgLift0 = initTraj(m, param0, KINTYPE; uampl=uampl)
-openLoopPlot(m, opt, param0)
+openLoopPlot(m, opt, param0; nlt=false)
 
 # Param opt init
 cycleFreqLims = [0.3,0.01]#[0.165,0.165]#[0.4, 0.03] # [KHz]
