@@ -34,11 +34,13 @@ traj0 = traj0orig
 
 POPTS = cu.ParamOptOpts(
 	τinds=[1,4], 
-	R=(zeros(2,2), 0, 1.0*I), 
+	R=(zeros(2,2), reshape([0.], 1, 1), 1.0*I), 
 	plimsL = [0.1, 0.1, 0.1, 0.0, 0.01],
 	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 0.5],
 	uinfnorm = false
 )
+
+# cu.affineTest(m, opt, traj0, param0, POPTS; fixTraj=true)
 
 σamax = 0.3 # [mm] constant? for robobee actuators
 # σamax = 100 # [mm] constant? test EM
