@@ -201,16 +201,17 @@ NLBENEFIT_FNAME = "nonlin.zip"
 function nonlinBenefit(ret)
     # First plot the param landscape
     pranges = [
-        0:0.3:3.0, # τ21ratiolim
-        1.4:0.15:3.0 # minal
+        0:0.5:3.0, # τ21ratiolim
+        1.4:0.2:3.0 # minal
     ]
 	function maxu(τ21ratiolim, minal)
 		rr = opt1(m, ret["traj"], ret["param"], 1, minal, τ21ratiolim)
-		return [rr["u∞"]; rr["al"]]
+		return [rr["u∞"]; rr["al"]; rr["FD∞"]]
 	end
 
 	res = [[T;al;maxu(T,al)] for T in pranges[1], al in pranges[2]]
-	matwrite(NLBENEFIT_FNAME, res; compress=true)
+	matwrite(NLBENEFIT_FNAME, Dict("res" => res); compress=true)
+	return res
 end
 
 function plotNonlinBenefit(fname; s=100)
@@ -220,10 +221,17 @@ function plotNonlinBenefit(fname; s=100)
 	]
 	
 	results = matread(fname)
-	xyzi = zeros(4,0)
-	for res in results
+	xyzi = zeros(5,0)
+	for res in results["res"]
 		xyzi = hcat(xyzi, res)
 	end
+	# lift to mg
+	xyzi[4,:] *= 1000/9.81
+
+	xpl = [0,3]
+	ypl = [110, 175]
+	X = range(xpl[1], xpl[2], length=50)
+	Y = range(ypl[1], ypl[2], length=50)
 
 	function contourFromUnstructured(xi, yi, zi; title="")
 		# Spline from unstructured data https://github.com/kbarbary/Dierckx.jl
@@ -250,7 +258,9 @@ function plotNonlinBenefit(fname; s=100)
     # end
     
 	return [
-		scatter3d(xyzi[1,:], xyzi[4,:], xyzi[3,:], camera=(90,40)),
+		# scatter(xyzi[1,:], xyzi[4,:]),
+		# scatter3d(xyzi[1,:], xyzi[4,:], xyzi[3,:]),
+		contourFromUnstructured(xyzi[1,:], xyzi[4,:], xyzi[3,:]; title="Nonlinear transmission benefit")
 	]
 end
 
@@ -268,7 +278,7 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-# # resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(2.2:0.2:4.0), 2)
+# # resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(2.2:0.2:4.0), 2) # SLOW
 # pls = scaling1disp("scaling1_0.1e3_hl.zip"; scatterOnly=false, xpl=[16,26], ypl=[130,180], s=500, useFDasFact=true, Fnom=50) # Found this by setting useFDasFact=false, and checking magnitudes
 # plot(pls..., size=(1000,600), window_title="Scaling1")
 # gui()
@@ -293,8 +303,8 @@ ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0
 # plot(pls..., size=(800,600))
 
 # -----------------
-nonlinBenefit(ret1)
-pls = plotNonlinBenefit(ret1) # SLOW
+# nonlinBenefit(ret1) # SLOW
+pls = plotNonlinBenefit(NLBENEFIT_FNAME, s=500)
 plot(pls...)
 
 # # ----------------
