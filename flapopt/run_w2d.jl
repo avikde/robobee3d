@@ -222,14 +222,23 @@ function plotNonlinBenefit(fname; s=100)
 	
 	results = matread(fname)
 	xyzi = zeros(5,0)
+	resAtT0 = Dict()
 	for res in results["res"]
-		xyzi = hcat(xyzi, res)
+		if res[1] < 1e-3
+			# this was at Tratio=0; store
+			resAtT0[res[2]] = res
+		elseif haskey(resAtT0, res[2])
+			res[3] /= resAtT0[res[2]][3]
+			res[5] /= resAtT0[res[2]][5]
+			xyzi = hcat(xyzi, res)
+		end
 	end
 	# lift to mg
+	xyzi[2,:] *= 1000/9.81
 	xyzi[4,:] *= 1000/9.81
 
 	xpl = [0,3]
-	ypl = [110, 175]
+	ypl = [140, 300]
 	X = range(xpl[1], xpl[2], length=50)
 	Y = range(ypl[1], ypl[2], length=50)
 
@@ -243,24 +252,11 @@ function plotNonlinBenefit(fname; s=100)
 			xlabel="T ratio", ylabel="FL [mg]", title=title,
 			xlims=xpl, ylims=ypl)
 	end
-
-	# function plotSlice(i1, i2)
-	# 	zgrid = [maxu(x,y) for y in pranges[i2], x in pranges[i1]] # reversed: see https://github.com/jheinen/GR.jl/blob/master/src/GR.jl
-	# 	# to get the improvement, divide each metric by the performance at τ2=0
-	# 	maxuatτ2_0 = zgrid[:,1]
-	# 	zgrid = zgrid ./ repeat(maxuatτ2_0, 1, length(pranges[i1]))
-
-	# 	pl = contour(pranges[i1], pranges[i2], zgrid, lw=2,  c=:bluesreds, xlabel=labels[i1], ylabel=labels[i2])
-    #     # just in case
-    #     xlims!(pl, (pranges[i1][1], pranges[i1][end]))
-    #     ylims!(pl, (pranges[i2][1], pranges[i2][end]))
-    #     return pl
-    # end
     
 	return [
 		# scatter(xyzi[1,:], xyzi[4,:]),
 		# scatter3d(xyzi[1,:], xyzi[4,:], xyzi[3,:]),
-		contourFromUnstructured(xyzi[1,:], xyzi[4,:], xyzi[3,:]; title="Nonlinear transmission benefit")
+		contourFromUnstructured(xyzi[1,:], xyzi[2,:], xyzi[3,:]; title="Nonlinear transmission benefit")
 	]
 end
 
