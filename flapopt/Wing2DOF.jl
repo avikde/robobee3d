@@ -207,7 +207,7 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     #
     if trajstats
         # don't return dirtran traj; only traj stats
-        Nend = 100
+        Nend = 1000
         solend = hcat(sol.u[end-Nend+1:end]...) # (ny,N) shaped
         campl = k -> maximum(solend[k,:]) - minimum(solend[k,:])
         return [campl(1), campl(3)] # stroke and hinge ampl

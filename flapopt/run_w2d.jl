@@ -19,7 +19,7 @@ m = Wing2DOFModel(
 	ko = 30.0,
 	ma = 6,
 	ka = 240,
-	Amp = deg2rad.([120, 140]))
+	Amp = deg2rad.([90, 140]))
 ny, nu = cu.dims(m)
 
 function getInitialParams()
@@ -41,7 +41,7 @@ include("w2d_paramopt.jl")
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
 N, trajt, traj0, opt, avgLift0 = initTraj(m, param0, KINTYPE; uampl=uampl)
-# openLoopPlot(m, opt, param0)
+# openLoopPlot(m, opt, param0; save=true)
 
 # Param opt init
 cycleFreqLims = [0.3,0.01]#[0.165,0.165]#[0.4, 0.03] # [KHz]
@@ -197,36 +197,63 @@ function scaleParamsForlift(ret, minlifts, τ21ratiolim; kwargs...)
 	return p1, p2, p3, p4
 end
 
-function plotNonlinBenefit(ret)
-    # First plot the param landscape
-    pranges = [
-        0:0.3:3.0, # τ21ratiolim
-        0.6:0.15:1.6 # minal
-    ]
-    labels = [
-        "nonlin ratio",
-        "min avg lift [mN]"
-	]
-	
+NLBENEFIT_FNAME = "nonlin.zip"
+function nonlinBenefit(ret, Tratios, minals)
 	function maxu(τ21ratiolim, minal)
 		rr = opt1(m, ret["traj"], ret["param"], 1, minal, τ21ratiolim)
-		return rr["u∞"]
+		return [rr["u∞"]; rr["al"]; rr["FD∞"]; rr["param"]]
 	end
 
-	function plotSlice(i1, i2)
-		zgrid = [maxu(x,y) for y in pranges[i2], x in pranges[i1]] # reversed: see https://github.com/jheinen/GR.jl/blob/master/src/GR.jl
-		# to get the improvement, divide each metric by the performance at τ2=0
-		maxuatτ2_0 = zgrid[:,1]
-		zgrid = zgrid ./ repeat(maxuatτ2_0, 1, length(pranges[i1]))
+	res = [[T;al;maxu(T,al)] for T in Tratios, al in minals]
+	matwrite(NLBENEFIT_FNAME, Dict("res" => res); compress=true)
+	return res
+end
 
-		pl = contourf(pranges[i1], pranges[i2], zgrid, fill=true, seriescolor=cgrad(:bluesreds), xlabel=labels[i1], ylabel=labels[i2])
-        # just in case
-        xlims!(pl, (pranges[i1][1], pranges[i1][end]))
-        ylims!(pl, (pranges[i2][1], pranges[i2][end]))
-        return pl
-    end
+function plotNonlinBenefit(fname; s=100)
+	results = matread(fname)["res"]
+	
+	# Row 1 has Tratio=0 (res[1,:])
+	for r=size(results,1):-1:1
+		for c=1:size(results,2)
+			resT0 = results[1,c]
+			# normalize
+			results[r,c][3] /= resT0[3]
+			results[r,c][5] /= resT0[5]
+		end
+	end
+	xyzi = zeros(length(results[1,1]),0)
+	for res in results
+		xyzi = hcat(xyzi, res)
+	end
+	# lift to mg
+	xyzi[2,:] *= 1000/9.81
+	xyzi[4,:] *= 1000/9.81
+	params = xyzi[6:end,:]
+
+	xpl = [0,3]
+	ypl = [140, 170]
+	X = range(xpl[1], xpl[2], length=50)
+	Y = range(ypl[1], ypl[2], length=50)
+
+	function contourFromUnstructured(xi, yi, zi; title="")
+		# Spline from unstructured data https://github.com/kbarbary/Dierckx.jl
+		# println("Total points = ", length(xi))
+		spl = Spline2D(xi, yi, zi; s=s)
+		ff(x,y) = spl(x,y)
+		return contour(X, Y, ff, 
+			titlefontsize=10, grid=false, lw=2, c=:bluesreds, 
+			xlabel="T ratio", ylabel="FL [mg]", title=title,
+			xlims=xpl, ylims=ypl)
+	end
     
-    return (plotSlice(1, 2),)
+	return [
+		# scatter(xyzi[1,:], xyzi[4,:]),
+		# scatter3d(xyzi[1,:], xyzi[4,:], xyzi[3,:]),
+		contourFromUnstructured(xyzi[1,:], xyzi[4,:], xyzi[3,:]; title="Nonlinear transmission benefit []"),
+		contourFromUnstructured(xyzi[1,:], xyzi[4,:], params[2,:]; title="T1 [rad/mm]"),
+		contourFromUnstructured(xyzi[1,:], xyzi[4,:], params[6,:]; title="Aw [mm^2]"),
+		contourFromUnstructured(xyzi[1,:], xyzi[4,:], 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
+	]
 end
 
 # Test feasibility
@@ -243,9 +270,10 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-# # resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(2.2:0.2:4.0), 2)
+# # resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(2.2:0.2:4.0), 2) # SLOW
 # pls = scaling1disp("scaling1_0.1e3_hl.zip"; scatterOnly=false, xpl=[16,26], ypl=[130,180], s=500, useFDasFact=true, Fnom=50) # Found this by setting useFDasFact=false, and checking magnitudes
-# plot(pls..., size=(1000,600), window_title="Scaling1")
+# plot(pls..., size=(1000,600), window_title="Scaling1", dpi=200)
+# savefig("scaling1.png")
 # gui()
 # error("i")
 
@@ -253,7 +281,7 @@ end
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 3.0; Φ=120)#; print_level=3, max_iter=10000)
+ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 1.9)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 
@@ -268,8 +296,9 @@ pls = debugComponentsPlot(m, opt, POPTS, ret2)
 plot(pls..., size=(800,600))
 
 # # -----------------
-# pls = plotNonlinBenefit(ret1) # SLOW
-# plot(pls...)
+# # nonlinBenefit(ret1, 0:0.3:3.0, 1.6:0.2:2.6) # SLOW
+# pls = plotNonlinBenefit(NLBENEFIT_FNAME, s=500)
+# plot(pls..., dpi=200)
 
 # # ----------------
 # pls = scaleParamsForlift(ret1, 0.6:0.2:2.0, 2)
