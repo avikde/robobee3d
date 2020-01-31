@@ -15,14 +15,15 @@ m = MassSpringDamperModel(6, # ma
 	2000, # mo
 	100) # umax
 ny, nu = cu.dims(m)
-opt = cu.OptOptions(false, false, 0.1, 1, :none, 1e-8, false)
+dtdes = 0.02 # Try to reduce to avoid first order bug https://github.com/avikde/robobee3d/pull/120
+opt = cu.OptOptions(false, false, dtdes, 1, :none, 1e-8, false)
 fdes = 0.1 # KHz
 N = round(Int, 1/(opt.fixedδt*fdes)) # 1 period with dt=0.1 in createInitialTraj
 param0 = [20.0, # τ1
 100.0, # ko
 100.0, # bo
 0.0, # τ2
-0.1] # dt
+dtdes] # dt
 
 # Generate a reference traj
 trajt, traj0orig, trajt = createInitialTraj(m, opt, N, fdes)
