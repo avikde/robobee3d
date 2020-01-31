@@ -272,7 +272,8 @@ end
 
 # # resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(2.2:0.2:4.0), 2) # SLOW
 # pls = scaling1disp("scaling1_0.1e3_hl.zip"; scatterOnly=false, xpl=[16,26], ypl=[130,180], s=500, useFDasFact=true, Fnom=50) # Found this by setting useFDasFact=false, and checking magnitudes
-# plot(pls..., size=(1000,600), window_title="Scaling1")
+# plot(pls..., size=(1000,600), window_title="Scaling1", dpi=200)
+# savefig("scaling1.png")
 # gui()
 # error("i")
 
@@ -298,7 +299,6 @@ plot(pls..., size=(800,600))
 # # nonlinBenefit(ret1, 0:0.3:3.0, 1.6:0.2:2.6) # SLOW
 # pls = plotNonlinBenefit(NLBENEFIT_FNAME, s=500)
 # plot(pls..., dpi=200)
-# savefig("nonlin.png")
 
 # # ----------------
 # pls = scaleParamsForlift(ret1, 0.6:0.2:2.0, 2)
