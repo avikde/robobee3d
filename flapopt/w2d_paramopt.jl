@@ -83,7 +83,7 @@ function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, ua
 
 	if Ncyc > 1 && m.Amp[1] != m.Amp[3]
 		# need to smooth the traj
-		traj0[1:(N+1)*ny] = cu.smoothTraj(traj0, ny, N, initialdt; ord=2, cutoff_freq=0.5)
+		traj0[1:(N+1)*ny] = cu.smoothTraj(traj0, ny, N, initialdt; ord=2, cutoff_freq=1.5)
 	end
 
 	if fix
@@ -182,6 +182,7 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	if !isnothing(Φ)
 		if length(Φ) == 1
 			m.Amp[1] = deg2rad(Φ)
+			m.Amp[3] = 0.0
 		else
 			m.Amp[1] = deg2rad(Φ[1])
 			m.Amp[3] = deg2rad(Φ[2])
@@ -206,7 +207,7 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	ret["FD∞"] = norm(ret["comps"][6][1,:], Inf) # Also store drag (should be same as uinf for scaling but dynamics)
 	
 	println(ret["status"], ", ", round.(ret["param"]', digits=3), 
-	", fHz=", round(Ncyc*1000/(N*ret["param"][end]), digits=1), 
+	", fHz=", round(1000/(Ncyc*N*ret["param"][end]), digits=1), 
 	", al[mg]=", round(ret["al"] * 1000/9.81, digits=1), 
 	", u∞=", round(ret["u∞"], digits=1), 
 	", pow=", round(mean(abs.(ret["mechPow"])), digits=1), 
