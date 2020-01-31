@@ -198,18 +198,13 @@ function scaleParamsForlift(ret, minlifts, τ21ratiolim; kwargs...)
 end
 
 NLBENEFIT_FNAME = "nonlin.zip"
-function nonlinBenefit(ret)
-    # First plot the param landscape
-    pranges = [
-        0:0.5:3.0, # τ21ratiolim
-        1.4:0.2:3.0 # minal
-    ]
+function nonlinBenefit(ret, Tratios, minals)
 	function maxu(τ21ratiolim, minal)
 		rr = opt1(m, ret["traj"], ret["param"], 1, minal, τ21ratiolim)
-		return [rr["u∞"]; rr["al"]; rr["FD∞"]]
+		return [rr["u∞"]; rr["al"]; rr["FD∞"]; rr["param"]]
 	end
 
-	res = [[T;al;maxu(T,al)] for T in pranges[1], al in pranges[2]]
+	res = [[T;al;maxu(T,al)] for T in Tratios, al in minals]
 	matwrite(NLBENEFIT_FNAME, Dict("res" => res); compress=true)
 	return res
 end
@@ -220,18 +215,22 @@ function plotNonlinBenefit(fname; s=100)
         "min avg lift [mN]"
 	]
 	
-	results = matread(fname)
-	xyzi = zeros(5,0)
-	resAtT0 = Dict()
-	for res in results["res"]
-		if res[1] < 1e-3
-			# this was at Tratio=0; store
-			resAtT0[res[2]] = res
-		elseif haskey(resAtT0, res[2])
-			res[3] /= resAtT0[res[2]][3]
-			res[5] /= resAtT0[res[2]][5]
-			xyzi = hcat(xyzi, res)
+	results = matread(fname)["res"]
+	
+	# Row 1 has Tratio=0 (res[1,:])
+	for r=size(results,1):-1:1
+		for c=1:size(results,2)
+			resT0 = results[1,c]
+			# normalize
+			results[r,c][3] /= resT0[3]
+			results[r,c][5] /= resT0[5]
 		end
+	end
+	xyzi = zeros(5,0)
+	println(size(results))
+	println(results[1,:])
+	for res in results
+		xyzi = hcat(xyzi, res)
 	end
 	# lift to mg
 	xyzi[2,:] *= 1000/9.81
@@ -284,7 +283,7 @@ end
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # # 2. Try to optimize
-# ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 1.9)#; print_level=3, max_iter=10000)
+# ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 1.4)#; print_level=3, max_iter=10000)
 
 # # testManyShifts(ret1, [0], 0.6)
 
@@ -299,7 +298,7 @@ ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0
 # plot(pls..., size=(800,600))
 
 # -----------------
-# nonlinBenefit(ret1) # SLOW
+# nonlinBenefit(ret1, 0:0.3:3.0, 2.2:0.2:3.0) # SLOW
 pls = plotNonlinBenefit(NLBENEFIT_FNAME, s=500)
 plot(pls...)
 
