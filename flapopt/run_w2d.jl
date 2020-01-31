@@ -228,6 +228,7 @@ function plotNonlinBenefit(fname; s=100)
 	# lift to mg
 	xyzi[2,:] *= 1000/9.81
 	xyzi[4,:] *= 1000/9.81
+	params = xyzi[6:end,:]
 
 	xpl = [0,3]
 	ypl = [140, 170]
@@ -248,7 +249,10 @@ function plotNonlinBenefit(fname; s=100)
 	return [
 		# scatter(xyzi[1,:], xyzi[4,:]),
 		# scatter3d(xyzi[1,:], xyzi[4,:], xyzi[3,:]),
-		contourFromUnstructured(xyzi[1,:], xyzi[4,:], xyzi[3,:]; title="Nonlinear transmission benefit")
+		contourFromUnstructured(xyzi[1,:], xyzi[4,:], xyzi[3,:]; title="Nonlinear transmission benefit []"),
+		contourFromUnstructured(xyzi[1,:], xyzi[4,:], params[2,:]; title="T1 [rad/mm]"),
+		contourFromUnstructured(xyzi[1,:], xyzi[4,:], params[6,:]; title="Aw [mm^2]"),
+		contourFromUnstructured(xyzi[1,:], xyzi[4,:], 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
 	]
 end
 
@@ -275,25 +279,26 @@ end
 # ID
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
-# # 2. Try to optimize
-# ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 1.4)#; print_level=3, max_iter=10000)
+# 2. Try to optimize
+ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 1.9)#; print_level=3, max_iter=10000)
 
-# # testManyShifts(ret1, [0], 0.6)
+# testManyShifts(ret1, [0], 0.6)
 
-# # retTest = Dict("traj"=>ret2["traj"], "param"=>ret2["param"])
-# # retTest["param"][2]
+# retTest = Dict("traj"=>ret2["traj"], "param"=>ret2["param"])
+# retTest["param"][2]
 
-# # pl1 = plotTrajs(m, opt, listOfParamTraj(ret1, ret2)...)
-# # plot(pl1...)
+# pl1 = plotTrajs(m, opt, listOfParamTraj(ret1, ret2)...)
+# plot(pl1...)
 
-# # ---------
-# pls = debugComponentsPlot(m, opt, POPTS, ret2)
-# plot(pls..., size=(800,600))
+# ---------
+pls = debugComponentsPlot(m, opt, POPTS, ret2)
+plot(pls..., size=(800,600))
 
-# -----------------
-# nonlinBenefit(ret1, 0:0.3:3.0, 1.6:0.2:2.6) # SLOW
-pls = plotNonlinBenefit(NLBENEFIT_FNAME, s=50)
-plot(pls...)
+# # -----------------
+# # nonlinBenefit(ret1, 0:0.3:3.0, 1.6:0.2:2.6) # SLOW
+# pls = plotNonlinBenefit(NLBENEFIT_FNAME, s=500)
+# plot(pls..., dpi=200)
+# savefig("nonlin.png")
 
 # # ----------------
 # pls = scaleParamsForlift(ret1, 0.6:0.2:2.0, 2)
