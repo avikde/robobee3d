@@ -47,11 +47,11 @@ end
 
 "Some optimization numerical error is causing spiky oscillations in Δy
 https://github.com/avikde/robobee3d/pull/127#issuecomment-580050283"
-function smoothΔy(Δy, ny, N, dt; ord=2, cutoff_freq=0.5)
+function smoothTraj(traj, ny, N, dt; ord=2, cutoff_freq=0.5)
 	# For each coord, fit a spline
 	# tvec = collect(0:(N))*dt
 	myfilter = digitalfilter(Lowpass(cutoff_freq; fs=1/dt), Butterworth(ord))
-	smoothCoord(i) = filtfilt(myfilter, Δy[i:ny:(N+1)*ny])
+	smoothCoord(i) = filtfilt(myfilter, traj[i:ny:(N+1)*ny])
 	trajNny = hcat([smoothCoord(i) for i=1:ny]...)
 	return trajNny'[:]
 end
@@ -63,7 +63,7 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, POPTS, traj::Abstract
 	np = length(pnew)
 	dtold = paramold[end] # dt is the last param
 	dtnew = pnew[end]
-	Δy = smoothΔy(Δy, ny, N, dtnew)
+	Δy = smoothTraj(Δy, ny, N, dtnew)
 	Δyk = k -> Δy[(k-1)*ny+1 : k*ny]
 
 	# Also convert the output traj with the Δy, new T, and inputs

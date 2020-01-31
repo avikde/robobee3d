@@ -19,7 +19,7 @@ m = Wing2DOFModel(
 	ko = 30.0,
 	ma = 6,
 	ka = 240,
-	Amp = deg2rad.([120, 140]))
+	Amp = deg2rad.([120, 140, 0]))
 ny, nu = cu.dims(m)
 
 function getInitialParams()
@@ -253,7 +253,7 @@ end
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 3.0; Φ=120)#; print_level=3, max_iter=10000)
+ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 1.9)#; Φ=[90,90])#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 

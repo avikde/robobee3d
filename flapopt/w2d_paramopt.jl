@@ -44,10 +44,13 @@ end
 kinType -- 0 => ID'ed real data, 1 => openloop sim with param0 then truncate, 2 => generate kinematics(t)
 fix -- Make traj satisfy dyn constraint with these params?
 """
-function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, starti=214, verbose=true, freq=0.165, N=80)
+function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, starti=1115, verbose=true, freq=0.165, N=80)
+	Ncyc = (m.Amp[3]!=0.0 ? 2 : 1)
+	N *= Ncyc
 	if kinType==1
-		opt = cu.OptOptions(false, false, 1/(N*freq), 1, :none, 1e-8, false) # sim
-		N = opt.boundaryConstraint == :symmetric ? N÷2 : N
+		initialdt = 1/(N*freq)
+		opt = cu.OptOptions(false, false, initialdt, 1, :none, 1e-8, false) # sim
+		N = (opt.boundaryConstraint == :symmetric ? N÷2 : N)*Ncyc
 		trajt, traj0 = createInitialTraj(m, opt, N, freq, [1e3, 1e2], param0, starti; uampl=uampl, verbose=verbose)
 	elseif kinType==0
 		# Load data
@@ -60,13 +63,27 @@ function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, ua
 		error("Not implemented")
 	end
 
-	@views tcoord(i) = traj0[i:ny:(N+1)*ny]
+	@views tcoord(i, Nn=N) = traj0[i:ny:(Nn+1)*ny]
 	currentAmpl(i) = maximum(tcoord(i)) - minimum(tcoord(i))
 	for i=1:2
 		if m.Amp[i] != 0.0 # Set stroke/hinge amplitude https://github.com/avikde/robobee3d/pull/127
-			tcoord(i) .*= m.Amp[i]/currentAmpl(i) # scale pos
-			tcoord(i+2) .*= m.Amp[i]/currentAmpl(i) # scale vel
+			iampl = currentAmpl(i)
+			if i == 1 && Ncyc > 1
+				# https://github.com/avikde/robobee3d/pull/129 scale all by the second ampl then the first half
+				tcoord(i) .*= m.Amp[3]/iampl
+				tcoord(i+2) .*= m.Amp[3]/iampl
+				tcoord(i, N÷2) .*= m.Amp[1]/m.Amp[3]
+				tcoord(i+2, N÷2) .*= m.Amp[1]/m.Amp[3]
+			else
+				tcoord(i) .*= m.Amp[i]/iampl # scale pos
+				tcoord(i+2) .*= m.Amp[i]/iampl # scale vel
+			end
 		end
+	end
+
+	if Ncyc > 1 && m.Amp[1] != m.Amp[3]
+		# need to smooth the traj
+		traj0[1:(N+1)*ny] = cu.smoothTraj(traj0, ny, N, initialdt; ord=2, cutoff_freq=1.5)
 	end
 
 	if fix
@@ -147,7 +164,7 @@ end
 """One-off ID or opt"""
 function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1, wARconstraintLinCbar=3.2, Φ=nothing)
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
-	print(mode==2 ? "ID" : "Opt", " Φ=", isnothing(Φ) ? "-" : Φ, ", minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
+	print(mode==2 ? "ID" : "Opt", " Φ=", isnothing(Φ) ? "-" : round.(Φ, digits=1), ", minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
 
     # cbar, τ1, mwing, wΨ, τ2, Aw, dt  = param
 	# Poly constraint
@@ -163,11 +180,17 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	dp = [mlb; 0; 0; 0; wARb]
 
 	if !isnothing(Φ)
-		m.Amp[1] = deg2rad(Φ)
+		if length(Φ) == 1
+			m.Amp[1] = deg2rad(Φ)
+			m.Amp[3] = 0.0
+		else
+			m.Amp[1] = deg2rad(Φ[1])
+			m.Amp[3] = deg2rad(Φ[2])
+		end
 		# get new input traj
 		traj = initTraj(m, param, KINTYPE; uampl=75, verbose=false)[3]
 	end
-
+	Ncyc = (m.Amp[3]!=0.0 ? 2 : 1)
 	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
 	# append unactErr
 	ret["unactErr"] = ret["eval_g"](ret["x"])[1:N] # 1 unact DOF
@@ -184,7 +207,7 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	ret["FD∞"] = norm(ret["comps"][6][1,:], Inf) # Also store drag (should be same as uinf for scaling but dynamics)
 	
 	println(ret["status"], ", ", round.(ret["param"]', digits=3), 
-	", fHz=", round(1000/(N*ret["param"][end]), digits=1), 
+	", fHz=", round(1000/(Ncyc*N*ret["param"][end]), digits=1), 
 	", al[mg]=", round(ret["al"] * 1000/9.81, digits=1), 
 	", u∞=", round(ret["u∞"], digits=1), 
 	", pow=", round(mean(abs.(ret["mechPow"])), digits=1), 
