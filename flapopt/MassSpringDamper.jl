@@ -178,33 +178,35 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     τ1, ko, bo, τ2, dtold = param
 
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
-    function HMqTo(q, ddq)
-        σo = q * scaleTraj
-        ddσo = ddq * scaleTraj * dtold^2
-        return [ddσo*m.mo   0   0   0   0]
+    function HMqTo(ypos, yvel)
+        σo = ypos[1] * scaleTraj
+        σ̇o = yvel[2] * scaleTraj * dtold
+        return [σ̇o*m.mo   0   0   0   0]
     end
-    function HMqTa(q, ddq)
-        σo = q * scaleTraj
-        ddσo = ddq * scaleTraj * dtold^2
-        return [0   0   0   ddσo*m.ma   ddσo*m.ma*(-σo^2)]
+    function HMqTa(ypos, yvel)
+        σo = ypos[1] * scaleTraj
+        σ̇o = yvel[2] * scaleTraj * dtold
+        return [0   0   0   σ̇o*m.ma   σ̇o*m.ma*(-σo^2)]
     end
-    HMqT(q, ddq) = HMqTo(q, ddq) + HMqTa(q, ddq)
+    HMqT(ypos, yvel) = HMqTo(ypos, yvel) + HMqTa(ypos, yvel)
+    Hio = (y, ynext) -> HMqTo(ynext, ynext) - HMqTo(y, y)
+    Hia = (y, ynext) -> HMqTa(ynext, ynext) - HMqTa(y, y)
 
-    function Hstiffo(q)
-        σo = q * scaleTraj
+    function Hstiffo(y)
+        σo = y[1] * scaleTraj
         return [0   σo   0   0   0]
     end
-    function Hstiffa(q)
-        σo = q * scaleTraj
+    function Hstiffa(y)
+        σo = y[1] * scaleTraj
         return [0   0   0   m.ka*σo   m.ka*(-σo^3/3)]
     end
-    function Hdamp(dq)
-        σ̇o = dq * scaleTraj * dtold
+    function Hdamp(y)
+        σ̇o = y[2] * scaleTraj * dtold
         return [0   0   σ̇o   0    0]
     end
     
     if debugComponents
-        return yo, HMqTo, HMqTa, Hstiffo, Hstiffa, Hdamp
+        return yo, Hio, Hia, Hstiffo, Hstiffa, Hdamp
     end
     # ----------------
     
@@ -215,11 +217,11 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
         ynext = yo(k+1) + Δykp1
         # This is inefficient since dydt is being called twice but fix later TODO:
         yc, dyc = cu.collocationStates(m, opt, y, ynext, uk(k), uk(min(k+1,N)), param, dtold)
-        H_dt2 = HMqT(yc[1], dyc[2])
-        H_dt1 = Hdamp(yc[2])
-        H_dt0 = Hstiffo(yc[1]) + Hstiffa(yc[1])
+        H_dt2 = HMqT(y, ynext) - HMqT(y, y)
+        H_dt1 = Hdamp(y)
+        H_dt0 = Hstiffo(y) + Hstiffa(y)
         # With new nonlinear transmission need to break apart H
-        σo = yc[1]
+        σo = y[1]
         return [cu.Hτ(H_dt2, σo)  cu.Hτ(H_dt1, σo)   cu.Hτ(H_dt0, σo)]
     end
     
