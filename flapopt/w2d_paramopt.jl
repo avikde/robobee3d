@@ -159,13 +159,15 @@ function trajMechPow(m, opt, traj, param)
 end
 
 """One-off ID or opt"""
-function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1, wARconstraintLinCbar=3.2, Φ=nothing)
+function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1, Φ=nothing)
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
 	print(mode==2 ? "ID" : "Opt", " Φ=", isnothing(Φ) ? "-" : Φ, ", minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
 
     # cbar, τ1, mwing, wΨ, τ2, Aw, dt  = param
 	# Poly constraint
 	rholims = estimateWingDensity()
+	# Could pick Wing AR constrain lin based on minal
+	wARconstraintLinCbar = 2.0 + 0.5*minal # heuristic approx
 	wARa, wARb = wingARconstraintLin(wARconstraintLinCbar; maxAR=4)
 	mla, mlb = minLiftConstraintLin(minal, param0, avgLift0)
 	# Polytope constraint
