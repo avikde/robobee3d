@@ -210,11 +210,6 @@ function nonlinBenefit(ret, Tratios, minals)
 end
 
 function plotNonlinBenefit(fname; s=100)
-    labels = [
-        "nonlin ratio",
-        "min avg lift [mN]"
-	]
-	
 	results = matread(fname)["res"]
 	
 	# Row 1 has Tratio=0 (res[1,:])
@@ -226,9 +221,7 @@ function plotNonlinBenefit(fname; s=100)
 			results[r,c][5] /= resT0[5]
 		end
 	end
-	xyzi = zeros(5,0)
-	println(size(results))
-	println(results[1,:])
+	xyzi = zeros(length(results[1,1]),0)
 	for res in results
 		xyzi = hcat(xyzi, res)
 	end
@@ -237,7 +230,7 @@ function plotNonlinBenefit(fname; s=100)
 	xyzi[4,:] *= 1000/9.81
 
 	xpl = [0,3]
-	ypl = [140, 300]
+	ypl = [140, 170]
 	X = range(xpl[1], xpl[2], length=50)
 	Y = range(ypl[1], ypl[2], length=50)
 
@@ -255,7 +248,7 @@ function plotNonlinBenefit(fname; s=100)
 	return [
 		# scatter(xyzi[1,:], xyzi[4,:]),
 		# scatter3d(xyzi[1,:], xyzi[4,:], xyzi[3,:]),
-		contourFromUnstructured(xyzi[1,:], xyzi[2,:], xyzi[3,:]; title="Nonlinear transmission benefit")
+		contourFromUnstructured(xyzi[1,:], xyzi[4,:], xyzi[3,:]; title="Nonlinear transmission benefit")
 	]
 end
 
@@ -298,8 +291,8 @@ ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0
 # plot(pls..., size=(800,600))
 
 # -----------------
-# nonlinBenefit(ret1, 0:0.3:3.0, 2.2:0.2:3.0) # SLOW
-pls = plotNonlinBenefit(NLBENEFIT_FNAME, s=500)
+# nonlinBenefit(ret1, 0:0.3:3.0, 1.6:0.2:2.6) # SLOW
+pls = plotNonlinBenefit(NLBENEFIT_FNAME, s=50)
 plot(pls...)
 
 # # ----------------
