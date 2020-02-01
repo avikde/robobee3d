@@ -40,7 +40,7 @@ include("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
-N, trajt, traj0, opt, avgLift0 = initTraj(m, param0, KINTYPE; uampl=uampl)
+N, trajt, traj0, opt, avgLift0, Φ0 = initTraj(m, param0, KINTYPE; uampl=uampl)
 # openLoopPlot(m, opt, param0; save=true)
 
 # Param opt init
