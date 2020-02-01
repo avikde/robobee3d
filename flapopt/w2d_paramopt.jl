@@ -86,7 +86,7 @@ function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, ua
 	if verbose
 		println("Avg lift initial [mN]=", round(avgLift0, digits=4), ", in [mg]=", round(avgLift0*1000/9.81, digits=1))
 	end
-	return N, trajt, traj0, opt, avgLift0
+	return N, trajt, traj0, opt, avgLift0, currentAmpl(1)
 end
 
 """Generate plot like in [Jafferis (2016)] Fig. 4"""
@@ -140,10 +140,10 @@ function wingARconstraintLin(cbar; maxAR=6)
 end
 
 """Min lift involves Aw, cbar, dt. For now approx by fixing wing AR https://github.com/avikde/robobee3d/pull/119#issuecomment-577253382"""
-function minLiftConstraintLin(minlift, param0, avgLift0)
+function minLiftConstraintLin(minlift, param0, avgLift0, Φ0, Φ1)
 	# Lift ~ (Aw/dt)^2 => calculate k needed
 	cbar, τ1, mwing, wΨ, τ2, Aw, dt = param0
-	Aw_dtmin = (Aw/dt)*sqrt(minlift/avgLift0)
+	Aw_dtmin = (Aw/dt)*(Φ0/Φ1)*sqrt(minlift/avgLift0) # See scaling1
 	# constraint is already linear: -Aw + Aw_dtmin*dt <= 0
 	return [-1.0, Aw_dtmin], 0
 end
@@ -160,6 +160,17 @@ end
 
 """One-off ID or opt"""
 function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1, Φ=nothing, Rpow=nothing)
+	# Make any desired changes
+	if !isnothing(Φ)
+		m.Amp[1] = deg2rad(Φ)
+		# get new input traj
+		traj, Φ1 = initTraj(m, param, KINTYPE; uampl=75, verbose=false)[[3,6]]
+	else
+		Φ1 = Φ0 # no change in traj => use the initial one (goes with avgLift0)
+	end
+	if !isnothing(Rpow)
+		POPTS.R[2] .= reshape([Rpow],1,1)
+	end
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
 
     # cbar, τ1, mwing, wΨ, τ2, Aw, dt  = param
@@ -167,8 +178,8 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	rholims = estimateWingDensity()
 	# Could pick Wing AR constrain lin based on minal
 	wARconstraintLinCbar = 2.0 + 0.5*minal # heuristic approx
-	wARa, wARb = wingARconstraintLin(wARconstraintLinCbar; maxAR=4)
-	mla, mlb = minLiftConstraintLin(minal, param0, avgLift0)
+	wARa, wARb = wingARconstraintLin(wARconstraintLinCbar; maxAR=5.5) # initial AR is 5.3
+	mla, mlb = minLiftConstraintLin(minal, param0, avgLift0, Φ0, Φ1)
 	# Polytope constraint
 	Cp = Float64[0  0  0  0  0  mla[1]  mla[2]; # min lift
 		0  -τ21ratiolim  0  0  1  0  0; # transmission nonlinearity τ2 <= τ21ratiolim * τ1
@@ -176,15 +187,6 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 		0   0  1  0  0  -rholims[2]  0; # wing density mw <= Aw*ρ2
 		wARa[1]   0  0  0  0  wARa[2]  0] # wing AR
 	dp = [mlb; 0; 0; 0; wARb]
-
-	if !isnothing(Φ)
-		m.Amp[1] = deg2rad(Φ)
-		# get new input traj
-		traj = initTraj(m, param, KINTYPE; uampl=75, verbose=false)[3]
-	end
-	if !isnothing(Rpow)
-		POPTS.R[2] .= reshape([Rpow],1,1)
-	end
 	print(mode==2 ? "ID" : "Opt", " Φ=", isnothing(Φ) ? "-" : Φ, ", Rpow=", round(POPTS.R[2][1,1]), ", minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
 
 	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
