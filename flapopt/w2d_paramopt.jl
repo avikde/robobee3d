@@ -10,6 +10,10 @@ include("LoadWingKinData.jl")
 const cb_idx = 1
 const mw_idx = 3
 const Aw_idx = 6
+const dt_idx = 7
+w2d_AR(p) = p[Aw_idx] / p[cb_idx]^2
+w2d_Lw(p) = p[Aw_idx] / p[cb_idx]
+w2d_sqrtLiftApprox(p, Φ) = (Φ * p[Aw_idx]/p[dt_idx]) * sqrt(w2d_AR(p))
 
 """From Chen (2016) IROS, find a usable estimate of the wing density to use as a bound."""
 function estimateWingDensity(test=false)
@@ -85,7 +89,7 @@ function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, ua
 	# Constraint on cbar placed by minAvgLift
 	avgLift0 = avgLift(m, opt, traj0, param0)
 	if verbose
-		println("Avg lift initial [mN]=", round(avgLift0, digits=4), ", in [mg]=", round(avgLift0*1000/9.81, digits=1))
+		println("Avg lift initial [mg]=", round(avgLift0, digits=1))
 	end
 	return N, trajt, traj0, opt, avgLift0, currentAmpl(1)
 end
@@ -207,13 +211,26 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	
 	println(ret["status"], ", ", round.(ret["param"]', digits=3), 
 	", fHz=", round(1000/(N*ret["param"][end]), digits=1), 
-	", al[mg]=", round(ret["al"] * 1000/9.81, digits=1), 
+	", al[mg]=", round(ret["al"], digits=1), 
 	", u∞=", round(ret["u∞"], digits=1), 
 	", FD∞=", round(ret["FD∞"], digits=1), 
 	", pow=", round(mean(abs.(ret["mechPow"])), digits=1), 
 	", J=", round(ret["eval_f"](ret["x"]), digits=1), 
-	", AR=", round(ret["param"][Aw_idx]/ret["param"][cb_idx]^2, digits=1), 
-	", x=", round(ret["param"][Aw_idx]/ret["param"][cb_idx]*deg2rad(isnothing(Φ) ? 90 : Φ), digits=1))
+	", AR=", round(w2d_AR(ret["param"]), digits=1), 
+	", x=", round(w2d_Lw(ret["param"])*deg2rad(isnothing(Φ) ? 90 : Φ), digits=1))
+
+
+	lift0 = trajAero(m, opt, traj0, param0, :lift)
+	lift1 = trajAero(m, opt, ret["traj"], ret["param"], :lift)
+	p1 = plot(lift0, lw=2)
+	plot!(p1, lift1*(w2d_sqrtLiftApprox(param0, Φ0)/w2d_sqrtLiftApprox(ret["param"], Φ1))^2, lw=2)
+	# plot!(p1, ret["traj"][3:ny:(N+1)*ny], lw=2)
+	# plot!(p1, traj0[3:ny:(N+1)*ny]*Φ1*param0[end]/(ret["param"][end]*Φ0), lw=2, ls=:dash)
+	plot(p1)
+	gui()
+	println("orig ", Φ0#= *param0[6] =#/param0[end], " ", Φ1#= *ret["param"][6] =#/ret["param"][end])
+	error("hi")
+
 	return ret
 end
 
