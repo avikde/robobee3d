@@ -86,9 +86,6 @@ function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, ua
 		error("Initial traj")
 	end
 	
-	if verbose
-		println("Avg lift initial [mg]=", round(avgLift0, digits=1))
-	end
 	return N, trajt, traj0, opt, currentAmpl(1)
 end
 
@@ -180,7 +177,7 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	# Poly constraint
 	rholims = estimateWingDensity()
 	# Could pick Wing AR constrain lin based on minal
-	wARconstraintLinCbar = 2.0 + 0.5*minal # heuristic approx
+	wARconstraintLinCbar = 2.3 + 0.005*minal # heuristic approx
 	wARa, wARb = wingARconstraintLin(wARconstraintLinCbar; maxAR=5.5) # initial AR is 5.3
 	mla, mlb = minLiftConstraintLin(minal, param0, avgLift0, Φ0, Φ1)
 	# Polytope constraint
