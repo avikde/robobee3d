@@ -64,8 +64,9 @@ function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, ua
 	currentAmpl(i) = maximum(tcoord(i)) - minimum(tcoord(i))
 	for i=1:2
 		if m.Amp[i] != 0.0 # Set stroke/hinge amplitude https://github.com/avikde/robobee3d/pull/127
-			tcoord(i) .*= m.Amp[i]/currentAmpl(i) # scale pos
-			tcoord(i+2) .*= m.Amp[i]/currentAmpl(i) # scale vel
+			ampli = currentAmpl(i)
+			tcoord(i) .*= m.Amp[i]/ampli # scale pos
+			tcoord(i+2) .*= m.Amp[i]/ampli # scale vel
 		end
 	end
 
