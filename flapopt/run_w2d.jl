@@ -40,8 +40,9 @@ include("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
-N, trajt, traj0, opt, avgLift0, Φ0 = initTraj(m, param0, KINTYPE; uampl=uampl)
+N, trajt, traj0, opt, Φ0 = initTraj(m, param0, KINTYPE; uampl=uampl)
 # openLoopPlot(m, opt, param0; save=true)
+avgLift0 = avgLift(m, opt, traj0, param0) # for minlift constraint
 
 # Param opt init
 cycleFreqLims = [0.3,0.01]#[0.165,0.165]#[0.4, 0.03] # [KHz]
@@ -274,6 +275,8 @@ end
 # savefig("scaling1.png")
 # gui()
 # error("i")
+
+println("HI ", avgLift0)
 
 # ID
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0

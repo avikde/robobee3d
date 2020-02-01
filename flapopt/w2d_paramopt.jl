@@ -86,12 +86,10 @@ function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, ua
 		error("Initial traj")
 	end
 	
-	# Constraint on cbar placed by minAvgLift
-	avgLift0 = avgLift(m, opt, traj0, param0)
 	if verbose
 		println("Avg lift initial [mg]=", round(avgLift0, digits=1))
 	end
-	return N, trajt, traj0, opt, avgLift0, currentAmpl(1)
+	return N, trajt, traj0, opt, currentAmpl(1)
 end
 
 """Generate plot like in [Jafferis (2016)] Fig. 4"""
@@ -169,7 +167,7 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	if !isnothing(Φ)
 		m.Amp[1] = deg2rad(Φ)
 		# get new input traj
-		traj, Φ1 = initTraj(m, param, KINTYPE; uampl=75, verbose=false)[[3,6]]
+		traj, Φ1 = initTraj(m, param, KINTYPE; uampl=75, verbose=false)[[3,5]]
 	else
 		Φ1 = Φ0 # no change in traj => use the initial one (goes with avgLift0)
 	end
