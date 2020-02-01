@@ -203,9 +203,11 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	", fHz=", round(1000/(N*ret["param"][end]), digits=1), 
 	", al[mg]=", round(ret["al"] * 1000/9.81, digits=1), 
 	", u∞=", round(ret["u∞"], digits=1), 
+	", FD∞=", round(ret["FD∞"], digits=1), 
 	", pow=", round(mean(abs.(ret["mechPow"])), digits=1), 
 	", J=", round(ret["eval_f"](ret["x"]), digits=1), 
-	", AR=", round(ret["param"][Aw_idx]/ret["param"][cb_idx]^2, digits=1))
+	", AR=", round(ret["param"][Aw_idx]/ret["param"][cb_idx]^2, digits=1), 
+	", x=", round(ret["param"][Aw_idx]/ret["param"][cb_idx]*deg2rad(isnothing(Φ) ? 90 : Φ), digits=1))
 	return ret
 end
 
