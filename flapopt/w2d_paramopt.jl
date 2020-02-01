@@ -159,9 +159,8 @@ function trajMechPow(m, opt, traj, param)
 end
 
 """One-off ID or opt"""
-function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1, Φ=nothing)
+function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1, Φ=nothing, Rpow=nothing)
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
-	print(mode==2 ? "ID" : "Opt", " Φ=", isnothing(Φ) ? "-" : Φ, ", minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
 
     # cbar, τ1, mwing, wΨ, τ2, Aw, dt  = param
 	# Poly constraint
@@ -183,6 +182,10 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 		# get new input traj
 		traj = initTraj(m, param, KINTYPE; uampl=75, verbose=false)[3]
 	end
+	if !isnothing(Rpow)
+		POPTS.R[2] .= reshape([Rpow],1,1)
+	end
+	print(mode==2 ? "ID" : "Opt", " Φ=", isnothing(Φ) ? "-" : Φ, ", Rpow=", round(POPTS.R[2][1,1]), ", minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
 
 	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
 	# append unactErr
