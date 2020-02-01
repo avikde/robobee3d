@@ -105,7 +105,7 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 		append!(Awi, param[6])
 		append!(ARi, Lw/param[1])
 		append!(xi, Phi*Lw)
-		append!(FLi, 1000/9.81*stats[2])
+		append!(FLi, stats[2])
 		append!(macti, stats[3] * (useFDasFact ? stats[5] : stats[1])/mactRobobee)
 		append!(powi, stats[4])
 		append!(freqi, 1000/(N*param[np]))
@@ -182,12 +182,12 @@ function scaleParamsForlift(ret, minlifts, τ21ratiolim; kwargs...)
 		"Aw",
 		"dt"
 	]
-	minliftsmg = minlifts .* 1000/9.81
+	minliftsmg = minlifts
 
 	res = hcat(maxuForMinAvgLift.(minlifts)...)'
 	display(res)
 	np = length(param0)
-	actualliftsmg = res[:,np+4] * 1000/9.81
+	actualliftsmg = res[:,np+4]
 	p1 = plot(actualliftsmg, res[:,POPTS.τinds], xlabel="avg lift [mg]", label=llabels[POPTS.τinds], ylabel="T1,T2", linewidth=2, legend=:topleft)
 	p2 = plot(actualliftsmg, [res[:,np+1]  res[:,np+3]], xlabel="avg lift [mg]", ylabel="umin [mN]", linewidth=2, legend=:topleft, label=["inf","2","al"])
 	hline!(p2, [75], linestyle=:dash, color=:black, label="robobee act")
@@ -226,8 +226,6 @@ function plotNonlinBenefit(fname; s=100)
 		xyzi = hcat(xyzi, res)
 	end
 	# lift to mg
-	xyzi[2,:] *= 1000/9.81
-	xyzi[4,:] *= 1000/9.81
 	params = xyzi[6:end,:]
 
 	xpl = [0,3]
@@ -281,7 +279,7 @@ end
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 2.0; Φ=120, Rpow=10)#; print_level=3, max_iter=10000)
+ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 170; Φ=120, Rpow=10)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 
