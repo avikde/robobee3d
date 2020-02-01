@@ -27,7 +27,7 @@ Reasonable limits:
 Params:
 - cbar = wing chord
 - T = transmission ratio
-- R = wing length. This is irrelevant for the 2DOF model, but choosing one for now from [Jafferis (2016)]. This is used to (a) calculate the aero force, and (b) in the plotting to show the "stroke angle" as a more intuitive version of σ.
+- Lw = wing length. This is irrelevant for the 2DOF model, but choosing one for now from [Jafferis (2016)]. This is used to (a) calculate the aero force, and (b) in the plotting to show the "stroke angle" as a more intuitive version of σ.
 
 NOTE:
 - Reasonable values: Toutput = 2666 rad/m in the current two-wing vehicle; 2150 rad/m in X-Wing; 3333 rad/m in Kevin Ma's older vehicles.
@@ -81,8 +81,9 @@ function w2daero(m::Wing2DOFModel, yo::AbstractArray, param::Vector)
     
     # unpack
     cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
-    R = Aw/cbar
-    ycp = R*m.r1h # approx as in [Chen (2016)]
+    AR = Aw/cbar^2
+    Lw = Aw/cbar
+    ycp = Lw*m.r1h # approx as in [Chen (2016)]
     nq = length(yo)÷2
     φ, Ψ, dφ, dΨ = yo[[1,2,nq+1,nq+2]] # [rad, rad]
 
@@ -111,7 +112,7 @@ function w2daero(m::Wing2DOFModel, yo::AbstractArray, param::Vector)
     {d\[Sigma], -1, 1}, {\[Psi], -\[Pi]/2, \[Pi]/2}]
     =#
     Caero = [((CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2α)), CLmax * sin(2α)]
-    Faero = 1/2 * ρ * dφ^2 * cbar * R^3 * m.r2h^2 * (Caero[1]*eD + Caero[2]*eL*sign(-dφ)) # [mN]
+    Faero = 1/2 * ρ * dφ^2 * Aw^2 * AR * m.r2h^2 * (Caero[1]*eD + Caero[2]*eL*sign(-dφ)) # [mN]
 
     return paero, Jaero, Faero
 end
@@ -120,8 +121,8 @@ end
 function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::Vector)::AbstractArray
     # unpack
     cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
-    R = Aw/cbar
-    ycp = R*m.r1h # approx as in [Chen (2016)]
+    Lw = Aw/cbar
+    ycp = Lw*m.r1h # approx as in [Chen (2016)]
     # These next two are "wingsubs" from the "Incorporate R" notes
     Izz = 0
     Ixx = cbar^2*γ^2*mwing
@@ -254,10 +255,10 @@ function actAng(m::Wing2DOFModel, opt::cu.OptOptions, traj, param)
     end
 end
 "Get aero force components from the output trajectory. comp=:lift or :drag"
-function trajAero(m::Wing2DOFModel, opt::cu.OptOptions, _traj::Vector, _param, comp)
+function trajAero(m::Wing2DOFModel, opt::cu.OptOptions, _traj::Vector, _param, comp; mg=true)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, _traj)
     cbar, τ1, mwing, wΨ, τ2, Aw, dt  = _param
-    Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end] * 1000 / 9.81 # to mg
+    Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end] * (mg ? 1000 / 9.81 : 1) # to mg
     Faeros = hcat([Faerok(k) for k=1:N]...)
     trajAeroInd(ind) = [Faeros[ind,:];NaN] # need one more element
     
@@ -308,7 +309,6 @@ end
 function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param, traj, lift, drag)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 	Ny = (N+1)*ny
-	# stroke "angle" = T*y[1] / R
     cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
     # Plot of aero forces at each instant
     function aeroPlotVec(_traj::Vector, _param, i)
@@ -479,10 +479,11 @@ end
 function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
     cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
     kΨ, bΨ = hingeParams(wΨ)
-    R = Aw/cbar
-    ycp = R*m.r1h # approx as in [Chen (2016)]
+    AR = Aw/cbar^2
+    Lw = Aw/cbar
+    ycp = Lw*m.r1h # approx as in [Chen (2016)]
     Tarr = [τ1, τ2]
-    return [1, kΨ, bΨ, cbar*R^3, mwing*ycp^2, mwing*cbar*ycp, mwing*cbar^2], Tarr, dt
+    return [1, kΨ, bΨ, Aw^2*AR, mwing*ycp^2, mwing*cbar*ycp, mwing*cbar^2], Tarr, dt
 end
 
 function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::cu.ParamOptOpts, scaleTraj=1.0; debugComponents::Bool=false)
@@ -493,7 +494,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
 
     # Param stuff
     cbar, τ1, mwing, wΨ, τ2, Aw, dtold = param
-    R = Aw/cbar
+    AR = Aw/cbar^2
 
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
     # Nondimensionalize (wrt time) the velocities https://github.com/avikde/robobee3d/pull/119#issuecomment-577350049
@@ -548,7 +549,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     """Ext force (aero)"""
     function HF(y, tauaero)
         # Only keeping Fext_pdep=true version, and approximating only Faero propto this (ignore dependence of COP moving)
-        tautil = -tauaero*dtold^2/(cbar*R^3)
+        tautil = -tauaero*dtold^2/(Aw^2*AR)
 
         # 1st order version
         return [0   0   0   tautil[1]   0   0   0   0   0;
