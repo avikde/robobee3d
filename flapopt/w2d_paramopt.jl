@@ -213,19 +213,6 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	", J=", round(ret["eval_f"](ret["x"]), digits=1), 
 	", AR=", round(w2d_AR(ret["param"]), digits=1), 
 	", x=", round(w2d_Lw(ret["param"])*deg2rad(isnothing(Φ) ? 90 : Φ), digits=1))
-
-
-	lift0 = trajAero(m, opt, traj0, param0, :lift)
-	lift1 = trajAero(m, opt, ret["traj"], ret["param"], :lift)
-	p1 = plot(lift0, lw=2)
-	plot!(p1, lift1*(w2d_sqrtLiftApprox(param0, Φ0)/w2d_sqrtLiftApprox(ret["param"], Φ1))^2, lw=2)
-	# plot!(p1, ret["traj"][3:ny:(N+1)*ny], lw=2)
-	# plot!(p1, traj0[3:ny:(N+1)*ny]*Φ1*param0[end]/(ret["param"][end]*Φ0), lw=2, ls=:dash)
-	plot(p1)
-	gui()
-	println("orig ", Φ0#= *param0[6] =#/param0[end], " ", Φ1#= *ret["param"][6] =#/ret["param"][end])
-	error("hi")
-
 	return ret
 end
 
