@@ -197,13 +197,13 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		pt, Tarr = getpt(m, x[1:np])
 		Δy = x[np+1 : np+nΔy]
 		# min Δy
-		J = wΔy * dot(Δy, Δy)#/N
+		J = wΔy * dot(Δy, Δy)/N
 		if uinfnorm
 			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
 			J += wu∞ * dot(s, s)
 		end
 		# Normalize by N so if N increases things don't need to be retuned again
-		J += (1/2 * pt' * (Quu + Qyu) * pt + qyu' * pt)#/N # the R's contain these weights
+		J += (1/2 * pt' * (Quu + Qyu) * pt + qyu' * pt)/N # the R's contain these weights
 
 		return J
 	end
