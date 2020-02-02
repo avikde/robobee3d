@@ -27,7 +27,7 @@ Reasonable limits:
 Params:
 - cbar = wing chord
 - T = transmission ratio
-- R = wing length. This is irrelevant for the 2DOF model, but choosing one for now from [Jafferis (2016)]. This is used to (a) calculate the aero force, and (b) in the plotting to show the "stroke angle" as a more intuitive version of σ.
+- Lw = wing length. This is irrelevant for the 2DOF model, but choosing one for now from [Jafferis (2016)]. This is used to (a) calculate the aero force, and (b) in the plotting to show the "stroke angle" as a more intuitive version of σ.
 
 NOTE:
 - Reasonable values: Toutput = 2666 rad/m in the current two-wing vehicle; 2150 rad/m in X-Wing; 3333 rad/m in Kevin Ma's older vehicles.
@@ -80,9 +80,11 @@ function w2daero(m::Wing2DOFModel, yo::AbstractArray, param::Vector)
     ρ = 1.225e-3 # [mg/(mm^3)]
     
     # unpack
-    cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
-    R = Aw/cbar
-    ycp = R*m.r1h # approx as in [Chen (2016)]
+    cbar2, τ1, mwing, wΨ, τ2, Aw, dt = param
+    AR = Aw/cbar2
+    cbar = sqrt(cbar2)
+    Lw = Aw/cbar
+    ycp = Lw*m.r1h # approx as in [Chen (2016)]
     nq = length(yo)÷2
     φ, Ψ, dφ, dΨ = yo[[1,2,nq+1,nq+2]] # [rad, rad]
 
@@ -111,7 +113,7 @@ function w2daero(m::Wing2DOFModel, yo::AbstractArray, param::Vector)
     {d\[Sigma], -1, 1}, {\[Psi], -\[Pi]/2, \[Pi]/2}]
     =#
     Caero = [((CDmax + CD0)/2 - (CDmax - CD0)/2 * cos(2α)), CLmax * sin(2α)]
-    Faero = 1/2 * ρ * dφ^2 * cbar * R^3 * m.r2h^2 * (Caero[1]*eD + Caero[2]*eL*sign(-dφ)) # [mN]
+    Faero = 1/2 * ρ * dφ^2 * Aw^2 * AR * m.r2h^2 * (Caero[1]*eD + Caero[2]*eL*sign(-dφ)) # [mN]
 
     return paero, Jaero, Faero
 end
@@ -119,12 +121,13 @@ end
 "Continuous dynamics second order model"
 function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::Vector)::AbstractArray
     # unpack
-    cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
-    R = Aw/cbar
-    ycp = R*m.r1h # approx as in [Chen (2016)]
+    cbar2, τ1, mwing, wΨ, τ2, Aw, dt = param
+    cbar = sqrt(cbar2)
+    Lw = Aw/cbar
+    ycp = Lw*m.r1h # approx as in [Chen (2016)]
     # These next two are "wingsubs" from the "Incorporate R" notes
     Izz = 0
-    Ixx = cbar^2*γ^2*mwing
+    Ixx = cbar2*γ^2*mwing
     kΨ, bΨ = hingeParams(wΨ)
     nq = length(yo)÷2
     φ, Ψ, dφ, dΨ = yo[[1,2,nq+1,nq+2]] # [rad, rad]
@@ -132,10 +135,10 @@ function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::V
     ya, T, τfun, τifun = cu.transmission(m, yo, param; o2a=true)
 
     # Lagrangian terms - from Mathematica
-    M = [Izz + mwing*ycp^2 + 1/2*cbar^2*mwing*γ^2*(1-cos(2*Ψ))   γ*cbar*mwing*ycp*cos(Ψ);  
-        γ*cbar*mwing*ycp*cos(Ψ)     Ixx+cbar^2*γ^2*mwing]
-    cor1 = [cbar^2*mwing*γ^2*sin(2*Ψ)*dφ*dΨ - γ*cbar*mwing*ycp*sin(Ψ)*dΨ^2, 
-        -cbar^2*mwing*γ^2*cos(Ψ)*sin(Ψ)*dφ^2]
+    M = [Izz + mwing*ycp^2 + 1/2*cbar2*mwing*γ^2*(1-cos(2*Ψ))   γ*cbar*mwing*ycp*cos(Ψ);  
+        γ*cbar*mwing*ycp*cos(Ψ)     Ixx+cbar2*γ^2*mwing]
+    cor1 = [cbar2*mwing*γ^2*sin(2*Ψ)*dφ*dΨ - γ*cbar*mwing*ycp*sin(Ψ)*dΨ^2, 
+        -cbar2*mwing*γ^2*cos(Ψ)*sin(Ψ)*dφ^2]
     # NOTE: dropping τinv'' term
     corgrav = [m.ko*φ, kΨ*Ψ] + (m.bCoriolis ? cor1 : zeros(2))
 
@@ -254,10 +257,10 @@ function actAng(m::Wing2DOFModel, opt::cu.OptOptions, traj, param)
     end
 end
 "Get aero force components from the output trajectory. comp=:lift or :drag"
-function trajAero(m::Wing2DOFModel, opt::cu.OptOptions, _traj::Vector, _param, comp)
+function trajAero(m::Wing2DOFModel, opt::cu.OptOptions, _traj::Vector, _param, comp; mg=true)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, _traj)
-    cbar, τ1, mwing, wΨ, τ2, Aw, dt  = _param
-    Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end] * 1000 / 9.81 # to mg
+    cbar2, τ1, mwing, wΨ, τ2, Aw, dt  = _param
+    Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end] * (mg ? 1000 / 9.81 : 1) # to mg
     Faeros = hcat([Faerok(k) for k=1:N]...)
     trajAeroInd(ind) = [Faeros[ind,:];NaN] # need one more element
     
@@ -308,8 +311,7 @@ end
 function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param, traj, lift, drag)
 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
 	Ny = (N+1)*ny
-	# stroke "angle" = T*y[1] / R
-    cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
+    cbar2, τ1, mwing, wΨ, τ2, Aw, dt = param
     # Plot of aero forces at each instant
     function aeroPlotVec(_traj::Vector, _param, i)
         Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end]
@@ -329,11 +331,11 @@ function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param
 end
 
 function drawFrame(m::Wing2DOFModel, yk, uk, param; Faeroscale=1.0)
-    cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
+    cbar2, τ1, mwing, wΨ, τ2, Aw, dt = param
     yo, T, _, _ = cu.transmission(m, yk, param)
     paero, _, Faero = w2daero(m, yo, param)
     wing1 = [yo[1];0] # wing tip
-    wing2 = wing1 + normalize(paero - wing1)*cbar
+    wing2 = wing1 + normalize(paero - wing1)*sqrt(cbar2)
     # draw wing
     w = plot([wing1[1]; wing2[1]], [wing1[2]; wing2[2]], color=:gray, aspect_ratio=:equal, linewidth=5, legend=false, xlims=(-15,15), ylims=(-3,3))
     # Faero
@@ -443,7 +445,7 @@ end
 # 	yk = k -> @view traj[liy[:,k]]
 # 	uk = k -> @view traj[liu[:,k]]
     
-#     cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
+#     cbar2, τ1, mwing, wΨ, τ2, Aw, dt = param
 
 #     Favg = @SVector zeros(2)
 #     for k = 1:N
@@ -459,7 +461,7 @@ end
 # param opt stuff ------------------------
 
 function cu.transmission(m::Wing2DOFModel, y::AbstractArray, _param::Vector; o2a=false)
-    cbar, τ1, mwing, wΨ, τ2, Aw, dt = _param
+    cbar2, τ1, mwing, wΨ, τ2, Aw, dt = _param
     τfun = σa -> τ1*σa + τ2/3*σa^3
     # Series from Mathematica
     τifun = φo -> φo/τ1 - τ2*φo^3/(3*τ1^4) # + O[φo^4]
@@ -477,12 +479,14 @@ function cu.transmission(m::Wing2DOFModel, y::AbstractArray, _param::Vector; o2a
 end
 
 function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
-    cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
+    cbar2, τ1, mwing, wΨ, τ2, Aw, dt = param
     kΨ, bΨ = hingeParams(wΨ)
-    R = Aw/cbar
-    ycp = R*m.r1h # approx as in [Chen (2016)]
+    AR = Aw/cbar2
+    cbar = sqrt(cbar2)
+    Lw = Aw/cbar
+    ycp = Lw*m.r1h # approx as in [Chen (2016)]
     Tarr = [τ1, τ2]
-    return [1, kΨ, bΨ, cbar*R^3, mwing*ycp^2, mwing*cbar*ycp, mwing*cbar^2], Tarr, dt
+    return [1, kΨ, bΨ, Aw^2*AR, mwing*ycp^2, mwing*cbar*ycp, mwing*cbar2], Tarr, dt
 end
 
 function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::cu.ParamOptOpts, scaleTraj=1.0; debugComponents::Bool=false)
@@ -492,8 +496,8 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     uk = k -> @view traj[liu[:,k]]
 
     # Param stuff
-    cbar, τ1, mwing, wΨ, τ2, Aw, dtold = param
-    R = Aw/cbar
+    cbar2, τ1, mwing, wΨ, τ2, Aw, dtold = param
+    AR = Aw/cbar2
 
     # THESE FUNCTIONS USE OUTPUT COORDS -------------
     # Nondimensionalize (wrt time) the velocities https://github.com/avikde/robobee3d/pull/119#issuecomment-577350049
@@ -548,7 +552,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     """Ext force (aero)"""
     function HF(y, tauaero)
         # Only keeping Fext_pdep=true version, and approximating only Faero propto this (ignore dependence of COP moving)
-        tautil = -tauaero*dtold^2/(cbar*R^3)
+        tautil = -tauaero*dtold^2/(Aw^2*AR)
 
         # 1st order version
         return [0   0   0   tautil[1]   0   0   0   0   0;
@@ -592,16 +596,4 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     return Hk, yo, uk, B, N
 end
 
-function avgLift(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray)
-    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-    yk = k -> @view traj[liy[:,k]]
-    uk = k -> @view traj[liu[:,k]]
-
-    cbar, τ1, mwing, wΨ, τ2, Aw, dt = param
-    aa = 0
-    for k=1:N
-        _, _, Faero = w2daero(m, yk(k), param)
-        aa += Faero[3] # eZ component (3d ambient)
-    end
-    return aa / (N)
-end
+avgLift(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray) = mean(filter(!isnan, trajAero(m, opt, traj, param, :lift))) # last one is NaN for plotting

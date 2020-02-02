@@ -24,7 +24,7 @@ ny, nu = cu.dims(m)
 
 function getInitialParams()
 	# robobee scale
-	return 75, [3.2,  # cbar[mm] (area/R)
+	return 75, [3.2^2,  # cbar2[mm^2] (area/R)^2
 		2.6666, # τ1 (from 3333 rad/m, [Jafferis (2016)])
 		0.73, # mwing[mg] ~=Izz/(mwing*ycp^2). with ycp=8.5, Izz=51.1 [Jafferis (2016)], get
 		2.5, # wΨ [mm]
@@ -40,20 +40,21 @@ include("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
-N, trajt, traj0, opt, avgLift0 = initTraj(m, param0, KINTYPE; uampl=uampl)
+N, trajt, traj0, opt, Φ0 = initTraj(m, param0, KINTYPE; uampl=uampl)
 # openLoopPlot(m, opt, param0; save=true)
+avgLift0 = avgLift(m, opt, traj0, param0) # for minlift constraint
+println("Avg lift initial [mg]=", round(avgLift0, digits=1))
 
 # Param opt init
 cycleFreqLims = [0.3,0.01]#[0.165,0.165]#[0.4, 0.03] # [KHz]
 dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
-	R=(zeros(4,4), reshape([0.1e3#= 1.1e3 =#],1,1), 0.0*I), # middle one is mech pow
+	R = (0.0*I, reshape([1.0],1,1), 0.0*I, 1.0, 100.0, 100.0), # Ryy, Ryu (mech pow), Ruu, wΔy, wu∞
 	plimsL = [0.1, 1.0, 0.1, 0.5, 0, 20.0, dtlims[1]],
 	plimsU = [20.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]],
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
-	uinfnorm = true,
-	unactWeight = 1.0
+	uinfnorm = true
 )
 includet("w2d_shift.jl")
 # FUNCTIONS GO HERE -------------------------------------------------------------
@@ -75,7 +76,7 @@ function scaling1(m::Wing2DOFModel, opt, traj, param, xs, minlifts, τ21ratiolim
 	return resdict
 end
 
-function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, ypl=nothing, s=nothing, Fnom=75, mactline=2860)
+function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, ypl=nothing, s=nothing, Fnom=75, mactline=7000)
 	np = length(param0)
 	resdict = typeof(resarg) == String ? matread(resarg) : resarg
 	mactRobobee = Fnom*σamax
@@ -96,16 +97,16 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 		Phi = deg2rad(res[1])
 		param = res[2+1:2+np]
 		stats = res[2+np+1:end]
-		Lw = param[6]/param[1]
+		Lw = param[6]/sqrt(param[1])
 
 		# Append to unstructured data
 		append!(Phii, Phi)
 		append!(mli, res[2])
 		append!(Lwi, Lw)
 		append!(Awi, param[6])
-		append!(ARi, Lw/param[1])
+		append!(ARi, Lw/sqrt(param[1]))
 		append!(xi, Phi*Lw)
-		append!(FLi, 1000/9.81*stats[2])
+		append!(FLi, stats[2])
 		append!(macti, stats[3] * (useFDasFact ? stats[5] : stats[1])/mactRobobee)
 		append!(powi, stats[4])
 		append!(freqi, 1000/(N*param[np]))
@@ -182,12 +183,12 @@ function scaleParamsForlift(ret, minlifts, τ21ratiolim; kwargs...)
 		"Aw",
 		"dt"
 	]
-	minliftsmg = minlifts .* 1000/9.81
+	minliftsmg = minlifts
 
 	res = hcat(maxuForMinAvgLift.(minlifts)...)'
 	display(res)
 	np = length(param0)
-	actualliftsmg = res[:,np+4] * 1000/9.81
+	actualliftsmg = res[:,np+4]
 	p1 = plot(actualliftsmg, res[:,POPTS.τinds], xlabel="avg lift [mg]", label=llabels[POPTS.τinds], ylabel="T1,T2", linewidth=2, legend=:topleft)
 	p2 = plot(actualliftsmg, [res[:,np+1]  res[:,np+3]], xlabel="avg lift [mg]", ylabel="umin [mN]", linewidth=2, legend=:topleft, label=["inf","2","al"])
 	hline!(p2, [75], linestyle=:dash, color=:black, label="robobee act")
@@ -226,8 +227,6 @@ function plotNonlinBenefit(fname; s=100)
 		xyzi = hcat(xyzi, res)
 	end
 	# lift to mg
-	xyzi[2,:] *= 1000/9.81
-	xyzi[4,:] *= 1000/9.81
 	params = xyzi[6:end,:]
 
 	xpl = [0,3]
@@ -270,8 +269,8 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-# # resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(2.2:0.2:4.0), 2) # SLOW
-# pls = scaling1disp("scaling1_0.1e3_hl.zip"; scatterOnly=false, xpl=[16,26], ypl=[130,180], s=500, useFDasFact=true, Fnom=50) # Found this by setting useFDasFact=false, and checking magnitudes
+# # resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(150:20:350), 2) # SLOW
+# pls = scaling1disp("scaling1_u2norm.zip"; scatterOnly=false, xpl=[30,35], ypl=[250,400], s=500, useFDasFact=true, Fnom=50) # Found this by setting useFDasFact=false, and checking magnitudes
 # plot(pls..., size=(1000,600), window_title="Scaling1", dpi=200)
 # savefig("scaling1.png")
 # gui()
@@ -281,7 +280,7 @@ end
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 1.9)#; print_level=3, max_iter=10000)
+ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 
