@@ -288,7 +288,7 @@ ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=120, Rpow=10)#; print_lev
 Φ1=120
 lift0 = trajAero(m, opt, traj0, param0, :lift)
 lift1 = trajAero(m, opt, ret2["traj"], ret2["param"], :lift)
-p1 = plot(lift0, lw=2)
+p1 = plot(lift0, lw=2, legend=false)
 plot!(p1, lift1, lw=2)
 plot!(p1, lift1*(w2d_sqrtLiftApprox(param0, Φ0)/w2d_sqrtLiftApprox(ret2["param"], Φ1))^2, lw=2, ls=:dash)
 # plot!(p1, ret["traj"][3:ny:(N+1)*ny], lw=2)
