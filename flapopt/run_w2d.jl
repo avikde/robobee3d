@@ -50,11 +50,11 @@ cycleFreqLims = [0.3,0.01]#[0.165,0.165]#[0.4, 0.03] # [KHz]
 dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
-	R = (0.0*I, reshape([10.0],1,1), 100.0*I, 1.0, 100.0, 100.0), # Ryy, Ryu (mech pow), Ruu, wΔy, wu∞
+	R = (0.0*I, reshape([1.0],1,1), 0.0*I, 1.0, 100.0, 100.0), # Ryy, Ryu (mech pow), Ruu, wΔy, wu∞
 	plimsL = [0.1, 1.0, 0.1, 0.5, 0, 20.0, dtlims[1]],
-	plimsU = [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]],
+	plimsU = [20.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]],
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
-	uinfnorm = false
+	uinfnorm = true
 )
 includet("w2d_shift.jl")
 # FUNCTIONS GO HERE -------------------------------------------------------------
@@ -269,8 +269,8 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-# resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(150:20:350), 2) # SLOW
-# pls = scaling1disp("scaling1_0.1e3_new.zip"; scatterOnly=false, xpl=[19,37], ypl=[160,350], s=500, useFDasFact=true, Fnom=50) # Found this by setting useFDasFact=false, and checking magnitudes
+# # resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(150:20:350), 2) # SLOW
+# pls = scaling1disp("scaling1_u2norm.zip"; scatterOnly=false, xpl=[30,35], ypl=[250,400], s=500, useFDasFact=true, Fnom=50) # Found this by setting useFDasFact=false, and checking magnitudes
 # plot(pls..., size=(1000,600), window_title="Scaling1", dpi=200)
 # savefig("scaling1.png")
 # gui()
@@ -280,7 +280,7 @@ end
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Rpow=5.0)#; print_level=3, max_iter=10000)
+ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 
