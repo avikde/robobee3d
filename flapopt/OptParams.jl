@@ -11,7 +11,6 @@ using Parameters, ForwardDiff, LinearAlgebra, Ipopt, DSP
 	Fext_pdep::Bool = true
 	uinfnorm::Bool = false # only in mode 1
 	nonlintransmission::Bool = true # false for linear transmission; true for the cubic polynomial transmission function
-	unactWeight::Float64 = 1.0
 end
 
 # --------------
@@ -168,7 +167,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	nact = size(B, 2)
 	nΔy = (N+1)*ny
 	
-	Ryy, Ryu, Ruu = POPTS.R # NOTE Ryu is just weight on mech. power
+	Ryy, Ryu, Ruu, wΔy, wu∞ = POPTS.R # NOTE Ryu is just weight on mech. power
 	# TODO: this is NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179
 	Quu = zeros(npt, npt)
 	Qyu = zeros(npt, npt) # quadratic for mech pow https://github.com/avikde/robobee3d/issues/123
@@ -198,12 +197,13 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		pt, Tarr = getpt(m, x[1:np])
 		Δy = x[np+1 : np+nΔy]
 		# min Δy
-		J = POPTS.unactWeight * dot(Δy, Δy)
+		J = wΔy * dot(Δy, Δy)#/N
 		if uinfnorm
 			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
-			J += dot(s, s)
+			J += wu∞ * dot(s, s)
 		end
-		J += 1/2 * pt' * (Quu + Qyu) * pt + qyu' * pt
+		# Normalize by N so if N increases things don't need to be retuned again
+		J += (1/2 * pt' * (Quu + Qyu) * pt + qyu' * pt)#/N # the R's contain these weights
 
 		return J
 	end

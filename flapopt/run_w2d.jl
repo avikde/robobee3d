@@ -50,12 +50,11 @@ cycleFreqLims = [0.3,0.01]#[0.165,0.165]#[0.4, 0.03] # [KHz]
 dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
-	R=(zeros(4,4), reshape([10.0],1,1), 0.0*I), # middle one is mech pow
+	R = (0.0*I, reshape([10.0],1,1), 0.0*I, 1.0, 1.0, 1.0), # Ryy, Ryu (mech pow), Ruu, wΔy, wu∞
 	plimsL = [0.1, 1.0, 0.1, 0.5, 0, 20.0, dtlims[1]],
 	plimsU = [400.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]],
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
-	uinfnorm = true,
-	unactWeight = 1.0
+	uinfnorm = true
 )
 includet("w2d_shift.jl")
 # FUNCTIONS GO HERE -------------------------------------------------------------
