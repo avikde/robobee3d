@@ -136,10 +136,11 @@ function wingARconstraintLin(maxAR=6, minAR=4)
 end
 
 """Min lift involves Aw, cbar, dt. For now approx by fixing wing AR https://github.com/avikde/robobee3d/pull/119#issuecomment-577253382"""
-function minLiftConstraintLin(minlift, param0, avgLift0, Φ0, Φ1, avgAR)
+function minLiftConstraintLin(minlift, param0, avgLift0, Φ0, Φ1, newAR)
 	# Lift ~ (Aw/dt)^2 => calculate k needed
 	cbar2, τ1, mwing, wΨ, τ2, Aw, dt = param0
-	Aw_dtmin = (Aw/dt)*(Φ0/Φ1)*sqrt(minlift/avgLift0) # See scaling1
+	AR0 = w2d_AR(param0)
+	Aw_dtmin = (Aw/dt)*(Φ0/Φ1)*sqrt(AR0/newAR)*sqrt(minlift/avgLift0) # See scaling1
 	# constraint is already linear: -Aw + Aw_dtmin*dt <= 0
 	return [-1.0, Aw_dtmin], 0
 end
@@ -173,7 +174,7 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	# Poly constraint
 	rholims = estimateWingDensity()
 	wARa, wARb = wingARconstraintLin()
-	mla, mlb = minLiftConstraintLin(minal, param0, avgLift0, Φ0, Φ1, 5.0)
+	mla, mlb = minLiftConstraintLin(minal, param0, avgLift0, Φ0, Φ1, 4.0) # need a guess of new AR
 	# Polytope constraint
 	Cp = Float64[0  0  0  0  0  mla[1]  mla[2]; # min lift
 		0  -τ21ratiolim  0  0  1  0  0; # transmission nonlinearity τ2 <= τ21ratiolim * τ1
