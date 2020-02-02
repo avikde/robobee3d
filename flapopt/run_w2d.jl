@@ -50,7 +50,7 @@ cycleFreqLims = [0.3,0.01]#[0.165,0.165]#[0.4, 0.03] # [KHz]
 dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
-	R=(zeros(4,4), reshape([1.1e3],1,1), 0.0*I), # middle one is mech pow
+	R=(zeros(4,4), reshape([100.0],1,1), 0.0*I), # middle one is mech pow
 	plimsL = [0.1, 1.0, 0.1, 0.5, 0, 20.0, dtlims[1]],
 	plimsU = [20.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]],
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
@@ -77,7 +77,7 @@ function scaling1(m::Wing2DOFModel, opt, traj, param, xs, minlifts, τ21ratiolim
 	return resdict
 end
 
-function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, ypl=nothing, s=nothing, Fnom=75, mactline=2860)
+function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, ypl=nothing, s=nothing, Fnom=75, mactline=7000)
 	np = length(param0)
 	resdict = typeof(resarg) == String ? matread(resarg) : resarg
 	mactRobobee = Fnom*σamax
@@ -98,14 +98,14 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 		Phi = deg2rad(res[1])
 		param = res[2+1:2+np]
 		stats = res[2+np+1:end]
-		Lw = param[6]/param[1]
+		Lw = param[6]/sqrt(param[1])
 
 		# Append to unstructured data
 		append!(Phii, Phi)
 		append!(mli, res[2])
 		append!(Lwi, Lw)
 		append!(Awi, param[6])
-		append!(ARi, Lw/param[1])
+		append!(ARi, Lw/sqrt(param[1]))
 		append!(xi, Phi*Lw)
 		append!(FLi, stats[2])
 		append!(macti, stats[3] * (useFDasFact ? stats[5] : stats[1])/mactRobobee)
@@ -270,12 +270,12 @@ end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-# # resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(2.2:0.2:4.0), 2) # SLOW
-# pls = scaling1disp("scaling1_0.1e3_hl.zip"; scatterOnly=false, xpl=[16,26], ypl=[130,180], s=500, useFDasFact=true, Fnom=50) # Found this by setting useFDasFact=false, and checking magnitudes
-# plot(pls..., size=(1000,600), window_title="Scaling1", dpi=200)
-# savefig("scaling1.png")
-# gui()
-# error("i")
+# resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(150:20:350), 2) # SLOW
+pls = scaling1disp("scaling1_0.1e3_new.zip"; scatterOnly=false, xpl=[19,37], ypl=[160,350], s=500, useFDasFact=true, Fnom=50) # Found this by setting useFDasFact=false, and checking magnitudes
+plot(pls..., size=(1000,600), window_title="Scaling1", dpi=200)
+savefig("scaling1.png")
+gui()
+error("i")
 
 # ID
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
