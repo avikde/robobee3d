@@ -254,7 +254,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 		pp = x[1:np]
 		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 		gvec = vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), pp) for k=1:N]...)
-		ukp2(k) = ukpredUseΔy ? ukpredΔy(k, Δyk, Δykp1, pp) : ukpred(k, pp)
+		ukp2(k) = ukpredUseΔy ? ukpredΔy(k, Δyk(k), Δyk(k+1), pp) : ukpred(k, pp)
 		# Polytope constraint on the params
 		if ncpolytope > 0
 			gvec = [gvec; Cp * pp - dp2] # must be <= 0
@@ -285,7 +285,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 		# for each k, get 
 		# - d/dp(B' * Hk * pt) which should be nact*np, 
 		# - identity for the "s", 2x times
-		# - d/d(delyk)(B' * Hk * pt) which should be nact*ny
+		# - d/d(delyk)(B' * Hk * pt) which should be nact*ny * 2 (Δyk, Δykp1)
 		Dgnnz += 2 * N * nact * (np + (ukpredUseΔy ? 2 * ny : 0) + 1)
 	end
 
@@ -418,36 +418,37 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 				col[offs] = POPTS.τinds[2]
 			end
 			if uinfnorm
+				rowOffs = ncunact + ncpolytope + nctransmission
 				for k=1:N
 					for i=1:nact
 						for j=1:np
 							offs += 1
-							row[offs] = ncunact + ncpolytope + nctransmission + (k-1)*nact + i
+							row[offs] = rowOffs + (k-1)*nact + i
 							col[offs] = j # uk in uk-s<=0
 							offs += 1
-							row[offs] = ncunact + ncpolytope + nctransmission + ncuinfnorm÷2 + (k-1)*nact + i
+							row[offs] = rowOffs + ncuinfnorm÷2 + (k-1)*nact + i
 							col[offs] = j # uk in -uk-s<=0
 						end
 						offs += 1
-						row[offs] = ncunact + ncpolytope + nctransmission + (k-1)*nact + i
+						row[offs] = rowOffs + (k-1)*nact + i
 						col[offs] = np+nΔy+i # s in uk-s<=0
 						offs += 1
-						row[offs] = ncunact + ncpolytope + nctransmission + ncuinfnorm÷2 + (k-1)*nact + i
+						row[offs] = rowOffs + ncuinfnorm÷2 + (k-1)*nact + i
 						col[offs] = np+nΔy+i # s in -uk-s<=0
 						if ukpredUseΔy
 							for j=1:ny
 								offs += 1
-								row[offs] = ncunact + ncpolytope + nctransmission + (k-1)*nact + i
+								row[offs] = rowOffs + (k-1)*nact + i
 								col[offs] = np + (k-1)*ny + j # duk/dyk in uk-s<=0
 								offs += 1
-								row[offs] = ncunact + ncpolytope + nctransmission + ncuinfnorm÷2 + (k-1)*nact + i
-								col[offs] = np + (k-1)*ny + j # duk/dyk in uk-s<=0
+								row[offs] = rowOffs + ncuinfnorm÷2 + (k-1)*nact + i
+								col[offs] = np + (k-1)*ny + j # duk/dyk in -uk-s<=0
 								offs += 1
-								row[offs] = ncunact + ncpolytope + nctransmission + (k-1)*nact + i
+								row[offs] = rowOffs + (k-1)*nact + i
 								col[offs] = np + (k)*ny + j # duk/dykp1 in uk-s<=0
 								offs += 1
-								row[offs] = ncunact + ncpolytope + nctransmission + ncuinfnorm÷2 + (k-1)*nact + i
-								col[offs] = np + (k)*ny + j # duk/dykp1 in uk-s<=0
+								row[offs] = rowOffs + ncuinfnorm÷2 + (k-1)*nact + i
+								col[offs] = np + (k)*ny + j # duk/dykp1 in -uk-s<=0
 							end
 						end
 					end
