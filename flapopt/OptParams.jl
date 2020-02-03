@@ -240,10 +240,13 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	dp2 = copy(dp) # No idea why this was getting modified. Storing a copy seems to work.
 	nΔy = (N+1)*ny
 	τ1min = σomax/σamax
+	# Use delta y in upred (to get uinfnorm to be exact)
+	ukpredUseΔy = false
+	Δy0 = zeros(ny)
 
 	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1)[1] * (getpt(m, p)[1])
 	if uinfnorm
-		Δy0 = zeros(ny)
+		ukpredΔy(k, Δyk, Δykp1, p) = B' * Hk(k, Δyk, Δykp1)[1] * (getpt(m, p)[1])
 		ukpred(k, p) = B' * Hk(k, Δy0, Δy0)[1] * (getpt(m, p)[1])
 	end
 
@@ -251,6 +254,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 		pp = x[1:np]
 		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 		gvec = vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), pp) for k=1:N]...)
+		ukp2(k) = ukpredUseΔy ? ukpredΔy(k, Δyk, Δykp1, pp) : ukpred(k, pp)
 		# Polytope constraint on the params
 		if ncpolytope > 0
 			gvec = [gvec; Cp * pp - dp2] # must be <= 0
@@ -261,7 +265,9 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 		end
 		if uinfnorm
 			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
-			gvec = [gvec; vcat([ukpred(k, pp)-s for k=1:N]...); vcat([-ukpred(k, pp)-s for k=1:N]...)] # uk-s<=0; -uk-s<=0
+			gvec = [gvec; 
+			vcat([ukp2(k)-s for k=1:N]...); # uk-s<=0
+			vcat([-ukp2(k)-s for k=1:N]...)] # -uk-s<=0
 		end
 		return gvec
 	end
@@ -276,8 +282,11 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 		Dgnnz += 2 # The +2 at the end is for the transmission constraint
 	end
 	if uinfnorm
-		# for each k, get d/dp(B' * Hk * pt) which should be nact*np, and there is an identity for the "s", 2x times
-		Dgnnz += 2 * N * (nact * np + nact)
+		# for each k, get 
+		# - d/dp(B' * Hk * pt) which should be nact*np, 
+		# - identity for the "s", 2x times
+		# - d/d(delyk)(B' * Hk * pt) which should be nact*ny
+		Dgnnz += 2 * N * nact * (np + (ukpredUseΔy ? 2 * ny : 0) + 1)
 	end
 
 	"Dg jacobian of the constraint function g() for IPOPT."
@@ -332,7 +341,13 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 			end
 			if uinfnorm
 				for k=1:N
-					dp = ForwardDiff.jacobian(pp -> ukpred(k, pp), p)
+					if ukpredUseΔy
+						dp = ForwardDiff.jacobian(pp -> ukpredΔy(k, Δyk(k), Δyk(k+1), pp), p)
+						dyk = ForwardDiff.jacobian(yy -> ukpredΔy(k, yy, Δyk(k+1), p), Δyk(k))
+						dykp1 = ForwardDiff.jacobian(yy -> ukpredΔy(k, Δyk(k), yy, p), Δyk(k+1))
+					else
+						dp = ForwardDiff.jacobian(pp -> ukpred(k, pp), p)
+					end
 					for i=1:nact
 						for j=1:np
 							offs += 1
@@ -344,6 +359,18 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 						value[offs] = -1 # -s in uk-s<=0
 						offs += 1
 						value[offs] = -1 # -s in -uk-s<=0
+						if ukpredUseΔy
+							for j=1:ny
+								offs += 1
+								value[offs] = dyk[i,j] # duk/dyk in uk-s<=0
+								offs += 1
+								value[offs] = -dyk[i,j] # duk/dyk in -uk-s<=0
+								offs += 1
+								value[offs] = dykp1[i,j] # duk/dykp1 in uk-s<=0
+								offs += 1
+								value[offs] = -dykp1[i,j] # duk/dykp1 in -uk-s<=0
+							end
+						end
 					end
 				end
 			end
@@ -407,6 +434,22 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 						offs += 1
 						row[offs] = ncunact + ncpolytope + nctransmission + ncuinfnorm÷2 + (k-1)*nact + i
 						col[offs] = np+nΔy+i # s in -uk-s<=0
+						if ukpredUseΔy
+							for j=1:ny
+								offs += 1
+								row[offs] = ncunact + ncpolytope + nctransmission + (k-1)*nact + i
+								col[offs] = np + (k-1)*ny + j # duk/dyk in uk-s<=0
+								offs += 1
+								row[offs] = ncunact + ncpolytope + nctransmission + ncuinfnorm÷2 + (k-1)*nact + i
+								col[offs] = np + (k-1)*ny + j # duk/dyk in uk-s<=0
+								offs += 1
+								row[offs] = ncunact + ncpolytope + nctransmission + (k-1)*nact + i
+								col[offs] = np + (k)*ny + j # duk/dykp1 in uk-s<=0
+								offs += 1
+								row[offs] = ncunact + ncpolytope + nctransmission + ncuinfnorm÷2 + (k-1)*nact + i
+								col[offs] = np + (k)*ny + j # duk/dykp1 in uk-s<=0
+							end
+						end
 					end
 				end
 			end
