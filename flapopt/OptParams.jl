@@ -169,29 +169,11 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	nq = ny÷2
 	nact = size(B, 2)
 	nΔy = (N+1)*ny
-	
-	Ryy, Ryu, Ruu, wΔy, wu∞ = POPTS.R # NOTE Ryu is just weight on mech. power
-	# TODO: this is NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179
-	Quu = zeros(npt, npt)
-	qyu = zeros(npt) # linear (used for ID)
-
+	Δy0 = zeros(ny)
 	npt1 = npt÷3 # each of the 3 segments for nondim time https://github.com/avikde/robobee3d/pull/119
 	
-	# Matrices that contain sum of running actuator cost
-	for k=1:N
-		Hh, Hvel = Hk(k, zeros(ny), zeros(ny)) #Hk(k, Δyk(k), Δyk(k+1))
-		# yok = yo(k)# + Δyk(k)
-		if mode == 1
-			Quu += Hh' * Ruu * Hh
-			# qyu += Ryu * (Hh' * [B * B'  zeros(ny-nq, ny-nq)] * yok)
-		elseif mode == 2
-			# Need to consider the unactuated rows too
-			Quu += Hh' * Ruu * Hh
-			# For ID, need uk
-			qyu += (-Hh' * Ruu * (δt * B * umeas(k)))
-		end
-	end
-		
+	Ryy, Ryu, Ruu, wΔy, wu∞ = POPTS.R # NOTE Ryu is just weight on mech. power
+	
 	function eval_f(x)
 		pt, Tarr = getpt(m, x[1:np])
 		Δy = x[np+1 : np+nΔy]
@@ -201,17 +183,25 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
 			J += wu∞ * dot(s, s)
 		end
-		# Normalize by N so if N increases things don't need to be retuned again
-		J += (1/2 * pt' * (Quu) * pt + qyu' * pt)/N # the R's contain these weights
 		
-		# For mech pow https://github.com/avikde/robobee3d/issues/123 but use a ramp mapping to get rid of negative power
 		for k=1:N
-			# ASSUMING 1 ACTUATED DOF
-			Hh, Hvel = Hk(k, zeros(ny), zeros(ny))
-			# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
-			dqact = [zeros(1,npt1)   Hvel   zeros(1,npt1)] * pt
-			uact = B' * Hh * pt
-			J += 1/(2*N) * smoothRamp(dqact' * Ryu * uact)
+			# NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179
+			Hh, Hvel = Hk(k, Δy0, Δy0) #Hk(k, Δyk(k), Δyk(k+1))
+			uk = B' * Hh * pt
+			if mode == 1
+				# For mech pow https://github.com/avikde/robobee3d/issues/123 but use a ramp mapping to get rid of negative power
+				# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
+				# ASSUMING 1 ACTUATED DOF
+				dqact = [zeros(1,npt1)   Hvel   zeros(1,npt1)] * pt
+				J += 1/(2*N) * smoothRamp(dqact' * Ryu * uk)
+
+				# ||u||2
+				J += 1/(2*N) * uk' * Ruu * uk
+			elseif mode == 2
+				# ||u||2
+				uerr = uk - umeas(k)
+				J += 1/(2*N) * uerr' * Ruu * uerr
+			end
 		end
 
 		return J
