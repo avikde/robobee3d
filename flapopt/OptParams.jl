@@ -171,6 +171,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	nΔy = (N+1)*ny
 	Δy0 = zeros(ny)
 	npt1 = npt÷3 # each of the 3 segments for nondim time https://github.com/avikde/robobee3d/pull/119
+	lse = true
 	
 	Ryy, Ryu, Ruu, wΔy, wu∞ = POPTS.R # NOTE Ryu is just weight on mech. power
 	
@@ -183,6 +184,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
 			J += wu∞ * dot(s, s)
 		end
+		Jlse = zero(eltype(x))
 		
 		for k=1:N
 			# NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179
@@ -195,13 +197,19 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 				dqact = [zeros(1,npt1)   Hvel   zeros(1,npt1)] * pt
 				J += 1/(2*N) * smoothRamp(dqact' * Ryu * uk)
 
-				# ||u||2
-				J += 1/(2*N) * uk' * Ruu * uk
+				# ||u||p
+				if !lse
+					J += 1/(2*N) * uk' * Ruu * uk
+				end
+				Jlse += sum(exp.(uk))
 			elseif mode == 2
 				# ||u||2
 				uerr = uk - umeas(k)
 				J += 1/(2*N) * uerr' * Ruu * uerr
 			end
+		end
+		if lse
+			J += log(Jlse) * Ruu
 		end
 
 		return J
