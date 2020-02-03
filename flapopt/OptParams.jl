@@ -171,9 +171,9 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	nΔy = (N+1)*ny
 	Δy0 = zeros(ny)
 	npt1 = npt÷3 # each of the 3 segments for nondim time https://github.com/avikde/robobee3d/pull/119
-	lse = true
 	
-	Ryy, Ryu, Ruu, wΔy, wu∞ = POPTS.R # NOTE Ryu is just weight on mech. power
+	Ryy, Ryu, Ruu, wΔy, wu∞, wlse = POPTS.R # NOTE Ryu is just weight on mech. power
+	lse = wlse > 1e-6
 	
 	function eval_f(x)
 		pt, Tarr = getpt(m, x[1:np])
@@ -198,9 +198,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 				J += 1/(2*N) * smoothRamp(dqact' * Ryu * uk)
 
 				# ||u||p
-				if !lse
-					J += 1/(2*N) * uk' * Ruu * uk
-				end
+				J += 1/(2*N) * uk' * Ruu * uk
 				Jlse += sum(exp.(uk))
 			elseif mode == 2
 				# ||u||2
@@ -209,7 +207,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 			end
 		end
 		if lse
-			J += log(Jlse) * Ruu
+			J += wlse * log(Jlse)
 		end
 
 		return J
