@@ -50,7 +50,7 @@ cycleFreqLims = [0.3,0.01]#[0.165,0.165]#[0.4, 0.03] # [KHz]
 dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
-	R = (0.0*I, reshape([1.0],1,1), 0.0*I, 1.0, 100.0), # Ryy, Ryu (mech pow), Ruu, wΔy, wu∞
+	R = (0.0*I, reshape([1.0],1,1), 0.0*I, 1.0, 0.0), # Ryy, Ryu (mech pow), Ruu, wΔy, wu∞
 	plimsL = [0.1, 1.0, 0.1, 0.5, 0, 20.0, dtlims[1]],
 	plimsU = [20.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]],
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
@@ -280,7 +280,7 @@ end
 ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
 
 # 2. Try to optimize
-ret2 = opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90)#; print_level=3, max_iter=10000)
+ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90)#; print_level=3, max_iter=10000)
 
 # testManyShifts(ret1, [0], 0.6)
 

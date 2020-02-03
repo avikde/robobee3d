@@ -160,6 +160,9 @@ function fixTrajWithDynConst(m::Model, opt::OptOptions, traj::AbstractArray, par
 	return traj1
 end
 
+"Smooth ramp function for mechanical power (only positive components) https://math.stackexchange.com/questions/3521169/smooth-approximation-of-ramp-function"
+smoothRamp(x; ε=0.1) = x/2 * (1 + x / sqrt(x^2 + ε^2))
+
 "Helper function for optAffine. See optAffine for the def of x"
 function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt, Hk, yo, umeas, B, N)
 	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
@@ -170,7 +173,6 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	Ryy, Ryu, Ruu, wΔy, wu∞ = POPTS.R # NOTE Ryu is just weight on mech. power
 	# TODO: this is NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179
 	Quu = zeros(npt, npt)
-	Qyu = zeros(npt, npt) # quadratic for mech pow https://github.com/avikde/robobee3d/issues/123
 	qyu = zeros(npt) # linear (used for ID)
 
 	npt1 = npt÷3 # each of the 3 segments for nondim time https://github.com/avikde/robobee3d/pull/119
@@ -181,9 +183,6 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		# yok = yo(k)# + Δyk(k)
 		if mode == 1
 			Quu += Hh' * Ruu * Hh
-			# Mech pow https://github.com/avikde/robobee3d/issues/123. ASSUMING 1 ACTUATED DOF
-			# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
-			Qyu = [zeros(npt1); Hvel'; zeros(npt1)] * Ryu * B' * Hh
 			# qyu += Ryu * (Hh' * [B * B'  zeros(ny-nq, ny-nq)] * yok)
 		elseif mode == 2
 			# Need to consider the unactuated rows too
@@ -203,7 +202,17 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 			J += wu∞ * dot(s, s)
 		end
 		# Normalize by N so if N increases things don't need to be retuned again
-		J += (1/2 * pt' * (Quu + Qyu) * pt + qyu' * pt)/N # the R's contain these weights
+		J += (1/2 * pt' * (Quu) * pt + qyu' * pt)/N # the R's contain these weights
+		
+		# For mech pow https://github.com/avikde/robobee3d/issues/123 but use a ramp mapping to get rid of negative power
+		for k=1:N
+			# ASSUMING 1 ACTUATED DOF
+			Hh, Hvel = Hk(k, zeros(ny), zeros(ny))
+			# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
+			dqact = [zeros(1,npt1)   Hvel   zeros(1,npt1)] * pt
+			uact = B' * Hh * pt
+			J += 1/2 * smoothRamp(dqact' * Ryu * uact)
+		end
 
 		return J
 	end
