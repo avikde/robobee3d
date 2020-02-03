@@ -211,7 +211,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 			# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
 			dqact = [zeros(1,npt1)   Hvel   zeros(1,npt1)] * pt
 			uact = B' * Hh * pt
-			J += 1/2 * smoothRamp(dqact' * Ryu * uact)
+			J += 1/(2*N) * smoothRamp(dqact' * Ryu * uact)
 		end
 
 		return J
