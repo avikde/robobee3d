@@ -199,57 +199,65 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 
 	unpackX(x) = getpt(m, x[1:np])[1], x[np+1 : np+nΔy], uinfnorm ? x[np+nΔy+1 : np+nΔy+nact] : zero(eltype(x)) # slack variable for infnorm
 
+	"Running cost function of actuator force, vel for a single k"
+	function φ_uact_dqact(T, uact, dqact)
+		Jcomps = zeros(T, 5)
+		if mode == 1
+			if lse
+				Jcomps[2] = sum(exp.(uact))
+			end
+			# For mech pow https://github.com/avikde/robobee3d/issues/123 but use a ramp mapping to get rid of negative power
+			Jcomps[3] = 1/2 * smoothRamp(dqact' * Ryu * uact)
+
+			# ||u||p
+			Jcomps[4] = 1/2 * uact' * Ruu * uact
+		elseif mode == 2
+			# ||u||2
+			uerr = uact - umeas(k)
+			Jcomps[4] = 1/2 * uerr' * Ruu * uerr
+		end
+		return Jcomps
+	end
+
 	function φ(pt, Δy, s; debug=false)
 		# min Δy
-		Junact = wΔy * dot(Δy, Δy)/N
-		Jlse = zero(eltype(pt))
-		Jpow = zero(eltype(pt))
-		Ju2 = zero(eltype(pt))
-		Jinfnorm = zero(eltype(pt))
+		T = eltype(pt)
+		Jcomps = zeros(T, 5) # [Junact, Jlse, Jpow, Ju2, Jinfnorm]
 
 		uvec = Hu * pt
 		dqvec = Hdq * pt
 
 		for k=1:N
-			uact = uvec[nact*(k-1)+1 : nact*k]
-			dqact = dqvec[nact*(k-1)+1 : nact*k]
-			if mode == 1
-				# For mech pow https://github.com/avikde/robobee3d/issues/123 but use a ramp mapping to get rid of negative power
-				Jpow += 1/(2*N) * smoothRamp(dqact' * Ryu * uact)
-
-				# ||u||p
-				Ju2 += 1/(2*N) * uact' * Ruu * uact
-				Jlse += sum(exp.(uact))
-			elseif mode == 2
-				# ||u||2
-				uerr = uact - umeas(k)
-				Ju2 += 1/(2*N) * uerr' * Ruu * uerr
-			end
+			Jcomps .+= φ_uact_dqact(T, uvec[nact*(k-1)+1 : nact*k], dqvec[nact*(k-1)+1 : nact*k])
 		end
+
 		# Total
-		J = Junact + Ju2 + Jpow
+		# Jcomps[1] = wΔy/N * dot(Δy, Δy) # FIXME: this isn't working in forwarddiff
 		if lse
-			J += (Jlse = wlse * log(Jlse))
+			Jcomps[2] = wlse * log(Jcomps[2])
 		end
+		Jcomps[3] /= N
+		Jcomps[4] /= N
 		if uinfnorm
-			J += (Jinfnorm = wu∞ * dot(s,s)) # s is already positive, but need a scalar
-		end
-		if debug
-			return pt, Hk, B, [Junact, Jlse, Jpow, Ju2, Jinfnorm], [uvec  dqvec]
+			Jcomps[5] = wu∞ * dot(s,s) # s is already positive, but need a scalar
 		end
 
-		return J
+		if debug
+			return pt, Hk, B, Jcomps, [uvec  dqvec]
+		end
+
+		return sum(Jcomps) + wΔy/N * dot(Δy, Δy)
 	end
 	function eval_f(x; kwargs...)
 		return φ(unpackX(x)...; kwargs...)
 	end
-	
+
 	function eval_grad_f(x, grad_f)
 		pt, Δy, s = unpackX(x)
 		dφ_dpt = ForwardDiff.gradient(ptdiff -> φ(ptdiff, Δy, s), pt)
 		dφ_dΔy = ForwardDiff.gradient(yy -> φ(pt, yy, s), Δy)
-		grad_f[1:np] = dφ_dpt' * dpt_dp(x[1:np])
-		grad_f[np+1:np+nΔy] = dφ_dΔy
+		grad_f[1:np] = dφ_dpt' * dpt_dp(x[1:np]) # 1,npt X npt,np
+		grad_f[np+1:np+nΔy] = dφ_dΔy # nΔy
 		if uinfnorm
 			dφ_ds = ForwardDiff.jacobian(ss -> φ(pt, Δy, ss), s)
 			grad_f[np+nΔy+1:np+nΔy+nact] = dφ_ds
