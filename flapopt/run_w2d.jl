@@ -288,7 +288,8 @@ end
 # 2. Try to optimize
 ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180)#; print_level=3, max_iter=10000)
 
-pt, Hk, B = ret2["eval_f"](ret2["x"]; debug=true)
+pt, Hk, B, Js = ret2["eval_f"](ret2["x"]; debug=true)
+println("Js ", Js)
 dely(k) = ret2["x"][length(param0)+(k-1)*ny+1:length(param0)+(k)*ny]
 unew = vcat([B' * Hk(k,dely(k),dely(k+1))[1] * pt for k=1:N]...)
 plot(

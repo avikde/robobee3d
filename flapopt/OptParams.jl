@@ -179,12 +179,11 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		pt, Tarr = getpt(m, x[1:np])
 		Δy = x[np+1 : np+nΔy]
 		# min Δy
-		J = wΔy * dot(Δy, Δy)/N
-		if uinfnorm
-			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
-			J += wu∞ * dot(s, s)
-		end
+		Junact = wΔy * dot(Δy, Δy)/N
 		Jlse = zero(eltype(x))
+		Jpow = zero(eltype(x))
+		Ju2 = zero(eltype(x))
+		Jinfnorm = zero(eltype(x))
 		
 		for k=1:N
 			# NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179
@@ -195,22 +194,28 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 				# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
 				# ASSUMING 1 ACTUATED DOF
 				dqact = [zeros(1,npt1)   Hvel   zeros(1,npt1)] * pt
-				J += 1/(2*N) * smoothRamp(dqact' * Ryu * uk)
+				Jpow += 1/(2*N) * smoothRamp(dqact' * Ryu * uk)
 
 				# ||u||p
-				J += 1/(2*N) * uk' * Ruu * uk
+				Ju2 += 1/(2*N) * uk' * Ruu * uk
 				Jlse += sum(exp.(uk))
 			elseif mode == 2
 				# ||u||2
 				uerr = uk - umeas(k)
-				J += 1/(2*N) * uerr' * Ruu * uerr
+				Ju2 += 1/(2*N) * uerr' * Ruu * uerr
 			end
 		end
+		# Total
+		J = Junact + Ju2 + Jpow
 		if lse
-			J += wlse * log(Jlse)
+			J += (Jlse = wlse * log(Jlse))
+		end
+		if uinfnorm
+			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
+			J += (Jinfnorm = wu∞ * dot(s, s))
 		end
 		if debug
-			return pt, Hk, B
+			return pt, Hk, B, [Junact, Jlse, Jpow, Ju2, Jinfnorm]
 		end
 
 		return J
