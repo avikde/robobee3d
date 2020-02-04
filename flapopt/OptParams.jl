@@ -163,6 +163,12 @@ end
 "Smooth ramp function for mechanical power (only positive components) https://math.stackexchange.com/questions/3521169/smooth-approximation-of-ramp-function"
 smoothRamp(x; ε=0.1) = x/2 * (1 + x / sqrt(x^2 + ε^2))
 dsmoothRamp(x; ε=0.1) = 1/2*(1 + (x*(x^2 + 2*ε^2))/(x^2 + ε^2)^(3/2)) # used Mathematica
+"https://en.wikipedia.org/wiki/LogSumExp"
+LSE(x) = log(sum(exp.(x)))
+function dLSE(x)
+	y = exp.(x)
+	return y/sum(y)
+end
 
 "Assemble the big Hu,Hdq matrices s.t. Hu * pt = uact, Hdq * pt = dqact - ASSUMING dely = 0.
 NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179"
@@ -243,7 +249,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		# Total
 		# Jcomps[1] = wΔy/N * dot(Δy, Δy) # FIXME: this isn't working in forwarddiff
 		if lse
-			Jcomps[2] = wlse * log(sum(exp.(uvec)))
+			Jcomps[2] = wlse * LSE(uvec)
 		end
 		Jcomps[3] /= N
 		Jcomps[4] /= N
@@ -273,8 +279,10 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		dqvec = Hdq * pt
 		for k=1:N
 			dφmech1 = dφmech(uvec[_k(k)], dqvec[_k(k)])
-			grad_f[1:np] .+= (dφmech1' * [Hu[_k(k),:]; Hdq[_k(k),:]] * dpt_dp1)[:]
+			grad_f[1:np] += (dφmech1' * [Hu[_k(k),:]; Hdq[_k(k),:]] * dpt_dp1)[:]
 		end
+		# For LSE https://github.com/avikde/robobee3d/pull/137
+		grad_f[1:np] += (dLSE(uvec)' * Hu * dpt_dp1)[:]
 
 		grad_f[np+1:np+nΔy] = 2*wΔy/N*Δy # nΔy Analytical - see cost above
 		if uinfnorm
