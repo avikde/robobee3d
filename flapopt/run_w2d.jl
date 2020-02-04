@@ -50,12 +50,21 @@ cycleFreqLims = [0.3,0.01]#[0.165,0.165]#[0.4, 0.03] # [KHz]
 dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
-	R = (0.0*I, reshape([0.0],1,1), 1e-2*I, 1.0, 1e-3, 1e-2), # Ryy, Ryu (mech pow), Ruu, wΔy, wu∞, wlse
-	plimsL = [0.1, 1.0, 0.1, 0.5, 0, 20.0, dtlims[1]],
-	plimsU = [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]],
+	plimsL = param0,
+	plimsU = param0,
+	R = (0.0*I, reshape([0.0],1,1), 1e-1*I, 1.0, 1e-3, 1e-2), # Ryy, Ryu (mech pow), Ruu, wΔy, wu∞, wlse
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
 	uinfnorm = false
 )
+
+# ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
+# Try to "fix" the initial traj by getting uinf so that it is more feasible
+ret1 = opt1(m, ret1["traj"], ret1["param"], 1, 180)
+
+# These are the actual lims
+POPTS.plimsL .= [0.1, 1.0, 0.1, 0.5, 0, 20.0, dtlims[1]]
+POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
+
 includet("w2d_shift.jl")
 # FUNCTIONS GO HERE -------------------------------------------------------------
 
