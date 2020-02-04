@@ -50,7 +50,7 @@ POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
 	plimsL = copy(param0),
 	plimsU = copy(param0),
-	R = (0.0*I, reshape([0.0],1,1), 1.0*I, 1.0, 1e-3, 0), # Ryy, Ryu (mech pow), Ruu, wΔy, wu∞, wlse
+	R = (0.0*I, reshape([0.0],1,1), 1.0*I, 1.0, 1e-3, 1e-1), # Ryy, Ryu (mech pow), Ruu, wΔy, wu∞, wlse
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
 	uinfnorm = false
 )
@@ -60,7 +60,7 @@ POPTS = cu.ParamOptOpts(
 ret1 = opt1(m, traj0, param0, 1, 100)
 
 # These are the actual lims
-cycleFreqLims = [0.3,0.08]#[0.165,0.165]#[0.4, 0.03] # [KHz]
+cycleFreqLims = [0.3,0.18]#[0.165,0.165]#[0.4, 0.03] # [KHz]
 dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS.plimsL .= [0.1, 1.0, 0.1, 0.5, 0, 20.0, dtlims[1]]
 POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
