@@ -185,23 +185,29 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		Ju2 = zero(eltype(x))
 		Jinfnorm = zero(eltype(x))
 		
-		for k=1:N
-			# NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179
+		"Return [uact   dqact]
+		NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179"
+		function actk(k)
 			Hh, Hvel = Hk(k, Δy0, Δy0) #Hk(k, Δyk(k), Δyk(k+1))
-			uk = B' * Hh * pt
+			# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
+			# ASSUMING 1 ACTUATED DOF
+			return [B' * Hh * pt    [zeros(1,npt1)   Hvel   zeros(1,npt1)] * pt]
+		end
+		actVec = [actk(k) for k=1:N]
+
+		for k=1:N
+			uact = actVec[k][:,1]
+			dqact = actVec[k][:,2]
 			if mode == 1
 				# For mech pow https://github.com/avikde/robobee3d/issues/123 but use a ramp mapping to get rid of negative power
-				# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
-				# ASSUMING 1 ACTUATED DOF
-				dqact = [zeros(1,npt1)   Hvel   zeros(1,npt1)] * pt
-				Jpow += 1/(2*N) * smoothRamp(dqact' * Ryu * uk)
+				Jpow += 1/(2*N) * smoothRamp(dqact' * Ryu * uact)
 
 				# ||u||p
-				Ju2 += 1/(2*N) * uk' * Ruu * uk
-				Jlse += sum(exp.(uk))
+				Ju2 += 1/(2*N) * uact' * Ruu * uact
+				Jlse += sum(exp.(uact))
 			elseif mode == 2
 				# ||u||2
-				uerr = uk - umeas(k)
+				uerr = uact - umeas(k)
 				Ju2 += 1/(2*N) * uerr' * Ruu * uerr
 			end
 		end
@@ -215,7 +221,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 			J += (Jinfnorm = wu∞ * dot(s, s))
 		end
 		if debug
-			return pt, Hk, B, [Junact, Jlse, Jpow, Ju2, Jinfnorm]
+			return pt, Hk, B, [Junact, Jlse, Jpow, Ju2, Jinfnorm], actVec
 		end
 
 		return J

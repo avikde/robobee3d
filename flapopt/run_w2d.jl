@@ -94,12 +94,13 @@ POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 # 2. Try to optimize
 ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180)#; print_level=3, max_iter=10000)
 
-pt, Hk, B, Js = ret2["eval_f"](ret2["x"]; debug=true)
+pt, Hk, B, Js, actVec = ret2["eval_f"](ret2["x"]; debug=true)
 println("Js ", Js)
+actVec = vcat(actVec...)
 dely(k) = ret2["x"][length(param0)+(k-1)*ny+1:length(param0)+(k)*ny]
 unew = vcat([B' * Hk(k,dely(k),dely(k+1))[1] * pt for k=1:N]...)
 plot(
-	plot([ret1["traj"][(N+1)*ny+1:end]  unew])
+	plot([ret1["traj"][(N+1)*ny+1:end]  unew  actVec[:,1]], lw=2)
 )
 gui()
 error("hi")
