@@ -163,33 +163,36 @@ end
 "Smooth ramp function for mechanical power (only positive components) https://math.stackexchange.com/questions/3521169/smooth-approximation-of-ramp-function"
 smoothRamp(x; ε=0.1) = x/2 * (1 + x / sqrt(x^2 + ε^2))
 
+"Assemble the big Hu,Hdq matrices s.t. Hu * pt = uact, Hdq * pt = dqact - ASSUMING dely = 0.
+NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179"
+function bigH(N, ny, nact, npt, Hk, B)
+	npt1 = npt÷3 # each of the 3 segments for nondim time https://github.com/avikde/robobee3d/pull/119
+	Hu = zeros(nact*N, npt)
+	Δy0 = zeros(ny)
+	# Hunact = zeros(nunact*N, npt)
+	Hdq = similar(Hu)
+	for k=1:N
+		Hh, Hvel = Hk(k, Δy0, Δy0) #Hk(k, Δyk(k), Δyk(k+1))
+		Hu[nact*(k-1)+1 : nact*k, :] = B' * Hh
+		# Hunact[nact*(k-1)+1 : nact*k, :] = B' * Hh
+		# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
+		# ASSUMING 1 ACTUATED DOF
+		Hdq[nact*(k-1)+1 : nact*k, :] = [zeros(1,npt1)  Hvel  zeros(1,npt1)]
+	end
+	return Hu, Hdq
+end
+
 "Helper function for optAffine. See optAffine for the def of x"
 function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt, Hk, yo, umeas, B, N)
 	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
 	nq = ny÷2
 	nact = size(B, 2)
 	nΔy = (N+1)*ny
-	Δy0 = zeros(ny)
-	npt1 = npt÷3 # each of the 3 segments for nondim time https://github.com/avikde/robobee3d/pull/119
 	
 	Ryy, Ryu, Ruu, wΔy, wu∞, wlse = POPTS.R # NOTE Ryu is just weight on mech. power
 	lse = wlse > 1e-6
 
-	"Assemble the big Hu,Hdq matrices s.t. Hu * pt = uact, Hdq * pt = dqact - ASSUMING dely = 0.
-	NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179"
-	function bigH()
-		Hu = zeros(nact*N, npt)
-		Hdq = similar(Hu)
-		for k=1:N
-			Hh, Hvel = Hk(k, Δy0, Δy0) #Hk(k, Δyk(k), Δyk(k+1))
-			Hu[nact*(k-1)+1 : nact*k, :] = B' * Hh
-			# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
-			# ASSUMING 1 ACTUATED DOF
-			Hdq[nact*(k-1)+1 : nact*k, :] = [zeros(1,npt1)  Hvel  zeros(1,npt1)]
-		end
-		return Hu, Hdq
-	end
-	Hu, Hdq = bigH()
+	Hu, Hdq = bigH(N, ny, nact, npt, Hk, B)
 
 	# components of the gradient:
 	dpt_dp(pp) = ForwardDiff.jacobian(x -> getpt(m, x[1:np]), pp)
