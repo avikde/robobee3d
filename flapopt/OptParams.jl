@@ -161,8 +161,8 @@ function fixTrajWithDynConst(m::Model, opt::OptOptions, traj::AbstractArray, par
 end
 
 "Smooth ramp function for mechanical power (only positive components) https://math.stackexchange.com/questions/3521169/smooth-approximation-of-ramp-function"
-smoothRamp(x; ε=0.1) = x/2 * (1 + x / sqrt(x^2 + ε^2))
-dsmoothRamp(x; ε=0.1) = 1/2*(1 + (x*(x^2 + 2*ε^2))/(x^2 + ε^2)^(3/2)) # used Mathematica
+ramp(x; ε=0.1, smooth=true) = smooth ? (x/2 * (1 + x / sqrt(x^2 + ε^2))) : (x > 0 ? x : 0)
+dramp(x; ε=0.1, smooth=true) = smooth ? (1/2*(1 + (x*(x^2 + 2*ε^2))/(x^2 + ε^2)^(3/2))) #= used Mathematica =# : sign(x) 
 "https://en.wikipedia.org/wiki/LogSumExp"
 LSE(x) = log(sum(exp.(x)))
 function dLSE(x)
@@ -192,6 +192,7 @@ end
 "Helper function for optAffine. See optAffine for the def of x"
 function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt, Hk, yo, umeas, B, N)
 	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
+	dφ_dptAutodiff = true
 	nq = ny÷2
 	nact = size(B, 2)
 	nΔy = (N+1)*ny
@@ -209,7 +210,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		Jcomps = zeros(eltype(uact), 5)
 		if mode == 1
 			# For mech pow https://github.com/avikde/robobee3d/issues/123 but use a ramp mapping to get rid of negative power
-			Jcomps[3] = 1/2 * smoothRamp(dqact' * Ryu * uact)
+			Jcomps[3] = 1/2 * ramp(dqact' * Ryu * uact; smooth=dφ_dptAutodiff)
 
 			# ||u||p
 			Jcomps[4] = 1/2 * uact' * Ruu * uact
@@ -223,7 +224,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	"Analytical gradient of the above (of the summed cost). No LSE yet"
 	function dφmech(uact, dqact)
 		if mode == 1
-			dsmooth = 1/2 * dsmoothRamp(dqact' * Ryu * uact)
+			dsmooth = 1/2 * dramp(dqact' * Ryu * uact; smooth=dφ_dptAutodiff)
 			return vcat(Ruu * uact + dsmooth * Ryu * dqact, dsmooth * Ryu * uact)
 		elseif mode == 2
 			return vcat(Ruu * (uact - umeas(k)), zero(uact))
@@ -271,18 +272,20 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		pt, Δy, s = unpackX(x)
 		dpt_dp1 = dpt_dp(x[1:np]) # 1,npt X npt,np
 
-		# # Old - works
-		# dφ_dpt = ForwardDiff.gradient(ptdiff -> φ(ptdiff, Δy, s), pt)
-		# grad_f[1:np] = dφ_dpt' * dpt_dp1
-
-		# Analytical gradients https://github.com/avikde/robobee3d/pull/137
-		uvec = Hu * pt
-		dqvec = Hdq * pt
-		for k=1:N
-			dφmech1 = dφmech(uvec[_k(k)], dqvec[_k(k)])
-			grad_f[1:np] += 1/N * (dφmech1' * [Hu[_k(k),:]; Hdq[_k(k),:]] * dpt_dp1)[:]
+		if dφ_dptAutodiff
+			# Autodiff for gradient of 
+			dφ_dpt = ForwardDiff.gradient(ptdiff -> φ(ptdiff, Δy, s), pt)
+			grad_f[1:np] = dφ_dpt' * dpt_dp1
+		else
+			# Analytical gradients https://github.com/avikde/robobee3d/pull/137
+			uvec = Hu * pt
+			dqvec = Hdq * pt
+			for k=1:N
+				dφmech1 = dφmech(uvec[_k(k)], dqvec[_k(k)])
+				grad_f[1:np] += 1/N * (dφmech1' * [Hu[_k(k),:]; Hdq[_k(k),:]] * dpt_dp1)[:]
+			end
+			grad_f[1:np] += wlse * (dLSE(uvec)' * Hu * dpt_dp1)[:] # For LSE
 		end
-		grad_f[1:np] += wlse * (dLSE(uvec)' * Hu * dpt_dp1)[:] # For LSE
 
 		grad_f[np+1:np+nΔy] = 2*wΔy/N*Δy # nΔy Analytical - see cost above
 		if uinfnorm
