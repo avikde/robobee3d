@@ -50,7 +50,7 @@ POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
 	plimsL = copy(param0),
 	plimsU = copy(param0),
-	R = (0.0*I, reshape([0.0],1,1), 1.0*I, 1.0, 1e-3, 1e-1), # Ryy, Ryu (mech pow), Ruu, wΔy, wu∞, wlse
+	R = (0.0*I, reshape([1e-2],1,1), 0.0*I, 1e4, 1e-3, 1e0), # Ryy, Ryu (mech pow), Ruu, wΔy, wu∞, wlse
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
 	uinfnorm = false
 )
@@ -82,6 +82,24 @@ POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 # 	println("Obj: ", paramObj(xtest))
 # end
 
+"See https://github.com/avikde/robobee3d/pull/136"
+function debugDeltaYEffect(rr)
+	pt, Hk, B, Js, actVec = rr["eval_f"](rr["x"]; debug=true)
+	println("Js ", Js)
+	actVec = vcat(actVec...)
+	dy = rr["x"][length(param0)+1:end]
+	dely(k) = dy[(k-1)*ny+1:(k)*ny]
+	dely0 = zeros(ny)
+	unew = vcat([B' * Hk(k,dely(k),dely(k+1))[1] * pt for k=1:N]...)
+	unew0 = vcat([B' * Hk(k,dely0,dely0)[1] * pt for k=1:N]...)
+	p1 = plot([rr["traj"][(N+1)*ny+1:end]  unew  actVec[:,1]], lw=2)
+	plot!(p1, unew0, lw=2, ls=:dash)
+	return p1, plot(plot(dy[1:ny:(N+1)*ny]),
+		plot(dy[2:ny:(N+1)*ny]),
+		plot(dy[3:ny:(N+1)*ny]),
+		plot(dy[4:ny:(N+1)*ny]))
+end
+
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
 # # resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(150:20:350), 2) # SLOW
@@ -92,26 +110,11 @@ POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 # error("i")
 
 # 2. Try to optimize
-ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180)#; print_level=3, max_iter=10000)
-
-pt, Hk, B, Js, actVec = ret2["eval_f"](ret2["x"]; debug=true)
-println("Js ", Js)
-actVec = vcat(actVec...)
-dy = ret2["x"][length(param0)+1:end]
-dely(k) = dy[(k-1)*ny+1:(k)*ny]
-dely0 = zeros(ny)
-unew = vcat([B' * Hk(k,dely(k),dely(k+1))[1] * pt for k=1:N]...)
-unew0 = vcat([B' * Hk(k,dely0,dely0)[1] * pt for k=1:N]...)
-p1 = plot([ret1["traj"][(N+1)*ny+1:end]  unew  actVec[:,1]], lw=2)
-plot!(p1, unew0, lw=2, ls=:dash)
-plot(p1, plot(plot(dy[1:ny:(N+1)*ny]),
-       plot(dy[2:ny:(N+1)*ny]),
-       plot(dy[3:ny:(N+1)*ny]),
-       plot(dy[4:ny:(N+1)*ny])
-       ))
+ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; print_level=3#= , max_iter=10000 =#)
+pls = debugDeltaYEffect(ret2)
+plot(pls...)
 gui()
 error("hi")
-
 # testManyShifts(ret1, [0], 0.6)
 
 # retTest = Dict("traj"=>ret2["traj"], "param"=>ret2["param"])
