@@ -174,7 +174,26 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	
 	Ryy, Ryu, Ruu, wΔy, wu∞, wlse = POPTS.R # NOTE Ryu is just weight on mech. power
 	lse = wlse > 1e-6
-	
+
+	"Assemble the big Hu,Hdq matrices s.t. Hu * pt = uact, Hdq * pt = dqact - ASSUMING dely = 0.
+	NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179"
+	function bigH()
+		Hu = zeros(nact*N, npt)
+		Hdq = similar(Hu)
+		for k=1:N
+			Hh, Hvel = Hk(k, Δy0, Δy0) #Hk(k, Δyk(k), Δyk(k+1))
+			Hu[nact*(k-1)+1 : nact*k, :] = B' * Hh
+			# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
+			# ASSUMING 1 ACTUATED DOF
+			Hdq[nact*(k-1)+1 : nact*k, :] = [zeros(1,npt1)  Hvel  zeros(1,npt1)]
+		end
+		return Hu, Hdq
+	end
+	Hu, Hdq = bigH()
+
+	# components of the gradient:
+	dpt_dp(pp) = ForwardDiff.jacobian(x -> getpt(m, x[1:np]), pp)
+
 	function eval_f(x; debug=false)
 		pt, Tarr = getpt(m, x[1:np])
 		Δy = x[np+1 : np+nΔy]
@@ -184,20 +203,13 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		Jpow = zero(eltype(x))
 		Ju2 = zero(eltype(x))
 		Jinfnorm = zero(eltype(x))
-		
-		"Return [uact   dqact]
-		NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179"
-		function actk(k)
-			Hh, Hvel = Hk(k, Δy0, Δy0) #Hk(k, Δyk(k), Δyk(k+1))
-			# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
-			# ASSUMING 1 ACTUATED DOF
-			return [B' * Hh * pt    [zeros(1,npt1)   Hvel   zeros(1,npt1)] * pt]
-		end
-		actVec = [actk(k) for k=1:N]
+
+		uvec = Hu * pt
+		dqvec = Hdq * pt
 
 		for k=1:N
-			uact = actVec[k][:,1]
-			dqact = actVec[k][:,2]
+			uact = uvec[nact*(k-1)+1 : nact*k]
+			dqact = dqvec[nact*(k-1)+1 : nact*k]
 			if mode == 1
 				# For mech pow https://github.com/avikde/robobee3d/issues/123 but use a ramp mapping to get rid of negative power
 				Jpow += 1/(2*N) * smoothRamp(dqact' * Ryu * uact)
@@ -221,7 +233,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 			J += (Jinfnorm = wu∞ * dot(s,s)) # s is already positive, but need a scalar
 		end
 		if debug
-			return pt, Hk, B, [Junact, Jlse, Jpow, Ju2, Jinfnorm], actVec
+			return pt, Hk, B, [Junact, Jlse, Jpow, Ju2, Jinfnorm], [uvec  dqvec]
 		end
 
 		return J

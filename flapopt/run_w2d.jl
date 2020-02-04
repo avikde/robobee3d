@@ -86,7 +86,6 @@ POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 function debugDeltaYEffect(rr)
 	pt, Hk, B, Js, actVec = rr["eval_f"](rr["x"]; debug=true)
 	println("Js ", Js)
-	actVec = vcat(actVec...)
 	dy = rr["x"][length(param0)+1:end]
 	dely(k) = dy[(k-1)*ny+1:(k)*ny]
 	dely0 = zeros(ny)
