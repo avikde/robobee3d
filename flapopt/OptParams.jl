@@ -182,6 +182,26 @@ function bigH(N, ny, nact, npt, Hk, B)
 	return Hu, Hdq
 end
 
+"Running cost function of actuator force, vel for a single k"
+function φ_uact_dqact(T, uact, dqact, Ruu, Ryu, mode, lse)
+	Jcomps = zeros(T, 5)
+	if mode == 1
+		if lse
+			Jcomps[2] = sum(exp.(uact))
+		end
+		# For mech pow https://github.com/avikde/robobee3d/issues/123 but use a ramp mapping to get rid of negative power
+		Jcomps[3] = 1/2 * smoothRamp(dqact' * Ryu * uact)
+
+		# ||u||p
+		Jcomps[4] = 1/2 * uact' * Ruu * uact
+	elseif mode == 2
+		# ||u||2
+		uerr = uact - umeas(k)
+		Jcomps[4] = 1/2 * uerr' * Ruu * uerr
+	end
+	return Jcomps
+end
+
 "Helper function for optAffine. See optAffine for the def of x"
 function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt, Hk, yo, umeas, B, N)
 	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
@@ -199,26 +219,6 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 
 	unpackX(x) = getpt(m, x[1:np])[1], x[np+1 : np+nΔy], uinfnorm ? x[np+nΔy+1 : np+nΔy+nact] : zero(eltype(x)) # slack variable for infnorm
 
-	"Running cost function of actuator force, vel for a single k"
-	function φ_uact_dqact(T, uact, dqact)
-		Jcomps = zeros(T, 5)
-		if mode == 1
-			if lse
-				Jcomps[2] = sum(exp.(uact))
-			end
-			# For mech pow https://github.com/avikde/robobee3d/issues/123 but use a ramp mapping to get rid of negative power
-			Jcomps[3] = 1/2 * smoothRamp(dqact' * Ryu * uact)
-
-			# ||u||p
-			Jcomps[4] = 1/2 * uact' * Ruu * uact
-		elseif mode == 2
-			# ||u||2
-			uerr = uact - umeas(k)
-			Jcomps[4] = 1/2 * uerr' * Ruu * uerr
-		end
-		return Jcomps
-	end
-
 	function φ(pt, Δy, s; debug=false)
 		# min Δy
 		T = eltype(pt)
@@ -228,7 +228,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		dqvec = Hdq * pt
 
 		for k=1:N
-			Jcomps .+= φ_uact_dqact(T, uvec[nact*(k-1)+1 : nact*k], dqvec[nact*(k-1)+1 : nact*k])
+			Jcomps .+= φ_uact_dqact(T, uvec[nact*(k-1)+1 : nact*k], dqvec[nact*(k-1)+1 : nact*k], Ruu, Ryu, mode, lse)
 		end
 
 		# Total
