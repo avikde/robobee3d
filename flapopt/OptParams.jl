@@ -261,8 +261,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		grad_f[1:np] = dφ_dpt' * dpt_dp(x[1:np]) # 1,npt X npt,np
 		grad_f[np+1:np+nΔy] = 2*wΔy/N*Δy # nΔy Analytical - see cost above
 		if uinfnorm
-			dφ_ds = ForwardDiff.jacobian(ss -> φ(pt, Δy, ss), s)
-			grad_f[np+nΔy+1:np+nΔy+nact] = dφ_ds
+			grad_f[np+nΔy+1:np+nΔy+nact] = 2 * wu∞ * s # analytical
 		end
 	end
 	
