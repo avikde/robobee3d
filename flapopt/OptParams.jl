@@ -218,7 +218,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		end
 		if uinfnorm
 			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
-			J += (Jinfnorm = wu∞ * s) # s is already positive
+			J += (Jinfnorm = wu∞ * dot(s,s)) # s is already positive, but need a scalar
 		end
 		if debug
 			return pt, Hk, B, [Junact, Jlse, Jpow, Ju2, Jinfnorm], actVec
