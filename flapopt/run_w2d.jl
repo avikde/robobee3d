@@ -60,7 +60,7 @@ POPTS = cu.ParamOptOpts(
 ret1 = opt1(m, traj0, param0, 1, 100)
 
 # These are the actual lims
-cycleFreqLims = [0.3,0.18]#[0.165,0.165]#[0.4, 0.03] # [KHz]
+cycleFreqLims = [0.3,0.1]#[0.165,0.165]#[0.4, 0.03] # [KHz] -- in order to avoid first order integration errors try to keep a small dt
 dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS.plimsL .= [0.1, 1.0, 0.1, 0.5, 0, 20.0, dtlims[1]]
 POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
