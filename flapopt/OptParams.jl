@@ -206,11 +206,11 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	dpt_dp(pp) = ForwardDiff.jacobian(x -> getpt(m, x)[1], pp)
 
 	"Running cost function of actuator force, vel for a single k"
-	function φmech(uact, dqact)
+	function φmech(uact, dqact; kwargs...)
 		Jcomps = zeros(eltype(uact), 5)
 		if mode == 1
 			# For mech pow https://github.com/avikde/robobee3d/issues/123 but use a ramp mapping to get rid of negative power
-			Jcomps[3] = 1/2 * ramp(dqact' * Ryu * uact; smooth=dφ_dptAutodiff)
+			Jcomps[3] = 1/2 * ramp(dqact' * Ryu * uact; kwargs...)
 
 			# ||u||p
 			Jcomps[4] = 1/2 * uact' * Ruu * uact
@@ -222,9 +222,9 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		return Jcomps
 	end
 	"Analytical gradient of the above (of the summed cost). No LSE yet"
-	function dφmech(uact, dqact)
+	function dφmech(uact, dqact; kwargs...)
 		if mode == 1
-			dsmooth = 1/2 * dramp(dqact' * Ryu * uact; smooth=dφ_dptAutodiff)
+			dsmooth = 1/2 * dramp(dqact' * Ryu * uact; kwargs...)
 			return vcat(Ruu * uact + dsmooth * Ryu * dqact, dsmooth * Ryu * uact)
 		elseif mode == 2
 			return vcat(Ruu * (uact - umeas(k)), zero(uact))
@@ -235,7 +235,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 
 	_k(k) = nact*(k-1)+1 : nact*k
 
-	function φ(pt, Δy, s; debug=false)
+	function φ(pt, Δy, s; auto=true, debug=false)
 		# min Δy
 		T = eltype(pt)
 		Jcomps = zeros(T, 5) # [Junact, Jlse, Jpow, Ju2, Jinfnorm]
@@ -244,7 +244,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		dqvec = Hdq * pt
 
 		for k=1:N
-			Jcomps .+= φmech(uvec[_k(k)], dqvec[_k(k)])
+			Jcomps .+= φmech(uvec[_k(k)], dqvec[_k(k)]; smooth=auto)
 		end
 
 		# Total
@@ -264,15 +264,15 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 
 		return sum(Jcomps) + wΔy/N * dot(Δy, Δy)
 	end
-	function eval_f(x; kwargs...)
-		return φ(unpackX(x)...; kwargs...)
+	function eval_f(x; auto=dφ_dptAutodiff, kwargs...)
+		return φ(unpackX(x)...; auto=auto, kwargs...)
 	end
 
-	function eval_grad_f(x, grad_f)
+	function eval_grad_f(x, grad_f; auto=dφ_dptAutodiff)
 		pt, Δy, s = unpackX(x)
 		dpt_dp1 = dpt_dp(x[1:np]) # 1,npt X npt,np
 
-		if dφ_dptAutodiff
+		if auto
 			# Autodiff for gradient of 
 			dφ_dpt = ForwardDiff.gradient(ptdiff -> φ(ptdiff, Δy, s), pt)
 			grad_f[1:np] = dφ_dpt' * dpt_dp1
@@ -281,7 +281,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 			uvec = Hu * pt
 			dqvec = Hdq * pt
 			for k=1:N
-				dφmech1 = dφmech(uvec[_k(k)], dqvec[_k(k)])
+				dφmech1 = dφmech(uvec[_k(k)], dqvec[_k(k)]; smooth=false)
 				grad_f[1:np] += 1/N * (dφmech1' * [Hu[_k(k),:]; Hdq[_k(k),:]] * dpt_dp1)[:]
 			end
 			grad_f[1:np] += wlse * (dLSE(uvec)' * Hu * dpt_dp1)[:] # For LSE
@@ -644,6 +644,6 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	end
 	s = uinfnorm ? prob.x[np+nΔy+1:np+nΔy+nu] : NaN
 
-	return Dict("x"=>prob.x, "traj"=>trajnew, "param"=>prob.x[1:np], "eval_f"=>eval_f, "eval_g"=>eval_g_ret, "s"=>s, "status"=>status)
+	return Dict("x"=>prob.x, "traj"=>trajnew, "param"=>prob.x[1:np], "eval_f"=>eval_f, "eval_grad_f"=>eval_grad_f, "eval_g"=>eval_g_ret, "s"=>s, "status"=>status)
 end
 

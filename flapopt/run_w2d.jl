@@ -99,6 +99,23 @@ function debugDeltaYEffect(rr)
 		plot(dy[4:ny:(N+1)*ny]))
 end
 
+function debugGradient(rr)
+	x = copy(rr["x"])
+	x1s = 5.0:40
+	fx1(x1, a=true) = rr["eval_f"]([x1; x[2:end]]; auto=a)
+	function ddx1(x1, a=true)
+		grad_f = similar(x)
+		rr["eval_grad_f"]([x1; x[2:end]], grad_f; auto=a)
+		return grad_f[1]
+	end
+	plot(
+		plot([fx1.(x1s) fx1.(x1s, false)],lw=2,ls=[:solid :dash]), 
+		plot([ddx1.(x1s)  ddx1.(x1s, false)],lw=2,ls=[:solid :dash])
+	)
+	gui()
+	error("h")
+end
+
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
 # # resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(150:20:350), 2) # SLOW
@@ -109,11 +126,12 @@ end
 # error("i")
 
 # 2. Try to optimize
-ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; print_level=3#= , max_iter=10000 =#)
-pls = debugDeltaYEffect(ret2)
-plot(pls...)
-gui()
-error("hi")
+# ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; print_level=3#= , max_iter=10000 =#)
+# pls = debugDeltaYEffect(ret2)
+# plot(pls...)
+# gui()
+# error("hi")
+debugGradient(ret2)
 # testManyShifts(ret1, [0], 0.6)
 
 # retTest = Dict("traj"=>ret2["traj"], "param"=>ret2["param"])
