@@ -247,7 +247,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		Jcomps = zeros(T, 5) # [Junact, Jlse, Jpow, Ju2, Jinfnorm]
 
 		if HdepΔy
-			Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, zeros(nΔy))
+			Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, Δy)
 		end
 		uvec = Hu * pt
 		dqvec = Hdq * pt
@@ -288,7 +288,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		else
 			# Analytical gradients https://github.com/avikde/robobee3d/pull/137
 			if HdepΔy
-				Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, zeros(nΔy))
+				Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, Δy)
 			end
 			uvec = Hu * pt
 			dqvec = Hdq * pt

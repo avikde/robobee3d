@@ -99,6 +99,7 @@ function debugDeltaYEffect(rr)
 		plot(dy[4:ny:(N+1)*ny]))
 end
 
+"https://github.com/avikde/robobee3d/pull/137"
 function debugGradient(rr)
 	x = copy(rr["x"])
 	x1s = 5.0:40
@@ -127,11 +128,11 @@ end
 
 # 2. Try to optimize
 ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; print_level=3#= , max_iter=10000 =#)
-# pls = debugDeltaYEffect(ret2)
-# plot(pls...)
-# gui()
-# error("hi")
-debugGradient(ret2)
+pls = debugDeltaYEffect(ret2)
+plot(pls...)
+gui()
+error("hi")
+# debugGradient(ret2)
 # testManyShifts(ret1, [0], 0.6)
 
 # retTest = Dict("traj"=>ret2["traj"], "param"=>ret2["param"])
