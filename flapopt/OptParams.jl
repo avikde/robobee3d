@@ -280,11 +280,12 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 			# Analytical gradients https://github.com/avikde/robobee3d/pull/137
 			uvec = Hu * pt
 			dqvec = Hdq * pt
+			# Need this first to "clear" previous grad_f (or could fill it with 0)
+			grad_f[1:np] = wlse * (dLSE(uvec)' * Hu * dpt_dp1) # For LSE
 			for k=1:N
 				dφmech1 = dφmech(uvec[_k(k)], dqvec[_k(k)]; smooth=false)
 				grad_f[1:np] += 1/N * (dφmech1' * [Hu[_k(k),:]; Hdq[_k(k),:]] * dpt_dp1)[:]
 			end
-			grad_f[1:np] += wlse * (dLSE(uvec)' * Hu * dpt_dp1)[:] # For LSE
 		end
 
 		grad_f[np+1:np+nΔy] = 2*wΔy/N*Δy # nΔy Analytical - see cost above
