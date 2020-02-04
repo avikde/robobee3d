@@ -175,7 +175,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	Ryy, Ryu, Ruu, wΔy, wu∞, wlse = POPTS.R # NOTE Ryu is just weight on mech. power
 	lse = wlse > 1e-6
 	
-	function eval_f(x)
+	function eval_f(x; debug=false)
 		pt, Tarr = getpt(m, x[1:np])
 		Δy = x[np+1 : np+nΔy]
 		# min Δy
@@ -208,6 +208,9 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		end
 		if lse
 			J += wlse * log(Jlse)
+		end
+		if debug
+			return pt, Hk, B
 		end
 
 		return J
