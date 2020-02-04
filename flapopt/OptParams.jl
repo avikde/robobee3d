@@ -223,7 +223,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	"Analytical gradient of the above (of the summed cost). No LSE yet"
 	function dφmech(uact, dqact)
 		if mode == 1
-			dsmooth = dsmoothRamp(dqact' * Ryu * uact)
+			dsmooth = 1/2 * dsmoothRamp(dqact' * Ryu * uact)
 			return vcat(Ruu * uact + dsmooth * Ryu * dqact, dsmooth * Ryu * uact)
 		elseif mode == 2
 			return vcat(Ruu * (uact - umeas(k)), zero(uact))
@@ -275,14 +275,14 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		# dφ_dpt = ForwardDiff.gradient(ptdiff -> φ(ptdiff, Δy, s), pt)
 		# grad_f[1:np] = dφ_dpt' * dpt_dp1
 
+		# Analytical gradients https://github.com/avikde/robobee3d/pull/137
 		uvec = Hu * pt
 		dqvec = Hdq * pt
 		for k=1:N
 			dφmech1 = dφmech(uvec[_k(k)], dqvec[_k(k)])
-			grad_f[1:np] += (dφmech1' * [Hu[_k(k),:]; Hdq[_k(k),:]] * dpt_dp1)[:]
+			grad_f[1:np] += 1/N * (dφmech1' * [Hu[_k(k),:]; Hdq[_k(k),:]] * dpt_dp1)[:]
 		end
-		# For LSE https://github.com/avikde/robobee3d/pull/137
-		grad_f[1:np] += (dLSE(uvec)' * Hu * dpt_dp1)[:]
+		grad_f[1:np] += wlse * (dLSE(uvec)' * Hu * dpt_dp1)[:] # For LSE
 
 		grad_f[np+1:np+nΔy] = 2*wΔy/N*Δy # nΔy Analytical - see cost above
 		if uinfnorm
