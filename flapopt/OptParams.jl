@@ -197,15 +197,15 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	# components of the gradient:
 	dpt_dp(pp) = ForwardDiff.jacobian(x -> getpt(m, x[1:np]), pp)
 
-	function eval_f(x; debug=false)
-		pt, Tarr = getpt(m, x[1:np])
-		Δy = x[np+1 : np+nΔy]
+	unpackX(x) = getpt(m, x[1:np])[1], x[np+1 : np+nΔy], uinfnorm ? x[np+nΔy+1 : np+nΔy+nact] : zero(eltype(x)) # slack variable for infnorm
+
+	function φ_pt(pt, Δy, s; debug=false)
 		# min Δy
 		Junact = wΔy * dot(Δy, Δy)/N
-		Jlse = zero(eltype(x))
-		Jpow = zero(eltype(x))
-		Ju2 = zero(eltype(x))
-		Jinfnorm = zero(eltype(x))
+		Jlse = zero(eltype(pt))
+		Jpow = zero(eltype(pt))
+		Ju2 = zero(eltype(pt))
+		Jinfnorm = zero(eltype(pt))
 
 		uvec = Hu * pt
 		dqvec = Hdq * pt
@@ -232,7 +232,6 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 			J += (Jlse = wlse * log(Jlse))
 		end
 		if uinfnorm
-			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
 			J += (Jinfnorm = wu∞ * dot(s,s)) # s is already positive, but need a scalar
 		end
 		if debug
@@ -241,7 +240,14 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 
 		return J
 	end
+	function eval_f(x; kwargs...)
+		return φ_pt(unpackX(x)...; kwargs...)
+	end
+	# function eval_grad_f(x, grad_f)
+	# 	dφ_dpt = ForwardDiff.jacobian(eval_f, x)
+	# end
 	eval_grad_f(x, grad_f) = ForwardDiff.gradient!(grad_f, eval_f, x)
+
 
 	return eval_f, eval_grad_f
 end
