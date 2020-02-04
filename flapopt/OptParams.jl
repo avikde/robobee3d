@@ -206,11 +206,11 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	dpt_dp(pp) = ForwardDiff.jacobian(x -> getpt(m, x)[1], pp)
 
 	"Running cost function of actuator force, vel for a single k"
-	function φmech(uact, dqact; kwargs...)
+	function φmech(uact, dqact)
 		Jcomps = zeros(eltype(uact), 5)
 		if mode == 1
 			# For mech pow https://github.com/avikde/robobee3d/issues/123 but use a ramp mapping to get rid of negative power
-			Jcomps[3] = 1/2 * ramp(dqact' * Ryu * uact; kwargs...)
+			Jcomps[3] = 1/2 * ramp(dqact' * Ryu * uact)
 
 			# ||u||p
 			Jcomps[4] = 1/2 * uact' * Ruu * uact
@@ -222,9 +222,9 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		return Jcomps
 	end
 	"Analytical gradient of the above (of the summed cost). No LSE yet"
-	function dφmech(uact, dqact; kwargs...)
+	function dφmech(uact, dqact)
 		if mode == 1
-			dsmooth = 1/2 * dramp(dqact' * Ryu * uact; kwargs...)
+			dsmooth = 1/2 * dramp(dqact' * Ryu * uact)
 			return vcat(Ruu * uact + dsmooth * Ryu * dqact, dsmooth * Ryu * uact)
 		elseif mode == 2
 			return vcat(Ruu * (uact - umeas(k)), zero(uact))
@@ -244,7 +244,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		dqvec = Hdq * pt
 
 		for k=1:N
-			Jcomps .+= φmech(uvec[_k(k)], dqvec[_k(k)]; smooth=auto)
+			Jcomps .+= φmech(uvec[_k(k)], dqvec[_k(k)])
 		end
 
 		# Total
@@ -283,7 +283,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 			# Need this first to "clear" previous grad_f (or could fill it with 0)
 			grad_f[1:np] = wlse * (dLSE(uvec)' * Hu * dpt_dp1) # For LSE
 			for k=1:N
-				dφmech1 = dφmech(uvec[_k(k)], dqvec[_k(k)]; smooth=false)
+				dφmech1 = dφmech(uvec[_k(k)], dqvec[_k(k)])
 				grad_f[1:np] += 1/N * (dφmech1' * [Hu[_k(k),:]; Hdq[_k(k),:]] * dpt_dp1)[:]
 			end
 		end
