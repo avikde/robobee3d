@@ -175,25 +175,28 @@ NOT INCLUDING the Δy in the calculation of u. Including these was resulting in 
 function bigH(N, ny, nact, npt, Hk, B, Δy)
 	npt1 = npt÷3 # each of the 3 segments for nondim time https://github.com/avikde/robobee3d/pull/119
 	Δyk = k -> Δy[(k-1)*ny+1 : k*ny]
+	Bperp = (I - B*B')[nact+1:end,:] # s.t. Bperp*B = 0
+	nq = ny÷2
+	nunact = nq - nact
 	Hu = zeros(nact*N, npt)
-	# Hunact = zeros(nunact*N, npt)
+	Hunact = zeros(nunact*N, npt)
 	Hdq = similar(Hu)
 	for k=1:N
 		Hh, Hvel = Hk(k, Δyk(k), Δyk(k+1)) #Hk(k, Δyk(k), Δyk(k+1))
 		Hu[nact*(k-1)+1 : nact*k, :] = B' * Hh
-		# Hunact[nact*(k-1)+1 : nact*k, :] = B' * Hh
+		Hunact[nact*(k-1)+1 : nact*k, :] = Bperp * Hh
 		# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
 		# ASSUMING 1 ACTUATED DOF
 		Hdq[nact*(k-1)+1 : nact*k, :] = [zeros(1,npt1)  Hvel  zeros(1,npt1)]
 	end
-	return Hu, Hdq
+	return Hu, Hdq, Hunact
 end
 
 "Helper function for optAffine. See optAffine for the def of x"
 function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt, Hk, yo, umeas, B, N)
 	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
 	dφ_dptAutodiff = true
-	HdepΔy = true
+	HdepΔy = false
 	nq = ny÷2
 	nact = size(B, 2)
 	nΔy = (N+1)*ny
@@ -205,7 +208,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	lse = wlse > 1e-6
 
 	if !HdepΔy # Ignore Δy in computation of H for objective (exactly fine for fully act)
-		Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, zeros(nΔy))
+		Hu, Hdq, Hunact = bigH(N, ny, nact, npt, Hk, B, zeros(nΔy))
 	end
 
 	# components of the gradient:
@@ -247,7 +250,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		Jcomps = zeros(T, 5) # [Junact, Jlse, Jpow, Ju2, Jinfnorm]
 
 		if HdepΔy
-			Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, Δy)
+			Hu, Hdq, Hunact = bigH(N, ny, nact, npt, Hk, B, Δy)
 		end
 		uvec = Hu * pt
 		dqvec = Hdq * pt
