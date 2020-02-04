@@ -172,14 +172,14 @@ end
 
 "Assemble the big Hu,Hdq matrices s.t. Hu * pt = uact, Hdq * pt = dqact - ASSUMING dely = 0.
 NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179"
-function bigH(N, ny, nact, npt, Hk, B)
+function bigH(N, ny, nact, npt, Hk, B, Δy)
 	npt1 = npt÷3 # each of the 3 segments for nondim time https://github.com/avikde/robobee3d/pull/119
+	Δyk = k -> Δy[(k-1)*ny+1 : k*ny]
 	Hu = zeros(nact*N, npt)
-	Δy0 = zeros(ny)
 	# Hunact = zeros(nunact*N, npt)
 	Hdq = similar(Hu)
 	for k=1:N
-		Hh, Hvel = Hk(k, Δy0, Δy0) #Hk(k, Δyk(k), Δyk(k+1))
+		Hh, Hvel = Hk(k, Δyk(k), Δyk(k+1)) #Hk(k, Δyk(k), Δyk(k+1))
 		Hu[nact*(k-1)+1 : nact*k, :] = B' * Hh
 		# Hunact[nact*(k-1)+1 : nact*k, :] = B' * Hh
 		# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
@@ -200,7 +200,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	Ryy, Ryu, Ruu, wΔy, wu∞, wlse = POPTS.R # NOTE Ryu is just weight on mech. power
 	lse = wlse > 1e-6
 
-	Hu, Hdq = bigH(N, ny, nact, npt, Hk, B)
+	Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, zeros(nΔy))
 
 	# components of the gradient:
 	dpt_dp(pp) = ForwardDiff.jacobian(x -> getpt(m, x)[1], pp)
