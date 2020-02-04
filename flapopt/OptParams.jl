@@ -202,9 +202,6 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	function φmech(uact, dqact)
 		Jcomps = zeros(eltype(uact), 5)
 		if mode == 1
-			if lse
-				Jcomps[2] = sum(exp.(uact))
-			end
 			# For mech pow https://github.com/avikde/robobee3d/issues/123 but use a ramp mapping to get rid of negative power
 			Jcomps[3] = 1/2 * smoothRamp(dqact' * Ryu * uact)
 
@@ -246,7 +243,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		# Total
 		# Jcomps[1] = wΔy/N * dot(Δy, Δy) # FIXME: this isn't working in forwarddiff
 		if lse
-			Jcomps[2] = wlse * log(Jcomps[2])
+			Jcomps[2] = wlse * log(sum(exp.(uvec)))
 		end
 		Jcomps[3] /= N
 		Jcomps[4] /= N
