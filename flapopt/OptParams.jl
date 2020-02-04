@@ -160,50 +160,69 @@ function fixTrajWithDynConst(m::Model, opt::OptOptions, traj::AbstractArray, par
 	return traj1
 end
 
+"Smooth ramp function for mechanical power (only positive components) https://math.stackexchange.com/questions/3521169/smooth-approximation-of-ramp-function"
+smoothRamp(x; ε=0.1) = x/2 * (1 + x / sqrt(x^2 + ε^2))
+
 "Helper function for optAffine. See optAffine for the def of x"
 function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt, Hk, yo, umeas, B, N)
 	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
 	nq = ny÷2
 	nact = size(B, 2)
 	nΔy = (N+1)*ny
-	
-	Ryy, Ryu, Ruu, wΔy, wu∞ = POPTS.R # NOTE Ryu is just weight on mech. power
-	# TODO: this is NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179
-	Quu = zeros(npt, npt)
-	Qyu = zeros(npt, npt) # quadratic for mech pow https://github.com/avikde/robobee3d/issues/123
-	qyu = zeros(npt) # linear (used for ID)
-
+	Δy0 = zeros(ny)
 	npt1 = npt÷3 # each of the 3 segments for nondim time https://github.com/avikde/robobee3d/pull/119
 	
-	# Matrices that contain sum of running actuator cost
-	for k=1:N
-		Hh, Hvel = Hk(k, zeros(ny), zeros(ny)) #Hk(k, Δyk(k), Δyk(k+1))
-		# yok = yo(k)# + Δyk(k)
-		if mode == 1
-			Quu += Hh' * Ruu * Hh
-			# Mech pow https://github.com/avikde/robobee3d/issues/123. ASSUMING 1 ACTUATED DOF
-			# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
-			Qyu = [zeros(npt1); Hvel'; zeros(npt1)] * Ryu * B' * Hh
-			# qyu += Ryu * (Hh' * [B * B'  zeros(ny-nq, ny-nq)] * yok)
-		elseif mode == 2
-			# Need to consider the unactuated rows too
-			Quu += Hh' * Ruu * Hh
-			# For ID, need uk
-			qyu += (-Hh' * Ruu * (δt * B * umeas(k)))
-		end
-	end
-		
-	function eval_f(x)
+	Ryy, Ryu, Ruu, wΔy, wu∞, wlse = POPTS.R # NOTE Ryu is just weight on mech. power
+	lse = wlse > 1e-6
+	
+	function eval_f(x; debug=false)
 		pt, Tarr = getpt(m, x[1:np])
 		Δy = x[np+1 : np+nΔy]
 		# min Δy
-		J = wΔy * dot(Δy, Δy)/N
+		Junact = wΔy * dot(Δy, Δy)/N
+		Jlse = zero(eltype(x))
+		Jpow = zero(eltype(x))
+		Ju2 = zero(eltype(x))
+		Jinfnorm = zero(eltype(x))
+		
+		"Return [uact   dqact]
+		NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179"
+		function actk(k)
+			Hh, Hvel = Hk(k, Δy0, Δy0) #Hk(k, Δyk(k), Δyk(k+1))
+			# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
+			# ASSUMING 1 ACTUATED DOF
+			return [B' * Hh * pt    [zeros(1,npt1)   Hvel   zeros(1,npt1)] * pt]
+		end
+		actVec = [actk(k) for k=1:N]
+
+		for k=1:N
+			uact = actVec[k][:,1]
+			dqact = actVec[k][:,2]
+			if mode == 1
+				# For mech pow https://github.com/avikde/robobee3d/issues/123 but use a ramp mapping to get rid of negative power
+				Jpow += 1/(2*N) * smoothRamp(dqact' * Ryu * uact)
+
+				# ||u||p
+				Ju2 += 1/(2*N) * uact' * Ruu * uact
+				Jlse += sum(exp.(uact))
+			elseif mode == 2
+				# ||u||2
+				uerr = uact - umeas(k)
+				Ju2 += 1/(2*N) * uerr' * Ruu * uerr
+			end
+		end
+		# Total
+		J = Junact + Ju2 + Jpow
+		if lse
+			J += (Jlse = wlse * log(Jlse))
+		end
 		if uinfnorm
 			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
-			J += wu∞ * dot(s, s)
+			J += (Jinfnorm = wu∞ * dot(s,s)) # s is already positive, but need a scalar
 		end
-		# Normalize by N so if N increases things don't need to be retuned again
-		J += (1/2 * pt' * (Quu + Qyu) * pt + qyu' * pt)/N # the R's contain these weights
+		if debug
+			return pt, Hk, B, [Junact, Jlse, Jpow, Ju2, Jinfnorm], actVec
+		end
 
 		return J
 	end
@@ -240,10 +259,13 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	dp2 = copy(dp) # No idea why this was getting modified. Storing a copy seems to work.
 	nΔy = (N+1)*ny
 	τ1min = σomax/σamax
+	# Use delta y in upred (to get uinfnorm to be exact)
+	ukpredUseΔy = false
+	Δy0 = zeros(ny)
 
 	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1)[1] * (getpt(m, p)[1])
 	if uinfnorm
-		Δy0 = zeros(ny)
+		ukpredΔy(k, Δyk, Δykp1, p) = B' * Hk(k, Δyk, Δykp1)[1] * (getpt(m, p)[1])
 		ukpred(k, p) = B' * Hk(k, Δy0, Δy0)[1] * (getpt(m, p)[1])
 	end
 
@@ -251,6 +273,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 		pp = x[1:np]
 		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 		gvec = vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), pp) for k=1:N]...)
+		ukp2(k) = ukpredUseΔy ? ukpredΔy(k, Δyk(k), Δyk(k+1), pp) : ukpred(k, pp)
 		# Polytope constraint on the params
 		if ncpolytope > 0
 			gvec = [gvec; Cp * pp - dp2] # must be <= 0
@@ -261,7 +284,9 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 		end
 		if uinfnorm
 			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
-			gvec = [gvec; vcat([ukpred(k, pp)-s for k=1:N]...); vcat([-ukpred(k, pp)-s for k=1:N]...)] # uk-s<=0; -uk-s<=0
+			gvec = [gvec; 
+			vcat([ukp2(k)-s for k=1:N]...); # uk-s<=0
+			vcat([-ukp2(k)-s for k=1:N]...)] # -uk-s<=0
 		end
 		return gvec
 	end
@@ -276,8 +301,11 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 		Dgnnz += 2 # The +2 at the end is for the transmission constraint
 	end
 	if uinfnorm
-		# for each k, get d/dp(B' * Hk * pt) which should be nact*np, and there is an identity for the "s", 2x times
-		Dgnnz += 2 * N * (nact * np + nact)
+		# for each k, get 
+		# - d/dp(B' * Hk * pt) which should be nact*np, 
+		# - identity for the "s", 2x times
+		# - d/d(delyk)(B' * Hk * pt) which should be nact*ny * 2 (Δyk, Δykp1)
+		Dgnnz += 2 * N * nact * (np + (ukpredUseΔy ? 2 * ny : 0) + 1)
 	end
 
 	"Dg jacobian of the constraint function g() for IPOPT."
@@ -332,7 +360,13 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 			end
 			if uinfnorm
 				for k=1:N
-					dp = ForwardDiff.jacobian(pp -> ukpred(k, pp), p)
+					if ukpredUseΔy
+						dp = ForwardDiff.jacobian(pp -> ukpredΔy(k, Δyk(k), Δyk(k+1), pp), p)
+						dyk = ForwardDiff.jacobian(yy -> ukpredΔy(k, yy, Δyk(k+1), p), Δyk(k))
+						dykp1 = ForwardDiff.jacobian(yy -> ukpredΔy(k, Δyk(k), yy, p), Δyk(k+1))
+					else
+						dp = ForwardDiff.jacobian(pp -> ukpred(k, pp), p)
+					end
 					for i=1:nact
 						for j=1:np
 							offs += 1
@@ -344,6 +378,18 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 						value[offs] = -1 # -s in uk-s<=0
 						offs += 1
 						value[offs] = -1 # -s in -uk-s<=0
+						if ukpredUseΔy
+							for j=1:ny
+								offs += 1
+								value[offs] = dyk[i,j] # duk/dyk in uk-s<=0
+								offs += 1
+								value[offs] = -dyk[i,j] # duk/dyk in -uk-s<=0
+								offs += 1
+								value[offs] = dykp1[i,j] # duk/dykp1 in uk-s<=0
+								offs += 1
+								value[offs] = -dykp1[i,j] # duk/dykp1 in -uk-s<=0
+							end
+						end
 					end
 				end
 			end
@@ -391,22 +437,39 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 				col[offs] = POPTS.τinds[2]
 			end
 			if uinfnorm
+				rowOffs = ncunact + ncpolytope + nctransmission
 				for k=1:N
 					for i=1:nact
 						for j=1:np
 							offs += 1
-							row[offs] = ncunact + ncpolytope + nctransmission + (k-1)*nact + i
+							row[offs] = rowOffs + (k-1)*nact + i
 							col[offs] = j # uk in uk-s<=0
 							offs += 1
-							row[offs] = ncunact + ncpolytope + nctransmission + ncuinfnorm÷2 + (k-1)*nact + i
+							row[offs] = rowOffs + ncuinfnorm÷2 + (k-1)*nact + i
 							col[offs] = j # uk in -uk-s<=0
 						end
 						offs += 1
-						row[offs] = ncunact + ncpolytope + nctransmission + (k-1)*nact + i
+						row[offs] = rowOffs + (k-1)*nact + i
 						col[offs] = np+nΔy+i # s in uk-s<=0
 						offs += 1
-						row[offs] = ncunact + ncpolytope + nctransmission + ncuinfnorm÷2 + (k-1)*nact + i
+						row[offs] = rowOffs + ncuinfnorm÷2 + (k-1)*nact + i
 						col[offs] = np+nΔy+i # s in -uk-s<=0
+						if ukpredUseΔy
+							for j=1:ny
+								offs += 1
+								row[offs] = rowOffs + (k-1)*nact + i
+								col[offs] = np + (k-1)*ny + j # duk/dyk in uk-s<=0
+								offs += 1
+								row[offs] = rowOffs + ncuinfnorm÷2 + (k-1)*nact + i
+								col[offs] = np + (k-1)*ny + j # duk/dyk in -uk-s<=0
+								offs += 1
+								row[offs] = rowOffs + (k-1)*nact + i
+								col[offs] = np + (k)*ny + j # duk/dykp1 in uk-s<=0
+								offs += 1
+								row[offs] = rowOffs + ncuinfnorm÷2 + (k-1)*nact + i
+								col[offs] = np + (k)*ny + j # duk/dykp1 in -uk-s<=0
+							end
+						end
 					end
 				end
 			end
