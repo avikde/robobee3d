@@ -97,13 +97,18 @@ ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180)#; print_level=3, max_i
 pt, Hk, B, Js, actVec = ret2["eval_f"](ret2["x"]; debug=true)
 println("Js ", Js)
 actVec = vcat(actVec...)
-dely(k) = ret2["x"][length(param0)+(k-1)*ny+1:length(param0)+(k)*ny]
+dy = ret2["x"][length(param0)+1:end]
+dely(k) = dy[(k-1)*ny+1:(k)*ny]
 dely0 = zeros(ny)
 unew = vcat([B' * Hk(k,dely(k),dely(k+1))[1] * pt for k=1:N]...)
 unew0 = vcat([B' * Hk(k,dely0,dely0)[1] * pt for k=1:N]...)
 p1 = plot([ret1["traj"][(N+1)*ny+1:end]  unew  actVec[:,1]], lw=2)
 plot!(p1, unew0, lw=2, ls=:dash)
-plot(p1)
+plot(p1, plot(plot(dy[1:ny:(N+1)*ny]),
+       plot(dy[2:ny:(N+1)*ny]),
+       plot(dy[3:ny:(N+1)*ny]),
+       plot(dy[4:ny:(N+1)*ny])
+       ))
 gui()
 error("hi")
 
