@@ -162,6 +162,7 @@ end
 
 "Smooth ramp function for mechanical power (only positive components) https://math.stackexchange.com/questions/3521169/smooth-approximation-of-ramp-function"
 smoothRamp(x; ε=0.1) = x/2 * (1 + x / sqrt(x^2 + ε^2))
+dsmoothRamp(x; ε=0.1) = 1/2*(1 + (x*(x^2 + 2*ε^2))/(x^2 + ε^2)^(3/2)) # used Mathematica
 
 "Assemble the big Hu,Hdq matrices s.t. Hu * pt = uact, Hdq * pt = dqact - ASSUMING dely = 0.
 NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179"
@@ -216,11 +217,19 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		end
 		return Jcomps
 	end
-
-	# dφmech_duact()
-	# dφ_uact_dqact(uact, dqact) = ForwardDiff.gradient(x -> getpt(m, x)[1], pp)
+	"Analytical gradient of the above (of the summed cost). No LSE yet"
+	function dφmech(uact, dqact)
+		if mode == 1
+			dsmooth = dsmoothRamp(dqact' * Ryu * uact)
+			return vcat(Ruu * uact + dsmooth * Ryu * dqact, dsmooth * Ryu * uact)
+		elseif mode == 2
+			return vcat(Ruu * (uact - umeas(k)), zero(uact))
+		end
+	end
 
 	unpackX(x) = getpt(m, x[1:np])[1], x[np+1 : np+nΔy], uinfnorm ? x[np+nΔy+1 : np+nΔy+nact] : zero(eltype(x)) # slack variable for infnorm
+
+	_k(k) = nact*(k-1)+1 : nact*k
 
 	function φ(pt, Δy, s; debug=false)
 		# min Δy
@@ -231,7 +240,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		dqvec = Hdq * pt
 
 		for k=1:N
-			Jcomps .+= φmech(uvec[nact*(k-1)+1 : nact*k], dqvec[nact*(k-1)+1 : nact*k])
+			Jcomps .+= φmech(uvec[_k(k)], dqvec[_k(k)])
 		end
 
 		# Total
@@ -257,8 +266,19 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 
 	function eval_grad_f(x, grad_f)
 		pt, Δy, s = unpackX(x)
-		dφ_dpt = ForwardDiff.gradient(ptdiff -> φ(ptdiff, Δy, s), pt)
-		grad_f[1:np] = dφ_dpt' * dpt_dp(x[1:np]) # 1,npt X npt,np
+		dpt_dp1 = dpt_dp(x[1:np]) # 1,npt X npt,np
+
+		# # Old - works
+		# dφ_dpt = ForwardDiff.gradient(ptdiff -> φ(ptdiff, Δy, s), pt)
+		# grad_f[1:np] = dφ_dpt' * dpt_dp1
+
+		uvec = Hu * pt
+		dqvec = Hdq * pt
+		for k=1:N
+			dφmech1 = dφmech(uvec[_k(k)], dqvec[_k(k)])
+			grad_f[1:np] .+= (dφmech1' * [Hu[_k(k),:]; Hdq[_k(k),:]] * dpt_dp1)[:]
+		end
+
 		grad_f[np+1:np+nΔy] = 2*wΔy/N*Δy # nΔy Analytical - see cost above
 		if uinfnorm
 			grad_f[np+nΔy+1:np+nΔy+nact] = 2 * wu∞ * s # analytical
