@@ -243,19 +243,19 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	function eval_f(x; kwargs...)
 		return φ(unpackX(x)...; kwargs...)
 	end
-
 	
 	function eval_grad_f(x, grad_f)
 		pt, Δy, s = unpackX(x)
 		dφ_dpt = ForwardDiff.gradient(ptdiff -> φ(ptdiff, Δy, s), pt)
 		dφ_dΔy = ForwardDiff.gradient(yy -> φ(pt, yy, s), Δy)
-		# dφ_ds = ForwardDiff.jacobian(ss -> φ(pt, Δy, ss), s)
 		grad_f[1:np] = dφ_dpt' * dpt_dp(x[1:np])
 		grad_f[np+1:np+nΔy] = dφ_dΔy
+		if uinfnorm
+			dφ_ds = ForwardDiff.jacobian(ss -> φ(pt, Δy, ss), s)
+			grad_f[np+nΔy+1:np+nΔy+nact] = dφ_ds
+		end
 	end
-	# eval_grad_f(x, grad_f) = ForwardDiff.gradient!(grad_f, eval_f, x)
-
-
+	
 	return eval_f, eval_grad_f
 end
 
