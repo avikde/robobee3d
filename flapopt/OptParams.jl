@@ -193,14 +193,20 @@ end
 function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt, Hk, yo, umeas, B, N)
 	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
 	dφ_dptAutodiff = true
+	HdepΔy = true
 	nq = ny÷2
 	nact = size(B, 2)
 	nΔy = (N+1)*ny
+	if nact == nq
+		HdepΔy = false
+	end
 	
 	Ryy, Ryu, Ruu, wΔy, wu∞, wlse = POPTS.R # NOTE Ryu is just weight on mech. power
 	lse = wlse > 1e-6
 
-	Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, zeros(nΔy))
+	if !HdepΔy # Ignore Δy in computation of H for objective (exactly fine for fully act)
+		Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, zeros(nΔy))
+	end
 
 	# components of the gradient:
 	dpt_dp(pp) = ForwardDiff.jacobian(x -> getpt(m, x)[1], pp)
@@ -240,6 +246,9 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		T = eltype(pt)
 		Jcomps = zeros(T, 5) # [Junact, Jlse, Jpow, Ju2, Jinfnorm]
 
+		if HdepΔy
+			Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, zeros(nΔy))
+		end
 		uvec = Hu * pt
 		dqvec = Hdq * pt
 
@@ -278,6 +287,9 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 			grad_f[1:np] = dφ_dpt' * dpt_dp1
 		else
 			# Analytical gradients https://github.com/avikde/robobee3d/pull/137
+			if HdepΔy
+				Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, zeros(nΔy))
+			end
 			uvec = Hu * pt
 			dqvec = Hdq * pt
 			# Need this first to "clear" previous grad_f (or could fill it with 0)
