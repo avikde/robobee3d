@@ -184,7 +184,7 @@ function bigH(N, ny, nact, npt, Hk, B, Δy)
 	for k=1:N
 		Hh, Hvel = Hk(k, Δyk(k), Δyk(k+1)) #Hk(k, Δyk(k), Δyk(k+1))
 		Hu[nact*(k-1)+1 : nact*k, :] = B' * Hh
-		Hunact[nact*(k-1)+1 : nact*k, :] = Bperp * Hh
+		Hunact[nunact*(k-1)+1 : nunact*k, :] = Bperp * Hh
 		# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
 		# ASSUMING 1 ACTUATED DOF
 		Hdq[nact*(k-1)+1 : nact*k, :] = [zeros(1,npt1)  Hvel  zeros(1,npt1)]
@@ -323,9 +323,9 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		end
 
 		grad_f[np+1:np+nΔy] = 2*wΔy/N*Δy # nΔy Analytical - see cost above
-		if unactObj
+		if unactObj # FIXME: this gives "no method matching Float64(::ForwardDiff.Dual"
 			dφunact_dΔy = ForwardDiff.gradient(yy -> φunact(pt, yy), Δy)
-			grad_f[np+1:np+nΔy] .+= dφunact_dΔy
+			grad_f[np+1:np+nΔy] += dφunact_dΔy
 		end
 		if uinfnorm
 			grad_f[np+nΔy+1:np+nΔy+nact] = 2 * wu∞ * s # analytical
