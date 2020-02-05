@@ -11,7 +11,7 @@ function nonlinBenefit(ret, Tratios, minals)
 	return res
 end
 
-function plotNonlinBenefit(fname; s=100)
+function plotNonlinBenefit(fname, ypl; s=100)
 	results = matread(fname)["res"]
 	
 	# Row 1 has Tratio=0 (res[1,:])
@@ -31,7 +31,6 @@ function plotNonlinBenefit(fname; s=100)
 	params = xyzi[6:end,:]
 
 	xpl = [0,3]
-	ypl = [140, 170]
 	X = range(xpl[1], xpl[2], length=50)
 	Y = range(ypl[1], ypl[2], length=50)
 
@@ -49,7 +48,7 @@ function plotNonlinBenefit(fname; s=100)
 	return [
 		# scatter(xyzi[1,:], xyzi[4,:]),
 		# scatter3d(xyzi[1,:], xyzi[4,:], xyzi[3,:]),
-		contourFromUnstructured(xyzi[1,:], xyzi[4,:], xyzi[3,:]; title="Nonlinear transmission benefit []"),
+		contourFromUnstructured(xyzi[1,:], xyzi[4,:], clamp.(xyzi[3,:], 0.0, 1.0); title="Nonlinear transmission benefit [ ]"),# opt errors cause > 1 which doesn't make sense
 		contourFromUnstructured(xyzi[1,:], xyzi[4,:], params[2,:]; title="T1 [rad/mm]"),
 		contourFromUnstructured(xyzi[1,:], xyzi[4,:], params[6,:]; title="Aw [mm^2]"),
 		contourFromUnstructured(xyzi[1,:], xyzi[4,:], 1000.0 ./(N*params[7,:]); title="Freq [Hz]")

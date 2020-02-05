@@ -72,7 +72,7 @@ POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 # includet("w2d_shift.jl")
 # includet("w2d_scaling1.jl")
 # includet("w2d_nlbenefit.jl")
-includet("w2d_debug.jl")
+# includet("w2d_debug.jl")
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
 # # resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(150:20:350), 2) # SLOW
@@ -84,24 +84,19 @@ includet("w2d_debug.jl")
 
 # 2. Try to optimize
 ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180)#, print_level=3)
-pls = debugDeltaYEffect(ret2)
-plot(pls..., size=(1000,600))
-# testManyShifts(ret1, [0], 0.6)
+# pls = debugDeltaYEffect(ret2)
+# plot(pls..., size=(1000,600))
 
-# retTest = Dict("traj"=>ret2["traj"], "param"=>ret2["param"])
-# retTest["param"][2]
-
-# pl1 = plotTrajs(m, opt, listOfParamTraj(ret1, ret2)...)
-# plot(pl1...)
-
-# # ---------
-# pls = debugComponentsPlot(m, opt, POPTS, ret2)
-# plot(pls..., size=(800,600))
+# ---------
+pls = debugComponentsPlot(m, opt, POPTS, ret2)
+plot(pls..., size=(800,600))
 
 # # -----------------
-# # nonlinBenefit(ret1, 0:0.3:3.0, 1.6:0.2:2.6) # SLOW
-# pls = plotNonlinBenefit(NLBENEFIT_FNAME, s=500)
+# # nonlinBenefit(ret1, 0:0.5:3.0, 150:20:250) # SLOW
+# pls = plotNonlinBenefit(NLBENEFIT_FNAME, [170,220]; s=20)
 # plot(pls..., dpi=200)
+# gui()
+# savefig("nonlinbenefit_138.png")
 
 # # ----------------
 # pls = scaleParamsForlift(ret1, 0.6:0.2:2.0, 2)
