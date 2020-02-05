@@ -255,7 +255,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		end
 
 		# Total
-		# Jcomps[1] = wΔy/N * dot(Δy, Δy) # FIXME: this isn't working in forwarddiff
+		Jcomps[1] = wΔy/N * dot(Δy, Δy)
 		if lse
 			Jcomps[2] = wlse * LSE(uvec)
 		end
@@ -266,7 +266,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 			return pt, Hk, B, Jcomps, [uvec  dqvec]
 		end
 
-		return sum(Jcomps) + wΔy/N * dot(Δy, Δy)
+		return sum(Jcomps)
 	end
 	eval_f(x; kwargs...) = φ(unpackX(x)...; kwargs...)
 
