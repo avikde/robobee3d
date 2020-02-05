@@ -56,7 +56,7 @@ POPTS = cu.ParamOptOpts(
 	objDepΔy = true,
 	ΔySpikyBound = 0.03,
 	pdes = zeros(7),
-	pdesQ = [0.,0.,0.,0.,0.,0.,1e4]
+	pdesQ = [0.,0.,0.,0.,0.,0.,5e4]
 )
 
 # ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0

@@ -37,7 +37,7 @@ function debugDeltaYEffect(rr)
 		), 
 		plot(D * rr["x"][np+1:end],lw=2,ylabel="diff(dely)"), 
 		plot(infeas[1:N],lw=2,ylabel="unact constraint"), 
-		plot(infeas[N+1:end], ylims=(-0.1,0.1),lw=2,ylabel="polytope constraint")
+		plot(infeas[N+1:N+np], ylims=(-0.1,0.1),lw=2,ylabel="polytope constraint")
 		)
 end
 
