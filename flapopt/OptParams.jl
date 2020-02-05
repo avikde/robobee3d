@@ -204,8 +204,9 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		HdepΔy = false
 	end
 	
-	Ryy, Ryu, Ruu, wΔy, wu∞, wlse = POPTS.R # NOTE Ryu is just weight on mech. power
+	Ryy, Ryu, Ruu, wΔy, wu∞, wlse, wunact = POPTS.R # NOTE Ryu is just weight on mech. power
 	lse = wlse > 1e-6
+	unactObj = wunact > 1e-6
 
 	if !HdepΔy # Ignore Δy in computation of H for objective (exactly fine for fully act)
 		Hu, Hdq, Hunact = bigH(N, ny, nact, npt, Hk, B, zeros(nΔy))
@@ -244,13 +245,22 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 
 	_k(k) = nact*(k-1)+1 : nact*k
 
-	function φ(pt, Δy, s; auto=true, debug=false)
+	function φunact(pt, Δy#= , Hunact =#)
+		# Assume delta y is 
+		Hunact = bigH(N, ny, nact, npt, Hk, B, Δy)[3]
+		return wunact * LSE(Hunact * pt)
+	end
+
+	function φ(pt, Δy, s; debug=false)
 		# min Δy
 		T = eltype(pt)
 		Jcomps = zeros(T, 5) # [Junact, Jlse, Jpow, Ju2, Jinfnorm]
 
 		if HdepΔy
 			Hu, Hdq, Hunact = bigH(N, ny, nact, npt, Hk, B, Δy)
+		# else
+		# 	# definitely need delta y dependence for this
+		# 	Hunact = bigH(N, ny, nact, npt, Hk, B, Δy)[3]
 		end
 		uvec = Hu * pt
 		dqvec = Hdq * pt
@@ -276,18 +286,27 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 
 		return sum(Jcomps) + wΔy/N * dot(Δy, Δy)
 	end
-	function eval_f(x; auto=dφ_dptAutodiff, kwargs...)
-		return φ(unpackX(x)...; auto=auto, kwargs...)
+	function eval_f(x; kwargs...)
+		pt, Δy, s = unpackX(x)
+		rr = φ(pt, Δy, s; kwargs...)
+		if unactObj
+			rr += φunact(pt, Δy#= , Hunact =#)
+		end
+		return rr
 	end
 
-	function eval_grad_f(x, grad_f; auto=dφ_dptAutodiff)
+	function eval_grad_f(x, grad_f)
 		pt, Δy, s = unpackX(x)
 		dpt_dp1 = dpt_dp(x[1:np]) # 1,npt X npt,np
 
-		if auto
+		if dφ_dptAutodiff
 			# Autodiff for gradient of 
 			dφ_dpt = ForwardDiff.gradient(ptdiff -> φ(ptdiff, Δy, s), pt)
 			grad_f[1:np] = dφ_dpt' * dpt_dp1
+			if unactObj
+				dφunact_dpt = ForwardDiff.gradient(ptdiff -> φunact(ptdiff, Δy), pt)
+				grad_f[1:np] += (dφunact_dpt' * dpt_dp1)[:]
+			end
 		else
 			# Analytical gradients https://github.com/avikde/robobee3d/pull/137
 			if HdepΔy
@@ -304,6 +323,10 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		end
 
 		grad_f[np+1:np+nΔy] = 2*wΔy/N*Δy # nΔy Analytical - see cost above
+		if unactObj
+			dφunact_dΔy = ForwardDiff.gradient(yy -> φunact(pt, yy), Δy)
+			grad_f[np+1:np+nΔy] .+= dφunact_dΔy
+		end
 		if uinfnorm
 			grad_f[np+nΔy+1:np+nΔy+nact] = 2 * wu∞ * s # analytical
 		end
