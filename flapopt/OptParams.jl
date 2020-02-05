@@ -328,10 +328,10 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	# Unactuated constraint: Bperp' * H(y + Δy) * pt is small enough (unactuated DOFs) 
 	nact = size(B, 2)
 	nq = ny÷2
-	nck = nq - nact # number of constraints for each k = # of unactuated DOFs ( = nunact)
+	nunact = nq - nact # number of constraints for each k = # of unactuated DOFs ( = nunact)
 	Bperp = (I - B*B')[nact+1:end,:] # s.t. Bperp*B = 0
 	# Number of various constraints - these are used below to set up the jacobian of g.
-	ncunact = N * nck
+	ncunact = N * nunact
 	
 	# Convert the polytope constraint to sparse, and get the COO format IPOPT needs
 	CpS = sparse(Cp)
@@ -363,7 +363,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	"Dg jacobian of the constraint function g() for IPOPT."
 	function eval_jac_g(x, imode, row::Vector{Int32}, col::Vector{Int32}, value)
 		offs = 0
-			
+		
 		if imode != :Structure
 			Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 			p = x[1:np]
@@ -372,21 +372,21 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 			for k=1:N
 				# Now assemble the pieces
 				dyk = ForwardDiff.jacobian(yy -> eval_g_pieces(k, yy, Δyk(k+1), p), Δyk(k))
-				for i=1:nck
+				for i=1:nunact
 					for j=1:ny
 						offs += 1
 						value[offs] = dyk[i,j]
 					end
 				end
 				dykp1 = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(k), yy, p), Δyk(k+1))
-				for i=1:nck
+				for i=1:nunact
 					for j=1:ny
 						offs += 1
 						value[offs] = dykp1[i,j]
 					end
 				end
 				dp = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(k), Δyk(k+1), yy), p)
-				for i=1:nck
+				for i=1:nunact
 					for j=1:np
 						offs += 1
 						value[offs] = dp[i,j]
@@ -401,24 +401,24 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 			end
 		else
 			for k=1:N
-				for i=1:nck
+				for i=1:nunact
 					for j=1:ny
 						offs += 1
-						row[offs] = (k-1)*nck + i
+						row[offs] = (k-1)*nunact + i
 						col[offs] = np + (k-1)*ny + j
 					end
 				end
-				for i=1:nck
+				for i=1:nunact
 					for j=1:ny
 						offs += 1
-						row[offs] = (k-1)*nck + i
+						row[offs] = (k-1)*nunact + i
 						col[offs] = np + (k)*ny + j
 					end
 				end
-				for i=1:nck
+				for i=1:nunact
 					for j=1:np
 						offs += 1
-						row[offs] = (k-1)*nck + i
+						row[offs] = (k-1)*nunact + i
 						col[offs] = j
 					end
 				end
