@@ -79,17 +79,12 @@ includet("w2d_debug.jl")
 # gui()
 # error("i")
 
-# ff = p -> cu.getpt(m, p)
-
-# error("hi", ff(param0))
-
 # 2. Try to optimize
-ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; print_level=3#= , max_iter=10000 =#)
+ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; print_level=3)
 pls = debugDeltaYEffect(ret2)
 plot(pls...)
 gui()
 error("hi")
-# debugGradient(ret2)
 # testManyShifts(ret1, [0], 0.6)
 
 # retTest = Dict("traj"=>ret2["traj"], "param"=>ret2["param"])
