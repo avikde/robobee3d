@@ -346,25 +346,30 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	ncpolytope = CpS.m
 	ncpolytopennz = length(CpV)
 
-	nctotal = ncunact + ncpolytope # this is the TOTAL number of constraints
+	# Δy diff constraint (to try and avoid spikiness) https://github.com/avikde/robobee3d/pull/138
+	spikyD = trajDiffMat(N, ny)
+	DI, DJ, DV = findnz(spikyD)
+	ncspiky = spikyD.m
+	ncspikynnz = length(DI)
+
+	nctotal = ncunact + ncpolytope + ncspiky # this is the TOTAL number of constraints
 	dp2 = copy(dp) # No idea why this was getting modified. Storing a copy seems to work.
 	nΔy = (N+1)*ny
 
 	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1)[1] * getpt(m, p)
 
-	function eval_g_ret(x)
+	function eval_g(x, g)
 		pp = x[1:np]
 		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
-		gvec = vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), pp) for k=1:N]...)
-		# Polytope constraint on the params
-		gvec = [gvec; CpS * pp] # must be <= dp
-		return gvec
+		
+		g .= [vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), pp) for k=1:N]...); # unact
+			CpS * pp; # Polytope constraint on the params must be <= dp
+			spikyD * x[np+1 : np+(N+1)*ny]] # D*Δy within bounds
 	end
 
 	# ----------- Constraint Jac ----------------------------
 	# Unactuated error: exploit sparsity in the nc*nx matrix. Each constraint depends on Δyk(k), Δyk(k+1), p
-	Dgnnz = ncunact * (2*ny + np)
-	Dgnnz += ncpolytopennz
+	Dgnnz = ncunact * (2*ny + np) + ncpolytopennz + ncspikynnz
 
 	"Dg jacobian of the constraint function g() for IPOPT."
 	function eval_jac_g(x, imode, row::Vector{Int32}, col::Vector{Int32}, value)
@@ -428,13 +433,28 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 				col[offs] = CpJ[i] # hits the elements of param (first part of x)
 			end
 		end
+
+		# D * Δy within bounds
+		for i=1:ncspikynnz
+			offs += 1
+			if imode == :Values
+				value[offs] = DV[i]
+			else
+				row[offs] = ncunact + ncpolytope + DI[i] # goes after the previous constraints
+				col[offs] = np + DJ[i] # hits Δy (after param)
+			end
+		end
 	end
 
 	glimsL = -POPTS.εunact*ones(ncunact)
 	glimsU = POPTS.εunact*ones(ncunact)
-	if size(Cp,1) > 0
+	if ncpolytope > 0
 		glimsL = [glimsL; -1e3 * ones(ncpolytope)] # Scott said having non-inf bounds helps IPOPT
 		glimsU = [glimsU; dp2 + POPTS.εpoly * ones(ncpolytope)] # must be <= 0
+	end
+	if ncspiky > 0
+		glimsL = [glimsL; -0.05 * ones(ncspiky)] # empirical from https://github.com/avikde/robobee3d/pull/138
+		glimsU = [glimsU; 0.05 * ones(ncspiky)]
 	end
 	
 	return nctotal, glimsL, glimsU, eval_g_ret, eval_jac_g, Dgnnz, Bperp
@@ -477,8 +497,7 @@ function paramOpt(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstrac
 	
 	# IPOPT setup using helper functions
 	Ct, dt = transmissionLinearConstraint(POPTS, np, σamax, σomax) # Append linear transmission constraint
-	nctotal, glimsL, glimsU, eval_g_ret, eval_jac_g, Dgnnz, Bperp = paramOptConstraint(m, POPTS, mode, np, ny, δt, Hk, yo, umeas, B, N, [Cp; Ct], [dp; dt])
-	eval_g(x::Vector, g::Vector) = g .= eval_g_ret(x)
+	nctotal, glimsL, glimsU, eval_g, eval_jac_g, Dgnnz, Bperp = paramOptConstraint(m, POPTS, mode, np, ny, δt, Hk, yo, umeas, B, N, [Cp; Ct], [dp; dt])
 	eval_f, eval_grad_f = paramOptObjective(m, POPTS, mode, np, npt, ny, δt, Hk, yo, umeas, B, N)
 	
 	# Create IPOPT problem
