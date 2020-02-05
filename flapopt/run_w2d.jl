@@ -50,10 +50,11 @@ POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
 	plimsL = copy(param0),
 	plimsU = copy(param0),
-	R = (0.0*I, reshape([1e-2],1,1), 0.0*I, 1e4, 1e-3, 1e0), # Ryy, Ryu (mech pow), Ruu, wΔy, wu∞, wlse
+	R = (0.0*I, reshape([1e-2],1,1), 0.0*I, 1e4, 1e-3, 5), # Ryy, Ryu (mech pow), Ruu, wΔy, wu∞, wlse
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
 	εpoly = 1e-3,
-	objDepΔy = true
+	objDepΔy = true,
+	ΔySpikyBound = 0.05
 )
 
 # ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0

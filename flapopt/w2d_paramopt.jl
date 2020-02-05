@@ -184,7 +184,10 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	dp = [mlb; 0; 0; 0; 0; 0]
 	print(mode==2 ? "ID" : "Opt", " Φ=", isnothing(Φ) ? "-" : Φ, ", Rpow=", round(POPTS.R[2][1,1]), ", minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
 
-	ret = cu.paramOpt(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, testTrajReconstruction=testReconstruction, tol=1e-3, kwargs...)
+	ret = cu.paramOpt(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, testTrajReconstruction=testReconstruction, 
+		# https://coin-or.github.io/Ipopt/OPTIONS.html - can be overwritten by used kwargs
+		tol=1e-3, 
+		kwargs...)
 	
 	ret["al"] = avgLift(m, opt, ret["traj"], ret["param"])
 	uu = ret["traj"][(N+1)*ny:end]
