@@ -1,6 +1,6 @@
 
 include("OptBase.jl") #< including this helps vscode reference the functions in there
-using Parameters, ForwardDiff, LinearAlgebra, Ipopt, DSP
+using Parameters, ForwardDiff, LinearAlgebra, Ipopt, DSP, SparseArrays
 
 @with_kw struct ParamOptOpts
 	τinds::Array{Int}
@@ -9,8 +9,11 @@ using Parameters, ForwardDiff, LinearAlgebra, Ipopt, DSP
 	plimsU::Vector
 	εunact::Float64 = 0.1
 	Fext_pdep::Bool = true
-	uinfnorm::Bool = false # only in mode 1
-	nonlintransmission::Bool = true # false for linear transmission; true for the cubic polynomial transmission function
+	εpoly::Float64 = 1e-4 # allowed violation for polytope constraint
+	objDepΔy::Bool = false
+	ΔySpikyBound::Float64 = 0.0 # Set positive to enable this constraint
+	pdes::Array{Float64} = [] # Set to an array of desired params - will use a quadratic weight
+	pdesQ::Array{Float64} = [] # Set to an array of (diagonal) weights
 end
 
 # --------------
@@ -24,12 +27,11 @@ paramLumped(m::Model, param::AbstractArray) = error("Implement this")
 
 # lumped parameter vector
 function getpt(m::Model, p)
-	pb, Tarr, dt = paramLumped(m, p)
-	τ1, τ2 = Tarr
+	pb, τ1, τ2, dt = paramLumped(m, p)
 	# Nonlinear transmission: see https://github.com/avikde/robobee3d/pull/92
 	ptWithTransmission = [pb*τ1; pb*τ2/τ1^2; 1/τ1; τ2/τ1^4]
 	# Proper nondim wrt. time  https://github.com/avikde/robobee3d/pull/119#issuecomment-577350049
-	return [ptWithTransmission/dt^2; ptWithTransmission/dt; ptWithTransmission], Tarr
+	return [ptWithTransmission/dt^2; ptWithTransmission/dt; ptWithTransmission]
 end
 
 "Helper function for nonlinear transmission change to H"
@@ -68,7 +70,7 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, POPTS, traj::Abstract
 	# Also convert the output traj with the Δy, new T, and inputs
 	traj2 = copy(traj)
 	# Calculate the new traj (which is in act coordinates, so needs scaling by T)
-	ptnew, Tnew = getpt(m, pnew)
+	ptnew = getpt(m, pnew)
 	for k=1:N+1
 		if opt.trajAct
 			# Go from output to act coords
@@ -116,7 +118,7 @@ end
 function getTrajU(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::ParamOptOpts)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, POPTS)
-	ptnew, Tnew = getpt(m, param)
+	ptnew = getpt(m, param)
 	Δy0 = zeros(ny)
 	return vcat([B' * Hk(k, Δy0, Δy0)[1] * ptnew for k=1:N]...)
 end
@@ -124,7 +126,7 @@ end
 function affineTest(m, opt, traj, param, POPTS::ParamOptOpts; fixTraj=false)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
-	ptTEST, TTEST = getpt(m, param) # NOTE the actual param values are only needed for the test mode
+	ptTEST = getpt(m, param) # NOTE the actual param values are only needed for the test mode
 	dt = param[end]
 
 	traj1 = fixTraj ? fixTrajWithDynConst(m, opt, traj, param) : traj
@@ -175,49 +177,46 @@ NOT INCLUDING the Δy in the calculation of u. Including these was resulting in 
 function bigH(N, ny, nact, npt, Hk, B, Δy)
 	npt1 = npt÷3 # each of the 3 segments for nondim time https://github.com/avikde/robobee3d/pull/119
 	Δyk = k -> Δy[(k-1)*ny+1 : k*ny]
-	Bperp = (I - B*B')[nact+1:end,:] # s.t. Bperp*B = 0
 	nq = ny÷2
-	nunact = nq - nact
 	Hu = zeros(nact*N, npt)
-	Hunact = zeros(nunact*N, npt)
 	Hdq = similar(Hu)
+	# Bperp = (I - B*B')[nact+1:end,:] # s.t. Bperp*B = 0
+	# nunact = nq - nact
+	# Hunact = zeros(nunact*N, npt)
 	for k=1:N
-		Hh, Hvel = Hk(k, Δyk(k), Δyk(k+1)) #Hk(k, Δyk(k), Δyk(k+1))
+		Hh, Hvel = Hk(k, Δyk(k), Δyk(k+1))
 		Hu[nact*(k-1)+1 : nact*k, :] = B' * Hh
-		Hunact[nunact*(k-1)+1 : nunact*k, :] = Bperp * Hh
+		# Hunact[nunact*(k-1)+1 : nunact*k, :] = Bperp * Hh
 		# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
 		# ASSUMING 1 ACTUATED DOF
 		Hdq[nact*(k-1)+1 : nact*k, :] = [zeros(1,npt1)  Hvel  zeros(1,npt1)]
 	end
-	return Hu, Hdq, Hunact
+	return Hu, Hdq#, Hunact
 end
 
-"Helper function for optAffine. See optAffine for the def of x"
+"Helper function for paramOpt. See paramOpt for the def of x"
 function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt, Hk, yo, umeas, B, N)
-	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
 	dφ_dptAutodiff = true
-	HdepΔy = false
 	nq = ny÷2
 	nact = size(B, 2)
 	nΔy = (N+1)*ny
-	if nact == nq
-		HdepΔy = false
-	end
+	objDepΔy = nact == nq ? false : POPTS.objDepΔy # If fully actuated no Δy
 	
-	Ryy, Ryu, Ruu, wΔy, wu∞, wlse, wunact = POPTS.R # NOTE Ryu is just weight on mech. power
+	Ryy, Ryu, Ruu, wΔy, wlse = POPTS.R # NOTE Ryu is just weight on mech. power
 	lse = wlse > 1e-6
-	unactObj = wunact > 1e-6
+	NJcomps = 5
+	usePdes = length(POPTS.pdes) > 0
 
-	if !HdepΔy # Ignore Δy in computation of H for objective (exactly fine for fully act)
-		Hu, Hdq, Hunact = bigH(N, ny, nact, npt, Hk, B, zeros(nΔy))
+	if !objDepΔy # Ignore Δy in computation of H for objective (exactly fine for fully act)
+		Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, zeros(nΔy))
 	end
 
 	# components of the gradient:
-	dpt_dp(pp) = ForwardDiff.jacobian(x -> getpt(m, x)[1], pp)
+	dpt_dp(pp) = ForwardDiff.jacobian(x -> getpt(m, x), pp)
 
 	"Running cost function of actuator force, vel for a single k"
 	function φmech(uact, dqact)
-		Jcomps = zeros(eltype(uact), 5)
+		Jcomps = zeros(eltype(uact), NJcomps)
 		if mode == 1
 			# For mech pow https://github.com/avikde/robobee3d/issues/123 but use a ramp mapping to get rid of negative power
 			Jcomps[3] = 1/2 * ramp(dqact' * Ryu * uact)
@@ -241,26 +240,17 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		end
 	end
 
-	unpackX(x) = getpt(m, x[1:np])[1], x[np+1 : np+nΔy], uinfnorm ? x[np+nΔy+1 : np+nΔy+nact] : zero(eltype(x)) # slack variable for infnorm
+	unpackX(x) = getpt(m, x[1:np]), x[np+1 : np+nΔy]
 
 	_k(k) = nact*(k-1)+1 : nact*k
 
-	function φunact(pt, Δy#= , Hunact =#)
-		# Assume delta y is 
-		Hunact = bigH(N, ny, nact, npt, Hk, B, Δy)[3]
-		return wunact * LSE(Hunact * pt)
-	end
-
-	function φ(pt, Δy, s; debug=false)
+	function φ(p, pt, Δy; debug=false)
 		# min Δy
 		T = eltype(pt)
-		Jcomps = zeros(T, 5) # [Junact, Jlse, Jpow, Ju2, Jinfnorm]
+		Jcomps = zeros(T, NJcomps) # [JΔy, Jlse, Jpow, Ju2]
 
-		if HdepΔy
-			Hu, Hdq, Hunact = bigH(N, ny, nact, npt, Hk, B, Δy)
-		# else
-		# 	# definitely need delta y dependence for this
-		# 	Hunact = bigH(N, ny, nact, npt, Hk, B, Δy)[3]
+		if objDepΔy
+			Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, Δy) # use the new Δy
 		end
 		uvec = Hu * pt
 		dqvec = Hdq * pt
@@ -270,46 +260,35 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		end
 
 		# Total
-		# Jcomps[1] = wΔy/N * dot(Δy, Δy) # FIXME: this isn't working in forwarddiff
+		Jcomps[1] = wΔy/N * dot(Δy, Δy)
 		if lse
 			Jcomps[2] = wlse * LSE(uvec)
 		end
 		Jcomps[3] /= N
 		Jcomps[4] /= N
-		if uinfnorm
-			Jcomps[5] = wu∞ * dot(s,s) # s is already positive, but need a scalar
+		if usePdes
+			perr = p - POPTS.pdes
+			Jcomps[5] = 1/2 * perr' * Diagonal(POPTS.pdesQ) * perr
 		end
-
 		if debug
 			return pt, Hk, B, Jcomps, [uvec  dqvec]
 		end
 
-		return sum(Jcomps) + wΔy/N * dot(Δy, Δy)
+		return sum(Jcomps)
 	end
-	function eval_f(x; kwargs...)
-		pt, Δy, s = unpackX(x)
-		rr = φ(pt, Δy, s; kwargs...)
-		if unactObj
-			rr += φunact(pt, Δy#= , Hunact =#)
-		end
-		return rr
-	end
+	eval_f(x; kwargs...) = φ(x[1:np], unpackX(x)...; kwargs...)
 
 	function eval_grad_f(x, grad_f)
-		pt, Δy, s = unpackX(x)
+		pt, Δy = unpackX(x)
 		dpt_dp1 = dpt_dp(x[1:np]) # 1,npt X npt,np
 
 		if dφ_dptAutodiff
 			# Autodiff for gradient of 
-			dφ_dpt = ForwardDiff.gradient(ptdiff -> φ(ptdiff, Δy, s), pt)
+			dφ_dpt = ForwardDiff.gradient(ptdiff -> φ(x[1:np], ptdiff, Δy), pt)
 			grad_f[1:np] = dφ_dpt' * dpt_dp1
-			if unactObj
-				dφunact_dpt = ForwardDiff.gradient(ptdiff -> φunact(ptdiff, Δy), pt)
-				grad_f[1:np] += (dφunact_dpt' * dpt_dp1)[:]
-			end
 		else
 			# Analytical gradients https://github.com/avikde/robobee3d/pull/137
-			if HdepΔy
+			if objDepΔy
 				Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, Δy)
 			end
 			uvec = Hu * pt
@@ -323,279 +302,176 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		end
 
 		grad_f[np+1:np+nΔy] = 2*wΔy/N*Δy # nΔy Analytical - see cost above
-		if unactObj # FIXME: this gives "no method matching Float64(::ForwardDiff.Dual"
-			dφunact_dΔy = ForwardDiff.gradient(yy -> φunact(pt, yy), Δy)
-			grad_f[np+1:np+nΔy] += dφunact_dΔy
-		end
-		if uinfnorm
-			grad_f[np+nΔy+1:np+nΔy+nact] = 2 * wu∞ * s # analytical
+		if usePdes
+			grad_f[1:np] += POPTS.pdesQ .* (x[1:np] - POPTS.pdes) # gradient of quadratic
 		end
 	end
 	
 	return eval_f, eval_grad_f
 end
 
-"Constraints for IPOPT: g = [gunact; gpolycon; gtransmission]
-- gunact = unactuated error = #unactuated DOFS * N
-- gpolycon = Cp * p <= dp. But the user can pass in (and default is) Cp 0xX => has no effect
-- gtransmission: actuator strain limit (see below)
-- ginfnorm: if min of uinfnorm is desired, add on a slack variable s, and add constraints that -s <= uk <= s => {uk-s <= 0, -uk-s <= 0}
+"Construct a N*ny x (N+1)*ny matrix D s.t. D*y is the traj diff where each element is yi[k+1]-yi[k]"
+function trajDiffMat(N, ny)
+	Diffm = spdiagm(0 => ones((N+1)*ny), 4 => -ones(N*ny))
+	return Diffm[1:(N*ny), :]
+end
 
+"Return in the form C, d s.t. C p <= d.
+See Mathematica, linearization gives -τ1 - τ2*σamax^2/3 + τ1min <= 0.
 Transmission constraint:
 	full nonlinear: σomax/τ1 - σomax^3/3 * τ2/τ1^4
 	start from a (τ1,0) feasible, then use (see https://github.com/avikde/robobee3d/pull/96#issuecomment-553092480) (τ1-Δτ1, τ2 >= 3/σamax^2*Δτ1) <=> τ2 >= 3/σamax^2*(τ1min - τ1)
 	τ2>=0 is in xlims
-	The ineq above is: τ1min - τ1 <= τ2*σamax^2/3 => -τ1 - τ2*σamax^2/3 + τ1min <= 0 which is a linear constraint
+	The ineq above is: τ1min - τ1 <= τ2*σamax^2/3 => -τ1 - τ2*σamax^2/3 + τ1min <= 0 which is a linear constraint"
+function transmissionLinearConstraint(POPTS, np, σamax, σomax)
+	τ1min = σomax/σamax # this would be the case with the linear transmission
+	C = zeros(1,np)
+	for i=1:np
+		if i == POPTS.τinds[1]
+			C[i] = -1.0
+		elseif i == POPTS.τinds[2]
+			C[i] = -σamax^2/3
+		end
+	end
+	return C, [-τ1min]
+end
+
+"Constraints for IPOPT: g = [gunact; gpolycon; gtransmission]
+- gunact = unactuated error = #unactuated DOFS * N
+- gpolycon = Cp * p <= dp. But the user can pass in (and default is) Cp 0xX => has no effect
+- gtransmission: actuator strain limit (see below)
 "
-function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax)
-	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
+function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk, yo, umeas, B, N, Cp, dp)
 	# Unactuated constraint: Bperp' * H(y + Δy) * pt is small enough (unactuated DOFs) 
 	nact = size(B, 2)
 	nq = ny÷2
-	nck = nq - nact # number of constraints for each k = # of unactuated DOFs ( = nunact)
+	nunact = nq - nact # number of constraints for each k = # of unactuated DOFs ( = nunact)
 	Bperp = (I - B*B')[nact+1:end,:] # s.t. Bperp*B = 0
 	# Number of various constraints - these are used below to set up the jacobian of g.
-	ncunact = N * nck
-	ncpolytope = size(Cp,1)
-	nctransmission = POPTS.nonlintransmission ? 1 : 0
-	ncuinfnorm = uinfnorm ? 2 * N * nact : 0
-	nctotal = ncunact + ncpolytope + nctransmission + ncuinfnorm # this is the TOTAL number of constraints
-	dp2 = copy(dp) # No idea why this was getting modified. Storing a copy seems to work.
-	nΔy = (N+1)*ny
-	τ1min = σomax/σamax
-	# Use delta y in upred (to get uinfnorm to be exact)
-	ukpredUseΔy = false
-	Δy0 = zeros(ny)
+	ncunact = N * nunact
+	
+	# Convert the polytope constraint to sparse, and get the COO format IPOPT needs
+	CpS = sparse(Cp)
+	CpI, CpJ, CpV = findnz(CpS)
+	ncpolytope = CpS.m
+	ncpolytopennz = length(CpV)
 
-	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1)[1] * (getpt(m, p)[1])
-	if uinfnorm
-		ukpredΔy(k, Δyk, Δykp1, p) = B' * Hk(k, Δyk, Δykp1)[1] * (getpt(m, p)[1])
-		ukpred(k, p) = B' * Hk(k, Δy0, Δy0)[1] * (getpt(m, p)[1])
+	# Δy diff constraint (to try and avoid spikiness) https://github.com/avikde/robobee3d/pull/138. It works but adds a 
+	ΔySpikyConst = POPTS.ΔySpikyBound > 1e-4
+	if ΔySpikyConst
+		spikyD = trajDiffMat(N, ny)
+		DI, DJ, DV = findnz(spikyD)
+		ncspiky = spikyD.m
+		ncspikynnz = length(DI)
+	else
+		ncspiky = ncspikynnz = 0
 	end
 
-	function eval_g_ret(x)
+	nctotal = ncunact + ncpolytope + ncspiky # this is the TOTAL number of constraints
+	dp2 = copy(dp) # No idea why this was getting modified. Storing a copy seems to work.
+	nΔy = (N+1)*ny
+
+	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1)[1] * getpt(m, p)
+
+	function eval_g(x, g)
 		pp = x[1:np]
 		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
-		gvec = vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), pp) for k=1:N]...)
-		ukp2(k) = ukpredUseΔy ? ukpredΔy(k, Δyk(k), Δyk(k+1), pp) : ukpred(k, pp)
-		# Polytope constraint on the params
-		if ncpolytope > 0
-			gvec = [gvec; Cp * pp - dp2] # must be <= 0
-		end
-		if nctransmission > 0
-			τ1, τ2 = paramLumped(m, pp)[2] # Get both transmission coeffs
-			gvec = [gvec; -τ1 - τ2*σamax^2/3 + τ1min]
-		end
-		if uinfnorm
-			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
-			gvec = [gvec; 
-			vcat([ukp2(k)-s for k=1:N]...); # uk-s<=0
-			vcat([-ukp2(k)-s for k=1:N]...)] # -uk-s<=0
-		end
-		return gvec
+		
+		g .= [vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), pp) for k=1:N]...); # unact
+			CpS * pp; # Polytope constraint on the params must be <= dp
+			ΔySpikyConst ? spikyD * x[np+1 : np+(N+1)*ny] : []] # D*Δy within bounds
 	end
 
 	# ----------- Constraint Jac ----------------------------
 	# Unactuated error: exploit sparsity in the nc*nx matrix. Each constraint depends on Δyk(k), Δyk(k+1), p
-	Dgnnz = ncunact * (2*ny + np)
-	if ncpolytope > 0
-		Dgnnz += prod(size(Cp)) # Assume Cp as a whole is full
-	end
-	if nctransmission > 0
-		Dgnnz += 2 # The +2 at the end is for the transmission constraint
-	end
-	if uinfnorm
-		# for each k, get 
-		# - d/dp(B' * Hk * pt) which should be nact*np, 
-		# - identity for the "s", 2x times
-		# - d/d(delyk)(B' * Hk * pt) which should be nact*ny * 2 (Δyk, Δykp1)
-		Dgnnz += 2 * N * nact * (np + (ukpredUseΔy ? 2 * ny : 0) + 1)
-	end
+	Dgnnz = ncunact * (2*ny + np) + ncpolytopennz + ncspikynnz
 
 	"Dg jacobian of the constraint function g() for IPOPT."
 	function eval_jac_g(x, imode, row::Vector{Int32}, col::Vector{Int32}, value)
 		offs = 0
-			
-		if imode != :Structure
+		
+		if imode == :Values
 			Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 			p = x[1:np]
-			pbb, Tarrr = paramLumped(m, x[1:np])
-			τ1, τ2 = Tarrr
+			pbb, τ1, τ2, dt  = paramLumped(m, x[1:np])
+		end
 
-			for k=1:N
-				# Now assemble the pieces
+		for k=1:N
+			# Use AD for these. These individual terms should not be expected to be sparse since it is a np -> nunact map.
+			if imode == :Values
 				dyk = ForwardDiff.jacobian(yy -> eval_g_pieces(k, yy, Δyk(k+1), p), Δyk(k))
-				for i=1:nck
-					for j=1:ny
-						offs += 1
-						value[offs] = dyk[i,j]
-					end
-				end
 				dykp1 = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(k), yy, p), Δyk(k+1))
-				for i=1:nck
-					for j=1:ny
-						offs += 1
-						value[offs] = dykp1[i,j]
-					end
-				end
 				dp = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(k), Δyk(k+1), yy), p)
-				for i=1:nck
-					for j=1:np
-						offs += 1
-						value[offs] = dp[i,j]
-					end
-				end
 			end
-			if ncpolytope > 0
-				# Cp * param <= dp
-				for i=1:size(Cp,1)
-					for j=1:size(Cp,2)
-						offs += 1
-						value[offs] = Cp[i,j]
-					end
-				end
-			end
-			if nctransmission > 0
-				# transmission
-				offs += 1
-				value[offs] = -1 # d/dτ1
-				offs += 1
-				value[offs] = -σamax^2/3 # d/dτ2
-			end
-			if uinfnorm
-				for k=1:N
-					if ukpredUseΔy
-						dp = ForwardDiff.jacobian(pp -> ukpredΔy(k, Δyk(k), Δyk(k+1), pp), p)
-						dyk = ForwardDiff.jacobian(yy -> ukpredΔy(k, yy, Δyk(k+1), p), Δyk(k))
-						dykp1 = ForwardDiff.jacobian(yy -> ukpredΔy(k, Δyk(k), yy, p), Δyk(k+1))
+			for i=1:nunact
+				for j=1:ny
+					offs += 1
+					if imode == :Values
+						value[offs] = dyk[i,j]
 					else
-						dp = ForwardDiff.jacobian(pp -> ukpred(k, pp), p)
-					end
-					for i=1:nact
-						for j=1:np
-							offs += 1
-							value[offs] = dp[i,j] # uk in uk-s<=0
-							offs += 1
-							value[offs] = -dp[i,j] # uk in -uk-s<=0
-						end
-						offs += 1
-						value[offs] = -1 # -s in uk-s<=0
-						offs += 1
-						value[offs] = -1 # -s in -uk-s<=0
-						if ukpredUseΔy
-							for j=1:ny
-								offs += 1
-								value[offs] = dyk[i,j] # duk/dyk in uk-s<=0
-								offs += 1
-								value[offs] = -dyk[i,j] # duk/dyk in -uk-s<=0
-								offs += 1
-								value[offs] = dykp1[i,j] # duk/dykp1 in uk-s<=0
-								offs += 1
-								value[offs] = -dykp1[i,j] # duk/dykp1 in -uk-s<=0
-							end
-						end
-					end
-				end
-			end
-		else
-			for k=1:N
-				for i=1:nck
-					for j=1:ny
-						offs += 1
-						row[offs] = (k-1)*nck + i
+						row[offs] = (k-1)*nunact + i
 						col[offs] = np + (k-1)*ny + j
 					end
 				end
-				for i=1:nck
-					for j=1:ny
-						offs += 1
-						row[offs] = (k-1)*nck + i
+			end
+			for i=1:nunact
+				for j=1:ny
+					offs += 1
+					if imode == :Values
+						value[offs] = dykp1[i,j]
+					else
+						row[offs] = (k-1)*nunact + i
 						col[offs] = np + (k)*ny + j
 					end
 				end
-				for i=1:nck
-					for j=1:np
-						offs += 1
-						row[offs] = (k-1)*nck + i
+			end
+			for i=1:nunact
+				for j=1:np
+					offs += 1
+					if imode == :Values
+						value[offs] = dp[i,j]
+					else
+						row[offs] = (k-1)*nunact + i
 						col[offs] = j
 					end
 				end
 			end
-			if ncpolytope > 0
-				# Cp * param <= dp
-				for i=1:size(Cp,1)
-					for j=1:size(Cp,2)
-						offs += 1
-						row[offs] = ncunact + i # goes after the unact constraints
-						col[offs] = j # hits the elements of param (first part of x)
-					end
-				end
+		end
+
+		# Cp * param <= dp
+		for i=1:ncpolytopennz
+			offs += 1
+			if imode == :Values
+				value[offs] = CpV[i]
+			else
+				row[offs] = ncunact + CpI[i] # goes after the unact constraints
+				col[offs] = CpJ[i] # hits the elements of param (first part of x)
 			end
-			if nctransmission > 0
-				# transmission
-				offs += 1
-				row[offs] = ncunact + ncpolytope + 1
-				col[offs] = POPTS.τinds[1]
-				offs += 1
-				row[offs] = ncunact + ncpolytope + 1
-				col[offs] = POPTS.τinds[2]
-			end
-			if uinfnorm
-				rowOffs = ncunact + ncpolytope + nctransmission
-				for k=1:N
-					for i=1:nact
-						for j=1:np
-							offs += 1
-							row[offs] = rowOffs + (k-1)*nact + i
-							col[offs] = j # uk in uk-s<=0
-							offs += 1
-							row[offs] = rowOffs + ncuinfnorm÷2 + (k-1)*nact + i
-							col[offs] = j # uk in -uk-s<=0
-						end
-						offs += 1
-						row[offs] = rowOffs + (k-1)*nact + i
-						col[offs] = np+nΔy+i # s in uk-s<=0
-						offs += 1
-						row[offs] = rowOffs + ncuinfnorm÷2 + (k-1)*nact + i
-						col[offs] = np+nΔy+i # s in -uk-s<=0
-						if ukpredUseΔy
-							for j=1:ny
-								offs += 1
-								row[offs] = rowOffs + (k-1)*nact + i
-								col[offs] = np + (k-1)*ny + j # duk/dyk in uk-s<=0
-								offs += 1
-								row[offs] = rowOffs + ncuinfnorm÷2 + (k-1)*nact + i
-								col[offs] = np + (k-1)*ny + j # duk/dyk in -uk-s<=0
-								offs += 1
-								row[offs] = rowOffs + (k-1)*nact + i
-								col[offs] = np + (k)*ny + j # duk/dykp1 in uk-s<=0
-								offs += 1
-								row[offs] = rowOffs + ncuinfnorm÷2 + (k-1)*nact + i
-								col[offs] = np + (k)*ny + j # duk/dykp1 in -uk-s<=0
-							end
-						end
-					end
-				end
+		end
+
+		# D * Δy within bounds
+		for i=1:ncspikynnz
+			offs += 1
+			if imode == :Values
+				value[offs] = DV[i]
+			else
+				row[offs] = ncunact + ncpolytope + DI[i] # goes after the previous constraints
+				col[offs] = np + DJ[i] # hits Δy (after param)
 			end
 		end
 	end
 
+	# Append to lims
 	glimsL = -POPTS.εunact*ones(ncunact)
 	glimsU = POPTS.εunact*ones(ncunact)
-	if size(Cp,1) > 0
-		glimsL = [glimsL; -100000 * ones(ncpolytope)] # Scott said having non-inf bounds helps IPOPT
-		glimsU = [glimsU; zeros(ncpolytope)] # must be <= 0
-	end
-	if nctransmission > 0
-		glimsL = [glimsL; -100000]
-		glimsU = [glimsU; 0.0]
-	end
-	if uinfnorm
-		glimsL = [glimsL; -1e10 * ones(ncuinfnorm)]
-		glimsU = [glimsU; zeros(ncuinfnorm)]
-	end
 
-	return nctotal, glimsL, glimsU, eval_g_ret, eval_jac_g, Dgnnz, Bperp
+	glimsL = [glimsL; -1e3 * ones(ncpolytope)] # Scott said having non-inf bounds helps IPOPT
+	glimsU = [glimsU; dp2 + POPTS.εpoly * ones(ncpolytope)] # must be <= 0
+
+	glimsL = [glimsL; -0.05 * ones(ncspiky)] # empirical from https://github.com/avikde/robobee3d/pull/138
+	glimsU = [glimsU; 0.05 * ones(ncspiky)]
+	
+	return nctotal, glimsL, glimsU, eval_g, eval_jac_g, Dgnnz, Bperp
 end
 
 "Mode=1 => opt, mode=2 ID. Fext(p) or hold constant.
@@ -605,14 +481,13 @@ end
 - σamax -- actuator strain limit. This is used to constrain the transmission coeffs s.t. the actuator displacement is limited to σamax. The form of the actuator constraint depends on bTrCon.
 - Cp, dp -- polytope constraint for params. Can pass Cp=ones(0,X) to not include.
 "
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::ParamOptOpts, mode::Int, σamax; test=false, testTrajReconstruction=false, Cp::Matrix=ones(0,1), dp::Vector=ones(0), scaleTraj=1.0, dtFix=false, kwargs...)
+function paramOpt(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::ParamOptOpts, mode::Int, σamax; test=false, testTrajReconstruction=false, Cp::Matrix=ones(0,1), dp::Vector=ones(0), scaleTraj=1.0, dtFix=false, kwargs...)
 	if test
 		affineTest(m, opt, traj, param, POPTS)
 	end
-	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	np = length(param)
-	npt = length(getpt(m, param)[1])
+	npt = length(getpt(m, param))
 	nΔy = (N+1)*ny
 
 	# Quadratic form matrix
@@ -625,21 +500,18 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	x = [param; Δy] where Δy is the necessary traj modification for passive dynamics matching. 
 	For fully-actuated systems, Δy remains 0.
 	"
-	nx = np + nΔy + (uinfnorm ? nu : 0) # p,Δy[,s]
-	xlimsL = -1000 * ones(nx)
-	xlimsU = 1000 * ones(nx)
+	nx = np + nΔy # p,Δy
+	xlimsL = -1e3 * ones(nx)
+	xlimsU = 1e3 * ones(nx)
 	xlimsL[1:np] = POPTS.plimsL
 	xlimsU[1:np] = POPTS.plimsU
-	if uinfnorm
-		fill!(xlimsL[np+nΔy+1:np+nΔy+nu], 0)
-	end
 	if dtFix # constrain dt to be the same as it is now
 		xlimsL[np] = xlimsU[np] = param[np]
 	end
 	
 	# IPOPT setup using helper functions
-	nctotal, glimsL, glimsU, eval_g_ret, eval_jac_g, Dgnnz, Bperp = paramOptConstraint(m, POPTS, mode, np, ny, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax)
-	eval_g(x::Vector, g::Vector) = g .= eval_g_ret(x)
+	Ct, dt = transmissionLinearConstraint(POPTS, np, σamax, σomax) # Append linear transmission constraint
+	nctotal, glimsL, glimsU, eval_g, eval_jac_g, Dgnnz, Bperp = paramOptConstraint(m, POPTS, mode, np, ny, δt, Hk, yo, umeas, B, N, [Cp; Ct], [dp; dt])
 	eval_f, eval_grad_f = paramOptObjective(m, POPTS, mode, np, npt, ny, δt, Hk, yo, umeas, B, N)
 	
 	# Create IPOPT problem
@@ -659,9 +531,10 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		nothing           # Callback: Hessian evaluation
 	)
 	Ipopt.addOption(prob, "hessian_approximation", "limited-memory")
+	Ipopt.addOption(prob, "sb", "yes") # suppress banner
+	Ipopt.addOption(prob, "print_level", 1) # no printing (user can override)
 
 	# Add options using kwargs
-	Ipopt.addOption(prob, "sb", "yes") # suppress banner
 	for (k,v) in pairs(kwargs)
 		# println(k, " => ", v)
 		Ipopt.addOption(prob, string(k), v)
@@ -677,12 +550,11 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		# Test traj reconstruction:
 		Hk, yo, umeas, B, N = paramAffine(m, opt, trajnew, pnew, POPTS)
 		Hh = Hk(k, zeros(ny), zeros(ny))[1]
-		eval_g_ret2(p) = vcat([Bperp * Hh * (getpt(m, p)[1]) for k=1:N]...)
+		eval_g_ret2(p) = vcat([Bperp * Hh * (getpt(m, p)) for k=1:N]...)
 		display(eval_g_ret2(pnew)')
 		error("Tested")
 	end
-	s = uinfnorm ? prob.x[np+nΔy+1:np+nΔy+nu] : NaN
 
-	return Dict("x"=>prob.x, "traj"=>trajnew, "param"=>prob.x[1:np], "eval_f"=>eval_f, "eval_grad_f"=>eval_grad_f, "eval_g"=>eval_g_ret, "s"=>s, "status"=>status)
+	return Dict("x"=>prob.x, "traj"=>trajnew, "param"=>prob.x[1:np], "eval_f"=>eval_f, "eval_grad_f"=>eval_grad_f, "eval_g"=>eval_g, "nc"=>nctotal, "status"=>status)
 end
 

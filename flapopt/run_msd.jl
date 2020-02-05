@@ -2,7 +2,6 @@
 # This is a "script" to test/run the functions from
 # push!(LOAD_PATH, pwd()) # Only needs to be run once
 
-using BenchmarkTools
 using Revise # while developing
 using SparseArrays, OSQP, LinearAlgebra # temp
 import controlutils
@@ -52,7 +51,7 @@ function opt1(traj, param, mode, scaleTraj, bkratio=1.0, τ21ratiolim=2.0; testA
 	Cp = Float64[0  bkratio  -1  0  0;
 		-τ21ratiolim  0  0  1  0]
 	dp = zeros(2)
-	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, scaleTraj=scaleTraj, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
+	ret = cu.paramOpt(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, scaleTraj=scaleTraj, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
 
 	uu = ret["traj"][(N+1)*ny:end]
 	ret["u∞"] = norm(uu, Inf)
@@ -74,7 +73,7 @@ function debugComponentsPlot(traj, param; refScale=1.0)
 
 	# Get the components
 	yo, Hio, Hia, Hstiffo, Hstiffa, Hdamp = cu.paramAffine(m, opt, traj, param, POPTS; debugComponents=true) # NOTE: scaleTraj=1 here
-	pt0, Tnew = cu.getpt(m, param)
+	pt0 = cu.getpt(m, param)
 	inertialo = zeros(N)
 	inertiala = similar(inertialo)
 	stiffo = similar(inertialo)

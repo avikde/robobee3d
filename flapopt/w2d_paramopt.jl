@@ -1,8 +1,7 @@
 
 import controlutils
 cu = controlutils
-using ForwardDiff
-using Plots; gr()
+
 include("Wing2DOF.jl")
 include("LoadWingKinData.jl")
 
@@ -156,7 +155,7 @@ function trajMechPow(m, opt, traj, param)
 end
 
 """One-off ID or opt"""
-function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1, Φ=nothing, Rpow=nothing)
+function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, Φ=nothing, Rpow=nothing, kwargs...)
 	# Make any desired changes
 	if !isnothing(Φ)
 		m.Amp[1] = deg2rad(Φ)
@@ -185,9 +184,11 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	dp = [mlb; 0; 0; 0; 0; 0]
 	print(mode==2 ? "ID" : "Opt", " Φ=", isnothing(Φ) ? "-" : Φ, ", Rpow=", round(POPTS.R[2][1,1]), ", minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
 
-	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
-	# append unactErr
-	ret["unactErr"] = ret["eval_g"](ret["x"])[1:N] # 1 unact DOF
+	ret = cu.paramOpt(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, testTrajReconstruction=testReconstruction, 
+		# https://coin-or.github.io/Ipopt/OPTIONS.html - can be overwritten by used kwargs
+		tol=1e-3, 
+		kwargs...)
+	
 	ret["al"] = avgLift(m, opt, ret["traj"], ret["param"])
 	uu = ret["traj"][(N+1)*ny:end]
 	ret["u∞"] = norm(uu, Inf)
@@ -219,7 +220,7 @@ function getComponents(m::Wing2DOFModel, opt, traj1, param1)
 
 	# Get the components
 	yo, HMnc, HMc, HC, Hg, Hgact, HF, Hdamp, Hvel = cu.paramAffine(m, opt, traj1, param1, POPTS; debugComponents=true)
-	pt0, Tnew = cu.getpt(m, param1)
+	pt0 = cu.getpt(m, param1)
 	inertial = zeros(2,N)
 	inertialc = similar(inertial)
 	coriolis = similar(inertial)
