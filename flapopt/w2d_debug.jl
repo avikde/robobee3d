@@ -23,6 +23,10 @@ function debugDeltaYEffect(rr)
 	p1 = plot([rr["traj"][(N+1)*ny+1:end]  actVec[:,1]  unew], lw=2, ls=[:solid :solid :dash])
 	plot!(p1, unew0, lw=2, ls=:dash)
 	infeas = ret2["eval_g"](ret2["x"])
+	np = length(rr["param"])
+
+	D = cu.trajDiffMat(N, ny)
+
 	return (p1, 
 		plot(
 			plot(dy[1:ny:(N+1)*ny]),
@@ -30,6 +34,7 @@ function debugDeltaYEffect(rr)
 			plot(dy[3:ny:(N+1)*ny]),
 			plot(dy[4:ny:(N+1)*ny])
 		), 
+		plot(D * rr["x"][np+1:end],lw=2,ylabel="diff(dely)"), 
 		plot(infeas[1:N],lw=2,ylabel="unact constraint"), 
 		plot(infeas[N+1:end], ylims=(-0.1,0.1),lw=2,ylabel="polytope constraint")
 		)

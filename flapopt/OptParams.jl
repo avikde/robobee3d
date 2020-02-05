@@ -300,6 +300,12 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	return eval_f, eval_grad_f
 end
 
+"Construct a N*ny x (N+1)*ny matrix D s.t. D*y is the traj diff where each element is yi[k+1]-yi[k]"
+function trajDiffMat(N, ny)
+	Diffm = spdiagm(0 => ones((N+1)*ny), 4 => -ones(N*ny))
+	return Diffm[1:(N*ny), :]
+end
+
 "Return in the form C, d s.t. C p <= d.
 See Mathematica, linearization gives -τ1 - τ2*σamax^2/3 + τ1min <= 0.
 Transmission constraint:
