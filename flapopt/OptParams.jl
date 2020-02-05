@@ -202,7 +202,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	nΔy = (N+1)*ny
 	objDepΔy = nact == nq ? false : POPTS.objDepΔy # If fully actuated no Δy
 	
-	Ryy, Ryu, Ruu, wΔy, wu∞, wlse = POPTS.R # NOTE Ryu is just weight on mech. power
+	Ryy, Ryu, Ruu, wΔy, wlse = POPTS.R # NOTE Ryu is just weight on mech. power
 	lse = wlse > 1e-6
 	NJcomps = 5
 	usePdes = length(POPTS.pdes) > 0
