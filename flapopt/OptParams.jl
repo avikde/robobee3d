@@ -382,7 +382,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 			gvec = [gvec; Cp * pp - dp2] # must be <= 0
 		end
 		if nctransmission > 0
-			τ1, τ2 = paramLumped(m, pp)[2] # Get both transmission coeffs
+			τ1, τ2 = paramLumped(m, pp)[2:3] # Get both transmission coeffs
 			gvec = [gvec; -τ1 - τ2*σamax^2/3 + τ1min]
 		end
 		if uinfnorm
@@ -418,8 +418,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 		if imode != :Structure
 			Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 			p = x[1:np]
-			pbb, Tarrr = paramLumped(m, x[1:np])
-			τ1, τ2 = Tarrr
+			pbb, τ1, τ2, dt  = paramLumped(m, x[1:np])
 
 			for k=1:N
 				# Now assemble the pieces
