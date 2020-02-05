@@ -9,7 +9,6 @@ using Parameters, ForwardDiff, LinearAlgebra, Ipopt, DSP, SparseArrays
 	plimsU::Vector
 	εunact::Float64 = 0.1
 	Fext_pdep::Bool = true
-	uinfnorm::Bool = false # only in mode 1
 	εpoly::Float64 = 1e-4 # allowed violation for polytope constraint
 end
 
@@ -335,7 +334,12 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 end
 
 "Return in the form C, d s.t. C p <= d.
-See Mathematica, linearization gives -τ1 - τ2*σamax^2/3 + τ1min <= 0"
+See Mathematica, linearization gives -τ1 - τ2*σamax^2/3 + τ1min <= 0.
+Transmission constraint:
+	full nonlinear: σomax/τ1 - σomax^3/3 * τ2/τ1^4
+	start from a (τ1,0) feasible, then use (see https://github.com/avikde/robobee3d/pull/96#issuecomment-553092480) (τ1-Δτ1, τ2 >= 3/σamax^2*Δτ1) <=> τ2 >= 3/σamax^2*(τ1min - τ1)
+	τ2>=0 is in xlims
+	The ineq above is: τ1min - τ1 <= τ2*σamax^2/3 => -τ1 - τ2*σamax^2/3 + τ1min <= 0 which is a linear constraint"
 function transmissionLinearConstraint(POPTS, np, σamax, σomax)
 	τ1min = σomax/σamax # this would be the case with the linear transmission
 	C = zeros(1,np)
@@ -354,12 +358,6 @@ end
 - gpolycon = Cp * p <= dp. But the user can pass in (and default is) Cp 0xX => has no effect
 - gtransmission: actuator strain limit (see below)
 - ginfnorm: if min of uinfnorm is desired, add on a slack variable s, and add constraints that -s <= uk <= s => {uk-s <= 0, -uk-s <= 0}
-
-Transmission constraint:
-	full nonlinear: σomax/τ1 - σomax^3/3 * τ2/τ1^4
-	start from a (τ1,0) feasible, then use (see https://github.com/avikde/robobee3d/pull/96#issuecomment-553092480) (τ1-Δτ1, τ2 >= 3/σamax^2*Δτ1) <=> τ2 >= 3/σamax^2*(τ1min - τ1)
-	τ2>=0 is in xlims
-	The ineq above is: τ1min - τ1 <= τ2*σamax^2/3 => -τ1 - τ2*σamax^2/3 + τ1min <= 0 which is a linear constraint
 "
 function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk, yo, umeas, B, N, Cp, dp)
 	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
@@ -377,8 +375,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	ncpolytope = CpS.m
 	ncpolytopennz = length(CpV)
 
-	ncuinfnorm = uinfnorm ? 2 * N * nact : 0
-	nctotal = ncunact + ncpolytope + ncuinfnorm # this is the TOTAL number of constraints
+	nctotal = ncunact + ncpolytope # this is the TOTAL number of constraints
 	dp2 = copy(dp) # No idea why this was getting modified. Storing a copy seems to work.
 	nΔy = (N+1)*ny
 	# Use delta y in upred (to get uinfnorm to be exact)
@@ -386,24 +383,13 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	Δy0 = zeros(ny)
 
 	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1)[1] * (getpt(m, p))
-	if uinfnorm
-		ukpredΔy(k, Δyk, Δykp1, p) = B' * Hk(k, Δyk, Δykp1)[1] * (getpt(m, p))
-		ukpred(k, p) = B' * Hk(k, Δy0, Δy0)[1] * (getpt(m, p))
-	end
 
 	function eval_g_ret(x)
 		pp = x[1:np]
 		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 		gvec = vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), pp) for k=1:N]...)
-		ukp2(k) = ukpredUseΔy ? ukpredΔy(k, Δyk(k), Δyk(k+1), pp) : ukpred(k, pp)
 		# Polytope constraint on the params
 		gvec = [gvec; CpS * pp] # must be <= dp
-		if uinfnorm
-			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
-			gvec = [gvec; 
-			vcat([ukp2(k)-s for k=1:N]...); # uk-s<=0
-			vcat([-ukp2(k)-s for k=1:N]...)] # -uk-s<=0
-		end
 		return gvec
 	end
 
@@ -411,13 +397,6 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	# Unactuated error: exploit sparsity in the nc*nx matrix. Each constraint depends on Δyk(k), Δyk(k+1), p
 	Dgnnz = ncunact * (2*ny + np)
 	Dgnnz += ncpolytopennz
-	if uinfnorm
-		# for each k, get 
-		# - d/dp(B' * Hk * pt) which should be nact*np, 
-		# - identity for the "s", 2x times
-		# - d/d(delyk)(B' * Hk * pt) which should be nact*ny * 2 (Δyk, Δykp1)
-		Dgnnz += 2 * N * nact * (np + (ukpredUseΔy ? 2 * ny : 0) + 1)
-	end
 
 	"Dg jacobian of the constraint function g() for IPOPT."
 	function eval_jac_g(x, imode, row::Vector{Int32}, col::Vector{Int32}, value)
@@ -458,42 +437,6 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 				offs += 1
 				value[offs] = CpV[i]
 			end
-
-			if uinfnorm
-				for k=1:N
-					if ukpredUseΔy
-						dp = ForwardDiff.jacobian(pp -> ukpredΔy(k, Δyk(k), Δyk(k+1), pp), p)
-						dyk = ForwardDiff.jacobian(yy -> ukpredΔy(k, yy, Δyk(k+1), p), Δyk(k))
-						dykp1 = ForwardDiff.jacobian(yy -> ukpredΔy(k, Δyk(k), yy, p), Δyk(k+1))
-					else
-						dp = ForwardDiff.jacobian(pp -> ukpred(k, pp), p)
-					end
-					for i=1:nact
-						for j=1:np
-							offs += 1
-							value[offs] = dp[i,j] # uk in uk-s<=0
-							offs += 1
-							value[offs] = -dp[i,j] # uk in -uk-s<=0
-						end
-						offs += 1
-						value[offs] = -1 # -s in uk-s<=0
-						offs += 1
-						value[offs] = -1 # -s in -uk-s<=0
-						if ukpredUseΔy
-							for j=1:ny
-								offs += 1
-								value[offs] = dyk[i,j] # duk/dyk in uk-s<=0
-								offs += 1
-								value[offs] = -dyk[i,j] # duk/dyk in -uk-s<=0
-								offs += 1
-								value[offs] = dykp1[i,j] # duk/dykp1 in uk-s<=0
-								offs += 1
-								value[offs] = -dykp1[i,j] # duk/dykp1 in -uk-s<=0
-							end
-						end
-					end
-				end
-			end
 		else
 			for k=1:N
 				for i=1:nck
@@ -526,43 +469,6 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 				col[offs] = CpJ[i] # hits the elements of param (first part of x)
 			end
 				
-			if uinfnorm
-				rowOffs = ncunact + ncpolytope
-				for k=1:N
-					for i=1:nact
-						for j=1:np
-							offs += 1
-							row[offs] = rowOffs + (k-1)*nact + i
-							col[offs] = j # uk in uk-s<=0
-							offs += 1
-							row[offs] = rowOffs + ncuinfnorm÷2 + (k-1)*nact + i
-							col[offs] = j # uk in -uk-s<=0
-						end
-						offs += 1
-						row[offs] = rowOffs + (k-1)*nact + i
-						col[offs] = np+nΔy+i # s in uk-s<=0
-						offs += 1
-						row[offs] = rowOffs + ncuinfnorm÷2 + (k-1)*nact + i
-						col[offs] = np+nΔy+i # s in -uk-s<=0
-						if ukpredUseΔy
-							for j=1:ny
-								offs += 1
-								row[offs] = rowOffs + (k-1)*nact + i
-								col[offs] = np + (k-1)*ny + j # duk/dyk in uk-s<=0
-								offs += 1
-								row[offs] = rowOffs + ncuinfnorm÷2 + (k-1)*nact + i
-								col[offs] = np + (k-1)*ny + j # duk/dyk in -uk-s<=0
-								offs += 1
-								row[offs] = rowOffs + (k-1)*nact + i
-								col[offs] = np + (k)*ny + j # duk/dykp1 in uk-s<=0
-								offs += 1
-								row[offs] = rowOffs + ncuinfnorm÷2 + (k-1)*nact + i
-								col[offs] = np + (k)*ny + j # duk/dykp1 in -uk-s<=0
-							end
-						end
-					end
-				end
-			end
 		end
 	end
 
@@ -572,11 +478,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 		glimsL = [glimsL; -100000 * ones(ncpolytope)] # Scott said having non-inf bounds helps IPOPT
 		glimsU = [glimsU; dp2 + POPTS.εpoly * ones(ncpolytope)] # must be <= 0
 	end
-	if uinfnorm
-		glimsL = [glimsL; -1e10 * ones(ncuinfnorm)]
-		glimsU = [glimsU; zeros(ncuinfnorm)]
-	end
-
+	
 	return nctotal, glimsL, glimsU, eval_g_ret, eval_jac_g, Dgnnz, Bperp
 end
 
@@ -591,7 +493,6 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	if test
 		affineTest(m, opt, traj, param, POPTS)
 	end
-	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	np = length(param)
 	npt = length(getpt(m, param))
@@ -607,14 +508,11 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	x = [param; Δy] where Δy is the necessary traj modification for passive dynamics matching. 
 	For fully-actuated systems, Δy remains 0.
 	"
-	nx = np + nΔy + (uinfnorm ? nu : 0) # p,Δy[,s]
+	nx = np + nΔy # p,Δy
 	xlimsL = -1000 * ones(nx)
 	xlimsU = 1000 * ones(nx)
 	xlimsL[1:np] = POPTS.plimsL
 	xlimsU[1:np] = POPTS.plimsU
-	if uinfnorm
-		fill!(xlimsL[np+nΔy+1:np+nΔy+nu], 0)
-	end
 	if dtFix # constrain dt to be the same as it is now
 		xlimsL[np] = xlimsU[np] = param[np]
 	end
@@ -664,8 +562,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		display(eval_g_ret2(pnew)')
 		error("Tested")
 	end
-	s = uinfnorm ? prob.x[np+nΔy+1:np+nΔy+nu] : NaN
 
-	return Dict("x"=>prob.x, "traj"=>trajnew, "param"=>prob.x[1:np], "eval_f"=>eval_f, "eval_grad_f"=>eval_grad_f, "eval_g"=>eval_g_ret, "s"=>s, "status"=>status)
+	return Dict("x"=>prob.x, "traj"=>trajnew, "param"=>prob.x[1:np], "eval_f"=>eval_f, "eval_grad_f"=>eval_grad_f, "eval_g"=>eval_g_ret, "status"=>status)
 end
 
