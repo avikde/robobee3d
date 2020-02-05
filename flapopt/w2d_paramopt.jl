@@ -155,7 +155,7 @@ function trajMechPow(m, opt, traj, param)
 end
 
 """One-off ID or opt"""
-function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, max_iter=4000, print_level=1, Φ=nothing, Rpow=nothing)
+function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, Φ=nothing, Rpow=nothing, kwargs...)
 	# Make any desired changes
 	if !isnothing(Φ)
 		m.Amp[1] = deg2rad(Φ)
@@ -184,7 +184,7 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	dp = [mlb; 0; 0; 0; 0; 0]
 	print(mode==2 ? "ID" : "Opt", " Φ=", isnothing(Φ) ? "-" : Φ, ", Rpow=", round(POPTS.R[2][1,1]), ", minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
 
-	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, print_level=print_level, max_iter=max_iter, testTrajReconstruction=testReconstruction)
+	ret = cu.paramOpt(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, testTrajReconstruction=testReconstruction, kwargs...)
 	# append unactErr
 	ret["unactErr"] = ret["eval_g"](ret["x"])[1:N] # 1 unact DOF
 	ret["al"] = avgLift(m, opt, ret["traj"], ret["param"])

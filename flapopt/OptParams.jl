@@ -190,7 +190,7 @@ function bigH(N, ny, nact, npt, Hk, B, Δy)
 	return Hu, Hdq, Hunact
 end
 
-"Helper function for optAffine. See optAffine for the def of x"
+"Helper function for paramOpt. See paramOpt for the def of x"
 function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt, Hk, yo, umeas, B, N)
 	dφ_dptAutodiff = true
 	HdepΔy = false
@@ -477,7 +477,7 @@ end
 - σamax -- actuator strain limit. This is used to constrain the transmission coeffs s.t. the actuator displacement is limited to σamax. The form of the actuator constraint depends on bTrCon.
 - Cp, dp -- polytope constraint for params. Can pass Cp=ones(0,X) to not include.
 "
-function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::ParamOptOpts, mode::Int, σamax; test=false, testTrajReconstruction=false, Cp::Matrix=ones(0,1), dp::Vector=ones(0), scaleTraj=1.0, dtFix=false, kwargs...)
+function paramOpt(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::ParamOptOpts, mode::Int, σamax; test=false, testTrajReconstruction=false, Cp::Matrix=ones(0,1), dp::Vector=ones(0), scaleTraj=1.0, dtFix=false, kwargs...)
 	if test
 		affineTest(m, opt, traj, param, POPTS)
 	end
@@ -528,9 +528,10 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		nothing           # Callback: Hessian evaluation
 	)
 	Ipopt.addOption(prob, "hessian_approximation", "limited-memory")
+	Ipopt.addOption(prob, "sb", "yes") # suppress banner
+	Ipopt.addOption(prob, "print_level", 1) # no printing (user can override)
 
 	# Add options using kwargs
-	Ipopt.addOption(prob, "sb", "yes") # suppress banner
 	for (k,v) in pairs(kwargs)
 		# println(k, " => ", v)
 		Ipopt.addOption(prob, string(k), v)

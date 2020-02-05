@@ -131,7 +131,7 @@ end
 # error("hi", ff(param0))
 
 # 2. Try to optimize
-ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; print_level=3#= , max_iter=10000 =#)
+ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; print_level=3, tol=1e-4#= , max_iter=10000 =#)
 pls = debugDeltaYEffect(ret2)
 plot(pls...)
 gui()

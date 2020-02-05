@@ -51,7 +51,7 @@ function opt1(traj, param, mode, scaleTraj, bkratio=1.0, τ21ratiolim=2.0; testA
 	Cp = Float64[0  bkratio  -1  0  0;
 		-τ21ratiolim  0  0  1  0]
 	dp = zeros(2)
-	ret = cu.optAffine(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, scaleTraj=scaleTraj, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
+	ret = cu.paramOpt(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, scaleTraj=scaleTraj, Cp=Cp, dp=dp, print_level=1, max_iter=4000)
 
 	uu = ret["traj"][(N+1)*ny:end]
 	ret["u∞"] = norm(uu, Inf)
