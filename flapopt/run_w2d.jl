@@ -50,7 +50,7 @@ POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
 	plimsL = copy(param0),
 	plimsU = copy(param0),
-	R = (0.0*I, reshape([1e-2],1,1), 0.0*I, 1e4, 1e-3, 1e0), # Ryy, Ryu (mech pow), Ruu, wΔy, wu∞, wlse, wunact
+	R = (0.0*I, reshape([1e-2],1,1), 0.0*I, 1e4, 1e-3, 1e0), # Ryy, Ryu (mech pow), Ruu, wΔy, wu∞, wlse
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
 	εpoly = 1e-3,
 	objDepΔy = true
@@ -69,55 +69,7 @@ POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 # includet("w2d_shift.jl")
 # includet("w2d_scaling1.jl")
 # includet("w2d_nlbenefit.jl")
-# FUNCTIONS GO HERE -------------------------------------------------------------
-
-# # Test feasibility
-# function paramTest(p, paramConstraint)
-# 	xtest = [p; zeros((N+1)*ny)]
-# 	g = paramConstraint(xtest)
-# 	gunact = g[1:(N+1)]
-# 	grest = g[(N+1)+1:end]
-# 	# have [gpolycon (2); gtransmission (1); ginfnorm (2*N)]
-# 	println("Feas: should be nonpos: ", maximum(grest), "; unact: ", maximum(abs.(gunact)) ,"; transmission: ", g[3])
-# 	unew = cu.getTrajU(m, opt, traj1, p, POPTS)
-# 	println("Obj: ", paramObj(xtest))
-# end
-
-"See https://github.com/avikde/robobee3d/pull/136"
-function debugDeltaYEffect(rr)
-	pt, Hk, B, Js, actVec = rr["eval_f"](rr["x"]; debug=true)
-	println("Js ", Js)
-	dy = rr["x"][length(param0)+1:end]
-	dely(k) = dy[(k-1)*ny+1:(k)*ny]
-	dely0 = zeros(ny)
-	unew = vcat([B' * Hk(k,dely(k),dely(k+1))[1] * pt for k=1:N]...)
-	unew0 = vcat([B' * Hk(k,dely0,dely0)[1] * pt for k=1:N]...)
-	p1 = plot([rr["traj"][(N+1)*ny+1:end]  actVec[:,1]  unew], lw=2, ls=[:solid :solid :dash])
-	plot!(p1, unew0, lw=2, ls=:dash)
-	return p1, plot(plot(dy[1:ny:(N+1)*ny]),
-		plot(dy[2:ny:(N+1)*ny]),
-		plot(dy[3:ny:(N+1)*ny]),
-		plot(dy[4:ny:(N+1)*ny]))
-end
-
-"https://github.com/avikde/robobee3d/pull/137"
-function debugGradient(rr)
-	x = copy(rr["x"])
-	x1s = 5.0:40
-	fx1(x1, a=true) = rr["eval_f"]([x1; x[2:end]]; auto=a)
-	function ddx1(x1, a=true)
-		grad_f = similar(x)
-		rr["eval_grad_f"]([x1; x[2:end]], grad_f; auto=a)
-		return grad_f[1]
-	end
-	plot(
-		plot([fx1.(x1s) fx1.(x1s, false)],lw=2,ls=[:solid :dash]), 
-		plot([ddx1.(x1s)  ddx1.(x1s, false)],lw=2,ls=[:solid :dash])
-	)
-	gui()
-	error("h")
-end
-
+includet("w2d_debug.jl")
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
 # # resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(150:20:350), 2) # SLOW
@@ -134,8 +86,7 @@ end
 # 2. Try to optimize
 ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; print_level=3#= , max_iter=10000 =#)
 pls = debugDeltaYEffect(ret2)
-infeas = ret2["eval_g"](ret2["x"])
-plot(pls..., plot(infeas[1:N]), plot(infeas[N+1:end], ylims=(-0.1,0.1)))
+plot(pls...)
 gui()
 error("hi")
 # debugGradient(ret2)
