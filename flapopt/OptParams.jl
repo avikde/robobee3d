@@ -342,7 +342,6 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	nctotal = ncunact + ncpolytope # this is the TOTAL number of constraints
 	dp2 = copy(dp) # No idea why this was getting modified. Storing a copy seems to work.
 	nΔy = (N+1)*ny
-	Δy0 = zeros(ny)
 
 	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1)[1] * getpt(m, p)
 
