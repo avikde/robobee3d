@@ -192,7 +192,6 @@ end
 
 "Helper function for optAffine. See optAffine for the def of x"
 function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt, Hk, yo, umeas, B, N)
-	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
 	dφ_dptAutodiff = true
 	HdepΔy = false
 	nq = ny÷2
@@ -239,7 +238,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		end
 	end
 
-	unpackX(x) = getpt(m, x[1:np]), x[np+1 : np+nΔy], uinfnorm ? x[np+nΔy+1 : np+nΔy+nact] : zero(eltype(x)) # slack variable for infnorm
+	unpackX(x) = getpt(m, x[1:np]), x[np+1 : np+nΔy]
 
 	_k(k) = nact*(k-1)+1 : nact*k
 
@@ -274,9 +273,6 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		end
 		Jcomps[3] /= N
 		Jcomps[4] /= N
-		if uinfnorm
-			Jcomps[5] = wu∞ * dot(s,s) # s is already positive, but need a scalar
-		end
 
 		if debug
 			return pt, Hk, B, Jcomps, [uvec  dqvec]
@@ -325,9 +321,6 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 			dφunact_dΔy = ForwardDiff.gradient(yy -> φunact(pt, yy), Δy)
 			grad_f[np+1:np+nΔy] += dφunact_dΔy
 		end
-		if uinfnorm
-			grad_f[np+nΔy+1:np+nΔy+nact] = 2 * wu∞ * s # analytical
-		end
 	end
 	
 	return eval_f, eval_grad_f
@@ -357,10 +350,8 @@ end
 - gunact = unactuated error = #unactuated DOFS * N
 - gpolycon = Cp * p <= dp. But the user can pass in (and default is) Cp 0xX => has no effect
 - gtransmission: actuator strain limit (see below)
-- ginfnorm: if min of uinfnorm is desired, add on a slack variable s, and add constraints that -s <= uk <= s => {uk-s <= 0, -uk-s <= 0}
 "
 function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk, yo, umeas, B, N, Cp, dp)
-	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
 	# Unactuated constraint: Bperp' * H(y + Δy) * pt is small enough (unactuated DOFs) 
 	nact = size(B, 2)
 	nq = ny÷2
@@ -378,8 +369,6 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	nctotal = ncunact + ncpolytope # this is the TOTAL number of constraints
 	dp2 = copy(dp) # No idea why this was getting modified. Storing a copy seems to work.
 	nΔy = (N+1)*ny
-	# Use delta y in upred (to get uinfnorm to be exact)
-	ukpredUseΔy = false
 	Δy0 = zeros(ny)
 
 	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1)[1] * (getpt(m, p))
