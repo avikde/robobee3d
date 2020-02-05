@@ -344,7 +344,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	nΔy = (N+1)*ny
 	Δy0 = zeros(ny)
 
-	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1)[1] * (getpt(m, p))
+	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1)[1] * getpt(m, p)
 
 	function eval_g_ret(x)
 		pp = x[1:np]
@@ -364,73 +364,63 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	function eval_jac_g(x, imode, row::Vector{Int32}, col::Vector{Int32}, value)
 		offs = 0
 		
-		if imode != :Structure
+		if imode == :Values
 			Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 			p = x[1:np]
 			pbb, τ1, τ2, dt  = paramLumped(m, x[1:np])
+		end
 
-			for k=1:N
-				# Now assemble the pieces
+		for k=1:N
+			# Use AD for these. These individual terms should not be expected to be sparse since it is a np -> nunact map.
+			if imode == :Values
 				dyk = ForwardDiff.jacobian(yy -> eval_g_pieces(k, yy, Δyk(k+1), p), Δyk(k))
-				for i=1:nunact
-					for j=1:ny
-						offs += 1
-						value[offs] = dyk[i,j]
-					end
-				end
 				dykp1 = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(k), yy, p), Δyk(k+1))
-				for i=1:nunact
-					for j=1:ny
-						offs += 1
-						value[offs] = dykp1[i,j]
-					end
-				end
 				dp = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(k), Δyk(k+1), yy), p)
-				for i=1:nunact
-					for j=1:np
-						offs += 1
-						value[offs] = dp[i,j]
-					end
-				end
 			end
-
-			# Cp * param <= dp
-			for i=1:ncpolytopennz
-				offs += 1
-				value[offs] = CpV[i]
-			end
-		else
-			for k=1:N
-				for i=1:nunact
-					for j=1:ny
-						offs += 1
+			for i=1:nunact
+				for j=1:ny
+					offs += 1
+					if imode == :Values
+						value[offs] = dyk[i,j]
+					else
 						row[offs] = (k-1)*nunact + i
 						col[offs] = np + (k-1)*ny + j
 					end
 				end
-				for i=1:nunact
-					for j=1:ny
-						offs += 1
+			end
+			for i=1:nunact
+				for j=1:ny
+					offs += 1
+					if imode == :Values
+						value[offs] = dykp1[i,j]
+					else
 						row[offs] = (k-1)*nunact + i
 						col[offs] = np + (k)*ny + j
 					end
 				end
-				for i=1:nunact
-					for j=1:np
-						offs += 1
+			end
+			for i=1:nunact
+				for j=1:np
+					offs += 1
+					if imode == :Values
+						value[offs] = dp[i,j]
+					else
 						row[offs] = (k-1)*nunact + i
 						col[offs] = j
 					end
 				end
 			end
-			
-			# Cp * param <= dp
-			for i=1:ncpolytopennz
-				offs += 1
+		end
+
+		# Cp * param <= dp
+		for i=1:ncpolytopennz
+			offs += 1
+			if imode == :Values
+				value[offs] = CpV[i]
+			else
 				row[offs] = ncunact + CpI[i] # goes after the unact constraints
 				col[offs] = CpJ[i] # hits the elements of param (first part of x)
 			end
-				
 		end
 	end
 
