@@ -12,6 +12,8 @@ using Parameters, ForwardDiff, LinearAlgebra, Ipopt, DSP, SparseArrays
 	εpoly::Float64 = 1e-4 # allowed violation for polytope constraint
 	objDepΔy::Bool = false
 	ΔySpikyBound::Float64 = 0.0 # Set positive to enable this constraint
+	pdes::Array{Float64} = [] # Set to an array of desired params - will use a quadratic weight
+	pdesQ::Array{Float64} = [] # Set to an array of (diagonal) weights
 end
 
 # --------------
@@ -202,7 +204,8 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	
 	Ryy, Ryu, Ruu, wΔy, wu∞, wlse = POPTS.R # NOTE Ryu is just weight on mech. power
 	lse = wlse > 1e-6
-	NJcomps = 4
+	NJcomps = 5
+	usePdes = length(POPTS.pdes) > 0
 
 	if !objDepΔy # Ignore Δy in computation of H for objective (exactly fine for fully act)
 		Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, zeros(nΔy))
@@ -241,7 +244,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 
 	_k(k) = nact*(k-1)+1 : nact*k
 
-	function φ(pt, Δy; debug=false)
+	function φ(p, pt, Δy; debug=false)
 		# min Δy
 		T = eltype(pt)
 		Jcomps = zeros(T, NJcomps) # [JΔy, Jlse, Jpow, Ju2]
@@ -263,14 +266,17 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		end
 		Jcomps[3] /= N
 		Jcomps[4] /= N
-
+		if usePdes
+			perr = p - POPTS.pdes
+			Jcomps[5] = 1/2 * perr' * Diagonal(POPTS.pdesQ) * perr
+		end
 		if debug
 			return pt, Hk, B, Jcomps, [uvec  dqvec]
 		end
 
 		return sum(Jcomps)
 	end
-	eval_f(x; kwargs...) = φ(unpackX(x)...; kwargs...)
+	eval_f(x; kwargs...) = φ(x[1:np], unpackX(x)...; kwargs...)
 
 	function eval_grad_f(x, grad_f)
 		pt, Δy = unpackX(x)
@@ -278,7 +284,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 
 		if dφ_dptAutodiff
 			# Autodiff for gradient of 
-			dφ_dpt = ForwardDiff.gradient(ptdiff -> φ(ptdiff, Δy), pt)
+			dφ_dpt = ForwardDiff.gradient(ptdiff -> φ(x[1:np], ptdiff, Δy), pt)
 			grad_f[1:np] = dφ_dpt' * dpt_dp1
 		else
 			# Analytical gradients https://github.com/avikde/robobee3d/pull/137
@@ -296,6 +302,9 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		end
 
 		grad_f[np+1:np+nΔy] = 2*wΔy/N*Δy # nΔy Analytical - see cost above
+		if usePdes
+			grad_f[1:np] += POPTS.pdesQ .* (x[1:np] - POPTS.pdes) # gradient of quadratic
+		end
 	end
 	
 	return eval_f, eval_grad_f
