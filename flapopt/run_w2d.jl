@@ -126,7 +126,8 @@ end
 # gui()
 # error("i")
 
-pt = cu.getpt(m, param0)
+ff = p -> cu.getpt(m, p)[1]
+
 error("hi", pt)
 
 # 2. Try to optimize
