@@ -2,7 +2,6 @@
 # This is a "script" to test/run the functions from
 # push!(LOAD_PATH, pwd()) # Only needs to be run once
 
-using BenchmarkTools
 using Revise # while developing
 using SparseArrays, OSQP, LinearAlgebra # temp
 import controlutils
@@ -74,7 +73,7 @@ function debugComponentsPlot(traj, param; refScale=1.0)
 
 	# Get the components
 	yo, Hio, Hia, Hstiffo, Hstiffa, Hdamp = cu.paramAffine(m, opt, traj, param, POPTS; debugComponents=true) # NOTE: scaleTraj=1 here
-	pt0, Tnew = cu.getpt(m, param)
+	pt0 = cu.getpt(m, param)
 	inertialo = zeros(N)
 	inertiala = similar(inertialo)
 	stiffo = similar(inertialo)

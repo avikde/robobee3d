@@ -29,7 +29,7 @@ function getpt(m::Model, p)
 	# Nonlinear transmission: see https://github.com/avikde/robobee3d/pull/92
 	ptWithTransmission = [pb*τ1; pb*τ2/τ1^2; 1/τ1; τ2/τ1^4]
 	# Proper nondim wrt. time  https://github.com/avikde/robobee3d/pull/119#issuecomment-577350049
-	return [ptWithTransmission/dt^2; ptWithTransmission/dt; ptWithTransmission], Tarr
+	return [ptWithTransmission/dt^2; ptWithTransmission/dt; ptWithTransmission]
 end
 
 "Helper function for nonlinear transmission change to H"
@@ -68,7 +68,7 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, POPTS, traj::Abstract
 	# Also convert the output traj with the Δy, new T, and inputs
 	traj2 = copy(traj)
 	# Calculate the new traj (which is in act coordinates, so needs scaling by T)
-	ptnew, Tnew = getpt(m, pnew)
+	ptnew = getpt(m, pnew)
 	for k=1:N+1
 		if opt.trajAct
 			# Go from output to act coords
@@ -116,7 +116,7 @@ end
 function getTrajU(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::ParamOptOpts)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, POPTS)
-	ptnew, Tnew = getpt(m, param)
+	ptnew = getpt(m, param)
 	Δy0 = zeros(ny)
 	return vcat([B' * Hk(k, Δy0, Δy0)[1] * ptnew for k=1:N]...)
 end
@@ -124,7 +124,7 @@ end
 function affineTest(m, opt, traj, param, POPTS::ParamOptOpts; fixTraj=false)
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	nq = ny÷2
-	ptTEST, TTEST = getpt(m, param) # NOTE the actual param values are only needed for the test mode
+	ptTEST = getpt(m, param) # NOTE the actual param values are only needed for the test mode
 	dt = param[end]
 
 	traj1 = fixTraj ? fixTrajWithDynConst(m, opt, traj, param) : traj
@@ -213,7 +213,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	end
 
 	# components of the gradient:
-	dpt_dp(pp) = ForwardDiff.jacobian(x -> getpt(m, x)[1], pp)
+	dpt_dp(pp) = ForwardDiff.jacobian(x -> getpt(m, x), pp)
 
 	"Running cost function of actuator force, vel for a single k"
 	function φmech(uact, dqact)
@@ -241,7 +241,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		end
 	end
 
-	unpackX(x) = getpt(m, x[1:np])[1], x[np+1 : np+nΔy], uinfnorm ? x[np+nΔy+1 : np+nΔy+nact] : zero(eltype(x)) # slack variable for infnorm
+	unpackX(x) = getpt(m, x[1:np]), x[np+1 : np+nΔy], uinfnorm ? x[np+nΔy+1 : np+nΔy+nact] : zero(eltype(x)) # slack variable for infnorm
 
 	_k(k) = nact*(k-1)+1 : nact*k
 
@@ -367,10 +367,10 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	ukpredUseΔy = false
 	Δy0 = zeros(ny)
 
-	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1)[1] * (getpt(m, p)[1])
+	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1)[1] * (getpt(m, p))
 	if uinfnorm
-		ukpredΔy(k, Δyk, Δykp1, p) = B' * Hk(k, Δyk, Δykp1)[1] * (getpt(m, p)[1])
-		ukpred(k, p) = B' * Hk(k, Δy0, Δy0)[1] * (getpt(m, p)[1])
+		ukpredΔy(k, Δyk, Δykp1, p) = B' * Hk(k, Δyk, Δykp1)[1] * (getpt(m, p))
+		ukpred(k, p) = B' * Hk(k, Δy0, Δy0)[1] * (getpt(m, p))
 	end
 
 	function eval_g_ret(x)
@@ -612,7 +612,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
 	ny, nu, N, δt, liy, liu = modelInfo(m, opt, traj)
 	np = length(param)
-	npt = length(getpt(m, param)[1])
+	npt = length(getpt(m, param))
 	nΔy = (N+1)*ny
 
 	# Quadratic form matrix
@@ -677,7 +677,7 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 		# Test traj reconstruction:
 		Hk, yo, umeas, B, N = paramAffine(m, opt, trajnew, pnew, POPTS)
 		Hh = Hk(k, zeros(ny), zeros(ny))[1]
-		eval_g_ret2(p) = vcat([Bperp * Hh * (getpt(m, p)[1]) for k=1:N]...)
+		eval_g_ret2(p) = vcat([Bperp * Hh * (getpt(m, p)) for k=1:N]...)
 		display(eval_g_ret2(pnew)')
 		error("Tested")
 	end

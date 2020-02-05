@@ -126,9 +126,9 @@ end
 # gui()
 # error("i")
 
-ff = p -> cu.getpt(m, p)[1]
+# ff = p -> cu.getpt(m, p)
 
-error("hi", pt)
+# error("hi", ff(param0))
 
 # 2. Try to optimize
 ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; print_level=3#= , max_iter=10000 =#)

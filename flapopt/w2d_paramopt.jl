@@ -1,8 +1,7 @@
 
 import controlutils
 cu = controlutils
-using ForwardDiff
-using Plots; gr()
+
 include("Wing2DOF.jl")
 include("LoadWingKinData.jl")
 
@@ -219,7 +218,7 @@ function getComponents(m::Wing2DOFModel, opt, traj1, param1)
 
 	# Get the components
 	yo, HMnc, HMc, HC, Hg, Hgact, HF, Hdamp, Hvel = cu.paramAffine(m, opt, traj1, param1, POPTS; debugComponents=true)
-	pt0, Tnew = cu.getpt(m, param1)
+	pt0 = cu.getpt(m, param1)
 	inertial = zeros(2,N)
 	inertialc = similar(inertial)
 	coriolis = similar(inertial)
