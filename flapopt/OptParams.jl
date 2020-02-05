@@ -201,6 +201,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	
 	Ryy, Ryu, Ruu, wΔy, wu∞, wlse = POPTS.R # NOTE Ryu is just weight on mech. power
 	lse = wlse > 1e-6
+	NJcomps = 4
 
 	if !objDepΔy # Ignore Δy in computation of H for objective (exactly fine for fully act)
 		Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, zeros(nΔy))
@@ -211,7 +212,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 
 	"Running cost function of actuator force, vel for a single k"
 	function φmech(uact, dqact)
-		Jcomps = zeros(eltype(uact), 5)
+		Jcomps = zeros(eltype(uact), NJcomps)
 		if mode == 1
 			# For mech pow https://github.com/avikde/robobee3d/issues/123 but use a ramp mapping to get rid of negative power
 			Jcomps[3] = 1/2 * ramp(dqact' * Ryu * uact)
@@ -242,7 +243,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	function φ(pt, Δy; debug=false)
 		# min Δy
 		T = eltype(pt)
-		Jcomps = zeros(T, 5) # [Junact, Jlse, Jpow, Ju2, Jinfnorm]
+		Jcomps = zeros(T, NJcomps) # [JΔy, Jlse, Jpow, Ju2]
 
 		if objDepΔy
 			Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, Δy) # use the new Δy
