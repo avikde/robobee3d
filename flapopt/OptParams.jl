@@ -10,6 +10,7 @@ using Parameters, ForwardDiff, LinearAlgebra, Ipopt, DSP, SparseArrays
 	εunact::Float64 = 0.1
 	Fext_pdep::Bool = true
 	εpoly::Float64 = 1e-4 # allowed violation for polytope constraint
+	objDepΔy::Bool = false
 end
 
 # --------------
@@ -173,40 +174,36 @@ NOT INCLUDING the Δy in the calculation of u. Including these was resulting in 
 function bigH(N, ny, nact, npt, Hk, B, Δy)
 	npt1 = npt÷3 # each of the 3 segments for nondim time https://github.com/avikde/robobee3d/pull/119
 	Δyk = k -> Δy[(k-1)*ny+1 : k*ny]
-	Bperp = (I - B*B')[nact+1:end,:] # s.t. Bperp*B = 0
 	nq = ny÷2
-	nunact = nq - nact
 	Hu = zeros(nact*N, npt)
-	Hunact = zeros(nunact*N, npt)
 	Hdq = similar(Hu)
+	# Bperp = (I - B*B')[nact+1:end,:] # s.t. Bperp*B = 0
+	# nunact = nq - nact
+	# Hunact = zeros(nunact*N, npt)
 	for k=1:N
-		Hh, Hvel = Hk(k, Δyk(k), Δyk(k+1)) #Hk(k, Δyk(k), Δyk(k+1))
+		Hh, Hvel = Hk(k, Δyk(k), Δyk(k+1))
 		Hu[nact*(k-1)+1 : nact*k, :] = B' * Hh
-		Hunact[nunact*(k-1)+1 : nunact*k, :] = Bperp * Hh
+		# Hunact[nunact*(k-1)+1 : nunact*k, :] = Bperp * Hh
 		# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
 		# ASSUMING 1 ACTUATED DOF
 		Hdq[nact*(k-1)+1 : nact*k, :] = [zeros(1,npt1)  Hvel  zeros(1,npt1)]
 	end
-	return Hu, Hdq, Hunact
+	return Hu, Hdq#, Hunact
 end
 
 "Helper function for paramOpt. See paramOpt for the def of x"
 function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt, Hk, yo, umeas, B, N)
 	dφ_dptAutodiff = true
-	HdepΔy = false
 	nq = ny÷2
 	nact = size(B, 2)
 	nΔy = (N+1)*ny
-	if nact == nq
-		HdepΔy = false
-	end
+	objDepΔy = nact == nq ? false : POPTS.objDepΔy # If fully actuated no Δy
 	
-	Ryy, Ryu, Ruu, wΔy, wu∞, wlse, wunact = POPTS.R # NOTE Ryu is just weight on mech. power
+	Ryy, Ryu, Ruu, wΔy, wu∞, wlse = POPTS.R # NOTE Ryu is just weight on mech. power
 	lse = wlse > 1e-6
-	unactObj = wunact > 1e-6
 
-	if !HdepΔy # Ignore Δy in computation of H for objective (exactly fine for fully act)
-		Hu, Hdq, Hunact = bigH(N, ny, nact, npt, Hk, B, zeros(nΔy))
+	if !objDepΔy # Ignore Δy in computation of H for objective (exactly fine for fully act)
+		Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, zeros(nΔy))
 	end
 
 	# components of the gradient:
@@ -242,22 +239,13 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 
 	_k(k) = nact*(k-1)+1 : nact*k
 
-	function φunact(pt, Δy#= , Hunact =#)
-		# Assume delta y is 
-		Hunact = bigH(N, ny, nact, npt, Hk, B, Δy)[3]
-		return wunact * LSE(Hunact * pt)
-	end
-
 	function φ(pt, Δy; debug=false)
 		# min Δy
 		T = eltype(pt)
 		Jcomps = zeros(T, 5) # [Junact, Jlse, Jpow, Ju2, Jinfnorm]
 
-		if HdepΔy
-			Hu, Hdq, Hunact = bigH(N, ny, nact, npt, Hk, B, Δy)
-		# else
-		# 	# definitely need delta y dependence for this
-		# 	Hunact = bigH(N, ny, nact, npt, Hk, B, Δy)[3]
+		if objDepΔy
+			Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, Δy) # use the new Δy
 		end
 		uvec = Hu * pt
 		dqvec = Hdq * pt
@@ -280,13 +268,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 
 		return sum(Jcomps) + wΔy/N * dot(Δy, Δy)
 	end
-	function eval_f(x; kwargs...)
-		rr = φ(unpackX(x)...; kwargs...)
-		if unactObj
-			rr += φunact(unpackX(x)...#= , Hunact =#)
-		end
-		return rr
-	end
+	eval_f(x; kwargs...) = φ(unpackX(x)...; kwargs...)
 
 	function eval_grad_f(x, grad_f)
 		pt, Δy = unpackX(x)
@@ -296,13 +278,9 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 			# Autodiff for gradient of 
 			dφ_dpt = ForwardDiff.gradient(ptdiff -> φ(ptdiff, Δy), pt)
 			grad_f[1:np] = dφ_dpt' * dpt_dp1
-			if unactObj
-				dφunact_dpt = ForwardDiff.gradient(ptdiff -> φunact(ptdiff, Δy), pt)
-				grad_f[1:np] += (dφunact_dpt' * dpt_dp1)[:]
-			end
 		else
 			# Analytical gradients https://github.com/avikde/robobee3d/pull/137
-			if HdepΔy
+			if objDepΔy
 				Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, Δy)
 			end
 			uvec = Hu * pt
@@ -316,10 +294,6 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		end
 
 		grad_f[np+1:np+nΔy] = 2*wΔy/N*Δy # nΔy Analytical - see cost above
-		if unactObj # FIXME: this gives "no method matching Float64(::ForwardDiff.Dual"
-			dφunact_dΔy = ForwardDiff.gradient(yy -> φunact(pt, yy), Δy)
-			grad_f[np+1:np+nΔy] += dφunact_dΔy
-		end
 	end
 	
 	return eval_f, eval_grad_f
