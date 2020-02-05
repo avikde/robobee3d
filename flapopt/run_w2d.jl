@@ -4,7 +4,7 @@
 # using Plots
 # Plots.scalefontsizes(0.7) # Only needs to be run once
 
-using BenchmarkTools, MAT, Dierckx
+using MAT, Dierckx
 using Revise # while developing
 import controlutils
 cu = controlutils
@@ -50,7 +50,7 @@ POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
 	plimsL = copy(param0),
 	plimsU = copy(param0),
-	R = (0.0*I, reshape([1e-2],1,1), 0.0*I, 1e4, 1e-3, 1e0), # Ryy, Ryu (mech pow), Ruu, wΔy, wu∞, wlse
+	R = (0.0*I, reshape([1e-2],1,1), 0.0*I, 1e4, 1e-3, 1e0, 0), # Ryy, Ryu (mech pow), Ruu, wΔy, wu∞, wlse, wunact
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
 	uinfnorm = false
 )
@@ -91,7 +91,7 @@ function debugDeltaYEffect(rr)
 	dely0 = zeros(ny)
 	unew = vcat([B' * Hk(k,dely(k),dely(k+1))[1] * pt for k=1:N]...)
 	unew0 = vcat([B' * Hk(k,dely0,dely0)[1] * pt for k=1:N]...)
-	p1 = plot([rr["traj"][(N+1)*ny+1:end]  unew  actVec[:,1]], lw=2)
+	p1 = plot([rr["traj"][(N+1)*ny+1:end]  actVec[:,1]  unew], lw=2, ls=[:solid :solid :dash])
 	plot!(p1, unew0, lw=2, ls=:dash)
 	return p1, plot(plot(dy[1:ny:(N+1)*ny]),
 		plot(dy[2:ny:(N+1)*ny]),
@@ -125,6 +125,9 @@ end
 # savefig("scaling1.png")
 # gui()
 # error("i")
+
+pt = cu.getpt(m, param0)
+error("hi", pt)
 
 # 2. Try to optimize
 ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; print_level=3#= , max_iter=10000 =#)
