@@ -24,8 +24,7 @@ paramLumped(m::Model, param::AbstractArray) = error("Implement this")
 
 # lumped parameter vector
 function getpt(m::Model, p)
-	pb, Tarr, dt = paramLumped(m, p)
-	τ1, τ2 = Tarr
+	pb, τ1, τ2, dt = paramLumped(m, p)
 	# Nonlinear transmission: see https://github.com/avikde/robobee3d/pull/92
 	ptWithTransmission = [pb*τ1; pb*τ2/τ1^2; 1/τ1; τ2/τ1^4]
 	# Proper nondim wrt. time  https://github.com/avikde/robobee3d/pull/119#issuecomment-577350049

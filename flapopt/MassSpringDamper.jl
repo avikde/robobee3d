@@ -147,7 +147,7 @@ end
 
 function cu.paramLumped(m::MassSpringDamperModel, param::AbstractArray)
     τ1, ko, bo, τ2, dt = param
-    return [1, ko, bo], [τ1, τ2], dt
+    return [1, ko, bo], τ1, τ2, dt
 end
 
 function cu.transmission(m::MassSpringDamperModel, y::AbstractArray, _param::Vector; o2a=false)
