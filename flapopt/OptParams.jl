@@ -11,6 +11,7 @@ using Parameters, ForwardDiff, LinearAlgebra, Ipopt, DSP, SparseArrays
 	Fext_pdep::Bool = true
 	εpoly::Float64 = 1e-4 # allowed violation for polytope constraint
 	objDepΔy::Bool = false
+	ΔySpikyBound::Float64 = 0.0 # Set positive to enable this constraint
 end
 
 # --------------
@@ -346,11 +347,16 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	ncpolytope = CpS.m
 	ncpolytopennz = length(CpV)
 
-	# Δy diff constraint (to try and avoid spikiness) https://github.com/avikde/robobee3d/pull/138
-	spikyD = trajDiffMat(N, ny)
-	DI, DJ, DV = findnz(spikyD)
-	ncspiky = spikyD.m
-	ncspikynnz = length(DI)
+	# Δy diff constraint (to try and avoid spikiness) https://github.com/avikde/robobee3d/pull/138. It works but adds a 
+	ΔySpikyConst = POPTS.ΔySpikyBound > 1e-4
+	if ΔySpikyConst
+		spikyD = trajDiffMat(N, ny)
+		DI, DJ, DV = findnz(spikyD)
+		ncspiky = spikyD.m
+		ncspikynnz = length(DI)
+	else
+		ncspiky = ncspikynnz = 0
+	end
 
 	nctotal = ncunact + ncpolytope + ncspiky # this is the TOTAL number of constraints
 	dp2 = copy(dp) # No idea why this was getting modified. Storing a copy seems to work.
@@ -364,7 +370,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 		
 		g .= [vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), pp) for k=1:N]...); # unact
 			CpS * pp; # Polytope constraint on the params must be <= dp
-			spikyD * x[np+1 : np+(N+1)*ny]] # D*Δy within bounds
+			ΔySpikyConst ? spikyD * x[np+1 : np+(N+1)*ny] : []] # D*Δy within bounds
 	end
 
 	# ----------- Constraint Jac ----------------------------
@@ -446,18 +452,17 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 		end
 	end
 
+	# Append to lims
 	glimsL = -POPTS.εunact*ones(ncunact)
 	glimsU = POPTS.εunact*ones(ncunact)
-	if ncpolytope > 0
-		glimsL = [glimsL; -1e3 * ones(ncpolytope)] # Scott said having non-inf bounds helps IPOPT
-		glimsU = [glimsU; dp2 + POPTS.εpoly * ones(ncpolytope)] # must be <= 0
-	end
-	if ncspiky > 0
-		glimsL = [glimsL; -0.05 * ones(ncspiky)] # empirical from https://github.com/avikde/robobee3d/pull/138
-		glimsU = [glimsU; 0.05 * ones(ncspiky)]
-	end
+
+	glimsL = [glimsL; -1e3 * ones(ncpolytope)] # Scott said having non-inf bounds helps IPOPT
+	glimsU = [glimsU; dp2 + POPTS.εpoly * ones(ncpolytope)] # must be <= 0
+
+	glimsL = [glimsL; -0.05 * ones(ncspiky)] # empirical from https://github.com/avikde/robobee3d/pull/138
+	glimsU = [glimsU; 0.05 * ones(ncspiky)]
 	
-	return nctotal, glimsL, glimsU, eval_g_ret, eval_jac_g, Dgnnz, Bperp
+	return nctotal, glimsL, glimsU, eval_g, eval_jac_g, Dgnnz, Bperp
 end
 
 "Mode=1 => opt, mode=2 ID. Fext(p) or hold constant.
@@ -541,6 +546,6 @@ function paramOpt(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstrac
 		error("Tested")
 	end
 
-	return Dict("x"=>prob.x, "traj"=>trajnew, "param"=>prob.x[1:np], "eval_f"=>eval_f, "eval_grad_f"=>eval_grad_f, "eval_g"=>eval_g_ret, "status"=>status)
+	return Dict("x"=>prob.x, "traj"=>trajnew, "param"=>prob.x[1:np], "eval_f"=>eval_f, "eval_grad_f"=>eval_grad_f, "eval_g"=>eval_g, "nc"=>nctotal, "status"=>status)
 end
 

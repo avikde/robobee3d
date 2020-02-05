@@ -4,7 +4,7 @@ function scaling1(m::Wing2DOFModel, opt, traj, param, xs, minlifts, τ21ratiolim
 	np = length(param)
 	function scaling1single(x, minlift)
 		r = opt1(m, traj, param, 1, minlift, τ21ratiolim; Φ=x, kwargs...)
-		return [x; minlift; r["param"]; r["u∞"]; r["al"]; r["δact"]; mean(abs.(r["mechPow"])); r["FD∞"]; norm(r["unactErr"], Inf)]
+		return [x; minlift; r["param"]; r["u∞"]; r["al"]; r["δact"]; mean(abs.(r["mechPow"])); r["FD∞"]]
 	end
 	results = [scaling1single(x, minlift) for minlift in minlifts, x in xs] # reversed
 	resdict = Dict(
@@ -112,7 +112,7 @@ function scaleParamsForlift(ret, minlifts, τ21ratiolim; kwargs...)
 		r = opt1(m, traj, param, 1, al, τ21ratiolim; kwargs...)
 		# kΨ, bΨ = param2[4:5]
 		uu = r["traj"][(N+1)*ny:end]
-		return [r["param"]; norm(uu, Inf); norm(r["unactErr"], Inf); norm(uu, 2)/N; r["al"]]
+		return [r["param"]; norm(uu, Inf); norm(uu, 2)/N; r["al"]]
 	end
 	llabels = [
 		"chord",
@@ -134,8 +134,6 @@ function scaleParamsForlift(ret, minlifts, τ21ratiolim; kwargs...)
 	p2 = plot(actualliftsmg, [res[:,np+1]  res[:,np+3]], xlabel="avg lift [mg]", ylabel="umin [mN]", linewidth=2, legend=:topleft, label=["inf","2","al"])
 	hline!(p2, [75], linestyle=:dash, color=:black, label="robobee act")
 	p3 = plot(actualliftsmg, 1000 ./ (N*res[:,np]), xlabel="avg lift [mg]", ylabel="Cycle freq [Hz]", linewidth=2, legend=false)
-	p4 = plot(actualliftsmg, res[:,np+2], xlabel="avg lift [mg]", ylabel="unact err", linewidth=2, legend=false)
-
-	return p1, p2, p3, p4
+	return p1, p2, p3
 end
 
