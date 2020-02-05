@@ -1,6 +1,6 @@
 
 include("OptBase.jl") #< including this helps vscode reference the functions in there
-using Parameters, ForwardDiff, LinearAlgebra, Ipopt, DSP
+using Parameters, ForwardDiff, LinearAlgebra, Ipopt, DSP, SparseArrays
 
 @with_kw struct ParamOptOpts
 	τinds::Array{Int}
@@ -10,7 +10,7 @@ using Parameters, ForwardDiff, LinearAlgebra, Ipopt, DSP
 	εunact::Float64 = 0.1
 	Fext_pdep::Bool = true
 	uinfnorm::Bool = false # only in mode 1
-	nonlintransmission::Bool = true # false for linear transmission; true for the cubic polynomial transmission function
+	εpoly::Float64 = 1e-4 # allowed violation for polytope constraint
 end
 
 # --------------
@@ -334,6 +334,21 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	return eval_f, eval_grad_f
 end
 
+"Return in the form C, d s.t. C p <= d.
+See Mathematica, linearization gives -τ1 - τ2*σamax^2/3 + τ1min <= 0"
+function transmissionLinearConstraint(POPTS, np, σamax, σomax)
+	τ1min = σomax/σamax # this would be the case with the linear transmission
+	C = zeros(1,np)
+	for i=1:np
+		if i == POPTS.τinds[1]
+			C[i] = -1.0
+		elseif i == POPTS.τinds[2]
+			C[i] = -σamax^2/3
+		end
+	end
+	return C, [-τ1min]
+end
+
 "Constraints for IPOPT: g = [gunact; gpolycon; gtransmission]
 - gunact = unactuated error = #unactuated DOFS * N
 - gpolycon = Cp * p <= dp. But the user can pass in (and default is) Cp 0xX => has no effect
@@ -346,7 +361,7 @@ Transmission constraint:
 	τ2>=0 is in xlims
 	The ineq above is: τ1min - τ1 <= τ2*σamax^2/3 => -τ1 - τ2*σamax^2/3 + τ1min <= 0 which is a linear constraint
 "
-function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax)
+function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk, yo, umeas, B, N, Cp, dp)
 	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
 	# Unactuated constraint: Bperp' * H(y + Δy) * pt is small enough (unactuated DOFs) 
 	nact = size(B, 2)
@@ -355,13 +370,17 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	Bperp = (I - B*B')[nact+1:end,:] # s.t. Bperp*B = 0
 	# Number of various constraints - these are used below to set up the jacobian of g.
 	ncunact = N * nck
-	ncpolytope = size(Cp,1)
-	nctransmission = POPTS.nonlintransmission ? 1 : 0
+	
+	# Convert the polytope constraint to sparse, and get the COO format IPOPT needs
+	CpS = sparse(Cp)
+	CpI, CpJ, CpV = findnz(CpS)
+	ncpolytope = CpS.m
+	ncpolytopennz = length(CpV)
+
 	ncuinfnorm = uinfnorm ? 2 * N * nact : 0
-	nctotal = ncunact + ncpolytope + nctransmission + ncuinfnorm # this is the TOTAL number of constraints
+	nctotal = ncunact + ncpolytope + ncuinfnorm # this is the TOTAL number of constraints
 	dp2 = copy(dp) # No idea why this was getting modified. Storing a copy seems to work.
 	nΔy = (N+1)*ny
-	τ1min = σomax/σamax
 	# Use delta y in upred (to get uinfnorm to be exact)
 	ukpredUseΔy = false
 	Δy0 = zeros(ny)
@@ -378,13 +397,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 		gvec = vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), pp) for k=1:N]...)
 		ukp2(k) = ukpredUseΔy ? ukpredΔy(k, Δyk(k), Δyk(k+1), pp) : ukpred(k, pp)
 		# Polytope constraint on the params
-		if ncpolytope > 0
-			gvec = [gvec; Cp * pp - dp2] # must be <= 0
-		end
-		if nctransmission > 0
-			τ1, τ2 = paramLumped(m, pp)[2:3] # Get both transmission coeffs
-			gvec = [gvec; -τ1 - τ2*σamax^2/3 + τ1min]
-		end
+		gvec = [gvec; CpS * pp] # must be <= dp
 		if uinfnorm
 			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
 			gvec = [gvec; 
@@ -397,12 +410,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	# ----------- Constraint Jac ----------------------------
 	# Unactuated error: exploit sparsity in the nc*nx matrix. Each constraint depends on Δyk(k), Δyk(k+1), p
 	Dgnnz = ncunact * (2*ny + np)
-	if ncpolytope > 0
-		Dgnnz += prod(size(Cp)) # Assume Cp as a whole is full
-	end
-	if nctransmission > 0
-		Dgnnz += 2 # The +2 at the end is for the transmission constraint
-	end
+	Dgnnz += ncpolytopennz
 	if uinfnorm
 		# for each k, get 
 		# - d/dp(B' * Hk * pt) which should be nact*np, 
@@ -444,22 +452,13 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 					end
 				end
 			end
-			if ncpolytope > 0
-				# Cp * param <= dp
-				for i=1:size(Cp,1)
-					for j=1:size(Cp,2)
-						offs += 1
-						value[offs] = Cp[i,j]
-					end
-				end
-			end
-			if nctransmission > 0
-				# transmission
+
+			# Cp * param <= dp
+			for i=1:ncpolytopennz
 				offs += 1
-				value[offs] = -1 # d/dτ1
-				offs += 1
-				value[offs] = -σamax^2/3 # d/dτ2
+				value[offs] = CpV[i]
 			end
+
 			if uinfnorm
 				for k=1:N
 					if ukpredUseΔy
@@ -519,27 +518,16 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 					end
 				end
 			end
-			if ncpolytope > 0
-				# Cp * param <= dp
-				for i=1:size(Cp,1)
-					for j=1:size(Cp,2)
-						offs += 1
-						row[offs] = ncunact + i # goes after the unact constraints
-						col[offs] = j # hits the elements of param (first part of x)
-					end
-				end
-			end
-			if nctransmission > 0
-				# transmission
+			
+			# Cp * param <= dp
+			for i=1:ncpolytopennz
 				offs += 1
-				row[offs] = ncunact + ncpolytope + 1
-				col[offs] = POPTS.τinds[1]
-				offs += 1
-				row[offs] = ncunact + ncpolytope + 1
-				col[offs] = POPTS.τinds[2]
+				row[offs] = ncunact + CpI[i] # goes after the unact constraints
+				col[offs] = CpJ[i] # hits the elements of param (first part of x)
 			end
+				
 			if uinfnorm
-				rowOffs = ncunact + ncpolytope + nctransmission
+				rowOffs = ncunact + ncpolytope
 				for k=1:N
 					for i=1:nact
 						for j=1:np
@@ -582,11 +570,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	glimsU = POPTS.εunact*ones(ncunact)
 	if size(Cp,1) > 0
 		glimsL = [glimsL; -100000 * ones(ncpolytope)] # Scott said having non-inf bounds helps IPOPT
-		glimsU = [glimsU; zeros(ncpolytope)] # must be <= 0
-	end
-	if nctransmission > 0
-		glimsL = [glimsL; -100000]
-		glimsU = [glimsU; 0.0]
+		glimsU = [glimsU; dp2 + POPTS.εpoly * ones(ncpolytope)] # must be <= 0
 	end
 	if uinfnorm
 		glimsL = [glimsL; -1e10 * ones(ncuinfnorm)]
@@ -636,7 +620,8 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	end
 	
 	# IPOPT setup using helper functions
-	nctotal, glimsL, glimsU, eval_g_ret, eval_jac_g, Dgnnz, Bperp = paramOptConstraint(m, POPTS, mode, np, ny, δt, Hk, yo, umeas, B, N, Cp, dp, σamax, σomax)
+	Ct, dt = transmissionLinearConstraint(POPTS, np, σamax, σomax) # Append linear transmission constraint
+	nctotal, glimsL, glimsU, eval_g_ret, eval_jac_g, Dgnnz, Bperp = paramOptConstraint(m, POPTS, mode, np, ny, δt, Hk, yo, umeas, B, N, [Cp; Ct], [dp; dt])
 	eval_g(x::Vector, g::Vector) = g .= eval_g_ret(x)
 	eval_f, eval_grad_f = paramOptObjective(m, POPTS, mode, np, npt, ny, δt, Hk, yo, umeas, B, N)
 	
