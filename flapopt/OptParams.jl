@@ -248,7 +248,7 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		return wunact * LSE(Hunact * pt)
 	end
 
-	function φ(pt, Δy, s; debug=false)
+	function φ(pt, Δy; debug=false)
 		# min Δy
 		T = eltype(pt)
 		Jcomps = zeros(T, 5) # [Junact, Jlse, Jpow, Ju2, Jinfnorm]
@@ -281,21 +281,20 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		return sum(Jcomps) + wΔy/N * dot(Δy, Δy)
 	end
 	function eval_f(x; kwargs...)
-		pt, Δy, s = unpackX(x)
-		rr = φ(pt, Δy, s; kwargs...)
+		rr = φ(unpackX(x)...; kwargs...)
 		if unactObj
-			rr += φunact(pt, Δy#= , Hunact =#)
+			rr += φunact(unpackX(x)...#= , Hunact =#)
 		end
 		return rr
 	end
 
 	function eval_grad_f(x, grad_f)
-		pt, Δy, s = unpackX(x)
+		pt, Δy = unpackX(x)
 		dpt_dp1 = dpt_dp(x[1:np]) # 1,npt X npt,np
 
 		if dφ_dptAutodiff
 			# Autodiff for gradient of 
-			dφ_dpt = ForwardDiff.gradient(ptdiff -> φ(ptdiff, Δy, s), pt)
+			dφ_dpt = ForwardDiff.gradient(ptdiff -> φ(ptdiff, Δy), pt)
 			grad_f[1:np] = dφ_dpt' * dpt_dp1
 			if unactObj
 				dφunact_dpt = ForwardDiff.gradient(ptdiff -> φunact(ptdiff, Δy), pt)
