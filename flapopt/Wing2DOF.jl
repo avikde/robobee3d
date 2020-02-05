@@ -486,7 +486,7 @@ function cu.paramLumped(m::Wing2DOFModel, param::AbstractArray)
     Lw = Aw/cbar
     ycp = Lw*m.r1h # approx as in [Chen (2016)]
     Tarr = [τ1, τ2]
-    return [1, kΨ, bΨ, Aw^2*AR, mwing*ycp^2, mwing*cbar*ycp, mwing*cbar2], Tarr, dt
+    return [one(eltype(param)), kΨ, bΨ, Aw^2*AR, mwing*ycp^2, mwing*cbar*ycp, mwing*cbar2], Tarr, dt
 end
 
 function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::cu.ParamOptOpts, scaleTraj=1.0; debugComponents::Bool=false)

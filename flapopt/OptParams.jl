@@ -161,73 +161,177 @@ function fixTrajWithDynConst(m::Model, opt::OptOptions, traj::AbstractArray, par
 end
 
 "Smooth ramp function for mechanical power (only positive components) https://math.stackexchange.com/questions/3521169/smooth-approximation-of-ramp-function"
-smoothRamp(x; ε=0.1) = x/2 * (1 + x / sqrt(x^2 + ε^2))
+ramp(x; ε=0.1, smooth=true) = smooth ? (x/2 * (1 + x / sqrt(x^2 + ε^2))) : (x > 0 ? x : 0)
+dramp(x; ε=0.1, smooth=true) = smooth ? (1/2*(1 + (x*(x^2 + 2*ε^2))/(x^2 + ε^2)^(3/2))) #= used Mathematica =# : sign(x) 
+"https://en.wikipedia.org/wiki/LogSumExp"
+LSE(x) = log(sum(exp.(x)))
+function dLSE(x)
+	y = exp.(x)
+	return y/sum(y)
+end
+
+"Assemble the big Hu,Hdq matrices s.t. Hu * pt = uact, Hdq * pt = dqact - ASSUMING dely = 0.
+NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179"
+function bigH(N, ny, nact, npt, Hk, B, Δy)
+	npt1 = npt÷3 # each of the 3 segments for nondim time https://github.com/avikde/robobee3d/pull/119
+	Δyk = k -> Δy[(k-1)*ny+1 : k*ny]
+	Bperp = (I - B*B')[nact+1:end,:] # s.t. Bperp*B = 0
+	nq = ny÷2
+	nunact = nq - nact
+	Hu = zeros(nact*N, npt)
+	Hunact = zeros(nunact*N, npt)
+	Hdq = similar(Hu)
+	for k=1:N
+		Hh, Hvel = Hk(k, Δyk(k), Δyk(k+1)) #Hk(k, Δyk(k), Δyk(k+1))
+		Hu[nact*(k-1)+1 : nact*k, :] = B' * Hh
+		Hunact[nunact*(k-1)+1 : nunact*k, :] = Bperp * Hh
+		# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
+		# ASSUMING 1 ACTUATED DOF
+		Hdq[nact*(k-1)+1 : nact*k, :] = [zeros(1,npt1)  Hvel  zeros(1,npt1)]
+	end
+	return Hu, Hdq, Hunact
+end
 
 "Helper function for optAffine. See optAffine for the def of x"
 function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt, Hk, yo, umeas, B, N)
 	uinfnorm = mode == 2 ? false : POPTS.uinfnorm # no infnorm for ID
+	dφ_dptAutodiff = true
+	HdepΔy = false
 	nq = ny÷2
 	nact = size(B, 2)
 	nΔy = (N+1)*ny
-	Δy0 = zeros(ny)
-	npt1 = npt÷3 # each of the 3 segments for nondim time https://github.com/avikde/robobee3d/pull/119
+	if nact == nq
+		HdepΔy = false
+	end
 	
-	Ryy, Ryu, Ruu, wΔy, wu∞, wlse = POPTS.R # NOTE Ryu is just weight on mech. power
+	Ryy, Ryu, Ruu, wΔy, wu∞, wlse, wunact = POPTS.R # NOTE Ryu is just weight on mech. power
 	lse = wlse > 1e-6
-	
-	function eval_f(x; debug=false)
-		pt, Tarr = getpt(m, x[1:np])
-		Δy = x[np+1 : np+nΔy]
-		# min Δy
-		Junact = wΔy * dot(Δy, Δy)/N
-		Jlse = zero(eltype(x))
-		Jpow = zero(eltype(x))
-		Ju2 = zero(eltype(x))
-		Jinfnorm = zero(eltype(x))
-		
-		"Return [uact   dqact]
-		NOT INCLUDING the Δy in the calculation of u. Including these was resulting in a lot of IPOPT iterations and reconstruction failed -- need to investigate why. https://github.com/avikde/robobee3d/pull/80#issuecomment-541350179"
-		function actk(k)
-			Hh, Hvel = Hk(k, Δy0, Δy0) #Hk(k, Δyk(k), Δyk(k+1))
-			# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
-			# ASSUMING 1 ACTUATED DOF
-			return [B' * Hh * pt    [zeros(1,npt1)   Hvel   zeros(1,npt1)] * pt]
+	unactObj = wunact > 1e-6
+
+	if !HdepΔy # Ignore Δy in computation of H for objective (exactly fine for fully act)
+		Hu, Hdq, Hunact = bigH(N, ny, nact, npt, Hk, B, zeros(nΔy))
+	end
+
+	# components of the gradient:
+	dpt_dp(pp) = ForwardDiff.jacobian(x -> getpt(m, x)[1], pp)
+
+	"Running cost function of actuator force, vel for a single k"
+	function φmech(uact, dqact)
+		Jcomps = zeros(eltype(uact), 5)
+		if mode == 1
+			# For mech pow https://github.com/avikde/robobee3d/issues/123 but use a ramp mapping to get rid of negative power
+			Jcomps[3] = 1/2 * ramp(dqact' * Ryu * uact)
+
+			# ||u||p
+			Jcomps[4] = 1/2 * uact' * Ruu * uact
+		elseif mode == 2
+			# ||u||2
+			uerr = uact - umeas(k)
+			Jcomps[4] = 1/2 * uerr' * Ruu * uerr
 		end
-		actVec = [actk(k) for k=1:N]
+		return Jcomps
+	end
+	"Analytical gradient of the above (of the summed cost). No LSE yet"
+	function dφmech(uact, dqact)
+		if mode == 1
+			dsmooth = 1/2 * dramp(dqact' * Ryu * uact)
+			return vcat(Ruu * uact + dsmooth * Ryu * dqact, dsmooth * Ryu * uact)
+		elseif mode == 2
+			return vcat(Ruu * (uact - umeas(k)), zero(uact))
+		end
+	end
+
+	unpackX(x) = getpt(m, x[1:np])[1], x[np+1 : np+nΔy], uinfnorm ? x[np+nΔy+1 : np+nΔy+nact] : zero(eltype(x)) # slack variable for infnorm
+
+	_k(k) = nact*(k-1)+1 : nact*k
+
+	function φunact(pt, Δy#= , Hunact =#)
+		# Assume delta y is 
+		Hunact = bigH(N, ny, nact, npt, Hk, B, Δy)[3]
+		return wunact * LSE(Hunact * pt)
+	end
+
+	function φ(pt, Δy, s; debug=false)
+		# min Δy
+		T = eltype(pt)
+		Jcomps = zeros(T, 5) # [Junact, Jlse, Jpow, Ju2, Jinfnorm]
+
+		if HdepΔy
+			Hu, Hdq, Hunact = bigH(N, ny, nact, npt, Hk, B, Δy)
+		# else
+		# 	# definitely need delta y dependence for this
+		# 	Hunact = bigH(N, ny, nact, npt, Hk, B, Δy)[3]
+		end
+		uvec = Hu * pt
+		dqvec = Hdq * pt
 
 		for k=1:N
-			uact = actVec[k][:,1]
-			dqact = actVec[k][:,2]
-			if mode == 1
-				# For mech pow https://github.com/avikde/robobee3d/issues/123 but use a ramp mapping to get rid of negative power
-				Jpow += 1/(2*N) * smoothRamp(dqact' * Ryu * uact)
+			Jcomps .+= φmech(uvec[_k(k)], dqvec[_k(k)])
+		end
 
-				# ||u||p
-				Ju2 += 1/(2*N) * uact' * Ruu * uact
-				Jlse += sum(exp.(uact))
-			elseif mode == 2
-				# ||u||2
-				uerr = uact - umeas(k)
-				Ju2 += 1/(2*N) * uerr' * Ruu * uerr
+		# Total
+		# Jcomps[1] = wΔy/N * dot(Δy, Δy) # FIXME: this isn't working in forwarddiff
+		if lse
+			Jcomps[2] = wlse * LSE(uvec)
+		end
+		Jcomps[3] /= N
+		Jcomps[4] /= N
+		if uinfnorm
+			Jcomps[5] = wu∞ * dot(s,s) # s is already positive, but need a scalar
+		end
+
+		if debug
+			return pt, Hk, B, Jcomps, [uvec  dqvec]
+		end
+
+		return sum(Jcomps) + wΔy/N * dot(Δy, Δy)
+	end
+	function eval_f(x; kwargs...)
+		pt, Δy, s = unpackX(x)
+		rr = φ(pt, Δy, s; kwargs...)
+		if unactObj
+			rr += φunact(pt, Δy#= , Hunact =#)
+		end
+		return rr
+	end
+
+	function eval_grad_f(x, grad_f)
+		pt, Δy, s = unpackX(x)
+		dpt_dp1 = dpt_dp(x[1:np]) # 1,npt X npt,np
+
+		if dφ_dptAutodiff
+			# Autodiff for gradient of 
+			dφ_dpt = ForwardDiff.gradient(ptdiff -> φ(ptdiff, Δy, s), pt)
+			grad_f[1:np] = dφ_dpt' * dpt_dp1
+			if unactObj
+				dφunact_dpt = ForwardDiff.gradient(ptdiff -> φunact(ptdiff, Δy), pt)
+				grad_f[1:np] += (dφunact_dpt' * dpt_dp1)[:]
+			end
+		else
+			# Analytical gradients https://github.com/avikde/robobee3d/pull/137
+			if HdepΔy
+				Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, Δy)
+			end
+			uvec = Hu * pt
+			dqvec = Hdq * pt
+			# Need this first to "clear" previous grad_f (or could fill it with 0)
+			grad_f[1:np] = wlse * (dLSE(uvec)' * Hu * dpt_dp1) # For LSE
+			for k=1:N
+				dφmech1 = dφmech(uvec[_k(k)], dqvec[_k(k)])
+				grad_f[1:np] += 1/N * (dφmech1' * [Hu[_k(k),:]; Hdq[_k(k),:]] * dpt_dp1)[:]
 			end
 		end
-		# Total
-		J = Junact + Ju2 + Jpow
-		if lse
-			J += (Jlse = wlse * log(Jlse))
+
+		grad_f[np+1:np+nΔy] = 2*wΔy/N*Δy # nΔy Analytical - see cost above
+		if unactObj # FIXME: this gives "no method matching Float64(::ForwardDiff.Dual"
+			dφunact_dΔy = ForwardDiff.gradient(yy -> φunact(pt, yy), Δy)
+			grad_f[np+1:np+nΔy] += dφunact_dΔy
 		end
 		if uinfnorm
-			s = x[np+nΔy+1 : np+nΔy+nact] # slack variable for infnorm
-			J += (Jinfnorm = wu∞ * dot(s,s)) # s is already positive, but need a scalar
+			grad_f[np+nΔy+1:np+nΔy+nact] = 2 * wu∞ * s # analytical
 		end
-		if debug
-			return pt, Hk, B, [Junact, Jlse, Jpow, Ju2, Jinfnorm], actVec
-		end
-
-		return J
 	end
-	eval_grad_f(x, grad_f) = ForwardDiff.gradient!(grad_f, eval_f, x)
-
+	
 	return eval_f, eval_grad_f
 end
 
@@ -579,6 +683,6 @@ function optAffine(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstra
 	end
 	s = uinfnorm ? prob.x[np+nΔy+1:np+nΔy+nu] : NaN
 
-	return Dict("x"=>prob.x, "traj"=>trajnew, "param"=>prob.x[1:np], "eval_f"=>eval_f, "eval_g"=>eval_g_ret, "s"=>s, "status"=>status)
+	return Dict("x"=>prob.x, "traj"=>trajnew, "param"=>prob.x[1:np], "eval_f"=>eval_f, "eval_grad_f"=>eval_grad_f, "eval_g"=>eval_g_ret, "s"=>s, "status"=>status)
 end
 

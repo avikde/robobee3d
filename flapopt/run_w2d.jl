@@ -86,7 +86,6 @@ POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 function debugDeltaYEffect(rr)
 	pt, Hk, B, Js, actVec = rr["eval_f"](rr["x"]; debug=true)
 	println("Js ", Js)
-	actVec = vcat(actVec...)
 	dy = rr["x"][length(param0)+1:end]
 	dely(k) = dy[(k-1)*ny+1:(k)*ny]
 	dely0 = zeros(ny)
@@ -98,6 +97,24 @@ function debugDeltaYEffect(rr)
 		plot(dy[2:ny:(N+1)*ny]),
 		plot(dy[3:ny:(N+1)*ny]),
 		plot(dy[4:ny:(N+1)*ny]))
+end
+
+"https://github.com/avikde/robobee3d/pull/137"
+function debugGradient(rr)
+	x = copy(rr["x"])
+	x1s = 5.0:40
+	fx1(x1, a=true) = rr["eval_f"]([x1; x[2:end]]; auto=a)
+	function ddx1(x1, a=true)
+		grad_f = similar(x)
+		rr["eval_grad_f"]([x1; x[2:end]], grad_f; auto=a)
+		return grad_f[1]
+	end
+	plot(
+		plot([fx1.(x1s) fx1.(x1s, false)],lw=2,ls=[:solid :dash]), 
+		plot([ddx1.(x1s)  ddx1.(x1s, false)],lw=2,ls=[:solid :dash])
+	)
+	gui()
+	error("h")
 end
 
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
@@ -115,6 +132,7 @@ pls = debugDeltaYEffect(ret2)
 plot(pls...)
 gui()
 error("hi")
+# debugGradient(ret2)
 # testManyShifts(ret1, [0], 0.6)
 
 # retTest = Dict("traj"=>ret2["traj"], "param"=>ret2["param"])

@@ -205,7 +205,7 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	", al[mg]=", round(ret["al"], digits=1), 
 	", u∞=", round(ret["u∞"], digits=1), 
 	", FD∞=", round(ret["FD∞"], digits=1), 
-	", pow=", round(mean(cu.smoothRamp.(ret["mechPow"])), digits=1), 
+	", pow=", round(mean(cu.ramp.(ret["mechPow"])), digits=1), 
 	", J=", round(ret["eval_f"](ret["x"]), digits=1), 
 	", AR=", round(w2d_AR(ret["param"]), digits=1), 
 	", x=", round(w2d_Lw(ret["param"])*deg2rad(isnothing(Φ) ? 90 : Φ), digits=1))
