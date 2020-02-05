@@ -52,7 +52,7 @@ POPTS = cu.ParamOptOpts(
 	plimsU = copy(param0),
 	R = (0.0*I, reshape([1e-2],1,1), 0.0*I, 1e4, 1e-3, 1e0), # Ryy, Ryu (mech pow), Ruu, wΔy, wu∞, wlse, wunact
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
-	εpoly = 1e-6, # 1e-6 -> faster solve, solved to acceptable level. 1e-3 -> optimal solution but slower
+	εpoly = 1e-3,
 	objDepΔy = true
 )
 
@@ -132,9 +132,10 @@ end
 # error("hi", ff(param0))
 
 # 2. Try to optimize
-ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; print_level=3, tol=1e-4#= , max_iter=10000 =#)
+ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; print_level=3#= , max_iter=10000 =#)
 pls = debugDeltaYEffect(ret2)
-plot(pls...)
+infeas = ret2["eval_g"](ret2["x"])
+plot(pls..., plot(infeas[1:N]), plot(infeas[N+1:end], ylims=(-0.1,0.1)))
 gui()
 error("hi")
 # debugGradient(ret2)
