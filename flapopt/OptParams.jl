@@ -427,7 +427,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	glimsL = -POPTS.εunact*ones(ncunact)
 	glimsU = POPTS.εunact*ones(ncunact)
 	if size(Cp,1) > 0
-		glimsL = [glimsL; -100000 * ones(ncpolytope)] # Scott said having non-inf bounds helps IPOPT
+		glimsL = [glimsL; -1e3 * ones(ncpolytope)] # Scott said having non-inf bounds helps IPOPT
 		glimsU = [glimsU; dp2 + POPTS.εpoly * ones(ncpolytope)] # must be <= 0
 	end
 	
@@ -461,8 +461,8 @@ function paramOpt(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstrac
 	For fully-actuated systems, Δy remains 0.
 	"
 	nx = np + nΔy # p,Δy
-	xlimsL = -1000 * ones(nx)
-	xlimsU = 1000 * ones(nx)
+	xlimsL = -1e3 * ones(nx)
+	xlimsU = 1e3 * ones(nx)
 	xlimsL[1:np] = POPTS.plimsL
 	xlimsU[1:np] = POPTS.plimsU
 	if dtFix # constrain dt to be the same as it is now
