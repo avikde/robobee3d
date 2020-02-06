@@ -1,5 +1,7 @@
 
 const SCALING1_FNAME = "scaling1.zip"
+const SCALING2_FNAME = "scaling2.zip"
+
 function scaling1(m::Wing2DOFModel, opt, traj, param, xs, minlifts, τ21ratiolim; kwargs...)
 	np = length(param)
 	function scaling1single(x, minlift)
@@ -102,6 +104,29 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 	end
 	
 	return retpl
+end
+
+function scaling2(m::Wing2DOFModel, opt, traj, param, phi, Qdts, minlift, τ21ratiolim; kwargs...)
+	np = length(param)
+	function scaling2single(#= phi,  =#Qdt)
+		POPTS.pdesQ[end] = Qdt
+		r = opt1(m, traj, param, 1, minlift, τ21ratiolim; Φ=phi, kwargs...)
+		return [phi; Qdt; r["param"]; r["u∞"]; r["al"]; r["δact"]; mean(abs.(r["mechPow"])); r["FD∞"]]
+	end
+	results = [scaling2single(#= phi,  =#Qdt) for Qdt in Qdts]
+	resdict = Dict(
+		"results" => results
+	)
+	# ^ returns a 2D array result arrays
+	matwrite(SCALING2_FNAME, resdict; compress=true)
+
+	return resdict
+end
+
+function scaling2disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, ypl=nothing, s=nothing, Fnom=75, mactline=7000)
+	np = length(param0)
+	resdict = typeof(resarg) == String ? matread(resarg) : resarg
+	
 end
 
 
