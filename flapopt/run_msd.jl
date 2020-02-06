@@ -36,7 +36,8 @@ POPTS = cu.ParamOptOpts(
 	τinds=[1,4], 
 	R=(zeros(2,2), reshape([0.], 1, 1), 1.0*I, 0., 0.), # Ryy, Ryu (mech pow), Ruu, wΔy, wlse
 	plimsL = [0.1, 0.1, 0.1, 0.0, 0.01],
-	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 0.5]
+	plimsU = [1000.0, 1000.0, 1000.0, 100.0, 0.5],
+	centralDiff = true
 )
 
 # cu.affineTest(m, opt, traj0, param0, POPTS; fixTraj=true)
@@ -110,7 +111,7 @@ function debugComponentsPlot(traj, param; refScale=1.0)
     	plot!(pl, tvec, refScale*T*keq*post.(tvec), color=:red, linestyle=:dash, lw=2, label="k*x")
     	plot!(pl, tvec, refScale*T*bo*velt.(tvec), color=:green, linestyle=:dash, lw=2, label="b*dx")
 
-		pl2 = plot(tvec, tot, linewidth=2, label="act(tot)", legend=:outertopright)
+		pl2 = plot(tvec, tot, linewidth=2, label="act(tot)", legend=:outertopright, ylims=(-5,5))
 		plot!(pl2, tvec, traj[(N+1)*ny+1:end], linewidth=2, linestyle=:dash, label="act")
 		plot!(pl2, tvec, damp, linewidth=2, label="damp")
 		return pl, pl2
@@ -198,7 +199,7 @@ end
 
 POPTS.plimsU[end] = 0.4
 trajScale = 0.56
-ret1 = opt1(traj0, param0, 1, trajScale, 0.1)
+ret1 = @time opt1(traj0, param0, 1, trajScale, 0.1)
 display(ret1["param"]')
 
 println("Test 1st order bug ", ret1["param"][2]*ret1["param"][end]/2 - ret1["param"][3])
