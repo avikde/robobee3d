@@ -218,12 +218,13 @@ function cu.paramAffine(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abst
     
     # Functions to output
     "Takes in a Δy in output coords"
-    function Hk(k, Δyk, Δykp1)
+    function Hk(k, Δyprev, Δyk, Δynext)
         y = yo(k) + Δyk
-        ynext = yo(k+1) + Δykp1
+        ynext = yo(k+1) + Δynext
+        yprev = POPTS.centralDiff ? yo(max(k-1,1)) + Δyprev : y # Δyprev argument is ignored (and does not appear in jacobian)
         # # This is inefficient since dydt is being called twice but fix later TODO:
         # yc, dyc = cu.collocationStates(m, opt, y, ynext, uk(k), uk(min(k+1,N)), param, dtold)
-        H_dt2 = HMqT(y, ynext) - HMqT(y, y)
+        H_dt2 = (HMqT(y, ynext) - HMqT(y, yprev))/(POPTS.centralDiff ? 2 : 1)
         H_dt1 = Hdamp(y)
         H_dt0 = Hstiffo(y) + Hstiffa(y)
         # With new nonlinear transmission need to break apart H
