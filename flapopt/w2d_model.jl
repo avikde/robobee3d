@@ -1,5 +1,5 @@
 
-using Parameters, LinearAlgebra, DifferentialEquations, Dierckx
+using Parameters, LinearAlgebra, DifferentialEquations, Dierckx, Statistics
 using Plots; gr()
 
 import controlutils
