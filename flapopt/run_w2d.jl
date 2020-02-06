@@ -8,7 +8,7 @@ using MAT, Dierckx
 using Revise # while developing
 import controlutils
 cu = controlutils
-include("Wing2DOF.jl")
+include("w2d_model.jl")
 
 # create an instance
 # From Patrick ko = 300 mN-mm/rad but in input frame. This needs tuning...

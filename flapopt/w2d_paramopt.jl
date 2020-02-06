@@ -2,7 +2,6 @@
 import controlutils
 cu = controlutils
 
-include("Wing2DOF.jl")
 # include("w2d_loaddata.jl") # For ID
 
 # Indices into param array
