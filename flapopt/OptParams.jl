@@ -13,7 +13,7 @@ using Parameters, ForwardDiff, LinearAlgebra, Ipopt, DSP, SparseArrays
 	"Allowed violation for polytope constraint"
 	εpoly::Float64 = 1e-4
 	"Let the u calculated in the objective depend on Δy -- more accurate but demanding"
-	objDepΔy::Bool = false
+	objDepΔy::Bool = true
 	"Set positive to enable this constraint (keep diff of successive states in Δy within this bound)."
 	ΔySpikyBound::Float64 = 0.0
 	"Set to an array of desired params - will use a quadratic weight"
