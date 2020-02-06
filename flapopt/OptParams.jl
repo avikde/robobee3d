@@ -4,6 +4,7 @@ using Parameters, ForwardDiff, LinearAlgebra, Ipopt, DSP, SparseArrays
 
 @with_kw struct ParamOptOpts
 	τinds::Array{Int}
+	"(Ryy, Ryu (mech pow), Ruu, wΔy, wlse)"
 	R::Tuple
 	plimsL::Vector
 	plimsU::Vector
