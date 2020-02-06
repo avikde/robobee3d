@@ -1,5 +1,5 @@
 
-include("OptBase.jl") #< including this helps vscode reference the functions in there
+include("Model.jl") #< including this helps vscode reference the functions in there
 using Parameters, ForwardDiff, LinearAlgebra, Ipopt, DSP, SparseArrays
 
 @with_kw struct ParamOptOpts
