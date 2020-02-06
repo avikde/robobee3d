@@ -3,7 +3,7 @@
 # push!(LOAD_PATH, pwd()) # Only needs to be run once
 
 using Revise # while developing
-using SparseArrays, OSQP, LinearAlgebra # temp
+using LinearAlgebra # temp
 import controlutils
 cu = controlutils
 includet("msd_model.jl")
