@@ -6,7 +6,7 @@ using Revise # while developing
 using SparseArrays, OSQP, LinearAlgebra # temp
 import controlutils
 cu = controlutils
-includet("MassSpringDamper.jl")
+includet("msd_model.jl")
 
 # create an instance
 m = MassSpringDamperModel(6, # ma
