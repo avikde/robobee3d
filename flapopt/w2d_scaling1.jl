@@ -109,8 +109,7 @@ end
 function scaling2(m::Wing2DOFModel, opt, traj, param, phi, Qdts, minlift, τ21ratiolim; kwargs...)
 	np = length(param)
 	function scaling2single(#= phi,  =#Qdt)
-		POPTS.pdesQ[end] = Qdt
-		r = opt1(m, traj, param, 1, minlift, τ21ratiolim; Φ=phi, kwargs...)
+		r = opt1(m, traj, param, 1, minlift, τ21ratiolim; Φ=phi, Qdt=Qdt, kwargs...)
 		return [phi; Qdt; r["param"]; r["u∞"]; r["al"]; r["δact"]; mean(abs.(r["mechPow"])); r["FD∞"]]
 	end
 	results = [scaling2single(#= phi,  =#Qdt) for Qdt in Qdts]

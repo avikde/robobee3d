@@ -76,16 +76,21 @@ POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
 # # resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(150:20:350), 2) # SLOW
-# pls = scaling1disp("scaling1_138.zip"; scatterOnly=false, xpl=[25,30], ypl=[200,400], s=500, useFDasFact=true, Fnom=50) # Found this by setting useFDasFact=false, and checking magnitudes
+# pls = scaling1disp("scaling1_139.zip"; scatterOnly=false, xpl=[25,30], ypl=[200,400], s=500, useFDasFact=true, Fnom=50) # Found this by setting useFDasFact=false, and checking magnitudes
 # plot(pls..., size=(1000,600), window_title="Scaling1", dpi=200)
 # savefig("scaling1.png")
 # gui()
 # error("i")
 
+# scaling2(m, opt, traj0, param0, 90, range(1e3, stop=1e5, length=5), 180, 2) # SLOW
+# pls = scaling2disp("scaling2_220al.zip"; scatterOnly=false, xpl=[25,30], ypl=[200,400], s=500, useFDasFact=true, Fnom=50) # Found this by setting useFDasFact=false, and checking magnitudes
+# plot(pls..., size=(1000,600), dpi=200)
+# gui()
+# error("i")
 # debug4()
 
 # 2. Try to optimize
-ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180)#, print_level=3)
+ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=5e4)#, print_level=3)
 # pls = debugDeltaYEffect(N, ny, ret2)
 # plot(pls..., size=(1000,600))
 

@@ -154,7 +154,7 @@ function trajMechPow(m, opt, traj, param)
 end
 
 """One-off ID or opt"""
-function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, Φ=nothing, Rpow=nothing, kwargs...)
+function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, Φ=nothing, Rpow=nothing, Qdt=nothing, kwargs...)
 	# Make any desired changes
 	if !isnothing(Φ)
 		m.Amp[1] = deg2rad(Φ)
@@ -165,6 +165,9 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	end
 	if !isnothing(Rpow)
 		POPTS.R[2] .= reshape([Rpow],1,1)
+	end
+	if !isnothing(Qdt)
+		POPTS.pdesQ[end] = Qdt
 	end
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
 
@@ -181,7 +184,7 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 		wARa[1]   0  0  0  0  wARa[2]  0; # wing AR <= ?
 		wARb[1]   0  0  0  0  wARb[2]  0] # wing AR >= ?
 	dp = [mlb; 0; 0; 0; 0; 0]
-	print(mode==2 ? "ID" : "Opt", " Φ=", isnothing(Φ) ? "-" : Φ, ", Rpow=", round(POPTS.R[2][1,1]), ", minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
+	print(mode==2 ? "ID" : "Opt", " Φ=", isnothing(Φ) ? "-" : Φ, ", Qdt=", round(POPTS.pdesQ[end]), ", minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
 
 	ret = cu.paramOpt(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, testTrajReconstruction=testReconstruction, 
 		# https://coin-or.github.io/Ipopt/OPTIONS.html - can be overwritten by used kwargs
