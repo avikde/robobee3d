@@ -575,9 +575,9 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     # Functions to output
     "Takes in a Δy in output coords"
     function Hk(k, Δyprev, Δyk, Δykp1)
-        yprev = yo(max(k-1,1)) + Δyprev
         y = yo(k) + Δyk
         ynext = yo(k+1) + Δykp1
+        yprev = POPTS.centralDiff ? yo(max(k-1,1)) + Δyprev : y # Δyprev argument is ignored (and does not appear in jacobian)
         # Same Faero as before?
         _, Jaero, Faero = w2daero(m, y, param)
         # NOTE: it uses param *only for Faero*. Add same F as the traj produced

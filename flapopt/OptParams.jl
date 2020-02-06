@@ -10,11 +10,18 @@ using Parameters, ForwardDiff, LinearAlgebra, Ipopt, DSP, SparseArrays
 	plimsU::Vector
 	εunact::Float64 = 0.1
 	Fext_pdep::Bool = true
-	εpoly::Float64 = 1e-4 # allowed violation for polytope constraint
+	"Allowed violation for polytope constraint"
+	εpoly::Float64 = 1e-4
+	"Let the u calculated in the objective depend on Δy -- more accurate but demanding"
 	objDepΔy::Bool = false
-	ΔySpikyBound::Float64 = 0.0 # Set positive to enable this constraint
-	pdes::Array{Float64} = [] # Set to an array of desired params - will use a quadratic weight
-	pdesQ::Array{Float64} = [] # Set to an array of (diagonal) weights
+	"Set positive to enable this constraint (keep diff of successive states in Δy within this bound)."
+	ΔySpikyBound::Float64 = 0.0
+	"Set to an array of desired params - will use a quadratic weight"
+	pdes::Array{Float64} = []
+	"Set to an array of (diagonal) weights"
+	pdesQ::Array{Float64} = []
+	"Use central 1st order difference to avoid phase shift https://github.com/avikde/robobee3d/pull/139"
+	centralDiff::Bool = false
 end
 
 # --------------
@@ -404,6 +411,7 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 			# Use AD for these. These individual terms should not be expected to be sparse since it is a np -> nunact map.
 			kprev = max(k-1,1)
 			if imode == :Values
+				# Tested https://github.com/avikde/robobee3d/pull/139 that explicitly leaving this out (and reducing nnz) does not perform better and is slower?
 				dykm1 = ForwardDiff.jacobian(yy -> eval_g_pieces(k, yy, Δyk(k), Δyk(k+1), p), Δyk(kprev))
 				dyk = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(kprev), yy, Δyk(k+1), p), Δyk(k))
 				dykp1 = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(kprev), Δyk(k), yy, p), Δyk(k+1))
