@@ -582,7 +582,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         _, Jaero, Faero = w2daero(m, y, param)
         # NOTE: it uses param *only for Faero*. Add same F as the traj produced
         # Divide up by dt-dependence https://github.com/avikde/robobee3d/pull/119#issuecomment-577350049
-        H_dt2 = HMqT(y, ynext) - HMqT(y, yprev) + HC(y) + HF(y, Jaero'*Faero)
+        H_dt2 = (HMqT(y, ynext) - HMqT(y, yprev))/(POPTS.centralDiff ? 2 : 1) + HC(y) + HF(y, Jaero'*Faero)
         H_dt1 = Hdamp(y)
         H_dt0 = Hg(y) + Hgact(y)
         # With nonlinear transmission need to break apart H
