@@ -220,9 +220,6 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 		Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, zeros(nΔy))
 	end
 
-	# components of the gradient:
-	dpt_dp(pp) = ForwardDiff.jacobian(x -> getpt(m, x), pp)
-
 	"Running cost function of actuator force, vel for a single k"
 	function φmech(uact, dqact)
 		Jcomps = zeros(eltype(uact), NJcomps)
@@ -287,14 +284,18 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	end
 	eval_f(x; kwargs...) = φ(x[1:np], unpackX(x)...; kwargs...)
 
+	#Storage for ForwardDiff
+	dφ_dpt = zeros(npt)
+	dpt_dp = zeros(npt, np)
+
 	function eval_grad_f(x, grad_f)
 		pt, Δy = unpackX(x)
-		dpt_dp1 = dpt_dp(x[1:np]) # 1,npt X npt,np
+		ForwardDiff.jacobian!(dpt_dp, x -> getpt(m, x), x[1:np]) # 1,npt X npt,np
 
 		if dφ_dptAutodiff
 			# Autodiff for gradient of 
-			dφ_dpt = ForwardDiff.gradient(ptdiff -> φ(x[1:np], ptdiff, Δy), pt)
-			grad_f[1:np] = dφ_dpt' * dpt_dp1
+			ForwardDiff.gradient!(dφ_dpt, ptdiff -> φ(x[1:np], ptdiff, Δy), pt)
+			grad_f[1:np] = dφ_dpt' * dpt_dp
 		else
 			# Analytical gradients https://github.com/avikde/robobee3d/pull/137
 			if objDepΔy
@@ -303,10 +304,10 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 			uvec = Hu * pt
 			dqvec = Hdq * pt
 			# Need this first to "clear" previous grad_f (or could fill it with 0)
-			grad_f[1:np] = wlse * (dLSE(uvec)' * Hu * dpt_dp1) # For LSE
+			grad_f[1:np] = wlse * (dLSE(uvec)' * Hu * dpt_dp) # For LSE
 			for k=1:N
 				dφmech1 = dφmech(uvec[_k(k)], dqvec[_k(k)])
-				grad_f[1:np] += 1/N * (dφmech1' * [Hu[_k(k),:]; Hdq[_k(k),:]] * dpt_dp1)[:]
+				grad_f[1:np] += 1/N * (dφmech1' * [Hu[_k(k),:]; Hdq[_k(k),:]] * dpt_dp)[:]
 			end
 		end
 
@@ -394,8 +395,11 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	# ----------- Constraint Jac ----------------------------
 	# Unactuated error: exploit sparsity in the nc*nx matrix. Each constraint depends on Δyk(k-1), Δyk(k), Δyk(k+1), p
 	Dgnnz = ncunact * (3*ny + np) + ncpolytopennz + ncspikynnz
-	# Storage for Jacobians TODO:
-	# dykm1 = zeros()
+	# Storage for Jacobians
+	dykm1 = zeros(nunact, ny)
+	dyk = similar(dykm1)
+	dykp1 = similar(dykm1)
+	dp = zeros(nunact, np)
 
 	"Dg jacobian of the constraint function g() for IPOPT."
 	function eval_jac_g(x, imode, row::Vector{Int32}, col::Vector{Int32}, value)
@@ -412,10 +416,10 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 			kprev = max(k-1,1)
 			if imode == :Values
 				# Tested https://github.com/avikde/robobee3d/pull/139 that explicitly leaving this out (and reducing nnz) does not perform better and is slower?
-				dykm1 = ForwardDiff.jacobian(yy -> eval_g_pieces(k, yy, Δyk(k), Δyk(k+1), p), Δyk(kprev))
-				dyk = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(kprev), yy, Δyk(k+1), p), Δyk(k))
-				dykp1 = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(kprev), Δyk(k), yy, p), Δyk(k+1))
-				dp = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(kprev), Δyk(k), Δyk(k+1), yy), p)
+				ForwardDiff.jacobian!(dykm1, yy -> eval_g_pieces(k, yy, Δyk(k), Δyk(k+1), p), Δyk(kprev))
+				ForwardDiff.jacobian!(dyk, yy -> eval_g_pieces(k, Δyk(kprev), yy, Δyk(k+1), p), Δyk(k))
+				ForwardDiff.jacobian!(dykp1, yy -> eval_g_pieces(k, Δyk(kprev), Δyk(k), yy, p), Δyk(k+1))
+				ForwardDiff.jacobian!(dp, yy -> eval_g_pieces(k, Δyk(kprev), Δyk(k), Δyk(k+1), yy), p)
 			end
 			for i=1:nunact
 				for j=1:ny
