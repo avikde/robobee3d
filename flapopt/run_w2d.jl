@@ -56,7 +56,7 @@ POPTS = cu.ParamOptOpts(
 	ΔySpikyBound = 0.03,
 	pdes = zeros(7),
 	pdesQ = [0.,0.,0.,0.,0.,0.,3e4],
-	centralDiff = false
+	centralDiff = true
 )
 
 # ret1 = KINTYPE==1 ? Dict("traj"=>traj0, "param"=>param0) : opt1(m, traj0, param0, 2, 0.1, 0.0) # In ID force tau2=0
@@ -81,6 +81,8 @@ POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 # savefig("scaling1.png")
 # gui()
 # error("i")
+
+# debug4()
 
 # 2. Try to optimize
 ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180)#, print_level=3)
