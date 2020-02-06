@@ -385,8 +385,8 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	end
 
 	# ----------- Constraint Jac ----------------------------
-	# Unactuated error: exploit sparsity in the nc*nx matrix. Each constraint depends on Δyk(k), Δyk(k+1), p
-	Dgnnz = ncunact * (2*ny + np) + ncpolytopennz + ncspikynnz
+	# Unactuated error: exploit sparsity in the nc*nx matrix. Each constraint depends on Δyk(k-1), Δyk(k), Δyk(k+1), p
+	Dgnnz = ncunact * (3*ny + np) + ncpolytopennz + ncspikynnz
 	# Storage for Jacobians TODO:
 	# dykm1 = zeros()
 
