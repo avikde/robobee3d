@@ -55,15 +55,6 @@ function cu.dims(m::Wing2DOFModel)::Tuple{Int, Int}
     return m.SEA ? 6 : 4, 1
 end
 
-# function cu.limits(m::Wing2DOFModel)::Tuple{Vector, Vector, Vector, Vector}
-#     # This is based on observing the OL trajectory. See note on units above.
-#     umax = @SVector [75.0] # [mN]
-#     umin = -umax
-#     xmax = @SVector [300e-3, 1.5, 100, 100] # [mm, rad, mm/ms, rad/ms]
-#     xmin = -xmax
-#     return umin, umax, xmin, xmax
-# end
-
 "Tried going directly from Doshi model-driven, but haven't been able to get that to match up"
 function hingeParams(wΨ)
     # kΨ [mN-mm/rad], bΨ [mN-mm/(rad/ms)]
@@ -435,28 +426,6 @@ function eulerIntegrate(m::cu.Model, opt::cu.OptOptions, traj::Vector, params::V
     end
     return trajei
 end
-
-# "Cost function components" ------------------
-
-# "Objective to minimize"
-# function cu.robj(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray)::AbstractArray
-#     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-    
-# 	yk = k -> @view traj[liy[:,k]]
-# 	uk = k -> @view traj[liu[:,k]]
-    
-#     cbar2, τ1, mwing, wΨ, τ2, Aw, dt = param
-
-#     Favg = @SVector zeros(2)
-#     for k = 1:N
-#         paero, _, Faero = w2daero(m, cu.transmission(m, yk(k), param)[1], param)
-#         Favg += Faero
-#     end
-#     # Divide by the total time
-#     Favg /= (N) # [mN]
-#     # avg lift
-#     return [Favg[3] - 100]
-# end
 
 # param opt stuff ------------------------
 

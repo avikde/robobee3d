@@ -12,7 +12,8 @@ includet("msd_model.jl")
 m = MassSpringDamperModel(6, # ma
 	150, # ka
 	2000, # mo
-	100) # umax
+	100, # umax
+	10) # xmax
 ny, nu = cu.dims(m)
 dtdes = 0.02 # Try to reduce to avoid first order bug https://github.com/avikde/robobee3d/pull/120
 opt = cu.OptOptions(false, false, dtdes, 1, :none, 1e-8, false)
@@ -26,7 +27,7 @@ dtdes] # dt
 
 # Generate a reference traj
 trajt, traj0orig, trajt = createInitialTraj(m, opt, N, fdes)
-σomax = cu.limits(m)[1]
+σomax = m.xmax
 
 # Make traj satisfy dyn constraint with these params?
 # traj0 = cu.fixTrajWithDynConst(m, opt, traj0orig, param0)

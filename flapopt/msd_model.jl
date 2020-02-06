@@ -11,27 +11,11 @@ mutable struct MassSpringDamperModel <: controlutils.Model
     ka::Float64 # [mN/mm]
     mo::Float64 # [mg]
     umax::Float64
+    xmax::Float64 # [mm]
 end
 
 function cu.dims(m::MassSpringDamperModel)::Tuple{Int, Int}
     return 2, 1
-end
-
-function cu.pdims(m::MassSpringDamperModel)::Int
-    return 1
-end
-
-function cu.plimits(m::MassSpringDamperModel)
-    return [0.1, 1.0]
-end
-
-function cu.limits(m::MassSpringDamperModel)::Tuple{Vector, Vector, Vector, Vector}
-    # This is based on observing the OL trajectory. See note on units above.
-    umax = [m.umax] # [mN]
-    umin = -umax
-    xmax = [10,1000] # [mm, mm/ms]
-    xmin = -xmax
-    return umin, umax, xmin, xmax
 end
 
 function cu.limitsTimestep(m::MassSpringDamperModel)::Tuple{Float64, Float64}
@@ -49,23 +33,7 @@ function cu.dydt(m::MassSpringDamperModel, y::AbstractArray, u::AbstractArray, p
     return [y[2], ddy]
 end
 
-# "Objective to minimize"
-# function cu.robj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, params::AbstractArray)::AbstractArray
-#     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-    
-# 	yk = k -> @view traj[liy[:,k]]
-# 	uk = k -> @view traj[liu[:,k]]
-#     kvec = collect(1:N+1)
-#     rtrajErr = first.(yk.(kvec)) - σdes.(N, kvec)
-#     # only traj cost
-#     return rtrajErr
-#     # # also add input cost?
-#     # ru = 0.1 * uk.(collect(1:N))
-#     # return [rtrajErr;ru]
-# end
-
 # -------------------------------------------------------------------------------
-
 
 function createOLTraj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::AbstractArray, params::AbstractArray)::AbstractArray
     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
@@ -81,7 +49,7 @@ function createOLTraj(m::MassSpringDamperModel, opt::cu.OptOptions, traj::Abstra
 end
 
 function refTraj(m::MassSpringDamperModel, freq)
-    σmax = cu.limits(m)[end][1]
+    σmax = m.xmax
     # had trouble with
     post = t -> σmax * cos(freq * 2 * π * t)
     velt = t -> -σmax * (freq * 2 * π) * sin(freq * 2 * π * t)
