@@ -38,6 +38,19 @@ function debugDeltaYEffect(N, ny, rr)
 		)
 end
 
+function debug4()
+	function d1(minal, phi)
+		ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, minal; Φ=phi)#, print_level=3)
+		plot(debugComponentsPlot(m, opt, POPTS, ret2)..., debugDeltaYEffect(N, ny, ret2)..., size=(1600,800))
+		savefig(string("debug4_", minal, "_", phi, ".png"))
+	end
+	d1(180,90)
+	d1(180,120)
+	d1(400,90)
+	d1(400,120)
+	error("debug4")
+end
+
 "https://github.com/avikde/robobee3d/pull/137"
 function debugGradient(rr)
 	x = copy(rr["x"])

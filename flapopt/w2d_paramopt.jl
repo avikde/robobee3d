@@ -288,12 +288,12 @@ function debugComponentsPlot(m::Wing2DOFModel, opt, POPTS, ret)
 	end
 
 	pl1 = plotTrajs(m, opt, listOfParamTraj(ret)...)
-	pls, plcomp, plis = plotComponents(1, "stroke")
-	plh, _, plih = plotComponents(2, "hinge")
+	plstroke = plotComponents(1, "stroke")
+	plhinge = plotComponents(2, "hinge")
 	plot!(pl1[4], t2, 10*mechpow, label="mp", lw=2)
 	plot!(pl1[4], t2, 10*ret["mechPow"], lw=2, ls=:dash, label="mpT")
 
 	# Note that gamma is here
 	# println("param = ", param1', ", Iw = ", param1[3] * (0.5 * param1[1])^2)
-	return pl1[[1,2,4,6]]..., pls, plh, plcomp, plis, plih
+	return pl1[[1,2,4,6]]..., plstroke[1], plhinge[1], plstroke[2], plstroke[3], plhinge[3]
 end
