@@ -4,16 +4,24 @@ using Parameters, ForwardDiff, LinearAlgebra, Ipopt, DSP, SparseArrays
 
 @with_kw struct ParamOptOpts
 	τinds::Array{Int}
+	"(Ryy, Ryu (mech pow), Ruu, wΔy, wlse)"
 	R::Tuple
 	plimsL::Vector
 	plimsU::Vector
 	εunact::Float64 = 0.1
 	Fext_pdep::Bool = true
-	εpoly::Float64 = 1e-4 # allowed violation for polytope constraint
-	objDepΔy::Bool = false
-	ΔySpikyBound::Float64 = 0.0 # Set positive to enable this constraint
-	pdes::Array{Float64} = [] # Set to an array of desired params - will use a quadratic weight
-	pdesQ::Array{Float64} = [] # Set to an array of (diagonal) weights
+	"Allowed violation for polytope constraint"
+	εpoly::Float64 = 1e-4
+	"Let the u calculated in the objective depend on Δy -- more accurate but demanding"
+	objDepΔy::Bool = true
+	"Set positive to enable this constraint (keep diff of successive states in Δy within this bound)."
+	ΔySpikyBound::Float64 = 0.0
+	"Set to an array of desired params - will use a quadratic weight"
+	pdes::Array{Float64} = []
+	"Set to an array of (diagonal) weights"
+	pdesQ::Array{Float64} = []
+	"Use central 1st order difference to avoid phase shift https://github.com/avikde/robobee3d/pull/139"
+	centralDiff::Bool = false
 end
 
 # --------------
@@ -88,11 +96,11 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, POPTS, traj::Abstract
 
 	# Need to get the affine form again to get the new u. scaleTraj not needed since the yo had it built in
 	Hk, yo, umeas, B, N = paramAffine(m, opt, traj2, pnew, POPTS)
-	dely0 = zeros(ny)
+	Δy0 = zeros(ny)
 	for k=1:N
 		# Calculate the new inputs
 		if k <= N
-			traj2[(N+1)*ny+(k-1)*nu+1:(N+1)*ny+(k)*nu] = B' * Hk(k, dely0, dely0)[1] * ptnew
+			traj2[(N+1)*ny+(k-1)*nu+1:(N+1)*ny+(k)*nu] = B' * Hk(k, Δy0, Δy0, Δy0)[1] * ptnew
 		end
 	end
 
@@ -120,7 +128,7 @@ function getTrajU(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstrac
 	Hk, yo, umeas, B, N = paramAffine(m, opt, traj, param, POPTS)
 	ptnew = getpt(m, param)
 	Δy0 = zeros(ny)
-	return vcat([B' * Hk(k, Δy0, Δy0)[1] * ptnew for k=1:N]...)
+	return vcat([B' * Hk(k, Δy0, Δy0, Δy0)[1] * ptnew for k=1:N]...)
 end
 
 function affineTest(m, opt, traj, param, POPTS::ParamOptOpts; fixTraj=false)
@@ -128,6 +136,7 @@ function affineTest(m, opt, traj, param, POPTS::ParamOptOpts; fixTraj=false)
 	nq = ny÷2
 	ptTEST = getpt(m, param) # NOTE the actual param values are only needed for the test mode
 	dt = param[end]
+	Δy0 = zeros(ny)
 
 	traj1 = fixTraj ? fixTrajWithDynConst(m, opt, traj, param) : traj
 
@@ -136,7 +145,7 @@ function affineTest(m, opt, traj, param, POPTS::ParamOptOpts; fixTraj=false)
 	Hpb = zeros(nq, N)
 	Bu = similar(Hpb)
 	for k=1:N
-		Hpb[:,k] = Hk(k, zeros(ny), zeros(ny))[1] * ptTEST
+		Hpb[:,k] = Hk(k, Δy0, Δy0, Δy0)[1] * ptTEST
 		Bu[:,k] = B * umeas(k)[1]
 	end
 	display(Hpb - Bu)
@@ -184,7 +193,7 @@ function bigH(N, ny, nact, npt, Hk, B, Δy)
 	# nunact = nq - nact
 	# Hunact = zeros(nunact*N, npt)
 	for k=1:N
-		Hh, Hvel = Hk(k, Δyk(k), Δyk(k+1))
+		Hh, Hvel = Hk(k, Δyk(max(k-1,1)), Δyk(k), Δyk(k+1))
 		Hu[nact*(k-1)+1 : nact*k, :] = B' * Hh
 		# Hunact[nunact*(k-1)+1 : nunact*k, :] = Bperp * Hh
 		# The terms should go in the second segment (/dt) and the last two in that segment (mult by T^-1 terms)
@@ -210,9 +219,6 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	if !objDepΔy # Ignore Δy in computation of H for objective (exactly fine for fully act)
 		Hu, Hdq = bigH(N, ny, nact, npt, Hk, B, zeros(nΔy))
 	end
-
-	# components of the gradient:
-	dpt_dp(pp) = ForwardDiff.jacobian(x -> getpt(m, x), pp)
 
 	"Running cost function of actuator force, vel for a single k"
 	function φmech(uact, dqact)
@@ -278,14 +284,18 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 	end
 	eval_f(x; kwargs...) = φ(x[1:np], unpackX(x)...; kwargs...)
 
+	#Storage for ForwardDiff
+	dφ_dpt = zeros(npt)
+	dpt_dp = zeros(npt, np)
+
 	function eval_grad_f(x, grad_f)
 		pt, Δy = unpackX(x)
-		dpt_dp1 = dpt_dp(x[1:np]) # 1,npt X npt,np
+		ForwardDiff.jacobian!(dpt_dp, x -> getpt(m, x), x[1:np]) # 1,npt X npt,np
 
 		if dφ_dptAutodiff
 			# Autodiff for gradient of 
-			dφ_dpt = ForwardDiff.gradient(ptdiff -> φ(x[1:np], ptdiff, Δy), pt)
-			grad_f[1:np] = dφ_dpt' * dpt_dp1
+			ForwardDiff.gradient!(dφ_dpt, ptdiff -> φ(x[1:np], ptdiff, Δy), pt)
+			grad_f[1:np] = dφ_dpt' * dpt_dp
 		else
 			# Analytical gradients https://github.com/avikde/robobee3d/pull/137
 			if objDepΔy
@@ -294,10 +304,10 @@ function paramOptObjective(m::Model, POPTS::ParamOptOpts, mode, np, npt, ny, δt
 			uvec = Hu * pt
 			dqvec = Hdq * pt
 			# Need this first to "clear" previous grad_f (or could fill it with 0)
-			grad_f[1:np] = wlse * (dLSE(uvec)' * Hu * dpt_dp1) # For LSE
+			grad_f[1:np] = wlse * (dLSE(uvec)' * Hu * dpt_dp) # For LSE
 			for k=1:N
 				dφmech1 = dφmech(uvec[_k(k)], dqvec[_k(k)])
-				grad_f[1:np] += 1/N * (dφmech1' * [Hu[_k(k),:]; Hdq[_k(k),:]] * dpt_dp1)[:]
+				grad_f[1:np] += 1/N * (dφmech1' * [Hu[_k(k),:]; Hdq[_k(k),:]] * dpt_dp)[:]
 			end
 		end
 
@@ -371,20 +381,25 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	dp2 = copy(dp) # No idea why this was getting modified. Storing a copy seems to work.
 	nΔy = (N+1)*ny
 
-	eval_g_pieces(k, Δyk, Δykp1, p) = Bperp * Hk(k, Δyk, Δykp1)[1] * getpt(m, p)
+	eval_g_pieces(k, Δykm1, Δyk, Δykp1, p) = Bperp * Hk(k, Δykm1, Δyk, Δykp1)[1] * getpt(m, p)
 
 	function eval_g(x, g)
 		pp = x[1:np]
 		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 		
-		g .= [vcat([eval_g_pieces(k, Δyk(k), Δyk(k+1), pp) for k=1:N]...); # unact
+		g .= [vcat([eval_g_pieces(k, Δyk(max(k-1,1)), Δyk(k), Δyk(k+1), pp) for k=1:N]...); # unact
 			CpS * pp; # Polytope constraint on the params must be <= dp
 			ΔySpikyConst ? spikyD * x[np+1 : np+(N+1)*ny] : []] # D*Δy within bounds
 	end
 
 	# ----------- Constraint Jac ----------------------------
-	# Unactuated error: exploit sparsity in the nc*nx matrix. Each constraint depends on Δyk(k), Δyk(k+1), p
-	Dgnnz = ncunact * (2*ny + np) + ncpolytopennz + ncspikynnz
+	# Unactuated error: exploit sparsity in the nc*nx matrix. Each constraint depends on Δyk(k-1), Δyk(k), Δyk(k+1), p
+	Dgnnz = ncunact * (3*ny + np) + ncpolytopennz + ncspikynnz
+	# Storage for Jacobians
+	dykm1 = zeros(nunact, ny)
+	dyk = similar(dykm1)
+	dykp1 = similar(dykm1)
+	dp = zeros(nunact, np)
 
 	"Dg jacobian of the constraint function g() for IPOPT."
 	function eval_jac_g(x, imode, row::Vector{Int32}, col::Vector{Int32}, value)
@@ -398,10 +413,24 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 
 		for k=1:N
 			# Use AD for these. These individual terms should not be expected to be sparse since it is a np -> nunact map.
+			kprev = max(k-1,1)
 			if imode == :Values
-				dyk = ForwardDiff.jacobian(yy -> eval_g_pieces(k, yy, Δyk(k+1), p), Δyk(k))
-				dykp1 = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(k), yy, p), Δyk(k+1))
-				dp = ForwardDiff.jacobian(yy -> eval_g_pieces(k, Δyk(k), Δyk(k+1), yy), p)
+				# Tested https://github.com/avikde/robobee3d/pull/139 that explicitly leaving this out (and reducing nnz) does not perform better and is slower?
+				ForwardDiff.jacobian!(dykm1, yy -> eval_g_pieces(k, yy, Δyk(k), Δyk(k+1), p), Δyk(kprev))
+				ForwardDiff.jacobian!(dyk, yy -> eval_g_pieces(k, Δyk(kprev), yy, Δyk(k+1), p), Δyk(k))
+				ForwardDiff.jacobian!(dykp1, yy -> eval_g_pieces(k, Δyk(kprev), Δyk(k), yy, p), Δyk(k+1))
+				ForwardDiff.jacobian!(dp, yy -> eval_g_pieces(k, Δyk(kprev), Δyk(k), Δyk(k+1), yy), p)
+			end
+			for i=1:nunact
+				for j=1:ny
+					offs += 1
+					if imode == :Values
+						value[offs] = dykm1[i,j]
+					else
+						row[offs] = (k-1)*nunact + i
+						col[offs] = np + (kprev-1)*ny + j
+					end
+				end
 			end
 			for i=1:nunact
 				for j=1:ny
@@ -549,7 +578,7 @@ function paramOpt(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstrac
 	if testTrajReconstruction
 		# Test traj reconstruction:
 		Hk, yo, umeas, B, N = paramAffine(m, opt, trajnew, pnew, POPTS)
-		Hh = Hk(k, zeros(ny), zeros(ny))[1]
+		Hh = Hk(k, zeros(ny), zeros(ny), zeros(ny))[1]
 		eval_g_ret2(p) = vcat([Bperp * Hh * (getpt(m, p)) for k=1:N]...)
 		display(eval_g_ret2(pnew)')
 		error("Tested")

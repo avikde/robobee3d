@@ -12,33 +12,43 @@
 # end
 
 "See https://github.com/avikde/robobee3d/pull/136"
-function debugDeltaYEffect(rr)
+function debugDeltaYEffect(N, ny, rr)
 	pt, Hk, B, Js, actVec = rr["eval_f"](rr["x"]; debug=true)
 	println("Js ", Js)
-	dy = rr["x"][length(param0)+1:end]
-	dely(k) = dy[(k-1)*ny+1:(k)*ny]
-	dely0 = zeros(ny)
-	unew = vcat([B' * Hk(k,dely(k),dely(k+1))[1] * pt for k=1:N]...)
-	unew0 = vcat([B' * Hk(k,dely0,dely0)[1] * pt for k=1:N]...)
+	Δy = rr["x"][length(rr["param"])+1:end]
+	Δyk(k) = Δy[(k-1)*ny+1:(k)*ny]
+	Δy0 = zeros(ny)
+	unew = vcat([B' * Hk(k,Δyk(max(k-1,1)),Δyk(k),Δyk(k+1))[1] * pt for k=1:N]...)
+	unew0 = vcat([B' * Hk(k,Δy0,Δy0,Δy0)[1] * pt for k=1:N]...)
 	p1 = plot([rr["traj"][(N+1)*ny+1:end]  actVec[:,1]  unew], lw=2, ls=[:solid :solid :dash])
 	plot!(p1, unew0, lw=2, ls=:dash)
+
+	#Infeasibility
 	infeas = zeros(rr["nc"])
-	ret2["eval_g"](ret2["x"], infeas)
+	rr["eval_g"](rr["x"], infeas)
 	np = length(rr["param"])
 
 	D = cu.trajDiffMat(N, ny)
 
 	return (p1, 
-		plot(
-			plot(dy[1:ny:(N+1)*ny]),
-			plot(dy[2:ny:(N+1)*ny]),
-			plot(dy[3:ny:(N+1)*ny]),
-			plot(dy[4:ny:(N+1)*ny])
-		), 
-		plot(D * rr["x"][np+1:end],lw=2,ylabel="diff(dely)"), 
-		plot(infeas[1:N],lw=2,ylabel="unact constraint"), 
-		plot(infeas[N+1:N+np], ylims=(-0.1,0.1),lw=2,ylabel="polytope constraint")
+		plot([plot(Δy[i:ny:(N+1)*ny], legend=false, lw=2, ylabel=string(i)) for i=1:ny]...), 
+		plot(D * rr["x"][np+1:end],lw=2,ylabel="diff(Δy)", legend=false), 
+		plot(infeas[1:N],lw=2,ylabel="unact constraint", legend=false), 
+		plot(infeas[N+1:N+np], ylims=(-0.1,0.1),lw=2,ylabel="polytope constraint", legend=false)
 		)
+end
+
+function debug4()
+	function d1(minal, phi)
+		ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, minal; Φ=phi)#, print_level=3)
+		plot(debugComponentsPlot(m, opt, POPTS, ret2)..., debugDeltaYEffect(N, ny, ret2)..., size=(1600,800))
+		savefig(string("debug4_", minal, "_", phi, ".png"))
+	end
+	d1(180,90)
+	d1(180,120)
+	d1(400,90)
+	d1(400,120)
+	error("debug4")
 end
 
 "https://github.com/avikde/robobee3d/pull/137"
