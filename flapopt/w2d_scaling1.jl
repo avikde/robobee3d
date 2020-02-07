@@ -66,8 +66,12 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 		append!(Ti, param[2])
 	end
 
+	Phis = unique(Phii)
+	minlifts = unique(mli)
 	Qdts = unique(Qdti)
-	println("Qdts = ", Qdts)
+	println("Phis = ", Phis, " minlifts = ", unique(mli), " Qdts = ", Qdts)
+	res2 = filter(x -> (deg2rad(x[1]) ≈ Phis[3] && x[2] ≈ minlifts[3]), resdict["results"])
+	display(hcat(res2...))
 
 	# Output the plots
 	pl1 = scatter(xlabel="Phi", ylabel="Lw", legend=false)
@@ -93,7 +97,7 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 		function splineFromUnstructured(xi, yi, zi; Qdtsi=nothing)
 			if !isnothing(Qdtsi)
 				ii = findall(x -> x≈Qdts[Qdtsi], Qdti)
-				println("HIHI ", ii)
+				# println("HIHI ", ii)
 				return Spline2D(xi[ii], yi[ii], zi[ii]; s=s)
 			else
 				return Spline2D(xi, yi, zi; s=s)
