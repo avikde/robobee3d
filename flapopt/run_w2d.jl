@@ -75,13 +75,13 @@ includet("w2d_scaling1.jl")
 # includet("w2d_debug.jl")
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-resdict = scaling1(m, opt, traj0, param0, 2, range(60, 120, length=6), range(180, 400, length=6), range(1e3, 1e5, length=5)) # SLOW
+# resdict = scaling1(m, opt, traj0, param0, 2, range(60, 120, length=6), range(180, 400, length=6), range(1e3, 1e5, length=5)) # SLOW
 
-# pls = scaling1disp("scaling1_3d2.zip"; scatterOnly=false, xpl=[25,30], ypl=[200,350], s=10, useFDasFact=true, Fnom=75) # Found this by setting useFDasFact=false, and checking magnitudes
-# plot(pls..., size=(1000,600), window_title="Scaling1", dpi=200)
-# # savefig("scaling1.png")
-# gui()
-# error("i")
+pls = scaling1disp("scaling1_3d3b.zip"; scatterOnly=false, xpl=[27,33], ypl=[220,420], s=500, useFDasFact=true, Fnom=75, mactline=8e3) # Found this by setting useFDasFact=false, and checking magnitudes
+plot(pls..., size=(1000,600), window_title="Scaling1", dpi=200)
+# savefig("scaling1.png")
+gui()
+error("i")
 
 # scaling2(m, opt, traj0, param0, 90, range(1e3, stop=1e5, length=5), 180, 2) # SLOW
 # pls = scaling2disp("scaling2_220al.zip"; scatterOnly=false, xpl=[25,30], ypl=[200,400], s=500, useFDasFact=true, Fnom=50) # Found this by setting useFDasFact=false, and checking magnitudes
