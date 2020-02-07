@@ -141,14 +141,15 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 		end
 			
 		pliso = plot(xlabel="x [mm]", legend=:outertopright)
-		plisolines!(pliso, 2)
+		plisolines!(pliso, 3)
 		plisolines!(pliso, 1, ls=:dash)
-		# plisolines!(pliso, 3, ls=:dashdot)
+		plisolines!(pliso, 2, ls=:dashdot)
+		plisolines!(pliso, 4, ls=:dot)
 
 		# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
 
 		append!(retpl, plcontours(2))
-		# append!(retpl, [pliso])
+		append!(retpl, [pliso])
 	end
 	
 	return retpl
