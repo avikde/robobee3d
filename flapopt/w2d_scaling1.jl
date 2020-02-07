@@ -86,16 +86,30 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 			s = length(xi)
 		end
 
+		"Spline from unstructured data https://github.com/kbarbary/Dierckx.jl"
+		splineFromUnstructured(xi, yi, zi) = Spline2D(xi, yi, zi; s=s)
+
 		function contourFromUnstructured(xi, yi, zi; title="")
-			# Spline from unstructured data https://github.com/kbarbary/Dierckx.jl
-			# println("Total points = ", length(xi))
-			spl = Spline2D(xi, yi, zi; s=s)
+			spl = splineFromUnstructured(xi, yi, zi)
 			ff(x,y) = spl(x,y)
 			return contour(X, Y, ff, 
 				titlefontsize=10, grid=false, lw=2, c=:bluesreds, 
 				xlabel="x [mm]", ylabel="FL [mg]", title=title,
 				xlims=xpl, ylims=ypl)
 		end
+
+		"Get an isoline along an mact https://github.com/avikde/robobee3d/pull/140"
+		function isoline!(pl, xi, yi, zi, mact; kwargs...)
+			spl = splineFromUnstructured(xi, yi, zi)
+			plot!(pl, X, spl.(X, mact./X), lw=2; kwargs...)
+		end
+		pliso = plot(xlabel="x [mm]", legend=:outertopright)
+		isoline!(pliso, xi, FLi, 10*powi, mactline; label="10pow")
+		isoline!(pliso, xi, FLi, FLi, mactline; label="FL")
+		isoline!(pliso, xi, FLi, Awi, mactline; label="Aw")
+		isoline!(pliso, xi, FLi, 100*Ti, mactline; label="100T")
+		isoline!(pliso, xi, FLi, freqi, mactline; label="f")
+		# isoline!(pliso, xi, FLi, ARi, mactline; label="AR")
 
 		# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
 
@@ -111,7 +125,9 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 			# contourFromUnstructured(xi, FLi, rad2deg.(Phii); title="Phi"), 
 			# contourFromUnstructured(xi, FLi, mli; title="ml"), 
 			contourFromUnstructured(xi, FLi, freqi; title="freq [Hz]"), 
-			contourFromUnstructured(xi, FLi, Ti; title="T1 [rad/mm]")])
+			contourFromUnstructured(xi, FLi, Ti; title="T1 [rad/mm]"),
+			pliso
+			])
 	end
 	
 	return retpl
