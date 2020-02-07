@@ -45,6 +45,7 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 	powi = Float64[]
 	freqi = Float64[]
 	Ti = Float64[]
+	wi = Float64[]
 	for res in resdict["results"]
 		Phi = deg2rad(res[1])
 		param = res[Nax+1:Nax+np]
@@ -64,6 +65,7 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 		append!(powi, stats[4])
 		append!(freqi, 1000/(N*param[np]))
 		append!(Ti, param[2])
+		append!(wi, param[4])
 	end
 
 	Phis = unique(Phii)
@@ -117,13 +119,14 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 			spl = splineFromUnstructured(xi, yi, zi; Qdtsi=Qdtsi)
 			plot!(pl, X, spl.(X, mact./X); kwargs...)
 		end
-		function plisolines!(pl, Qdtsi; kwargs...)
-			isoline!(pl, xi, FLi, FLi, mactline, Qdtsi; label="FL", kwargs...)
-			isoline!(pl, xi, FLi, 10*powi, mactline, Qdtsi; label="10pow", kwargs...)
-			isoline!(pl, xi, FLi, Awi, mactline, Qdtsi; label="Aw", kwargs...)
-			isoline!(pl, xi, FLi, 100*Ti, mactline, Qdtsi; label="100T", kwargs...)
-			isoline!(pl, xi, FLi, freqi, mactline, Qdtsi; label="f", kwargs...)
-			# isoline!(pl, xi, FLi, ARi, mactline, Qdtsi; label="AR")
+		function plisolines!(pl1, pl2, pl3, Qdtsi; kwargs...)
+			isoline!(pl1, xi, FLi, FLi, mactline, Qdtsi; label="FL", kwargs...)
+			isoline!(pl1, xi, FLi, 10*powi, mactline, Qdtsi; label="10pow", kwargs...)
+			isoline!(pl2, xi, FLi, 100*Ti, mactline, Qdtsi; label="100T", kwargs...)
+			isoline!(pl2, xi, FLi, freqi, mactline, Qdtsi; label="f", kwargs...)
+			isoline!(pl3, xi, FLi, Awi, mactline, Qdtsi; label="Aw", kwargs...)
+			# isoline!(pl3, xi, FLi, 100*wi, mactline, Qdtsi; label="10*whinge", kwargs...)
+			# isoline!(pl3, xi, FLi, 50*ARi, mactline, Qdtsi; label="50AR")
 		end
 		function plcontours(Qdtsi)
 			plmact = contourFromUnstructured(xi, FLi, macti; Qdtsi=Qdtsi, title="mact [x Robobee]")
@@ -132,7 +135,7 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 			# scatter3d(xi, FLi, macti, camera=(90,40)),
 			contourFromUnstructured(xi, FLi, powi; Qdtsi=Qdtsi, title="Avg mech pow [mW]"),
 			contourFromUnstructured(xi, FLi, Awi; Qdtsi=Qdtsi, title="Aw [mm^2]"),
-			contourFromUnstructured(xi, FLi, ARi; Qdtsi=Qdtsi, title="ARi"),
+			# contourFromUnstructured(xi, FLi, ARi; Qdtsi=Qdtsi, title="ARi"),
 			# scatter3d(xi, FLi, powi, camera=(10,40)),
 			# contourFromUnstructured(xi, FLi, rad2deg.(Phii); title="Phi"), 
 			# contourFromUnstructured(xi, FLi, mli; title="ml"), 
@@ -140,16 +143,16 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 			contourFromUnstructured(xi, FLi, Ti; Qdtsi=Qdtsi, title="T1 [rad/mm]")]
 		end
 			
-		pliso = plot(xlabel="x [mm]", legend=:outertopright)
-		plisolines!(pliso, 3)
-		plisolines!(pliso, 1, ls=:dash)
-		plisolines!(pliso, 2, ls=:dashdot)
-		plisolines!(pliso, 4, ls=:dot)
+		pliso = [plot(xlabel="x [mm]", legend=:outertopright), plot(xlabel="x [mm]", legend=:outertopright), plot(xlabel="x [mm]", legend=:outertopright)]
+		plisolines!(pliso..., 2)
+		plisolines!(pliso..., 1, ls=:dash)
+		# plisolines!(pliso..., 2, ls=:dashdot)
+		plisolines!(pliso..., 4, ls=:dot)
 
 		# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
 
-		append!(retpl, plcontours(2))
-		append!(retpl, [pliso])
+		# append!(retpl, plcontours(2))
+		append!(retpl, pliso)
 	end
 	
 	return retpl
