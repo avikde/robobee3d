@@ -66,6 +66,9 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 		append!(Ti, param[2])
 	end
 
+	Qdts = unique(Qdti)
+	println("Qdts = ", Qdts)
+
 	# Output the plots
 	pl1 = scatter(xlabel="Phi", ylabel="Lw", legend=false)
 	pl2 = scatter(xlabel="x", ylabel="FL", legend=false)
@@ -87,7 +90,15 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 		end
 
 		"Spline from unstructured data https://github.com/kbarbary/Dierckx.jl"
-		splineFromUnstructured(xi, yi, zi) = Spline2D(xi, yi, zi; s=s)
+		function splineFromUnstructured(xi, yi, zi; Qdtsi=nothing)
+			if !isnothing(Qdtsi)
+				ii = findall(x -> x≈Qdts[Qdtsi], Qdti)
+				println("HIHI ", ii)
+				return Spline2D(xi[ii], yi[ii], zi[ii]; s=s)
+			else
+				return Spline2D(xi, yi, zi; s=s)
+			end
+		end
 
 		function contourFromUnstructured(xi, yi, zi; title="")
 			spl = splineFromUnstructured(xi, yi, zi)
@@ -99,17 +110,22 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 		end
 
 		"Get an isoline along an mact https://github.com/avikde/robobee3d/pull/140"
-		function isoline!(pl, xi, yi, zi, mact; kwargs...)
-			spl = splineFromUnstructured(xi, yi, zi)
+		function isoline!(pl, xi, yi, zi, mact; Qdtsi=nothing, kwargs...)
+			spl = splineFromUnstructured(xi, yi, zi; Qdtsi=Qdtsi)
 			plot!(pl, X, spl.(X, mact./X), lw=2; kwargs...)
 		end
+		function plisolines!(pl; Qdtsi=nothing, kwargs...)
+			isoline!(pl, xi, FLi, FLi, mactline; Qdtsi=Qdtsi, label="FL", kwargs...)
+			isoline!(pl, xi, FLi, 10*powi, mactline; Qdtsi=Qdtsi, label="10pow", kwargs...)
+			isoline!(pl, xi, FLi, Awi, mactline; Qdtsi=Qdtsi, label="Aw", kwargs...)
+			isoline!(pl, xi, FLi, 100*Ti, mactline; Qdtsi=Qdtsi, label="100T", kwargs...)
+			isoline!(pl, xi, FLi, freqi, mactline; Qdtsi=Qdtsi, label="f", kwargs...)
+			# isoline!(pl, xi, FLi, ARi, mactline; label="AR")
+		end
+			
 		pliso = plot(xlabel="x [mm]", legend=:outertopright)
-		isoline!(pliso, xi, FLi, 10*powi, mactline; label="10pow")
-		isoline!(pliso, xi, FLi, FLi, mactline; label="FL")
-		isoline!(pliso, xi, FLi, Awi, mactline; label="Aw")
-		isoline!(pliso, xi, FLi, 100*Ti, mactline; label="100T")
-		isoline!(pliso, xi, FLi, freqi, mactline; label="f")
-		# isoline!(pliso, xi, FLi, ARi, mactline; label="AR")
+		plisolines!(pliso; Qdtsi=3)
+		plisolines!(pliso; Qdtsi=1, ls=:dash)
 
 		# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
 
