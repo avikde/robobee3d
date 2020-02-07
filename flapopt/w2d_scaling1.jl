@@ -70,8 +70,8 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 	minlifts = unique(mli)
 	Qdts = unique(Qdti)
 	println("Phis = ", Phis, " minlifts = ", unique(mli), " Qdts = ", Qdts)
-	res2 = filter(x -> (deg2rad(x[1]) ≈ Phis[3] && x[2] ≈ minlifts[3]), resdict["results"])
-	display(hcat(res2...))
+	# res2 = filter(x -> (deg2rad(x[1]) ≈ Phis[3] && x[2] ≈ minlifts[3]), resdict["results"])
+	# display(hcat(res2...))
 
 	# Output the plots
 	pl1 = scatter(xlabel="Phi", ylabel="Lw", legend=false)
@@ -94,18 +94,17 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 		end
 
 		"Spline from unstructured data https://github.com/kbarbary/Dierckx.jl"
-		function splineFromUnstructured(xi, yi, zi; Qdtsi=nothing)
+		function splineFromUnstructured(xi, yi, zi; Qdtsi=nothing, kwargs...)
 			if !isnothing(Qdtsi)
 				ii = findall(x -> x≈Qdts[Qdtsi], Qdti)
-				# println("HIHI ", ii)
 				return Spline2D(xi[ii], yi[ii], zi[ii]; s=s)
 			else
 				return Spline2D(xi, yi, zi; s=s)
 			end
 		end
 
-		function contourFromUnstructured(xi, yi, zi; title="")
-			spl = splineFromUnstructured(xi, yi, zi)
+		function contourFromUnstructured(xi, yi, zi; Qdtsi=nothing, title="")
+			spl = splineFromUnstructured(xi, yi, zi; Qdtsi=Qdtsi)
 			ff(x,y) = spl(x,y)
 			return contour(X, Y, ff, 
 				titlefontsize=10, grid=false, lw=2, c=:bluesreds, 
@@ -114,38 +113,39 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 		end
 
 		"Get an isoline along an mact https://github.com/avikde/robobee3d/pull/140"
-		function isoline!(pl, xi, yi, zi, mact; Qdtsi=nothing, kwargs...)
+		function isoline!(pl, xi, yi, zi, mact, Qdtsi; kwargs...)
 			spl = splineFromUnstructured(xi, yi, zi; Qdtsi=Qdtsi)
-			plot!(pl, X, spl.(X, mact./X), lw=2; kwargs...)
+			plot!(pl, X, spl.(X, mact./X); kwargs...)
 		end
-		function plisolines!(pl; Qdtsi=nothing, kwargs...)
-			isoline!(pl, xi, FLi, FLi, mactline; Qdtsi=Qdtsi, label="FL", kwargs...)
-			isoline!(pl, xi, FLi, 10*powi, mactline; Qdtsi=Qdtsi, label="10pow", kwargs...)
-			isoline!(pl, xi, FLi, Awi, mactline; Qdtsi=Qdtsi, label="Aw", kwargs...)
-			isoline!(pl, xi, FLi, 100*Ti, mactline; Qdtsi=Qdtsi, label="100T", kwargs...)
-			isoline!(pl, xi, FLi, freqi, mactline; Qdtsi=Qdtsi, label="f", kwargs...)
-			# isoline!(pl, xi, FLi, ARi, mactline; label="AR")
+		function plisolines!(pl, Qdtsi; kwargs...)
+			isoline!(pl, xi, FLi, FLi, mactline, Qdtsi; label="FL", kwargs...)
+			isoline!(pl, xi, FLi, 10*powi, mactline, Qdtsi; label="10pow", kwargs...)
+			isoline!(pl, xi, FLi, Awi, mactline, Qdtsi; label="Aw", kwargs...)
+			isoline!(pl, xi, FLi, 100*Ti, mactline, Qdtsi; label="100T", kwargs...)
+			isoline!(pl, xi, FLi, freqi, mactline, Qdtsi; label="f", kwargs...)
+			# isoline!(pl, xi, FLi, ARi, mactline, Qdtsi; label="AR")
 		end
 			
 		pliso = plot(xlabel="x [mm]", legend=:outertopright)
-		plisolines!(pliso; Qdtsi=3)
-		plisolines!(pliso; Qdtsi=1, ls=:dash)
+		plisolines!(pliso, 2)
+		plisolines!(pliso, 1, ls=:dash)
+		# plisolines!(pliso, 3, ls=:dashdot)
 
 		# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
 
-		plmact = contourFromUnstructured(xi, FLi, macti; title="mact [x Robobee]")
+		plmact = contourFromUnstructured(xi, FLi, macti; Qdtsi=1, title="mact [x Robobee]")
 		plot!(plmact, X, mactline./X, lw=2, color=:black, ls=:dash, label="")
 
 		append!(retpl, [plmact, 
 			# scatter3d(xi, FLi, macti, camera=(90,40)),
-			contourFromUnstructured(xi, FLi, powi; title="Avg mech pow [mW]"),
-			contourFromUnstructured(xi, FLi, Awi; title="Aw [mm^2]"),
-			contourFromUnstructured(xi, FLi, ARi; title="ARi"),
+			contourFromUnstructured(xi, FLi, powi; Qdtsi=1, title="Avg mech pow [mW]"),
+			contourFromUnstructured(xi, FLi, Awi; Qdtsi=1, title="Aw [mm^2]"),
+			contourFromUnstructured(xi, FLi, ARi; Qdtsi=1, title="ARi"),
 			# scatter3d(xi, FLi, powi, camera=(10,40)),
 			# contourFromUnstructured(xi, FLi, rad2deg.(Phii); title="Phi"), 
 			# contourFromUnstructured(xi, FLi, mli; title="ml"), 
-			contourFromUnstructured(xi, FLi, freqi; title="freq [Hz]"), 
-			contourFromUnstructured(xi, FLi, Ti; title="T1 [rad/mm]"),
+			contourFromUnstructured(xi, FLi, freqi; Qdtsi=1, title="freq [Hz]"), 
+			contourFromUnstructured(xi, FLi, Ti; Qdtsi=1, title="T1 [rad/mm]"),
 			pliso
 			])
 	end
