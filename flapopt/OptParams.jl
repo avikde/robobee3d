@@ -77,17 +77,11 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, POPTS, traj::Abstract
 
 	# Also convert the output traj with the Δy, new T, and inputs
 	traj2 = copy(traj)
-	# Calculate the new traj (which is in act coordinates, so needs scaling by T)
+	# Calculate the new traj
 	ptnew = getpt(m, pnew)
 	for k=1:N+1
-		if opt.trajAct
-			# Go from output to act coords
-			ya, Tk = transmission(m, yo(k) + Δyk(k), pnew; o2a=true)[1:2]
-			yknew = ya
-		else
-			yknew = yo(k) + Δyk(k)
-		end
-		# velocity scaling for https://github.com/avikde/robobee3d/issues/110 FIXME: after Δy?
+		yknew = yo(k) + Δyk(k)
+		# velocity scaling for https://github.com/avikde/robobee3d/issues/110 after Δy since that is how Δy was calculated
 		if abs(dtold/dtnew - 1.0) > 0.001
 			yknew[nq+1:end] = yknew[nq+1:end]*dtold/dtnew
 		end
