@@ -75,7 +75,7 @@ includet("w2d_scaling1.jl")
 # includet("w2d_debug.jl")
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-resdict = scaling1(m, opt, traj0, param0, 2, range(60, 120, length=6), range(180, 400, length=6), range(1e3, 1e5, length=5)) # SLOW
+resdict = scaling1(m, opt, traj0, param0, 2, range(60, 120, length=7), range(160, 420, length=7), range(1e3, 1e5, length=4)) # SLOW
 
 # pls = scaling1disp("scaling1_3d2.zip"; scatterOnly=false, xpl=[25,30], ypl=[200,350], s=10, useFDasFact=true, Fnom=75) # Found this by setting useFDasFact=false, and checking magnitudes
 # plot(pls..., size=(1000,600), window_title="Scaling1", dpi=200)
