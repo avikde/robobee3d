@@ -497,8 +497,8 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	glimsL = [glimsL; -1e3 * ones(ncpolytope)] # Scott said having non-inf bounds helps IPOPT
 	glimsU = [glimsU; dp2 + POPTS.εpoly * ones(ncpolytope)] # must be <= 0
 
-	glimsL = [glimsL; -0.05 * ones(ncspiky)] # empirical from https://github.com/avikde/robobee3d/pull/138
-	glimsU = [glimsU; 0.05 * ones(ncspiky)]
+	glimsL = [glimsL; -POPTS.ΔySpikyBound * ones(ncspiky)] # empirical from https://github.com/avikde/robobee3d/pull/138
+	glimsU = [glimsU; POPTS.ΔySpikyBound * ones(ncspiky)]
 	
 	return nctotal, glimsL, glimsU, eval_g, eval_jac_g, Dgnnz, Bperp
 end
