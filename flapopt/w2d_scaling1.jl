@@ -1,16 +1,20 @@
 
+using MAT
+include("w2d_model.jl")
+include("w2d_paramopt.jl")
+
 const SCALING1_FNAME = "scaling1.zip"
 const SCALING2_FNAME = "scaling2.zip"
 
-function scaling1(m::Wing2DOFModel, opt, traj, param, xs, minlifts, τ21ratiolim; kwargs...)
+function scaling1(m::Wing2DOFModel, opt, traj, param, τ21ratiolim, xs, minlifts, Qdts; kwargs...)
 	np = length(param)
-	function scaling1single(x, minlift)
+	function scaling1single(x, minlift, Qdt)
 		r = opt1(m, traj, param, 1, minlift, τ21ratiolim; Φ=x, kwargs...)
-		return [x; minlift; r["param"]; r["u∞"]; r["al"]; r["δact"]; mean(abs.(r["mechPow"])); r["FD∞"]]
+		return [x; minlift; Qdt; r["param"]; r["u∞"]; r["al"]; r["δact"]; mean(abs.(r["mechPow"])); r["FD∞"]]
 	end
-	results = [scaling1single(x, minlift) for minlift in minlifts, x in xs] # reversed
+	results = [scaling1single(x, minlift, Qdt) for minlift in minlifts, x in xs, Qdt in Qdts]
 	resdict = Dict(
-		"Phis" => xs, "minlifts" => minlifts, "results" => results
+		"results" => results
 	)
 	# ^ returns a 2D array result arrays
 	matwrite(SCALING1_FNAME, resdict; compress=true)
@@ -22,10 +26,12 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 	np = length(param0)
 	resdict = typeof(resarg) == String ? matread(resarg) : resarg
 	mactRobobee = Fnom*σamax
+	Nax = 3 #2
 
 	# Produced unstructured xi,yi,zi data
 	xi = Float64[]
 	ARi = Float64[]
+	Qdti = Float64[]
 	Awi = Float64[]
 	FLi = Float64[]
 	Phii = Float64[]
@@ -37,13 +43,14 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 	Ti = Float64[]
 	for res in resdict["results"]
 		Phi = deg2rad(res[1])
-		param = res[2+1:2+np]
-		stats = res[2+np+1:end]
+		param = res[Nax+1:Nax+np]
+		stats = res[Nax+np+1:end]
 		Lw = param[6]/sqrt(param[1])
 
 		# Append to unstructured data
 		append!(Phii, Phi)
 		append!(mli, res[2])
+		append!(Qdti, res[3])
 		append!(Lwi, Lw)
 		append!(Awi, param[6])
 		append!(ARi, Lw/sqrt(param[1]))

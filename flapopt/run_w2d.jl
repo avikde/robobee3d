@@ -70,12 +70,12 @@ POPTS.plimsL .= [0.1, 1.0, 0.1, 0.5, 0, 20.0, dtlims[1]]
 POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 
 # includet("w2d_shift.jl")
-# includet("w2d_scaling1.jl")
+includet("w2d_scaling1.jl")
 # includet("w2d_nlbenefit.jl")
 # includet("w2d_debug.jl")
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
-# # resdict = scaling1(m, opt, traj0, param0, collect(60.0:10.0:120.0), collect(150:20:350), 2) # SLOW
+resdict = scaling1(m, opt, traj0, param0, 2, range(60, 120, length=5), range(150, 350, length=5), range(1e3, 1e5, length=3)) # SLOW
 # pls = scaling1disp("scaling1_139.zip"; scatterOnly=false, xpl=[25,30], ypl=[200,400], s=500, useFDasFact=true, Fnom=50) # Found this by setting useFDasFact=false, and checking magnitudes
 # plot(pls..., size=(1000,600), window_title="Scaling1", dpi=200)
 # savefig("scaling1.png")
