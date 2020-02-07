@@ -13,7 +13,7 @@ function scaling1(m::Wing2DOFModel, opt, traj, param, τ21ratiolim, xs, minlifts
 	function scaling1single(x, minlift, Qdt)
 		i += 1
 		print(i, "/", Ntotal, ": ")
-		r = opt1(m, traj, param, 1, minlift, τ21ratiolim; Φ=x, tol=5e-3, kwargs...)
+		r = opt1(m, traj, param, 1, minlift, τ21ratiolim; Φ=x, tol=5e-3, Qdt=Qdt, kwargs...)
 		return [x; minlift; Qdt; r["param"]; r["u∞"]; r["al"]; r["δact"]; mean(abs.(r["mechPow"])); r["FD∞"]]
 	end
 	results = [scaling1single(x, minlift, Qdt) for minlift in minlifts, x in xs, Qdt in Qdts]
