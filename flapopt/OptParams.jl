@@ -511,7 +511,7 @@ end
 - σamax -- actuator strain limit. This is used to constrain the transmission coeffs s.t. the actuator displacement is limited to σamax. The form of the actuator constraint depends on bTrCon.
 - Cp, dp -- polytope constraint for params. Can pass Cp=ones(0,X) to not include.
 "
-function paramOpt(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::ParamOptOpts, mode::Int, σamax; test=false, testTrajReconstruction=false, Cp::Matrix=ones(0,1), dp::Vector=ones(0), scaleTraj=1.0, dtFix=false, kwargs...)
+function paramOpt(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::ParamOptOpts, mode::Int, σamax; test=false, Cp::Matrix=ones(0,1), dp::Vector=ones(0), scaleTraj=1.0, dtFix=false, kwargs...)
 	if test
 		affineTest(m, opt, traj, param, POPTS)
 	end
@@ -575,15 +575,6 @@ function paramOpt(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstrac
 	status = Ipopt.solveProblem(prob)
 	pnew = prob.x[1:np]
 	trajnew = reconstructTrajFromΔy(m, opt, POPTS, traj, yo, prob.x[np+1:np+nΔy], param, pnew)
-
-	if testTrajReconstruction
-		# Test traj reconstruction:
-		Hk, yo, umeas, B, N = paramAffine(m, opt, trajnew, pnew, POPTS)
-		Hh = Hk(k, zeros(ny), zeros(ny), zeros(ny))[1]
-		eval_g_ret2(p) = vcat([Bperp * Hh * (getpt(m, p)) for k=1:N]...)
-		display(eval_g_ret2(pnew)')
-		error("Tested")
-	end
 
 	return Dict("x"=>prob.x, "traj"=>trajnew, "param"=>prob.x[1:np], "eval_f"=>eval_f, "eval_grad_f"=>eval_grad_f, "eval_g"=>eval_g, "nc"=>nctotal, "status"=>status)
 end
