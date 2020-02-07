@@ -114,6 +114,17 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 				xlims=xpl, ylims=ypl)
 		end
 
+		function contourFromUnstructured2(xi, yi, zi; Qdtsi=nothing, title="")
+			spl = splineFromUnstructured(xi, yi, zi; Qdtsi=Qdtsi)
+			ff(x,y) = spl(x,y)
+			X = range(1, 2, length=50)
+			Y = range(20, 40, length=50)
+			return contour(X, Y, ff, 
+				titlefontsize=10, grid=false, lw=2, c=:bluesreds, 
+				xlabel="mact [x]", ylabel="pow [mW]", title=title,
+				xlims=[1.,2.], ylims=[20.,40])
+		end
+
 		"Get an isoline along an mact https://github.com/avikde/robobee3d/pull/140"
 		function isoline!(pl, xi, yi, zi, mact, Qdtsi; kwargs...)
 			spl = splineFromUnstructured(xi, yi, zi; Qdtsi=Qdtsi)
@@ -134,13 +145,18 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 			return [plmact, 
 			# scatter3d(xi, FLi, macti, camera=(90,40)),
 			contourFromUnstructured(xi, FLi, powi; Qdtsi=Qdtsi, title="Avg mech pow [mW]"),
-			contourFromUnstructured(xi, FLi, Awi; Qdtsi=Qdtsi, title="Aw [mm^2]"),
+			# contourFromUnstructured(xi, FLi, Awi; Qdtsi=Qdtsi, title="Aw [mm^2]"),
 			# contourFromUnstructured(xi, FLi, ARi; Qdtsi=Qdtsi, title="ARi"),
 			# scatter3d(xi, FLi, powi, camera=(10,40)),
 			# contourFromUnstructured(xi, FLi, rad2deg.(Phii); title="Phi"), 
 			# contourFromUnstructured(xi, FLi, mli; title="ml"), 
-			contourFromUnstructured(xi, FLi, freqi; Qdtsi=Qdtsi, title="freq [Hz]"), 
-			contourFromUnstructured(xi, FLi, Ti; Qdtsi=Qdtsi, title="T1 [rad/mm]")]
+			# contourFromUnstructured(xi, FLi, freqi; Qdtsi=Qdtsi, title="freq [Hz]"), 
+			contourFromUnstructured(xi, FLi, Ti; Qdtsi=Qdtsi, title="T1 [rad/mm]"), 
+			contourFromUnstructured2(macti, powi, FLi./macti; Qdtsi=Qdtsi, title="FL/mact"), 
+			contourFromUnstructured2(macti, powi, xi; Qdtsi=Qdtsi, title="x [mm]"), 
+			contourFromUnstructured2(macti, powi, Awi; Qdtsi=Qdtsi, title="Aw [mm^2]"), 
+			contourFromUnstructured2(macti, powi, Ti; Qdtsi=Qdtsi, title="T [rad/mm]")
+			]
 		end
 			
 		pliso = [plot(xlabel="x [mm]", legend=:outertopright), plot(xlabel="x [mm]", legend=:outertopright), plot(xlabel="x [mm]", legend=:outertopright)]
@@ -151,8 +167,8 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 
 		# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
 
-		# append!(retpl, plcontours(2))
-		append!(retpl, pliso)
+		append!(retpl, plcontours(2))
+		# append!(retpl, pliso)
 	end
 	
 	return retpl
@@ -172,12 +188,6 @@ function scaling2(m::Wing2DOFModel, opt, traj, param, phi, Qdts, minlift, τ21ra
 	matwrite(SCALING2_FNAME, resdict; compress=true)
 
 	return resdict
-end
-
-function scaling2disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, ypl=nothing, s=nothing, Fnom=75, mactline=7000)
-	np = length(param0)
-	resdict = typeof(resarg) == String ? matread(resarg) : resarg
-	
 end
 
 
