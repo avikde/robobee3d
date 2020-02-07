@@ -125,6 +125,20 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 			isoline!(pl, xi, FLi, freqi, mactline, Qdtsi; label="f", kwargs...)
 			# isoline!(pl, xi, FLi, ARi, mactline, Qdtsi; label="AR")
 		end
+		function plcontours(Qdtsi)
+			plmact = contourFromUnstructured(xi, FLi, macti; Qdtsi=Qdtsi, title="mact [x Robobee]")
+			plot!(plmact, X, mactline./X, lw=2, color=:black, ls=:dash, label="")
+			return [plmact, 
+			# scatter3d(xi, FLi, macti, camera=(90,40)),
+			contourFromUnstructured(xi, FLi, powi; Qdtsi=Qdtsi, title="Avg mech pow [mW]"),
+			contourFromUnstructured(xi, FLi, Awi; Qdtsi=Qdtsi, title="Aw [mm^2]"),
+			contourFromUnstructured(xi, FLi, ARi; Qdtsi=Qdtsi, title="ARi"),
+			# scatter3d(xi, FLi, powi, camera=(10,40)),
+			# contourFromUnstructured(xi, FLi, rad2deg.(Phii); title="Phi"), 
+			# contourFromUnstructured(xi, FLi, mli; title="ml"), 
+			contourFromUnstructured(xi, FLi, freqi; Qdtsi=Qdtsi, title="freq [Hz]"), 
+			contourFromUnstructured(xi, FLi, Ti; Qdtsi=Qdtsi, title="T1 [rad/mm]")]
+		end
 			
 		pliso = plot(xlabel="x [mm]", legend=:outertopright)
 		plisolines!(pliso, 2)
@@ -133,21 +147,8 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 
 		# pl1 = plot(xs, [res[6]/res[1] for res in results], xlabel="Phi", ylabel="Lw", lw=2)
 
-		plmact = contourFromUnstructured(xi, FLi, macti; Qdtsi=1, title="mact [x Robobee]")
-		plot!(plmact, X, mactline./X, lw=2, color=:black, ls=:dash, label="")
-
-		append!(retpl, [plmact, 
-			# scatter3d(xi, FLi, macti, camera=(90,40)),
-			contourFromUnstructured(xi, FLi, powi; Qdtsi=1, title="Avg mech pow [mW]"),
-			contourFromUnstructured(xi, FLi, Awi; Qdtsi=1, title="Aw [mm^2]"),
-			contourFromUnstructured(xi, FLi, ARi; Qdtsi=1, title="ARi"),
-			# scatter3d(xi, FLi, powi, camera=(10,40)),
-			# contourFromUnstructured(xi, FLi, rad2deg.(Phii); title="Phi"), 
-			# contourFromUnstructured(xi, FLi, mli; title="ml"), 
-			contourFromUnstructured(xi, FLi, freqi; Qdtsi=1, title="freq [Hz]"), 
-			contourFromUnstructured(xi, FLi, Ti; Qdtsi=1, title="T1 [rad/mm]"),
-			pliso
-			])
+		append!(retpl, plcontours(2))
+		# append!(retpl, [pliso])
 	end
 	
 	return retpl
