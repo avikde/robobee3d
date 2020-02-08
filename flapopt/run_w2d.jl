@@ -104,11 +104,10 @@ pls = debugComponentsPlot(m, opt, POPTS, ret2)
 plot(pls..., size=(800,600))
 
 # # -----------------
-# # nonlinBenefit(ret1, 0:0.5:3.0, 150:20:250) # SLOW
-# pls = plotNonlinBenefit(NLBENEFIT_FNAME, [170,220]; s=20)
-# plot(pls..., dpi=200)
+# # nonlinBenefit(ret1, range(0, 3, length=6), range(180, 360, length=6); Φ=120, Qdt=0, Rpow=1e1) # SLOW
+# pls = plotNonlinBenefit("nonlin_phi120.zip", [180,360]; s=20)
+# plot(pls...)
 # gui()
-# savefig("nonlinbenefit_138.png")
 
 # # ----------------
 # pls = scaleParamsForlift(ret1, 0.6:0.2:2.0, 2)
