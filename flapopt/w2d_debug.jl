@@ -68,3 +68,25 @@ function debugGradient(rr)
 	gui()
 	error("h")
 end
+
+# function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param, traj, lift, drag)
+# 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+# 	Ny = (N+1)*ny
+#     cbar2, τ1, mwing, wΨ, τ2, Aw, dt = param
+#     # Plot of aero forces at each instant
+#     function aeroPlotVec(_traj::Vector, _param, i)
+#         Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end]
+#         Faeros = hcat([Faerok(k) for k=1:N]...)
+#         return [Faeros[i,:]' NaN]'
+#     end
+#     liftp = plot(t, lift, marker=:auto, legend=false, label="daq", ylabel="lift [mN]")
+#     plot!(liftp, t, aeroPlotVec(traj, param, 2), marker=:auto, legend=false, label="pred")
+#     dragp = plot(t, drag, marker=:auto, label="daq", ylabel="drag [mN]")
+#     plot!(dragp, t, aeroPlotVec(traj, param, 1), marker=:auto, label="pred")
+
+#     # Get the basic kinematics
+#     σt, Ψt, ut, _ = plotTrajs(m, opt, [param], [traj])
+
+#     # Combine the subplots
+# 	return (σt, Ψt, ut, liftp, dragp)
+end

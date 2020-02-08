@@ -288,39 +288,6 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs; legends=
 	return (stroket, Ψt, ut, liftt, dragt, actt, phaset)
 end
 
-function plotParamImprovement(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs, paramObj::Function)
-    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
-
-    # The param space plots
-    pls = plotParams(m, opt, trajs[1], paramObj, params...)
-    # Traj plots
-    σt, Ψt, ut, liftt, dragt = plotTrajs(m, opt, params, trajs)
-
-    return pls..., σt, Ψt, ut, liftt, dragt
-end
-
-function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param, traj, lift, drag)
-	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-	Ny = (N+1)*ny
-    cbar2, τ1, mwing, wΨ, τ2, Aw, dt = param
-    # Plot of aero forces at each instant
-    function aeroPlotVec(_traj::Vector, _param, i)
-        Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end]
-        Faeros = hcat([Faerok(k) for k=1:N]...)
-        return [Faeros[i,:]' NaN]'
-    end
-    liftp = plot(t, lift, marker=:auto, legend=false, label="daq", ylabel="lift [mN]")
-    plot!(liftp, t, aeroPlotVec(traj, param, 2), marker=:auto, legend=false, label="pred")
-    dragp = plot(t, drag, marker=:auto, label="daq", ylabel="drag [mN]")
-    plot!(dragp, t, aeroPlotVec(traj, param, 1), marker=:auto, label="pred")
-
-    # Get the basic kinematics
-    σt, Ψt, ut, _ = plotTrajs(m, opt, [param], [traj])
-
-    # Combine the subplots
-	return (σt, Ψt, ut, liftp, dragp)
-end
-
 function drawFrame(m::Wing2DOFModel, yk, uk, param; Faeroscale=1.0)
     cbar2, τ1, mwing, wΨ, τ2, Aw, dt = param
     yo, T, _, _ = cu.transmission(m, yk, param)
@@ -358,73 +325,6 @@ function animateTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs)
     end
 
     # return wingdraw 
-end
-
-function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, paramObj::Function, args...; μ::Float64=1e-1, Vclip=50000)
-    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-    # First plot the param landscape
-    pranges = [
-        0:0.25:6.0, # cbars
-        10.0:1.0:50, # Ts
-        0.1:0.1:3.0, # mwings
-        0.1:1.0:20.0, # kΨs
-        0.1:1.0:20.0 # bΨs
-    ]
-    labels = [
-        "chord",
-        "T",
-        "mwing",
-        "hinge k",
-        "hinge b"
-    ]
-
-    # different param vectors passed in
-    params = hcat(args...) # Np x Nsteps
-    param0 = args[end] # for the slices use the last param
-
-    # # Old: f defined here
-    # Ng = opt.boundaryConstraint == cu.SYMMETRIC ? (N+2)*ny : (N+1)*ny
-    # g = zeros(Ng)#cu.gbounds(m, opt, traj)[1]
-    # f(p1, p2) = begin
-    #     cu.gvalues!(g, m, opt, traj, [p1,p2], traj[1:4])
-    #     cu.Jobj(m, opt, traj, [p1,p2]) + μ/2 * g' * g
-    # end
-
-    function plotSlice(i1, i2)
-        function f(p1, p2)
-            parg = copy(param0)
-            parg[i1] = p1
-            parg[i2] = p2
-            V = paramObj(parg)
-            return V > Vclip ? NaN : V
-        end
-        pl = contour(pranges[i1], pranges[i2], f, fill=true, seriescolor=cgrad(:bluesreds), xlabel=labels[i1], ylabel=labels[i2])
-        # Now plot the path taken
-        plot!(pl, params[i1,:], params[i2,:], marker=:auto, legend=false)
-        # just in case
-        xlims!(pl, (pranges[i1][1], pranges[i1][end]))
-        ylims!(pl, (pranges[i2][1], pranges[i2][end]))
-        return pl
-    end
-    
-    return (plotSlice(1, 2), # cbar, T slice
-        plotSlice(1, 3), # cbar, mwing slice
-        plotSlice(2, 3), # T, mwing slice
-        plotSlice(4, 5) # T, khinge slice
-    )
-end
-
-# Test applying euler integration to the initial traj
-function eulerIntegrate(m::cu.Model, opt::cu.OptOptions, traj::Vector, params::Vector)
-    trajei = copy(traj)
-    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-
-    yk(k) = @view trajei[liy[:,k]]
-    uk(k) = @view trajei[liu[:,k]]
-    for k=1:N
-        trajei[liy[:,k+1]] = cu.ddynamics(m, yk(k), uk(k), params, δt)
-    end
-    return trajei
 end
 
 # param opt stuff ------------------------
