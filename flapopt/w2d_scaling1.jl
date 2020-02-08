@@ -45,6 +45,7 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 	powi = Float64[]
 	freqi = Float64[]
 	Ti = Float64[]
+	Tri = Float64[]
 	wi = Float64[]
 	for res in resdict["results"]
 		Phi = deg2rad(res[1])
@@ -66,6 +67,7 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 		append!(freqi, 1000/(N*param[np]))
 		append!(Ti, param[2])
 		append!(wi, param[4])
+		append!(Tri, param[5]/param[2])
 	end
 
 	Phis = unique(Phii)
@@ -107,7 +109,10 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 
 		function contourFromUnstructured(xi, yi, zi; Qdtsi=nothing, title="")
 			spl = splineFromUnstructured(xi, yi, zi; Qdtsi=Qdtsi)
-			ff(x,y) = spl(x,y)
+			function ff(x,y)
+				zspl = spl(x,y)
+				return zspl >= minimum(zi) && zspl <= maximum(zi) ? zspl : NaN
+			end
 			return contour(X, Y, ff, 
 				titlefontsize=10, grid=false, lw=2, c=:bluesreds, 
 				xlabel="x [mm]", ylabel="FL [mg]", title=title,
@@ -116,7 +121,10 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 
 		function contourFromUnstructured2(xi, yi, zi; Qdtsi=nothing, title="")
 			spl = splineFromUnstructured(xi, yi, zi; Qdtsi=Qdtsi)
-			ff(x,y) = spl(x,y)
+			function ff(x,y)
+				zspl = spl(x,y)
+				return zspl >= minimum(zi) && zspl <= maximum(zi) ? zspl : NaN
+			end
 			X = range(1, 2, length=50)
 			Y = range(20, 40, length=50)
 			return contour(X, Y, ff, 
@@ -155,7 +163,8 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 			contourFromUnstructured2(macti, powi, FLi./macti; Qdtsi=Qdtsi, title="FL/mact"), 
 			contourFromUnstructured2(macti, powi, xi; Qdtsi=Qdtsi, title="x [mm]"), 
 			contourFromUnstructured2(macti, powi, Awi; Qdtsi=Qdtsi, title="Aw [mm^2]"), 
-			contourFromUnstructured2(macti, powi, Ti; Qdtsi=Qdtsi, title="T [rad/mm]")
+			contourFromUnstructured2(macti, powi, Ti; Qdtsi=Qdtsi, title="T [rad/mm]"), 
+			contourFromUnstructured2(macti, powi, Tri; Qdtsi=Qdtsi, title="T ratio [ ]")
 			]
 		end
 			
