@@ -1,8 +1,13 @@
+using Dierckx, Plots
 
 NLBENEFIT_FNAME = "nonlin.zip"
-function nonlinBenefit(ret, Tratios, minals)
+function nonlinBenefit(ret, Tratios, minals; kwargs...)
+	i = 0
+	Ntotal = length(Tratios)*length(minals)
 	function maxu(τ21ratiolim, minal)
-		rr = opt1(m, ret["traj"], ret["param"], 1, minal, τ21ratiolim)
+		i += 1
+		print(i,"/",Ntotal,": ")
+		rr = opt1(m, ret["traj"], ret["param"], 1, minal, τ21ratiolim; tol=5e-3, kwargs...)
 		return [rr["u∞"]; rr["al"]; rr["FD∞"]; rr["param"]]
 	end
 
@@ -38,7 +43,10 @@ function plotNonlinBenefit(fname, ypl; s=100)
 		# Spline from unstructured data https://github.com/kbarbary/Dierckx.jl
 		# println("Total points = ", length(xi))
 		spl = Spline2D(xi, yi, zi; s=s)
-		ff(x,y) = spl(x,y)
+		function ff(x,y)
+			zspl = spl(x,y)
+			return zspl >= minimum(zi) && zspl <= maximum(zi) ? zspl : NaN
+		end
 		return contour(X, Y, ff, 
 			titlefontsize=10, grid=false, lw=2, c=:bluesreds, 
 			xlabel="T ratio", ylabel="FL [mg]", title=title,
@@ -51,6 +59,7 @@ function plotNonlinBenefit(fname, ypl; s=100)
 		contourFromUnstructured(xyzi[1,:], xyzi[4,:], clamp.(xyzi[3,:], 0.0, 1.0); title="Nonlinear transmission benefit [ ]"),# opt errors cause > 1 which doesn't make sense
 		contourFromUnstructured(xyzi[1,:], xyzi[4,:], params[2,:]; title="T1 [rad/mm]"),
 		contourFromUnstructured(xyzi[1,:], xyzi[4,:], params[6,:]; title="Aw [mm^2]"),
-		contourFromUnstructured(xyzi[1,:], xyzi[4,:], 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
+		contourFromUnstructured(xyzi[1,:], xyzi[4,:], params[5,:]./params[2,:]; title="T ratio")
+		# contourFromUnstructured(xyzi[1,:], xyzi[4,:], 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
 	]
 end
