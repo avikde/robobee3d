@@ -85,8 +85,8 @@ includet("w2d_debug.jl")
 
 # scaling2(m, opt, traj0, param0, 90, range(1e3, stop=1e5, length=5), 180, 2) # SLOW
 
-# # 2. Try to optimize
-# ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=5e4)#, print_level=3)
+# 2. Try to optimize
+ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=5e4)#, print_level=3)
 
 # # Bigbee
 # # kact = 4x?. for bigbee it seems like to get down to that frequency, it wants huge wings
@@ -96,13 +96,17 @@ includet("w2d_debug.jl")
 # # "low power": Opt Φ=120, Qdt=0.0, minal=300, τ2/1 lim=2.0 => 0, [22.083 3.282 1.147 5.273 6.566 88.333 0.097], fHz=129.1, al[mg]=308.5, u∞=185.0, FD∞=146.2, pow=22.8, J=248.0, AR=4.0, x=39.4
 # ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 300; Φ=120, Qdt=0, Rpow=1e1)
 
-# Param space convexity plot -----------------
-# Turn down wΔy = 1e2 to make weight be just for LSE
-# Qdt = 0 -> f = 151, FD = 60, J=83.  but making f >= 0.18 gives 
-ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=0.0)
+# # Param space convexity plot -----------------
+# # Turn down wΔy = 1e2 to make weight be just for LSE https://github.com/avikde/robobee3d/pull/140#issuecomment-583749876
+# # Qdt = 0 -> f = 151, FD = 60, J=83.  but making f >= 0.18 gives 
+# ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=0.0, tol=5e-2)
+# includet("w2d_pplots.jl")
+# # pls = plotParams(m, opt, ret2; compareTo=[16.365 2.462 0.85 4.084 4.924 65.457 0.069])
+# pls = plotParams(m, opt, ret2; compareTo=[22.748 2.473 1.183 4.477 4.921 91.06 0.096])
+# plot(pls...)
 
-pls = debugDeltaYEffect(N, ny, ret2)
-plot(pls..., size=(1000,600))
+# pls = debugDeltaYEffect(N, ny, ret2)
+# plot(pls..., size=(1000,600))
 
 # # ---------
 # pls = debugComponentsPlot(m, opt, POPTS, ret2)
