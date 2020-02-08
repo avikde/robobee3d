@@ -52,14 +52,16 @@ function plotNonlinBenefit(fname, ypl; s=100)
 			xlabel="T ratio", ylabel="FL [mg]", title=title,
 			xlims=xpl, ylims=ypl)
 	end
+
+	Tractual = params[5,:]./params[2,:]
     
 	return [
 		# scatter(xyzi[1,:], xyzi[4,:]),
 		# scatter3d(xyzi[1,:], xyzi[4,:], xyzi[3,:]),
-		contourFromUnstructured(xyzi[1,:], xyzi[4,:], clamp.(xyzi[3,:], 0.0, 1.0); title="Nonlinear transmission benefit [ ]"),# opt errors cause > 1 which doesn't make sense
-		contourFromUnstructured(xyzi[1,:], xyzi[4,:], params[2,:]; title="T1 [rad/mm]"),
-		contourFromUnstructured(xyzi[1,:], xyzi[4,:], params[6,:]; title="Aw [mm^2]"),
-		contourFromUnstructured(xyzi[1,:], xyzi[4,:], params[5,:]./params[2,:]; title="T ratio")
-		# contourFromUnstructured(xyzi[1,:], xyzi[4,:], 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
+		contourFromUnstructured(Tractual, xyzi[4,:], clamp.(xyzi[3,:], 0.0, 1.0); title="Nonlinear transmission benefit [ ]"),# opt errors cause > 1 which doesn't make sense
+		contourFromUnstructured(Tractual, xyzi[4,:], params[2,:]; title="T1 [rad/mm]"),
+		contourFromUnstructured(Tractual, xyzi[4,:], params[6,:]; title="Aw [mm^2]"),
+		# contourFromUnstructured(xyzi[1,:], xyzi[4,:], Tractual; title="T ratio")
+		contourFromUnstructured(Tractual, xyzi[4,:], 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
 	]
 end
