@@ -11,8 +11,9 @@
 # 	println("Obj: ", paramObj(xtest))
 # end
 
-"See https://github.com/avikde/robobee3d/pull/136"
-function debugDeltaYEffect(N, ny, rr)
+"See https://github.com/avikde/robobee3d/pull/136.
+Also try to see how the traj was changed https://github.com/avikde/robobee3d/issues/142"
+function debugΔYEffect(N, ny, rr, rr0=nothing)
 	pt, Hk, B, Js, actVec = rr["eval_f"](rr["x"]; debug=true)
 	println("Js ", Js)
 	Δy = rr["x"][length(rr["param"])+1:end]
@@ -28,13 +29,23 @@ function debugDeltaYEffect(N, ny, rr)
 	rr["eval_g"](rr["x"], infeas)
 	np = length(rr["param"])
 
+	#Hinge deltay
+	function ΔyOutputChange(i)
+		pp = plot(rr["traj"][i:ny:(N+1)*ny], lw=2, ylabel=string(i))
+		if !isnothing(rr0)
+			plot!(pp, rr0["traj"][i:ny:(N+1)*ny] * (i==1 ? rr0["param"][end]/rr["param"][end] : 1), lw=2)
+		end
+		return pp
+	end
+
 	D = cu.trajDiffMat(N, ny)
 
 	return (p1, 
 		plot([plot(Δy[i:ny:(N+1)*ny], legend=false, lw=2, ylabel=string(i)) for i=1:ny]...), 
 		plot(D * rr["x"][np+1:end],lw=2,ylabel="diff(Δy)", legend=false), 
 		plot(infeas[1:N],lw=2,ylabel="unact constraint", legend=false), 
-		plot(infeas[N+1:N+np], ylims=(-0.1,0.1),lw=2,ylabel="polytope constraint", legend=false)
+		plot(infeas[N+1:N+np], ylims=(-0.1,0.1),lw=2,ylabel="polytope constraint", legend=false),
+		plot(ΔyOutputChange(1), ΔyOutputChange(2), layout=(2,1))
 		)
 end
 
