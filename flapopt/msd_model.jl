@@ -1,6 +1,6 @@
 
 using DifferentialEquations
-using Plots; gr()
+using Plots
 
 import controlutils
 cu = controlutils

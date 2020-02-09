@@ -1,5 +1,5 @@
 using MAT, DSP, Dierckx, DelimitedFiles, LinearAlgebra, Statistics
-using Plots; gr()
+using Plots
 
 "Has data for 8 channels, in pairs of (ti,datai) and the columns are stacked"
 function filterDataFull(fname, tstart, tend, cutoff_freq)

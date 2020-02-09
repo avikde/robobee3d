@@ -75,6 +75,8 @@ POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 includet("w2d_debug.jl")
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
+## Scaling1 -------
+
 # resdict = scaling1(m, opt, traj0, param0, 2, range(60, 120, length=7), range(160, 420, length=7), range(1e3, 1e5, length=4)) # SLOW
 
 # pls = scaling1disp("scaling1_3d4.zip"; scatterOnly=false, xpl=[27,33], ypl=[220,420], s=5e5, useFDasFact=true, Fnom=75, mactline=10e3) # Found this by setting useFDasFact=false, and checking magnitudes
@@ -83,12 +85,14 @@ includet("w2d_debug.jl")
 # gui()
 # error("i")
 
+## 
+
 # scaling2(m, opt, traj0, param0, 90, range(1e3, stop=1e5, length=5), 180, 2) # SLOW
 
-# 2. Try to optimize
+## Try to optimize ---------
 ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=5e4)#, print_level=3)
 
-# # Bigbee
+# ## Bigbee ---------
 # # kact = 4x?. for bigbee it seems like to get down to that frequency, it wants huge wings
 # # "high power": Opt Φ=120, Qdt=50000.0, minal=400, τ2/1 lim=2.0 => 0, [17.199 3.423 0.893 6.224 1.899 68.796 0.065], fHz=191.5, al[mg]=386.5, u∞=252.8, FD∞=149.0, pow=37.1, J=320.5, AR=4.0, x=34.7
 # # ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 400; Φ=120, Qdt=5e4)
@@ -96,7 +100,7 @@ ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=5e4)#, prin
 # # "low power": Opt Φ=120, Qdt=0.0, minal=300, τ2/1 lim=2.0 => 0, [22.083 3.282 1.147 5.273 6.566 88.333 0.097], fHz=129.1, al[mg]=308.5, u∞=185.0, FD∞=146.2, pow=22.8, J=248.0, AR=4.0, x=39.4
 # ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 300; Φ=120, Qdt=0, Rpow=1e1)
 
-# # Param space convexity plot -----------------
+# ## Param space convexity plot -----------------
 # # Turn down wΔy = 1e2 to make weight be just for LSE https://github.com/avikde/robobee3d/pull/140#issuecomment-583749876
 # # Qdt = 0 -> f = 151, FD = 60, J=83.  but making f >= 0.18 gives 
 # ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=0.0, tol=5e-2)
@@ -105,10 +109,12 @@ ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=5e4)#, prin
 # pls = plotParams(m, opt, ret2; compareTo=[22.748 2.473 1.183 4.477 4.921 91.06 0.096])
 # plot(pls...)
 
-# pls = debugDeltaYEffect(N, ny, ret2)
-# plot(pls..., size=(1000,600))
+## DEBUG ----------
+pls = debugDeltaYEffect(N, ny, ret2)
+plot(pls..., size=(1000,600))
+##
 
-# # ---------
+# ## Components ---------
 # pls = debugComponentsPlot(m, opt, POPTS, ret2)
 # plot(pls..., size=(800,600))
 
