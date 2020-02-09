@@ -110,7 +110,7 @@ ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=5e4)#, prin
 # plot(pls...)
 
 ## DEBUG ----------
-pls = debugDeltaYEffect(N, ny, ret2)
+pls = debugΔYEffect(N, ny, ret2, ret1)
 plot(pls..., size=(1000,600))
 ##
 
