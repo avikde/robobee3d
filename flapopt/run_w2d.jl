@@ -104,6 +104,7 @@ includet("w2d_debug.jl")
 # Turn down wΔy = 1e2 to make weight be just for LSE https://github.com/avikde/robobee3d/pull/140#issuecomment-583749876
 # Qdt = 0 -> f = 151, FD = 60, J=83.  but making f >= 0.18 gives 
 ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=0.0, tol=5e-2)
+##
 includet("w2d_pplots.jl")
 # pls = plotParams(m, opt, ret2; compareTo=[16.365 2.462 0.85 4.084 4.924 65.457 0.069])
 pls = plotParams(m, opt, ret2; compareTo=[22.109 2.462 1.149 4.415 4.924 88.436 0.094])

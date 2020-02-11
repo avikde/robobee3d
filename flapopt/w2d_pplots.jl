@@ -28,7 +28,9 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, rr; compareTo=nothing)
             x[i2] = p2
             return rr["eval_f"](x)
         end
-        pl = contour(range(xpl..., length=50), range(ypl..., length=50), f, 
+        X = range(xpl..., length=50)
+        Y = range(ypl..., length=50)
+        pl = contour(X, Y, f, 
 			titlefontsize=10, grid=false, lw=2, c=:bluesreds, 
 			xlabel=xlabel, ylabel=ylabel, #title=title,
 			xlims=xpl, ylims=ypl)
@@ -37,7 +39,11 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, rr; compareTo=nothing)
 		plparam(rr["param"]; markercolor=:red)
 		if !isnothing(compareTo)
 			plparam(compareTo; markercolor=:green)
-		end
+        end
+
+        # Test superimpose constraint
+        ftest(Aw, dt) = Aw - 80
+        contour!(pl, X, Y, ftest, fill=false)
         return pl
     end
 	
