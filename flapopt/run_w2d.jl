@@ -50,7 +50,7 @@ POPTS = cu.ParamOptOpts(
 	τinds=[2,5], 
 	plimsL = copy(param0),
 	plimsU = copy(param0),
-	R = (0.0*I, reshape([1e-2],1,1), 0.0*I, 1e4, 0.75), # Ryy, Ryu (mech pow), Ruu, wΔy, wlse
+	R = (0.0*I, reshape([1e-2],1,1), 0.0*I, 1e2, 0.75), # Ryy, Ryu (mech pow), Ruu, wΔy, wlse
 	εunact = 1.0, # 0.1 default. Do this for now to iterate faster
 	εpoly = 1e-3,
 	ΔySpikyBound = 0.05,
@@ -64,7 +64,7 @@ POPTS = cu.ParamOptOpts(
 ret1 = opt1(m, traj0, param0, 1, 100)
 
 # These are the actual lims
-cycleFreqLims = [0.3,0.05] # [KHz] -- in order to avoid first order integration errors try to keep a small dt
+cycleFreqLims = [0.3,0.18] # [KHz] -- in order to avoid first order integration errors try to keep a small dt
 dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS.plimsL .= [0.1, 1.0, 0.1, 0.5, 0, 20.0, dtlims[1]]
 POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
@@ -89,8 +89,8 @@ includet("w2d_debug.jl")
 
 # scaling2(m, opt, traj0, param0, 90, range(1e3, stop=1e5, length=5), 180, 2) # SLOW
 
-## Try to optimize ---------
-ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=5e4)#, print_level=3)
+# ## Try to optimize ---------
+# ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=5e4)#, print_level=3)
 
 # ## Bigbee ---------
 # # kact = 4x?. for bigbee it seems like to get down to that frequency, it wants huge wings
@@ -100,18 +100,20 @@ ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=5e4)#, prin
 # # "low power": Opt Φ=120, Qdt=0.0, minal=300, τ2/1 lim=2.0 => 0, [22.083 3.282 1.147 5.273 6.566 88.333 0.097], fHz=129.1, al[mg]=308.5, u∞=185.0, FD∞=146.2, pow=22.8, J=248.0, AR=4.0, x=39.4
 # ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 300; Φ=120, Qdt=0, Rpow=1e1)
 
-# ## Param space convexity plot -----------------
-# # Turn down wΔy = 1e2 to make weight be just for LSE https://github.com/avikde/robobee3d/pull/140#issuecomment-583749876
-# # Qdt = 0 -> f = 151, FD = 60, J=83.  but making f >= 0.18 gives 
-# ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=0.0, tol=5e-2)
-# includet("w2d_pplots.jl")
-# # pls = plotParams(m, opt, ret2; compareTo=[16.365 2.462 0.85 4.084 4.924 65.457 0.069])
-# pls = plotParams(m, opt, ret2; compareTo=[22.748 2.473 1.183 4.477 4.921 91.06 0.096])
-# plot(pls...)
+## Param space convexity plot -----------------
+# Turn down wΔy = 1e2 to make weight be just for LSE https://github.com/avikde/robobee3d/pull/140#issuecomment-583749876
+# Qdt = 0 -> f = 151, FD = 60, J=83.  but making f >= 0.18 gives 
+ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=0.0, tol=5e-2)
+includet("w2d_pplots.jl")
+# pls = plotParams(m, opt, ret2; compareTo=[16.365 2.462 0.85 4.084 4.924 65.457 0.069])
+pls = plotParams(m, opt, ret2; compareTo=[22.109 2.462 1.149 4.415 4.924 88.436 0.094])
+plot(pls...)
+gui()
 
-## DEBUG ----------
-pls = debugΔYEffect(N, ny, ret2, ret1)
-plot(pls..., size=(1000,600))
+# ## DEBUG ----------
+# includet("w2d_debug.jl")
+# pls = debugΔYEffect(N, ny, ret2, ret1)
+# plot(pls..., size=(1000,600))
 ##
 
 # ## Components ---------
