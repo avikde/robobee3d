@@ -8,7 +8,12 @@ function nonlinBenefit(ret, Tratios, minals; τ2eq=false, kwargs...)
 		i += 1
 		print(i,"/",Ntotal,": ")
 		rr = opt1(m, ret["traj"], ret["param"], 1, minal, τ21ratiolim; τ2eq=τ2eq, tol=5e-3, kwargs...)
-		return [rr["u∞"]; rr["al"]; rr["FD∞"]; rr["param"]]
+		if rr["status"] >= -2
+			return [rr["u∞"]; rr["al"]; rr["FD∞"]; rr["param"]]
+		else
+			println("BAD will skip")
+			return [NaN; NaN; NaN; NaN]
+		end
 	end
 
 	res = [[T;al;maxu(T,al)] for T in Tratios, al in minals]
@@ -23,6 +28,7 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	for r=size(results,1):-1:1
 		for c=1:size(results,2)
 			resT0 = results[1,c]
+			@assert !isnan(resT0[3]) "Linear transmission result was infeas"
 			# normalize
 			results[r,c][3] /= resT0[3]
 			results[r,c][5] /= resT0[5]
@@ -30,7 +36,9 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	end
 	xyzi = zeros(length(results[1,1]),0)
 	for res in results
-		xyzi = hcat(xyzi, res)
+		if !isnan(res[3])
+			xyzi = hcat(xyzi, res)
+		end
 	end
 	# lift to mg
 	params = xyzi[6:end,:]
@@ -57,7 +65,7 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	return [
 		# scatter(xyzi[1,:], xyzi[4,:]),
 		# scatter3d(xyzi[1,:], xyzi[4,:], xyzi[3,:]),
-		contourFromUnstructured(Tractual, xyzi[4,:], clamp.(xyzi[3,:], 0.0, 1.0); title="Nonlinear transmission benefit [ ]"),# opt errors cause > 1 which doesn't make sense
+		contourFromUnstructured(Tractual, xyzi[4,:], #= clamp.( =#xyzi[3,:]#= , 0.0, 1.0) =#; title="Nonlinear transmission benefit [ ]"),# opt errors cause > 1 which doesn't make sense
 		contourFromUnstructured(Tractual, xyzi[4,:], params[2,:]; title="T1 [rad/mm]"),
 		contourFromUnstructured(Tractual, xyzi[4,:], params[6,:]; title="Aw [mm^2]"),
 		# contourFromUnstructured(xyzi[1,:], xyzi[4,:], Tractual; title="T ratio")
