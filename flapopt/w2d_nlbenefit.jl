@@ -16,7 +16,7 @@ function nonlinBenefit(ret, Tratios, minals; τ2eq=false, kwargs...)
 	return res
 end
 
-function plotNonlinBenefit(fname, ypl; s=100)
+function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	results = matread(fname)["res"]
 	
 	# Row 1 has Tratio=0 (res[1,:])
@@ -35,7 +35,6 @@ function plotNonlinBenefit(fname, ypl; s=100)
 	# lift to mg
 	params = xyzi[6:end,:]
 
-	xpl = [0,3]
 	X = range(xpl[1], xpl[2], length=50)
 	Y = range(ypl[1], ypl[2], length=50)
 
