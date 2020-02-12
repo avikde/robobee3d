@@ -64,35 +64,32 @@ POPTS = cu.ParamOptOpts(
 ret1 = opt1(m, traj0, param0, 1, 100)
 
 # These are the actual lims
-cycleFreqLims = [0.3,0.18] # [KHz] -- in order to avoid first order integration errors try to keep a small dt
+cycleFreqLims = [0.3,0.05] # [KHz] -- in order to avoid first order integration errors try to keep a small dt
 dtlims = 1.0 ./ (N*cycleFreqLims)
 POPTS.plimsL .= [0.1, 1.0, 0.1, 0.5, 0, 20.0, dtlims[1]]
 POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 
 # includet("w2d_shift.jl")
-# includet("w2d_scaling1.jl")
-includet("w2d_nlbenefit.jl")
 # includet("w2d_debug.jl")
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
 ## Scaling1 -------
 
-# resdict = scaling1(m, opt, traj0, param0, 2, range(60, 120, length=7), range(160, 420, length=7), range(1e3, 1e5, length=4)) # SLOW
-
+# includet("w2d_scaling1.jl")
+# # resdict = scaling1(m, opt, traj0, param0, 2, range(60, 120, length=7), range(160, 420, length=7), range(1e3, 1e5, length=4)) # SLOW
 # pls = scaling1disp("scaling1_3d4.zip"; scatterOnly=false, xpl=[27,33], ypl=[220,420], s=5e5, useFDasFact=true, Fnom=75, mactline=10e3) # Found this by setting useFDasFact=false, and checking magnitudes
 # plot(pls..., size=(1000,600), window_title="Scaling1")#, dpi=200)
 # # savefig("scaling1.png")
 # gui()
-# error("i")
 
 ## 
 
 # scaling2(m, opt, traj0, param0, 90, range(1e3, stop=1e5, length=5), 180, 2) # SLOW
 
-# ## Try to optimize ---------
-# ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=5e4)#, print_level=3)
-
-# ## Bigbee ---------
+## Try to optimize ---------
+includet("w2d_paramopt.jl")
+ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=3e4)#, print_level=3)
+## Bigbee ---------
 # # kact = 4x?. for bigbee it seems like to get down to that frequency, it wants huge wings
 # # "high power": Opt Φ=120, Qdt=50000.0, minal=400, τ2/1 lim=2.0 => 0, [17.199 3.423 0.893 6.224 1.899 68.796 0.065], fHz=191.5, al[mg]=386.5, u∞=252.8, FD∞=149.0, pow=37.1, J=320.5, AR=4.0, x=34.7
 # # ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 400; Φ=120, Qdt=5e4)
@@ -111,22 +108,25 @@ includet("w2d_nlbenefit.jl")
 # plot(pls...)
 # gui()
 
-# ## DEBUG ----------
-# includet("w2d_debug.jl")
-# pls = debugΔYEffect(N, ny, ret2, ret1)
-# plot(pls..., size=(1000,600))
-##
+## DEBUG ----------
+includet("w2d_debug.jl")
+pls = debugΔYEffect(N, ny, ret2, ret1)
+plot(pls..., size=(1000,600))
+gui()
 
-# ## Components ---------
+## Components ---------
+
 # pls = debugComponentsPlot(m, opt, POPTS, ret2)
 # plot(pls..., size=(800,600))
+# gui()
 
 ## NONLIN BENEFIT -----------------
+# includet("w2d_nlbenefit.jl")
 
-nonlinBenefit(ret1, range(0, 3, length=6), range(180, 360, length=6); Φ=120, Qdt=0, Rpow=1e1) # SLOW
-pls = plotNonlinBenefit("nonlin_phi120.zip", [180,360]; s=20)
-plot(pls...)
-gui()
+# nonlinBenefit(ret1, range(0, 3, length=5), range(160, 360, length=5); Φ=120, Qdt=5e3, τ2eq=true, tol=1e-1) # SLOW
+# pls = plotNonlinBenefit("nonlin.zip", [160,360]; s=100000)
+# plot(pls...)
+# gui()
 
 ##
 ## ----------------
