@@ -178,7 +178,7 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	mla, mlb = minLiftConstraintLin(minal, param0, avgLift0, Φ0, Φ1, 4.0) # need a guess of new AR
 	# Polytope constraint
 	Cp = Float64[0  0  0  0  0  mla[1]  mla[2]; # min lift
-		0  -τ21ratiolim  0  0  1  0  0; # transmission nonlinearity τ2 <= τ21ratiolim * τ1
+		0  -τ21ratiolim-(τ2eq ? 0.1 : 0)  0  0  1  0  0; # transmission nonlinearity τ2 <= τ21ratiolim * τ1
 		0   0  -1  0  0  rholims[1]  0; # wing density mw >= Aw*ρ1
 		0   0  1  0  0  -rholims[2]  0; # wing density mw <= Aw*ρ2
 		wARa[1]   0  0  0  0  wARa[2]  0; # wing AR <= ?
