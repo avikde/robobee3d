@@ -1,13 +1,13 @@
 using Dierckx, Plots
 
 NLBENEFIT_FNAME = "nonlin.zip"
-function nonlinBenefit(ret, Tratios, minals; kwargs...)
+function nonlinBenefit(ret, Tratios, minals; τ2eq=false, kwargs...)
 	i = 0
 	Ntotal = length(Tratios)*length(minals)
 	function maxu(τ21ratiolim, minal)
 		i += 1
 		print(i,"/",Ntotal,": ")
-		rr = opt1(m, ret["traj"], ret["param"], 1, minal, τ21ratiolim; tol=5e-3, kwargs...)
+		rr = opt1(m, ret["traj"], ret["param"], 1, minal, τ21ratiolim; τ2eq=τ2eq, tol=5e-3, kwargs...)
 		return [rr["u∞"]; rr["al"]; rr["FD∞"]; rr["param"]]
 	end
 

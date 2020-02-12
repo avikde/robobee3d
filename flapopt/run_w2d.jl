@@ -71,8 +71,8 @@ POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 
 # includet("w2d_shift.jl")
 # includet("w2d_scaling1.jl")
-# includet("w2d_nlbenefit.jl")
-includet("w2d_debug.jl")
+includet("w2d_nlbenefit.jl")
+# includet("w2d_debug.jl")
 # SCRIPT RUN STUFF HERE -----------------------------------------------------------------------
 
 ## Scaling1 -------
@@ -100,16 +100,16 @@ includet("w2d_debug.jl")
 # # "low power": Opt Φ=120, Qdt=0.0, minal=300, τ2/1 lim=2.0 => 0, [22.083 3.282 1.147 5.273 6.566 88.333 0.097], fHz=129.1, al[mg]=308.5, u∞=185.0, FD∞=146.2, pow=22.8, J=248.0, AR=4.0, x=39.4
 # ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 300; Φ=120, Qdt=0, Rpow=1e1)
 
-## Param space convexity plot -----------------
-# Turn down wΔy = 1e2 to make weight be just for LSE https://github.com/avikde/robobee3d/pull/140#issuecomment-583749876
-# Qdt = 0 -> f = 151, FD = 60, J=83.  but making f >= 0.18 gives 
-ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=0.0, tol=5e-2)
-##
-includet("w2d_pplots.jl")
-# pls = plotParams(m, opt, ret2; compareTo=[16.365 2.462 0.85 4.084 4.924 65.457 0.069])
-pls = plotParams(m, opt, ret2; compareTo=[22.109 2.462 1.149 4.415 4.924 88.436 0.094])
-plot(pls...)
-gui()
+# ## Param space convexity plot -----------------
+# # Turn down wΔy = 1e2 to make weight be just for LSE https://github.com/avikde/robobee3d/pull/140#issuecomment-583749876
+# # Qdt = 0 -> f = 151, FD = 60, J=83.  but making f >= 0.18 gives 
+# ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=0.0, tol=5e-2)
+# ##
+# includet("w2d_pplots.jl")
+# # pls = plotParams(m, opt, ret2; compareTo=[16.365 2.462 0.85 4.084 4.924 65.457 0.069])
+# pls = plotParams(m, opt, ret2; compareTo=[22.109 2.462 1.149 4.415 4.924 88.436 0.094])
+# plot(pls...)
+# gui()
 
 # ## DEBUG ----------
 # includet("w2d_debug.jl")
@@ -121,12 +121,14 @@ gui()
 # pls = debugComponentsPlot(m, opt, POPTS, ret2)
 # plot(pls..., size=(800,600))
 
-# # -----------------
-# # nonlinBenefit(ret1, range(0, 3, length=6), range(180, 360, length=6); Φ=120, Qdt=0, Rpow=1e1) # SLOW
-# pls = plotNonlinBenefit("nonlin_phi120.zip", [180,360]; s=20)
-# plot(pls...)
-# gui()
+## NONLIN BENEFIT -----------------
 
-# # ----------------
+nonlinBenefit(ret1, range(0, 3, length=6), range(180, 360, length=6); Φ=120, Qdt=0, Rpow=1e1) # SLOW
+pls = plotNonlinBenefit("nonlin_phi120.zip", [180,360]; s=20)
+plot(pls...)
+gui()
+
+##
+## ----------------
 # pls = scaleParamsForlift(ret1, 0.6:0.2:2.0, 2)
 # plot(pls...)

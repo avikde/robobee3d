@@ -154,7 +154,7 @@ function trajMechPow(m, opt, traj, param)
 end
 
 """One-off ID or opt"""
-function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, Φ=nothing, Rpow=nothing, Qdt=nothing, kwargs...)
+function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, Φ=nothing, Rpow=nothing, Qdt=nothing, τ2eq=false, kwargs...)
 	# Make any desired changes
 	if !isnothing(Φ)
 		m.Amp[1] = deg2rad(Φ)
@@ -184,6 +184,13 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 		wARa[1]   0  0  0  0  wARa[2]  0; # wing AR <= ?
 		wARb[1]   0  0  0  0  wARb[2]  0] # wing AR >= ?
 	dp = [mlb; 0; 0; 0; 0; 0]
+
+	# fix \tau_2
+	if τ2eq
+		Cp = [Cp; [0  τ21ratiolim  0  0  -1  0  0]] # τ2 >= τ21ratiolim * τ1]]
+		dp = [dp; 0]
+	end
+
 	print(mode==2 ? "ID" : "Opt", " Φ=", isnothing(Φ) ? "-" : Φ, ", Qdt=", round(POPTS.pdesQ[end]), ", minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
 
 	ret = cu.paramOpt(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, 
