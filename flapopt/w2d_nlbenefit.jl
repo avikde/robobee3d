@@ -1,9 +1,9 @@
 using Dierckx, Plots
 
 NLBENEFIT_FNAME = "nonlin.zip"
-function nonlinBenefit(fname, ret, Tratios, minals; τ2eq=false, kwargs...)
+function nonlinBenefit(fname, ret, Tratios, minals, Qdts=[5e3, 1e4], Phis=[90,120], kos=range(30,60,length=5); τ2eq=false, kwargs...)
 	i = 0
-	Ntotal = length(Tratios)*length(minals)
+	Ntotal = length(Tratios)*length(minals)*length(Qdts)*length(Phis)*length(kos)
 	function maxu(τ21ratiolim, minal,Qdt,phi,ko)
 		i += 1
 		print(i,"/",Ntotal,": ")
@@ -17,7 +17,7 @@ function nonlinBenefit(fname, ret, Tratios, minals; τ2eq=false, kwargs...)
 		end
 	end
 
-	res = [[T;al;Qdt;phi;ko; maxu(T,al,Qdt,phi,ko)] for T in Tratios, al in minals, Qdt in [5e3, 1e4], phi in [90,120], ko in range(30,60,length=5)]
+	res = [[T;al;Qdt;phi;ko; maxu(T,al,Qdt,phi,ko)] for T in Tratios, al in minals, Qdt in Qdts, phi in Phis, ko in kos]
 	matwrite(fname, Dict("res" => res); compress=true)
 	return res
 end
@@ -25,25 +25,30 @@ end
 function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	results = matread(fname)["res"]
 	
+	Nhead = length(size(results))
+	results = results[:,:,1,1,1] # pick Qdt, phi
 	println(size(results))
 	# Row 1 has Tratio=0 (res[1,:])
-	for r=size(results,1):-1:1
-		for c=1:size(results,2)
-			resT0 = results[1,c]
-			@assert !isnan(resT0[3]) "Linear transmission result was infeas"
+	for Tratio=size(results,1):-1:1
+		for minal=1:size(results,2)
+			resT0 = results[1,minal]
+			@assert !isnan(resT0[Nhead+1]) "Linear transmission result was infeas"
 			# normalize
-			results[r,c][3] /= resT0[3]
-			results[r,c][5] /= resT0[5]
+			results[Tratio,minal][Nhead+1] /= resT0[Nhead+1]
+			results[Tratio,minal][Nhead+3] /= resT0[Nhead+3]
 		end
 	end
 	xyzi = zeros(length(results[1,1]),0)
 	for res in results
-		if !isnan(res[3])
+		if !isnan(res[Nhead+1])
 			xyzi = hcat(xyzi, res)
 		end
 	end
-	# lift to mg
-	params = xyzi[6:end,:]
+	# for plotting
+	stats = xyzi[Nhead+1:Nhead+4,:]
+	params = xyzi[Nhead+4:end,:]
+	AL = stats[2,:]
+	Tbenefit = stats[1,:]#clamp.(stats[1,:], 0.0, 1.0)
 
 	X = range(xpl[1], xpl[2], length=50)
 	Y = range(ypl[1], ypl[2], length=50)
@@ -67,10 +72,10 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	return [
 		# scatter(xyzi[1,:], xyzi[4,:]),
 		# scatter3d(xyzi[1,:], xyzi[4,:], xyzi[3,:]),
-		contourFromUnstructured(Tractual, xyzi[4,:], #= clamp.( =#xyzi[3,:]#= , 0.0, 1.0) =#; title="Nonlinear transmission benefit [ ]"),# opt errors cause > 1 which doesn't make sense
-		contourFromUnstructured(Tractual, xyzi[4,:], params[2,:]; title="T1 [rad/mm]"),
-		contourFromUnstructured(Tractual, xyzi[4,:], params[6,:]; title="Aw [mm^2]"),
+		contourFromUnstructured(Tractual, AL, Tbenefit; title="Nonlinear transmission benefit [ ]"),# opt errors cause > 1 which doesn't make sense
+		# contourFromUnstructured(Tractual, AL, params[2,:]; title="T1 [rad/mm]"),
+		contourFromUnstructured(Tractual, AL, params[6,:]; title="Aw [mm^2]"),
 		# contourFromUnstructured(xyzi[1,:], xyzi[4,:], Tractual; title="T ratio")
-		contourFromUnstructured(Tractual, xyzi[4,:], 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
+		contourFromUnstructured(Tractual, AL, 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
 	]
 end
