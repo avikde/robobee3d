@@ -25,6 +25,7 @@ end
 function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	results = matread(fname)["res"]
 	
+	println(size(results))
 	# Row 1 has Tratio=0 (res[1,:])
 	for r=size(results,1):-1:1
 		for c=1:size(results,2)
