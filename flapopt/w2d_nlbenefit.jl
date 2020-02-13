@@ -1,13 +1,14 @@
 using Dierckx, Plots
 
 NLBENEFIT_FNAME = "nonlin.zip"
-function nonlinBenefit(ret, Tratios, minals; τ2eq=false, kwargs...)
+function nonlinBenefit(fname, ret, Tratios, minals; τ2eq=false, kwargs...)
 	i = 0
 	Ntotal = length(Tratios)*length(minals)
-	function maxu(τ21ratiolim, minal)
+	function maxu(τ21ratiolim, minal,Qdt,phi,ko)
 		i += 1
 		print(i,"/",Ntotal,": ")
-		rr = opt1(m, ret["traj"], ret["param"], 1, minal, τ21ratiolim; τ2eq=τ2eq, tol=5e-3, kwargs...)
+		m.ko .= ko
+		rr = opt1(m, ret["traj"], ret["param"], 1, minal, τ21ratiolim; τ2eq=τ2eq, tol=5e-2, Qdt=Qdt,Φ=phi, kwargs...)
 		if rr["status"] >= -2
 			return [rr["u∞"]; rr["al"]; rr["FD∞"]; rr["param"]]
 		else
@@ -16,8 +17,8 @@ function nonlinBenefit(ret, Tratios, minals; τ2eq=false, kwargs...)
 		end
 	end
 
-	res = [[T;al;maxu(T,al)] for T in Tratios, al in minals]
-	matwrite(NLBENEFIT_FNAME, Dict("res" => res); compress=true)
+	res = [[T;al;Qdt;phi;ko; maxu(T,al,Qdt,phi,ko)] for T in Tratios, al in minals, Qdt in [5e3, 1e4], phi in [90,120], ko in range(30,60,length=5)]
+	matwrite(fname, Dict("res" => res); compress=true)
 	return res
 end
 
