@@ -34,8 +34,7 @@ NOTE:
 """
 @with_kw struct Wing2DOFModel <: controlutils.Model
     # params
-    ko::Float64 # [mN/mm]
-    bo::Float64 = 0 # [mN/(mm/ms)]
+    kbo::Array{Float64,1} = [0., 0.] # [mN/mm], [mN/(mm/ms)]
     # Actuator params
     ma::Float64 # [mg]; effective
     ba::Float64 = 0 # [mN/(mm/ms)]
@@ -131,10 +130,10 @@ function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::V
     cor1 = [cbar2*mwing*γ^2*sin(2*Ψ)*dφ*dΨ - γ*cbar*mwing*ycp*sin(Ψ)*dΨ^2, 
         -cbar2*mwing*γ^2*cos(Ψ)*sin(Ψ)*dφ^2]
     # NOTE: dropping τinv'' term
-    corgrav = [m.ko*φ, kΨ*Ψ] + (m.bCoriolis ? cor1 : zeros(2))
+    corgrav = [m.kbo[1]*φ, kΨ*Ψ] + (m.bCoriolis ? cor1 : zeros(2))
 
     # non-lagrangian terms
-    τdamp = [-(m.bo + m.ba/T^2) * dφ, -bΨ * dΨ]
+    τdamp = [-(m.kbo[2] + m.ba/T^2) * dφ, -bΨ * dΨ]
     _, Jaero, Faero = w2daero(m, yo, param)
     τaero = Jaero' * Faero # units of [mN, mN-mm]
     # input
@@ -401,7 +400,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         # [(m.ko*φ + m.ka/T*τifun(φ)), kΨ*Ψ]
         # τdamp = [-(m.bo + m.ba/T^2) * dφ, -bΨ * Ψ̇]
         φ, Ψ = y[1:2]
-        return [m.ko*φ   0   0   0   0   0   0    0   0;
+        return [m.kbo[1]*φ   0   0   0   0   0   0    0   0;
         0   Ψ   0    0   0   0   0   0   0]
     end
     """Stiffness actuator"""
@@ -414,7 +413,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     function Hdamp(y)
         φ, Ψ = y[1:2]
         dφ, Ψ̇ = y[3:4] * dtold
-        return [m.bo*dφ   0   0   0   0   0   0    m.ba*dφ   m.ba*dφ*(-φ^2);
+        return [m.kbo[2]*dφ   0   0   0   0   0   0    m.ba*dφ   m.ba*dφ*(-φ^2);
         0   0   Ψ̇   0   0   0   0   0   0]
     end
     """Ext force (aero)"""
