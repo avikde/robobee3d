@@ -27,7 +27,7 @@ function estimateWingDensity(test=false)
 	# meanpred = mwings2 ./ cbar0
 	# FIXME: for robobee design this is producing torques that are too high
 	# rholims = [meanpred[1] * cbar0, meanpred[end] * cbar0]
-	rholims = [0.013, 0.02] # from param0 = 0.7/54.4
+	rholims = [0.009, 0.02] # from param0 = 0.5/54.4
 
 	if test
 		p1 = plot(dspar, mwings, ylabel="mwing from Ixx", lw=2)
@@ -46,7 +46,7 @@ end
 kinType -- 0 => ID'ed real data, 1 => openloop sim with param0 then truncate, 2 => generate kinematics(t)
 fix -- Make traj satisfy dyn constraint with these params?
 """
-function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, starti=214, verbose=true, freq=0.165, N=80)
+function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, starti=212, verbose=true, freq=0.165, N=80)
 	if kinType==1
 		opt = cu.OptOptions(false, false, 1/(N*freq), 1, :none, 1e-8, false) # sim
 		N = opt.boundaryConstraint == :symmetric ? N÷2 : N

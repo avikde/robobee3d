@@ -26,7 +26,7 @@ function getInitialParams()
 	# robobee scale
 	return 75, [3.2^2,  # cbar2[mm^2] (area/R)^2
 		2.6666, # τ1 (from 3333 rad/m, [Jafferis (2016)])
-		0.73, # mwing[mg] ~=Izz/(mwing*ycp^2). with ycp=8.5, Izz=51.1 [Jafferis (2016)], get
+		0.5, # mwing[mg] ~=Izz/(mwing*ycp^2). with ycp=8.5, Izz=51.1 [Jafferis (2016)], get
 		2.5, # wΨ [mm]
 		0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
 		54.4, # Aw = 3.2*17 [mm^2] (Jafferis 2016)
