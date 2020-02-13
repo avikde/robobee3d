@@ -154,7 +154,7 @@ function trajMechPow(m, opt, traj, param)
 end
 
 """One-off ID or opt"""
-function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, Φ=nothing, Rpow=nothing, Qdt=nothing, τ2eq=false, kwargs...)
+function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, Φ=nothing, Rpow=nothing, Qdt=nothing, τ2eq=false, wingdens1=nothing, kwargs...)
 	# Make any desired changes
 	if !isnothing(Φ)
 		m.Amp[1] = deg2rad(Φ)
@@ -174,6 +174,9 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
     # cbar2, τ1, mwing, wΨ, τ2, Aw, dt  = param
 	# Poly constraint
 	rholims = estimateWingDensity()
+	if !isnothing(wingdens1)
+		rholims[1] = wingdens1
+	end
 	wARa, wARb = wingARconstraintLin()
 	mla, mlb = minLiftConstraintLin(minal, param0, avgLift0, Φ0, Φ1, 4.0) # need a guess of new AR
 	# Polytope constraint

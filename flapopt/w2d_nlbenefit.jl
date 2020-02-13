@@ -1,14 +1,14 @@
 using Dierckx, Plots
 
 NLBENEFIT_FNAME = "nonlin.zip"
-function nonlinBenefit(fname, ret, Tratios, minals, Qdts=[5e3, 1e4], Phis=[90,120], kos=range(30,60,length=5); τ2eq=false, kwargs...)
+function nonlinBenefit(fname, ret, Tratios, minals, Qdts=[5e3, 1e4], Phis=[90,120], kos=range(30,60,length=4), wdens=range(0.009, 0.015, length=4); τ2eq=false, kwargs...)
 	i = 0
-	Ntotal = length(Tratios)*length(minals)*length(Qdts)*length(Phis)*length(kos)
-	function maxu(τ21ratiolim, minal,Qdt,phi,ko)
+	Ntotal = length(Tratios)*length(minals)*length(Qdts)*length(Phis)*length(kos)*length(wdens)
+	function maxu(τ21ratiolim, minal, Qdt, phi, ko, wdens1)
 		i += 1
 		print(i,"/",Ntotal,": ")
 		m.kbo[1] = ko
-		rr = opt1(m, ret["traj"], ret["param"], 1, minal, τ21ratiolim; τ2eq=τ2eq, tol=5e-2, Qdt=Qdt, Φ=phi, kwargs...)
+		rr = opt1(m, ret["traj"], ret["param"], 1, minal, τ21ratiolim; τ2eq=τ2eq, tol=5e-2, Qdt=Qdt, Φ=phi, wingdens1=wdens1, kwargs...)
 		if rr["status"] >= -2
 			return [rr["u∞"]; rr["al"]; rr["FD∞"]; rr["param"]]
 		else
@@ -17,7 +17,7 @@ function nonlinBenefit(fname, ret, Tratios, minals, Qdts=[5e3, 1e4], Phis=[90,12
 		end
 	end
 
-	res = [[T;al;Qdt;phi;ko; maxu(T,al,Qdt,phi,ko)] for T in Tratios, al in minals, Qdt in Qdts, phi in Phis, ko in kos]
+	res = [[T;al;Qdt;phi;ko; maxu(T,al,Qdt,phi,ko,wdens1)] for T in Tratios, al in minals, Qdt in Qdts, phi in Phis, ko in kos, wdens1 in wdens]
 	matwrite(fname, Dict("res" => res); compress=true)
 	return res
 end
