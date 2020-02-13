@@ -28,16 +28,23 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	Nhead = length(size(results))
 	results = results[:,:,1,1,1] # pick Qdt, phi
 	println(size(results))
-	# Row 1 has Tratio=0 (res[1,:])
-	for Tratio=size(results,1):-1:1
-		for minal=1:size(results,2)
-			resT0 = results[1,minal]
-			@assert !isnan(resT0[Nhead+1]) "Linear transmission result was infeas"
-			# normalize
-			results[Tratio,minal][Nhead+1] /= resT0[Nhead+1]
-			results[Tratio,minal][Nhead+3] /= resT0[Nhead+3]
+
+	function normalizeTbenefit(results)
+		# Row 1 has Tratio=0 (res[1,:])
+		for Tratio=size(results,1):-1:1
+			for minal=1:size(results,2)
+				resT0 = results[1,minal]
+				@assert !isnan(resT0[Nhead+1]) "Linear transmission result was infeas"
+				# normalize
+				results[Tratio,minal][Nhead+1] /= resT0[Nhead+1]
+				# results[Tratio,minal][Nhead+3] /= resT0[Nhead+3]
+			end
 		end
+		return results
 	end
+
+	results = normalizeTbenefit(results)
+
 	xyzi = zeros(length(results[1,1]),0)
 	for res in results
 		if !isnan(res[Nhead+1])
@@ -48,12 +55,13 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	stats = xyzi[Nhead+1:Nhead+4,:]
 	params = xyzi[Nhead+4:end,:]
 	AL = stats[2,:]
-	Tbenefit = stats[1,:]#clamp.(stats[1,:], 0.0, 1.0)
+	Tbenefit = stats[1,:]#clamp.(stats[1,:], 0.0, 1.0)#spline fit cause > 1 which doesn't make sense
+	FLspec = AL./stats[3,:]
 
 	X = range(xpl[1], xpl[2], length=50)
 	Y = range(ypl[1], ypl[2], length=50)
 
-	function contourFromUnstructured(xi, yi, zi; title="")
+	function contourFromUnstructured(xi, yi, zi; title="", rev=false)
 		# Spline from unstructured data https://github.com/kbarbary/Dierckx.jl
 		# println("Total points = ", length(xi))
 		spl = Spline2D(xi, yi, zi; s=s)
@@ -62,7 +70,7 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 			return zspl >= minimum(zi) && zspl <= maximum(zi) ? zspl : NaN
 		end
 		return contour(X, Y, ff, 
-			titlefontsize=10, grid=false, lw=2, c=:bluesreds, 
+			titlefontsize=10, grid=false, lw=2, c=(rev ? :bluesreds_r : :bluesreds), 
 			xlabel="T ratio", ylabel="FL [mg]", title=title,
 			xlims=xpl, ylims=ypl)
 	end
@@ -72,10 +80,10 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	return [
 		# scatter(xyzi[1,:], xyzi[4,:]),
 		# scatter3d(xyzi[1,:], xyzi[4,:], xyzi[3,:]),
-		contourFromUnstructured(Tractual, AL, Tbenefit; title="Nonlinear transmission benefit [ ]"),# opt errors cause > 1 which doesn't make sense
+		contourFromUnstructured(Tractual, AL, Tbenefit; title="Nonlinear transmission benefit [ ]"),
+		contourFromUnstructured(Tractual, AL, FLspec; title="FL sp.", rev=true),
 		# contourFromUnstructured(Tractual, AL, params[2,:]; title="T1 [rad/mm]"),
 		contourFromUnstructured(Tractual, AL, params[6,:]; title="Aw [mm^2]"),
-		# contourFromUnstructured(xyzi[1,:], xyzi[4,:], Tractual; title="T ratio")
 		contourFromUnstructured(Tractual, AL, 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
 	]
 end
