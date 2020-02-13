@@ -25,7 +25,7 @@ end
 function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	results = matread(fname)["res"]
 	
-	Nhead = length(size(results))
+	Nhead = 5#length(size(results))
 
 	function normalizeTbenefit(results)
 		# Row 1 has Tratio=0 (res[1,:])
@@ -43,7 +43,7 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 
 	# results = results[:,:,1,1,1]
 	# results = normalizeTbenefit(results)
-	results = results[:,3,1,2,:]
+	results = results[:,3,1,2,:,3]
 	println(size(results))
 
 	xyzi = zeros(length(results[1,1]),0)
@@ -60,12 +60,13 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	Tbenefit = stats[1,:]#clamp.(stats[1,:], 0.0, 1.0)#spline fit cause > 1 which doesn't make sense
 	FLspec = AL./stats[3,:]
 	ko = head[5,:]
+	ko_m = head[5,:]./params[3,:]
 
 	# SET AXES HERE
 
 	function contourFromUnstructured(xi, yi, zi; title="", rev=false)
 		xpl = minimum(xi), maximum(xi)
-		ypl = minimum(yi), maximum(yi)
+		ypl = minimum(yi), maximum(yi)#30,35#
 		X = range(xpl..., length=50)
 		Y = range(ypl..., length=50)
 		# Spline from unstructured data https://github.com/kbarbary/Dierckx.jl
@@ -77,7 +78,7 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 		end
 		return contour(X, Y, ff, 
 			titlefontsize=10, grid=false, lw=2, c=(rev ? :bluesreds_r : :bluesreds), 
-			xlabel="T ratio", ylabel="FL [mg]", title=title,
+			xlabel="T ratio", ylabel=#= "FL [mg]" =#"ko", title=title,
 			xlims=xpl, ylims=ypl)
 	end
 
@@ -97,6 +98,7 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 		# scatter3d(xyzi[1,:], xyzi[4,:], xyzi[3,:]),
 		# contourFromUnstructured(Tractual, ko, Tbenefit; title="Nonlinear transmission benefit [ ]"),
 		contourFromUnstructured(Tractual, ko, FLspec; title="FL sp.", rev=true),
+		contourFromUnstructured(Tractual, ko, ko_m; title="mw."),
 		# contourFromUnstructured(Tractual, AL, params[2,:]; title="T1 [rad/mm]"),
 		contourFromUnstructured(Tractual, ko, params[6,:]; title="Aw [mm^2]"),
 		contourFromUnstructured(Tractual, ko, 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
