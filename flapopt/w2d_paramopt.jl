@@ -88,21 +88,24 @@ function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, ua
 end
 
 """Generate plot like in [Jafferis (2016)] Fig. 4"""
-function openLoopPlot(m, opt, param0; save=false)
+function openLoopPlot(m, opt, param0, Vmin, Vmax; ampl=save=false)
 	function getResp(f, uamp, nlt=false)
 		param = copy(param0)
-		param[5] = nlt ? 2*param[2] : 0.0
+		if nlt
+			param[2] *= 0.95
+			param[5] = 2*param[2]
+		end
 		return createInitialTraj(m, opt, 0, f, [1e3, 1e2], param, 0; uampl=uamp, trajstats=true, thcoeff=0.1)
 	end
 	fs = 0.03:0.005:0.25
 	mN_PER_V = 75/160
 
-	p1 = plot(ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,0.8))
+	p1 = plot(ylabel="Norm. stroke ampl [deg/V]", ylims=(0.3,0.8))
 	p2 = plot(xlabel="Freq [kHz]", ylabel="Hinge ampl [deg]", legend=false, ylims=(0,100))
 
 	function plotForTrans(nlt)
 		nltstr = nlt ? "N" : "L"
-		for Vamp=130:30:210
+		for Vamp=range(Vmin,Vmax,length=2)
 			println("Openloop @ ", Vamp, "V ", nltstr)
 			uamp = Vamp*mN_PER_V
 			amps = hcat(getResp.(fs, uamp, nlt)...)
@@ -118,7 +121,8 @@ function openLoopPlot(m, opt, param0; save=false)
 	plotForTrans(false)
 	plotForTrans(true)
 
-	plot(p1, p2, layout=(2,1), size=(500,500), dpi=200)
+	plot(p1, #= p2, layout=(2,1),  =# size=(400, 300), dpi=200)
+	println("dens=", param0[3]/param0[6], ", koratio=", m.kbo[1]/(m.kbo[1] + m.ka/param0[2]^2))
 	if save
 		savefig("olplot.png")
 	end
