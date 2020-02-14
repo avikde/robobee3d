@@ -60,7 +60,13 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	Tbenefit = stats[1,:]#clamp.(stats[1,:], 0.0, 1.0)#spline fit cause > 1 which doesn't make sense
 	FLspec = AL./stats[3,:]
 	ko = head[5,:]
-	ko_m = head[5,:]./params[3,:]
+	mw = params[3,:]
+	Aw = params[6,:]
+	cb2 = params[1,:]
+	Lw = Aw ./ sqrt.(cb2)
+	ko_I = head[5,:]./(mw .* Lw.^2)
+	T1 = params[2,:]
+	koratio = ko./(ko + m.ka./T1.^2)
 
 	# SET AXES HERE
 
@@ -97,10 +103,10 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 		# scatter(xyzi[1,:], xyzi[4,:]),
 		# scatter3d(xyzi[1,:], xyzi[4,:], xyzi[3,:]),
 		# contourFromUnstructured(Tractual, ko, Tbenefit; title="Nonlinear transmission benefit [ ]"),
-		contourFromUnstructured(Tractual, ko, FLspec; title="FL sp.", rev=true),
-		contourFromUnstructured(Tractual, ko, ko_m; title="mw."),
+		contourFromUnstructured(Tractual, koratio, FLspec; title="FL sp.", rev=true),
+		contourFromUnstructured(Tractual, koratio, ko_I; title="ko/I"),
 		# contourFromUnstructured(Tractual, AL, params[2,:]; title="T1 [rad/mm]"),
-		contourFromUnstructured(Tractual, ko, params[6,:]; title="Aw [mm^2]"),
-		contourFromUnstructured(Tractual, ko, 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
+		contourFromUnstructured(Tractual, koratio, params[6,:]; title="Aw [mm^2]"),
+		contourFromUnstructured(Tractual, koratio, 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
 	]
 end
