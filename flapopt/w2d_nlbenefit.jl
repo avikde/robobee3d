@@ -23,7 +23,7 @@ function nonlinBenefit(fname, ret, Tratios, minals, Qdts=[5e3, 1e4], Phis=[90,12
 end
 
 function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
-	results = matread(fname)["res"]
+	resultsOrig = matread(fname)["res"]
 	
 	Nhead = 5#length(size(results))
 
@@ -41,50 +41,11 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 		return results
 	end
 
-	MODE = 1
-
-	if MODE == 0
-		results = results[:,:,1,1,1]
-		results = normalizeTbenefit(results)
-		ylabel = "FL [mg]"
-	elseif MODE == 1
-		results = results[:,3,1,2,:,3] # Tratio,ko
-		ylabel = "ko ratio"
-	elseif MODE == 2
-		results = results[2,3,1,2,:,:] # Tratio,wingdens
-		ylabel = "Izz"
-	end
-	# println(size(results))
-
-	xyzi = zeros(length(results[1,1]),0)
-	for res in results
-		if !isnan(res[Nhead+1])
-			xyzi = hcat(xyzi, res)
-		end
-	end
-	# for plotting
-	head = xyzi[1:Nhead,:]
-	stats = xyzi[Nhead+1:Nhead+4,:]
-	params = xyzi[Nhead+4:end,:]
-	AL = stats[2,:]
-	Tbenefit = stats[1,:]#clamp.(stats[1,:], 0.0, 1.0)#spline fit cause > 1 which doesn't make sense
-	FLspec = AL./stats[3,:]
-	ko = head[5,:]
-	mw = params[3,:]
-	Aw = params[6,:]
-	cb2 = params[1,:]
-	Lw = Aw ./ sqrt.(cb2)
-	Izz = mw .* Lw.^2
-	ko_I = head[5,:]./Izz
-	T1 = params[2,:]
-	koratio = ko./(ko + m.ka./T1.^2)
-	Tractual = params[5,:]./params[2,:]
-
-	# SET AXES HERE
-
-	function contourFromUnstructured(xi, yi, zi; title="", rev=false)
+	function contourFromUnstructured(xi, yi, zi, ylabel; colorbar_title="", title="", rev=false, ypl=nothing)
 		xpl = minimum(xi), maximum(xi)
-		ypl = minimum(yi), maximum(yi)
+		if isnothing(ypl)
+			ypl = minimum(yi), maximum(yi)
+		end
 		X = range(xpl..., length=50)
 		Y = range(ypl..., length=50)
 		# Spline from unstructured data https://github.com/kbarbary/Dierckx.jl
@@ -96,35 +57,88 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 		end
 		return contour(X, Y, ff, 
 			titlefontsize=10, grid=false, lw=2, c=(rev ? :bluesreds_r : :bluesreds), 
-			xlabel="T ratio", ylabel=ylabel, title=title,
+			xlabel="T ratio", ylabel=ylabel, colorbar_title=colorbar_title, title=title,
 			xlims=xpl, ylims=ypl)
 	end
 
-	if MODE == 0
-		return [
-			# scatter(xyzi[1,:], xyzi[4,:]),
-			# scatter3d(xyzi[1,:], xyzi[4,:], xyzi[3,:]),
-			contourFromUnstructured(Tractual, AL, Tbenefit; title="Nonlinear transmission benefit [ ]"),
-			contourFromUnstructured(Tractual, AL, FLspec; title="FL sp.", rev=true),
-			# contourFromUnstructured(Tractual, AL, params[2,:]; title="T1 [rad/mm]"),
-			contourFromUnstructured(Tractual, AL, params[6,:]; title="Aw [mm^2]"),
-			contourFromUnstructured(Tractual, AL, 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
-		]
-	elseif MODE == 1
-		return [
-			contourFromUnstructured(Tractual, koratio, FLspec; title="FL sp.", rev=true),
-			contourFromUnstructured(Tractual, koratio, ko_I; title="ko/I"),
-			contourFromUnstructured(Tractual, koratio, params[6,:]; title="Aw [mm^2]"),
-			contourFromUnstructured(Tractual, koratio, 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
-		]
-	elseif MODE == 2
-		return [
-			scatter(Tractual, Izz),
-			scatter3d(Tractual, Izz, FLspec)
-			# contourFromUnstructured(Tractual, Izz, FLspec; title="FL sp.", rev=true)#,
-			# contourFromUnstructured(Tractual, Izz, ko_I; title="ko/I"),
-			# contourFromUnstructured(Tractual, Izz, params[6,:]; title="Aw [mm^2]"),
-			# contourFromUnstructured(Tractual, Izz, 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
-		]
+	function createPlots(MODE, ii; title="", ypl=nothing)
+		# T;al;Qdt;phi;ko
+		if MODE == 0
+			results = resultsOrig[:,:,1,1,1,1]
+			results = normalizeTbenefit(results)
+			ylabel = "FL [mg]"
+		elseif MODE == 1
+			results = resultsOrig[:,ii[1],ii[2],ii[3],:,ii[4]] # Tratio,ko
+			ylabel = "ko ratio"
+		elseif MODE == 2
+			results = resultsOrig[ii[1],ii[2],ii[3],ii[4],:,:] # Tratio,wingdens
+			ylabel = "Izz"
+		end
+		# println(size(results))
+
+		xyzi = zeros(length(results[1,1]),0)
+		for res in results
+			if !isnan(res[Nhead+1])
+				xyzi = hcat(xyzi, res)
+			end
+		end
+		# for plotting
+		head = xyzi[1:Nhead,:]
+		stats = xyzi[Nhead+1:Nhead+4,:]
+		params = xyzi[Nhead+4:end,:]
+		AL = stats[2,:]
+		Tbenefit = stats[1,:]#clamp.(stats[1,:], 0.0, 1.0)#spline fit cause > 1 which doesn't make sense
+		# FLspec = AL./stats[3,:]
+		FLspec = AL./stats[3,:]
+		ko = head[5,:]
+		mw = params[3,:]
+		Aw = params[6,:]
+		cb2 = params[1,:]
+		Lw = Aw ./ sqrt.(cb2)
+		Izz = mw .* Lw.^2
+		ko_I = head[5,:]./Izz
+		T1 = params[2,:]
+		koratio = ko./(ko + m.ka./T1.^2)
+		Tractual = params[5,:]./params[2,:]
+
+		# SET AXES HERE
+
+		if MODE == 0
+			return [
+				# scatter(xyzi[1,:], xyzi[4,:]),
+				# scatter3d(xyzi[1,:], xyzi[4,:], xyzi[3,:]),
+				contourFromUnstructured(Tractual, AL, Tbenefit, ylabel; title="Nonlinear transmission benefit [ ]"),
+				contourFromUnstructured(Tractual, AL, FLspec, ylabel; title="FL sp.", rev=true),
+				# contourFromUnstructured(Tractual, AL, params[2,:]; title="T1 [rad/mm]"),
+				contourFromUnstructured(Tractual, AL, params[6,:], ylabel; title="Aw [mm^2]"),
+				contourFromUnstructured(Tractual, AL, 1000.0 ./(N*params[7,:]), ylabel; title="Freq [Hz]")
+			]
+		elseif MODE == 1
+			return [
+				# scatter3d(Tractual, koratio, FLspec),
+				contourFromUnstructured(Tractual, koratio, FLspec, ylabel; colorbar_title="FL sp.", title=title, rev=true, ypl=ypl),
+				# contourFromUnstructured(Tractual, koratio, ko_I, ylabel; title="ko/I"),
+				# contourFromUnstructured(Tractual, koratio, params[6,:], ylabel; title="Aw [mm^2]"),
+				# contourFromUnstructured(Tractual, koratio, 1000.0 ./(N*params[7,:]), ylabel; title="Freq [Hz]")
+			]
+		elseif MODE == 2
+			return [
+				scatter(Tractual, Izz),
+				scatter3d(Tractual, Izz, FLspec)
+				# contourFromUnstructured(Tractual, Izz, FLspec; title="FL sp.", rev=true)#,
+				# contourFromUnstructured(Tractual, Izz, ko_I; title="ko/I"),
+				# contourFromUnstructured(Tractual, Izz, params[6,:]; title="Aw [mm^2]"),
+				# contourFromUnstructured(Tractual, Izz, 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
+			]
+		end
 	end
+	
+	return [
+		# al;Qdt;phi;wingdens
+		plot(createPlots(1, [3, 1, 2, 2]; title="Low I, 120deg")..., createPlots(1, [3, 1, 2, 3]; title="High I, 120deg")..., layout=(2,1)),
+		plot(createPlots(1, [2, 1, 1, 2]; title="Low I, 90deg", ypl=(0.5,0.625))..., createPlots(1, [2, 1, 1, 3]; title="High I, 90deg", ypl=(0.5,0.625))..., layout=(2,1)),
+		# plot(createPlots(1, [4, 1, 2, 2])..., createPlots(1, [4, 1, 2, 3])..., title="Wing density (low, high)"),
+	]
+	# createPlots(1, [3, 1, 2, 3])
+	# createPlots(2, [2,3,1,2])
 end
