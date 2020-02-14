@@ -16,31 +16,31 @@ include("w2d_model.jl")
 # For T=20, get ka = 240.
 # To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
-	kbo = [40, 0],
+	kbo = [30, 0],
 	ma = 6,
-	ka = 240)#,
-	# Amp = deg2rad.([90, 140]))
+	ka = 240,
+	Amp = deg2rad.([90, 140]))
 ny, nu = cu.dims(m)
 
 function getInitialParams()
 	# robobee scale
-	# return 75, [3.2^2,  # cbar2[mm^2] (area/R)^2
-	# 	2.6666, # τ1 (from 3333 rad/m, [Jafferis (2016)])
-	# 	0.55, # mwing[mg] ~=Izz/(mwing*ycp^2). with ycp=8.5, Izz=51.1 [Jafferis (2016)], get
-	# 	2.5, # wΨ [mm]
-	# 	0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
-	# 	54.4, # Aw = 3.2*17 [mm^2] (Jafferis 2016)
-	# 	0.0758 # dt
-	# ]
-	# for 120deg stroke
 	return 75, [3.2^2,  # cbar2[mm^2] (area/R)^2
-		3.3, # τ1 (from 3333 rad/m, [Jafferis (2016)])
-		0.7, # mwing[mg] ~=Izz/(mwing*ycp^2). with ycp=8.5, Izz=51.1 [Jafferis (2016)], get
-		1.8, # wΨ [mm]
+		2.6666, # τ1 (from 3333 rad/m, [Jafferis (2016)])
+		0.55, # mwing[mg] ~=Izz/(mwing*ycp^2). with ycp=8.5, Izz=51.1 [Jafferis (2016)], get
+		2.5, # wΨ [mm]
 		0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
-		60, # Aw = 3.2*17 [mm^2] (Jafferis 2016)
+		54.4, # Aw = 3.2*17 [mm^2] (Jafferis 2016)
 		0.0758 # dt
 	]
+	# # for 120deg stroke
+	# return 75, [3.5^2,  # cbar2[mm^2] (area/R)^2
+	# 	3.3, # τ1 (from 3333 rad/m, [Jafferis (2016)])
+	# 	0.7, # mwing[mg] ~=Izz/(mwing*ycp^2). with ycp=8.5, Izz=51.1 [Jafferis (2016)], get
+	# 	1.8, # wΨ [mm]
+	# 	0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
+	# 	55, # Aw = 3.2*17 [mm^2] (Jafferis 2016)
+	# 	0.0758 # dt
+	# ]
 end
 uampl, param0 = getInitialParams()
 σamax = 0.3 # [mm] constant? for robobee actuators
@@ -50,7 +50,7 @@ include("w2d_paramopt.jl")
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
 N, trajt, traj0, opt, Φ0 = initTraj(m, param0, KINTYPE; uampl=uampl)
-openLoopPlot(m, opt, param0, 140, 180; save=true)
+# openLoopPlot(m, opt, param0, 140, 180)
 avgLift0 = avgLift(m, opt, traj0, param0) # for minlift constraint
 println("Avg lift initial [mg]=", round(avgLift0, digits=1))
 

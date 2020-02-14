@@ -88,7 +88,7 @@ function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, ua
 end
 
 """Generate plot like in [Jafferis (2016)] Fig. 4"""
-function openLoopPlot(m, opt, param0, Vmin, Vmax; ampl=save=false)
+function openLoopPlot(m, opt, param0, Vmin, Vmax; save=false)
 	function getResp(f, uamp, nlt=false)
 		param = copy(param0)
 		if nlt
@@ -105,7 +105,7 @@ function openLoopPlot(m, opt, param0, Vmin, Vmax; ampl=save=false)
 
 	function plotForTrans(nlt)
 		nltstr = nlt ? "N" : "L"
-		for Vamp=range(Vmin,Vmax,length=2)
+		for Vamp=range(Vmin, Vmax,length=2)
 			println("Openloop @ ", Vamp, "V ", nltstr)
 			uamp = Vamp*mN_PER_V
 			amps = hcat(getResp.(fs, uamp, nlt)...)
