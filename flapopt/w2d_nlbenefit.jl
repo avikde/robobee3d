@@ -41,10 +41,20 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 		return results
 	end
 
-	# results = results[:,:,1,1,1]
-	# results = normalizeTbenefit(results)
-	results = results[:,3,1,2,:,3]
-	println(size(results))
+	MODE = 1
+
+	if MODE == 0
+		results = results[:,:,1,1,1]
+		results = normalizeTbenefit(results)
+		ylabel = "FL [mg]"
+	elseif MODE == 1
+		results = results[:,3,1,2,:,3] # Tratio,ko
+		ylabel = "ko ratio"
+	elseif MODE == 2
+		results = results[2,3,1,2,:,:] # Tratio,wingdens
+		ylabel = "Izz"
+	end
+	# println(size(results))
 
 	xyzi = zeros(length(results[1,1]),0)
 	for res in results
@@ -64,15 +74,17 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	Aw = params[6,:]
 	cb2 = params[1,:]
 	Lw = Aw ./ sqrt.(cb2)
-	ko_I = head[5,:]./(mw .* Lw.^2)
+	Izz = mw .* Lw.^2
+	ko_I = head[5,:]./Izz
 	T1 = params[2,:]
 	koratio = ko./(ko + m.ka./T1.^2)
+	Tractual = params[5,:]./params[2,:]
 
 	# SET AXES HERE
 
 	function contourFromUnstructured(xi, yi, zi; title="", rev=false)
 		xpl = minimum(xi), maximum(xi)
-		ypl = minimum(yi), maximum(yi)#30,35#
+		ypl = minimum(yi), maximum(yi)
 		X = range(xpl..., length=50)
 		Y = range(ypl..., length=50)
 		# Spline from unstructured data https://github.com/kbarbary/Dierckx.jl
@@ -84,29 +96,35 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 		end
 		return contour(X, Y, ff, 
 			titlefontsize=10, grid=false, lw=2, c=(rev ? :bluesreds_r : :bluesreds), 
-			xlabel="T ratio", ylabel=#= "FL [mg]" =#"ko", title=title,
+			xlabel="T ratio", ylabel=ylabel, title=title,
 			xlims=xpl, ylims=ypl)
 	end
 
-	Tractual = params[5,:]./params[2,:]
-    
-	# return [
-	# 	# scatter(xyzi[1,:], xyzi[4,:]),
-	# 	# scatter3d(xyzi[1,:], xyzi[4,:], xyzi[3,:]),
-	# 	contourFromUnstructured(Tractual, AL, Tbenefit; title="Nonlinear transmission benefit [ ]"),
-	# 	contourFromUnstructured(Tractual, AL, FLspec; title="FL sp.", rev=true),
-	# 	# contourFromUnstructured(Tractual, AL, params[2,:]; title="T1 [rad/mm]"),
-	# 	contourFromUnstructured(Tractual, AL, params[6,:]; title="Aw [mm^2]"),
-	# 	contourFromUnstructured(Tractual, AL, 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
-	# ]
-	return [
-		# scatter(xyzi[1,:], xyzi[4,:]),
-		# scatter3d(xyzi[1,:], xyzi[4,:], xyzi[3,:]),
-		# contourFromUnstructured(Tractual, ko, Tbenefit; title="Nonlinear transmission benefit [ ]"),
-		contourFromUnstructured(Tractual, koratio, FLspec; title="FL sp.", rev=true),
-		contourFromUnstructured(Tractual, koratio, ko_I; title="ko/I"),
-		# contourFromUnstructured(Tractual, AL, params[2,:]; title="T1 [rad/mm]"),
-		contourFromUnstructured(Tractual, koratio, params[6,:]; title="Aw [mm^2]"),
-		contourFromUnstructured(Tractual, koratio, 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
-	]
+	if MODE == 0
+		return [
+			# scatter(xyzi[1,:], xyzi[4,:]),
+			# scatter3d(xyzi[1,:], xyzi[4,:], xyzi[3,:]),
+			contourFromUnstructured(Tractual, AL, Tbenefit; title="Nonlinear transmission benefit [ ]"),
+			contourFromUnstructured(Tractual, AL, FLspec; title="FL sp.", rev=true),
+			# contourFromUnstructured(Tractual, AL, params[2,:]; title="T1 [rad/mm]"),
+			contourFromUnstructured(Tractual, AL, params[6,:]; title="Aw [mm^2]"),
+			contourFromUnstructured(Tractual, AL, 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
+		]
+	elseif MODE == 1
+		return [
+			contourFromUnstructured(Tractual, koratio, FLspec; title="FL sp.", rev=true),
+			contourFromUnstructured(Tractual, koratio, ko_I; title="ko/I"),
+			contourFromUnstructured(Tractual, koratio, params[6,:]; title="Aw [mm^2]"),
+			contourFromUnstructured(Tractual, koratio, 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
+		]
+	elseif MODE == 2
+		return [
+			scatter(Tractual, Izz),
+			scatter3d(Tractual, Izz, FLspec)
+			# contourFromUnstructured(Tractual, Izz, FLspec; title="FL sp.", rev=true)#,
+			# contourFromUnstructured(Tractual, Izz, ko_I; title="ko/I"),
+			# contourFromUnstructured(Tractual, Izz, params[6,:]; title="Aw [mm^2]"),
+			# contourFromUnstructured(Tractual, Izz, 1000.0 ./(N*params[7,:]); title="Freq [Hz]")
+		]
+	end
 end
