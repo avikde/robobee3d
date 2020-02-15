@@ -202,8 +202,10 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
         # don't return dirtran traj; only traj stats
         Nend = 1000
         solend = hcat(sol.u[end-Nend+1:end]...) # (ny,N) shaped
-        campl = k -> maximum(solend[k,:]) - minimum(solend[k,:])
-        return [campl(1), campl(3)] # stroke and hinge ampl
+        vecrange(x) = maximum(x) - minimum(x)
+        campl = k -> vecrange(solend[k,:])
+        σa = [cu.transmission(m, solend[:,k], params; o2a=true)[1][1] for k=1:Nend]
+        return [campl(1), campl(3), vecrange(σa)/2] # stroke, hinge ampl, act disp ampl
     end
     if makeplot
         # Plot

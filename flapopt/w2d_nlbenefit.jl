@@ -157,7 +157,9 @@ function openLoopPlot(m, opt, param0, Vmin, Vmax; save=false)
 		if nlt
 			param = nlNormalizeByOutput(m, opt, param)
 		end
-		return createInitialTraj(m, opt, 0, f, [1e3, 1e2], param, 0; uampl=uamp, trajstats=true, thcoeff=0.1)
+		ts = createInitialTraj(m, opt, 0, f, [1e3, 1e2], param, 0; uampl=uamp, trajstats=true, thcoeff=0.1)
+		println("act disp=",ts[end])
+		return ts[1:2]
 	end
 	fs = 0.03:0.005:0.25
 	mN_PER_V = 75/160
