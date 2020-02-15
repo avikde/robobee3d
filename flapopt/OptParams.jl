@@ -2,7 +2,7 @@
 include("Model.jl") #< including this helps vscode reference the functions in there
 using Parameters, ForwardDiff, LinearAlgebra, Ipopt, DSP, SparseArrays
 
-@with_kw struct ParamOptOpts
+@with_kw mutable struct ParamOptOpts
 	τinds::Array{Int}
 	"(Ryy, Ryu (mech pow), Ruu, wΔy, wlse)"
 	R::Tuple
