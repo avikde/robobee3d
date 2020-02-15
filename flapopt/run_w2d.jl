@@ -49,8 +49,11 @@ include("w2d_paramopt.jl")
 
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
-N, trajt, traj0, opt, Φ0 = initTraj(m, param0, KINTYPE; uampl=uampl)
-# openLoopPlot(m, opt, param0, 140, 180)
+N, trajt, tra
+##
+includet("w2d_nlbenefit.jl")
+openLoopPlot(m, opt, param0, 140, 180)
+##
 avgLift0 = avgLift(m, opt, traj0, param0) # for minlift constraint
 println("Avg lift initial [mg]=", round(avgLift0, digits=1))
 
