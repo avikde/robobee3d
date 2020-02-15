@@ -67,10 +67,10 @@ end
 
 function debugConvexity(m, opt, POPTS, ret1)
     # Turn down wΔy = 1e2 to make weight be just for LSE https://github.com/avikde/robobee3d/pull/140#issuecomment-583749876
-    wΔy0 = copy(POPTS.R[4])
     dtlimU0 = copy(POPTS.plimsU[end])
-    println("HI1 ", POPTS.R[4])
-    # POPTS.R[4] = 1e2
+    Rold = POPTS.R
+    POPTS.R = (0.0*I, reshape([1e-2],1,1), 0.0*I, 1e2, 0.75)
+    println("Setting wΔy=", POPTS.R[4])
     
     # Qdt = 0 -> f = 151, FD = 60, J=83.  but making f >= 0.18 gives 
     ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=0.0, tol=5e-2)
@@ -80,11 +80,12 @@ function debugConvexity(m, opt, POPTS, ret1)
     ret3 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=0.0, tol=5e-2)
 
     # replace
-    # POPTS.R[4] = wΔy0
+    POPTS.R = Rold
+    println("Restored wΔy=", POPTS.R[4])
     POPTS.plimsU[end] = dtlimU0
 
     J(ret) = ret["eval_f"](ret["x"])
-    println("HIHI ", J(ret2), "->", J(ret3))
+    println("Cost went ", J(ret2), "->", J(ret3))
 
     ##
     # pls = plotParams(m, opt, ret2; compareTo=[16.365 2.462 0.85 4.084 4.924 65.457 0.069])
