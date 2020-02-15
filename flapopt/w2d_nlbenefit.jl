@@ -159,7 +159,7 @@ function nlNormalizeByOutput(m, opt, param, σa0, T1scale; τ2ratio=2.0)
 end
 
 """Generate plot like in [Jafferis (2016)] Fig. 4"""
-function openLoopPlot(m, opt, param0, Vamps; save=false, NLT1scales=nothing)
+function openLoopPlot(m, opt, param0, Vamps; save=false, NLT1scales=nothing, rightplot=false)
 	function getResp(f, uamp, nlt, σa0=nothing, T1scale=nothing)
 		param = copy(param0)
 		if nlt
@@ -172,10 +172,13 @@ function openLoopPlot(m, opt, param0, Vamps; save=false, NLT1scales=nothing)
 	fs = 0.03:0.005:0.25
 	mN_PER_V = 75/160
 
-	p1 = plot(ylabel="Norm. stroke ampl [deg/V]", ylims=(0.3,0.8), legend=:topleft)
+	p1 = plot(ylabel=rightplot ? "" : "Norm. stroke ampl [deg/V]", ylims=(0.3,0.8), legend=rightplot ? false : :topleft, title=rightplot ? "Low inertia" : "High inertia")
 	p2 = plot(xlabel="Freq [kHz]", ylabel="Hinge ampl [deg]", legend=false, ylims=(0,100))
-	p3 = plot(ylabel="Norm. act. disp [um/V]", legend=false)
-
+	p3 = plot(ylabel=rightplot ? "" : "Norm. act. disp [um/V]", legend=false, ylim=(1.0,2.4), xlabel="Freq [kHz]")
+	# if rightplot
+	# 	yaxis!(p1, false)
+	# 	yaxis!(p3, false)
+	# end
 	function plotForTrans(nlt; T1scales=nothing)
 		nltstr = nlt ? "N" : "L"
 		actdisps = Dict{Float64, Float64}()
@@ -207,12 +210,19 @@ function openLoopPlot(m, opt, param0, Vamps; save=false, NLT1scales=nothing)
 	plotForTrans(false)
 	plotForTrans(true; T1scales=NLT1scales)
 
-	# plot(p1, #= p2, layout=(2,1),  =# size=(400, 300), dpi=200)
-	plot(p1, p3, layout=(2,1), size=(300, 400), dpi=150)
 	println("dens=", param0[3]/param0[6], ", koratio=", m.kbo[1]/(m.kbo[1] + m.ka/param0[2]^2))
-	if save
-		savefig("olplot.png")
-	end
+	# plot(p1, #= p2, layout=(2,1),  =# size=(400, 300), dpi=200)
+	return plot(p1, p3, layout=(2,1))
+end
+
+function openLoopPlotFinal(m, opt, param0)
+	# mw=0.55 -> [0.975, 0.925], mw=0.7 -> [0.96, 0.9]
+	param = copy(param0)
+	param[3] = 0.55 #mw
+	pl1 = openLoopPlot(m, opt, param, range(140, 180,length=2); NLT1scales=[0.975, 0.925])
+	param[3] = 0.7 #mw
+	pl2 = openLoopPlot(m, opt, param, range(140, 180,length=2); NLT1scales=[0.96, 0.9], rightplot=true)
+	plot(pl1, pl2, size=(500, 500), dpi=150)
 	gui()
 	error("Open loop plot")
 end
