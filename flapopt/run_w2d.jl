@@ -50,10 +50,6 @@ include("w2d_paramopt.jl")
 # IMPORTANT - load which traj here!!!
 KINTYPE = 1
 N, trajt, traj0, opt, Φ0 = initTraj(m, param0, KINTYPE; uampl=uampl)
-##
-includet("w2d_nlbenefit.jl")
-openLoopPlotFinal(m, opt, param0)
-##
 avgLift0 = avgLift(m, opt, traj0, param0) # for minlift constraint
 println("Avg lift initial [mg]=", round(avgLift0, digits=1))
 
@@ -90,7 +86,8 @@ POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 # includet("w2d_scaling1.jl")
 # # resdict = scaling1(m, opt, traj0, param0, 2, range(60, 120, length=7), range(160, 420, length=7), range(1e3, 1e5, length=4)) # SLOW
 # pls = scaling1disp("scaling1_3d4.zip"; scatterOnly=false, xpl=[27,33], ypl=[220,420], s=5e5, useFDasFact=true, Fnom=75, mactline=10e3) # Found this by setting useFDasFact=false, and checking magnitudes
-# plot(pls..., size=(1000,600), window_title="Scaling1")#, dpi=200)
+# # plot(pls..., size=(1000,600), window_title="Scaling1")#, dpi=200)
+# plot(pls[3], pls[4], pls[6], pls[7], size=(600,500))
 # # savefig("scaling1.png")
 # gui()
 
@@ -100,8 +97,8 @@ POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 
 ## Try to optimize ---------
 
-# includet("w2d_paramopt.jl")
-# ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=3e4)#, print_level=3)
+includet("w2d_paramopt.jl")
+ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 250; Φ=90, Qdt=3e4)#, print_level=3)
 
 ## Bigbee ---------
 
@@ -112,22 +109,24 @@ POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 # # "low power": Opt Φ=120, Qdt=0.0, minal=300, τ2/1 lim=2.0 => 0, [22.083 3.282 1.147 5.273 6.566 88.333 0.097], fHz=129.1, al[mg]=308.5, u∞=185.0, FD∞=146.2, pow=22.8, J=248.0, AR=4.0, x=39.4
 # ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 300; Φ=120, Qdt=0, Rpow=1e1)
 
-# ## Param space convexity plot -----------------
-# # Turn down wΔy = 1e2 to make weight be just for LSE https://github.com/avikde/robobee3d/pull/140#issuecomment-583749876
-# # Qdt = 0 -> f = 151, FD = 60, J=83.  but making f >= 0.18 gives 
-# ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=0.0, tol=5e-2)
-# ##
-# includet("w2d_pplots.jl")
-# # pls = plotParams(m, opt, ret2; compareTo=[16.365 2.462 0.85 4.084 4.924 65.457 0.069])
-# pls = plotParams(m, opt, ret2; compareTo=[22.109 2.462 1.149 4.415 4.924 88.436 0.094])
-# plot(pls...)
-# gui()
+## Param space convexity plot -----------------
+
+# Turn down wΔy = 1e2 to make weight be just for LSE https://github.com/avikde/robobee3d/pull/140#issuecomment-583749876
+# Qdt = 0 -> f = 151, FD = 60, J=83.  but making f >= 0.18 gives 
+ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=0.0, tol=5e-2)
+##
+includet("w2d_pplots.jl")
+# pls = plotParams(m, opt, ret2; compareTo=[16.365 2.462 0.85 4.084 4.924 65.457 0.069])
+pls = plotParams(m, opt, ret2; compareTo=[22.109 2.462 1.149 4.415 4.924 88.436 0.094])
+plot(pls...)
+gui()
 
 ## DEBUG ----------
 
 # includet("w2d_debug.jl")
 # pls = debugΔYEffect(N, ny, ret2, ret1)
-# plot(pls..., size=(1000,600))
+# # plot(pls..., size=(1000,600))
+# plot(pls[end], size=(400,200))
 # gui()
 
 ## Components ---------
@@ -138,12 +137,14 @@ POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 
 ## NONLIN BENEFIT -----------------
 
-includet("w2d_nlbenefit.jl")
+# includet("w2d_nlbenefit.jl")
 
-# results = nonlinBenefit("nonlinbig3.zip", ret1, range(0, 3, length=6), range(180, 360, length=6); τ2eq=true, tol=5e-2) # SLOW
-pls = plotNonlinBenefit("nonlinbig2.zip", [180,360]; s=100)
-plot(pls...)
-gui()
+# # openLoopPlotFinal(m, opt, param0)
+
+# # results = nonlinBenefit("nonlinbig3.zip", ret1, range(0, 3, length=6), range(180, 360, length=6); τ2eq=true, tol=5e-2) # SLOW
+# pls = plotNonlinBenefit("nonlinbig2.zip", [180,360]; s=100)
+# plot(pls...)
+# gui()
 
 ##
 ## ----------------
