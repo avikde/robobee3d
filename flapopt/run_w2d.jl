@@ -52,7 +52,7 @@ KINTYPE = 1
 N, trajt, traj0, opt, Φ0 = initTraj(m, param0, KINTYPE; uampl=uampl)
 ##
 includet("w2d_nlbenefit.jl")
-openLoopPlot(m, opt, param0, 140, 180)
+openLoopPlot(m, opt, param0, range(140, 180,length=2); NLT1scales=[0.975, 0.925]) # mw=0.55 -> [0.975, 0.925], mw=0.7 -> [0.96, 0.9]
 ##
 avgLift0 = avgLift(m, opt, traj0, param0) # for minlift constraint
 println("Avg lift initial [mg]=", round(avgLift0, digits=1))

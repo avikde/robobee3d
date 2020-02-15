@@ -144,24 +144,26 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 end
 
 "Normalize by lowering T1 corresponding to the maximum output disp"
-function nlNormalizeByOutput(m, opt, param, σa0; τ2ratio=2.0)
-	# param[2] *= 0.95
-
-	# From transmission:
-	# τfun = σa -> τ1*σa + τ2/3*σa^3
-	# = τ1*σa + τ1*τ2ratio/3*σa^3 = τ1*σa*(1 + τ2ratio/3*σa^2)
-	# So scale τ1 by 1/(1 + τ2ratio/3*σa^2)
-	param[2] *= 1/(1 + τ2ratio/3*σa0^2)
+function nlNormalizeByOutput(m, opt, param, σa0, T1scale; τ2ratio=2.0)
+	if !isnothing(T1scale)
+		param[2] *= T1scale
+	else
+		# Automatically try to match output. From transmission:
+		# τfun = σa -> τ1*σa + τ2/3*σa^3
+		# = τ1*σa + τ1*τ2ratio/3*σa^3 = τ1*σa*(1 + τ2ratio/3*σa^2)
+		# So scale τ1 by 1/(1 + τ2ratio/3*σa^2)
+		param[2] *= 1/(1 + τ2ratio/3*σa0^2)
+	end
 	param[5] = τ2ratio*param[2]
 	return param
 end
 
 """Generate plot like in [Jafferis (2016)] Fig. 4"""
-function openLoopPlot(m, opt, param0, Vmin, Vmax; save=false)
-	function getResp(f, uamp, nlt, σa0=nothing)
+function openLoopPlot(m, opt, param0, Vamps; save=false, NLT1scales=nothing)
+	function getResp(f, uamp, nlt, σa0=nothing, T1scale=nothing)
 		param = copy(param0)
 		if nlt
-			param = nlNormalizeByOutput(m, opt, param, σa0)
+			param = nlNormalizeByOutput(m, opt, param, σa0, T1scale)
 		end
 		ts = createInitialTraj(m, opt, 0, f, [1e3, 1e2], param, 0; uampl=uamp, trajstats=true, thcoeff=0.1)
 		# println("act disp=",ts[end])
@@ -170,34 +172,43 @@ function openLoopPlot(m, opt, param0, Vmin, Vmax; save=false)
 	fs = 0.03:0.005:0.25
 	mN_PER_V = 75/160
 
-	p1 = plot(ylabel="Norm. stroke ampl [deg/V]", ylims=(0.3,0.8))
+	p1 = plot(ylabel="Norm. stroke ampl [deg/V]", ylims=(0.3,0.8), legend=:topleft)
 	p2 = plot(xlabel="Freq [kHz]", ylabel="Hinge ampl [deg]", legend=false, ylims=(0,100))
+	p3 = plot(ylabel="Norm. act. disp [um/V]", legend=false)
 
-	function plotForTrans(nlt; matchActDisp=nothing)
+	function plotForTrans(nlt; T1scales=nothing)
 		nltstr = nlt ? "N" : "L"
 		actdisps = Dict{Float64, Float64}()
-		for Vamp=range(Vmin, Vmax,length=2)
+		
+		for ii=1:length(Vamps)
+			Vamp = Vamps[ii]
+			T1scale = isnothing(T1scales) ? nothing : T1scales[ii]
+
 			print("Openloop @ ", Vamp, "V ", nltstr)
 			uamp = Vamp*mN_PER_V
-			σa0 = isnothing(matchActDisp) ? nothing : matchActDisp[Vamp]
+			σa0 = nothing
 			# println("HI", σa0)
-			amps = hcat(getResp.(fs, uamp, nlt, σa0)...)
+			amps = hcat(getResp.(fs, uamp, nlt, σa0, T1scale)...)
+			
 			actdisps[Vamp] = maximum(amps[3,:])
-			println(" Act disp=", round(actdisps[Vamp], digits=3), "mm")
+			println(", act disp=", round(actdisps[Vamp], digits=3), "mm")
 			amps[1:2,:] *= 180/pi # to degrees
 			amps[1,:] /= (Vamp) # normalize
+			amps[3,:] *= (1000/Vamp)
 			amps[2,:] /= 2.0 # hinge ampl one direction
 			# println(amps)
 			plot!(p1, fs, amps[1,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt ? :solid : :dash)
 			plot!(p2, fs, amps[2,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt ? :solid : :dash)
+			plot!(p3, fs, amps[3,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt ? :solid : :dash)
 		end
 		return actdisps
 	end
 
-	lindisps = plotForTrans(false)
-	plotForTrans(true; matchActDisp=lindisps)
+	plotForTrans(false)
+	plotForTrans(true; T1scales=NLT1scales)
 
-	plot(p1, #= p2, layout=(2,1),  =# size=(400, 300), dpi=200)
+	# plot(p1, #= p2, layout=(2,1),  =# size=(400, 300), dpi=200)
+	plot(p1, p3, layout=(2,1), size=(300, 400), dpi=150)
 	println("dens=", param0[3]/param0[6], ", koratio=", m.kbo[1]/(m.kbo[1] + m.ka/param0[2]^2))
 	if save
 		savefig("olplot.png")
