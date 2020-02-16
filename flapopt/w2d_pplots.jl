@@ -39,7 +39,7 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, rr; compareTo=nothing)
 		plparam(p; kwargs...) = plot!(pl, [p[i1]], [p[i2]], legend=false, markershape=:auto; kwargs...)
 		plparam(rr["param"]; markercolor=:red)
 		if !isnothing(compareTo)
-			plparam(compareTo; markercolor=:green)
+			plparam(compareTo["param"]; markercolor=:green)
         end
 
         function plotConstraint(ic, ix, iy; kwargs...)
@@ -54,12 +54,21 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, rr; compareTo=nothing)
         return pl
     end
 	
-	return [
+	pls = [
 		plotSlice(6, 7, "Aw", (50, 120), "dt", (0.05, 0.15); icboth=[1]),
 		# plotSlice(2, 7, "T1", (1.6, 3.2), "dt", (0.05, 0.15)),
 		plotSlice(6, 3, "Aw", (50, 120), "mw", (0.3, 1.5); icboth=[3,4]),
-		plotSlice(6, 1, "Aw", (50, 120), "cb2", (10, 30); icboth=[5,6])
+		plotSlice(6, 1, "Aw", (50, 120), "cb2", (10, 30); icboth=[5,6]),
+		plotSlice(3, 1, "mw", (0.3, 1.5), "cb2", (10, 30))
 		]
+
+    # draw a line between the params
+    if !isnothing(compareTo)
+        f1(λ, retf) = retf["eval_f"](rr["x"]*(1-λ) + compareTo["x"]*λ)
+        ll = range(0, 1, length=50)
+        append!(pls, [plot(ll, [f1.(ll, Ref(rr))  f1.(ll, Ref(compareTo))], lw=2)])
+    end
+    return pls
 end
 
 # function plotParamImprovement(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs, paramObj::Function)
@@ -98,8 +107,8 @@ function debugConvexity(m, opt, POPTS, ret1)
     println("Test fold(pnew) ", J2(ret2, ret3), " ", J2(ret3, ret2))
 
     ##
-    pls = plotParams(m, opt, ret2; compareTo=ret3["param"])
-    pls2 = plotParams(m, opt, ret3; compareTo=ret2["param"])
+    pls = plotParams(m, opt, ret2; compareTo=ret3)
+    pls2 = plotParams(m, opt, ret3; compareTo=ret2)
     plot(pls..., pls2..., size=(1000,600))
     gui()
 end
