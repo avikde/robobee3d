@@ -22,7 +22,7 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, rr; compareTo=nothing)
     # params = hcat(args...) # Np x Nsteps
 	# param0 = args[end] # for the slices use the last param
 	
-    function plotSlice(i1, i2, xlabel, xpl, ylabel, ypl)
+    function plotSlice(i1, i2, xlabel, xpl, ylabel, ypl; icboth=[])
         function f(p1, p2)
             x = copy(rr["x"])
             x[i1] = p1
@@ -42,20 +42,23 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, rr; compareTo=nothing)
 			plparam(compareTo; markercolor=:green)
         end
 
-        function plotConstraint(ic, ix, iy)
+        function plotConstraint(ic, ix, iy; kwargs...)
             # Test superimpose constraint
             # ftest(Aw, dt) = dot([-1.0,  100/0.07], [Aw, dt])
             ftest(x, y) = dot(rr["Cp"][ic,[ix,iy]], [x, y]) - rr["dp"][ic]
-            contour!(pl, X, Y, ftest, fill=false, levels=[0], lw=2, ls=:dash)
+            contour!(pl, X, Y, ftest, fill=false, levels=[0], lw=2, ls=:dash, kwargs...)
         end
-        plotConstraint(1, 6, 7)
-        
+        for ic in icboth
+            plotConstraint(ic, i1, i2)
+        end
         return pl
     end
 	
 	return [
-		plotSlice(6, 7, "Aw", (50, 120), "dt", (0.05, 0.15)),
-		# plotSlice(2, 7, "T1", (1.6, 3.2), "dt", (0.05, 0.15))
+		plotSlice(6, 7, "Aw", (50, 120), "dt", (0.05, 0.15); icboth=[1]),
+		# plotSlice(2, 7, "T1", (1.6, 3.2), "dt", (0.05, 0.15)),
+		plotSlice(6, 3, "Aw", (50, 120), "mw", (0.3, 1.5); icboth=[3,4]),
+		plotSlice(6, 1, "Aw", (50, 120), "cb2", (10, 30); icboth=[5,6])
 		]
 end
 
@@ -97,6 +100,6 @@ function debugConvexity(m, opt, POPTS, ret1)
     ##
     pls = plotParams(m, opt, ret2; compareTo=ret3["param"])
     pls2 = plotParams(m, opt, ret3; compareTo=ret2["param"])
-    plot(pls..., pls2...)
+    plot(pls..., pls2..., size=(1000,600))
     gui()
 end
