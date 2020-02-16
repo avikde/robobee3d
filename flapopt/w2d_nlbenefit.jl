@@ -1,4 +1,4 @@
-using Dierckx, Plots
+using Dierckx, Plots, MAT
 
 NLBENEFIT_FNAME = "nonlin.zip"
 function nonlinBenefit(fname, ret, Tratios, minals, Qdts=[5e3, 1e4], Phis=[90,120], kos=range(20,70,length=8), wdens=range(0.01, 0.013, length=2); τ2eq=false, kwargs...)
@@ -62,26 +62,36 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	end
 
 	function createPlots(MODE, ii; title="", ypl=nothing)
+		# Create unstructured data array
+		xyzi = zeros(length(first(resultsOrig)),0)
+		function appendunstruc!(v, res)
+			if !isnan(res[Nhead+1])
+				v = hcat(v, res)
+			end
+			return v
+		end
+
 		# T;al;Qdt;phi;ko
 		if MODE == 0
 			results = resultsOrig[:,:,1,1,1,1]
 			results = normalizeTbenefit(results)
+			for res in results
+				xyzi = appendunstruc!(xyzi, res)
+			end
 			ylabel = "FL [mg]"
 		elseif MODE == 1
-			results = resultsOrig[:,ii[1],ii[2],ii[3],:,ii[4]] # Tratio,ko
+			for res in resultsOrig[:,ii[1],ii[2],ii[3],:,ii[4]] # Tratio,ko
+				xyzi = appendunstruc!(xyzi, res)
+			end
 			ylabel = "ko ratio"
 		elseif MODE == 2
-			results = resultsOrig[ii[1],ii[2],ii[3],ii[4],:,:] # Tratio,wingdens
+			for res in resultsOrig[ii[1],ii[2],ii[3],ii[4],:,:] # Tratio,wingdens
+				xyzi = appendunstruc!(xyzi, res)
+			end
 			ylabel = "Izz"
 		end
-		println("Data:", size(resultsOrig), "->", size(results))
+		println("Data:", size(resultsOrig), "->", size(xyzi))
 
-		xyzi = zeros(length(results[1,1]),0)
-		for res in results
-			if !isnan(res[Nhead+1])
-				xyzi = hcat(xyzi, res)
-			end
-		end
 		# for plotting
 		head = xyzi[1:Nhead,:]
 		stats = xyzi[Nhead+1:Nhead+4,:]
@@ -135,8 +145,8 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	
 	return [
 		# Mode 1: al;Qdt;phi;wingdens
-		plot(createPlots(1, [4, 1, 2, 2]; title="Low I, 120deg")..., createPlots(1, [4, 1, 2, 3]; title="High I, 120deg")..., layout=(2,1)),
-		plot(createPlots(1, [1, 1, 1, 2]; title="Low I, 90deg", ypl=(0.5,0.65))..., createPlots(1, [1, 1, 1, 3]; title="High I, 90deg", ypl=(0.5,0.65))..., layout=(2,1)),
+		plot(createPlots(1, (4, 1, 2, 2); title="Low I, 120deg")..., createPlots(1, (4, 1, 2, 3); title="High I, 120deg")..., layout=(2,1)),
+		plot(createPlots(1, (1, 1, 1, 2); title="Low I, 90deg", ypl=(0.5,0.65))..., createPlots(1, (1, 1, 1, 3); title="High I, 90deg", ypl=(0.5,0.65))..., layout=(2,1)),
 		# plot(createPlots(1, [4, 1, 2, 2])..., createPlots(1, [4, 1, 2, 3])..., title="Wing density (low, high)"),
 	]
 	# createPlots(1, [3, 1, 2, 3])
