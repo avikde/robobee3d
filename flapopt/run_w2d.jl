@@ -133,10 +133,10 @@ debugConvexity(m, opt, POPTS, ret1)
 
 # # openLoopPlotFinal(m, opt, param0)
 
-# # results = nonlinBenefit("nonlinbig3.zip", ret1, range(0, 3, length=6), range(180, 360, length=6); τ2eq=true, tol=5e-2) # SLOW
-# pls = plotNonlinBenefit("nonlinbig2.zip", [180,360]; s=100)
-# plot(pls...)
-# gui()
+# results = nonlinBenefit("nonlinbig3.zip", ret1, range(0, 3, length=8), range(180, 360, length=6); τ2eq=true, tol=5e-2) # SLOW
+pls = plotNonlinBenefit("nonlinbig3.zip", [180,360]; s=100)
+plot(pls...)
+gui()
 
 ##
 ## ----------------

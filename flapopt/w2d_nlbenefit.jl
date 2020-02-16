@@ -1,7 +1,7 @@
 using Dierckx, Plots
 
 NLBENEFIT_FNAME = "nonlin.zip"
-function nonlinBenefit(fname, ret, Tratios, minals, Qdts=[5e3, 1e4], Phis=[90,120], kos=range(25,65,length=6), wdens=range(0.009, 0.013, length=3); τ2eq=false, kwargs...)
+function nonlinBenefit(fname, ret, Tratios, minals, Qdts=[5e3, 1e4], Phis=[90,120], kos=range(20,70,length=8), wdens=range(0.01, 0.013, length=2); τ2eq=false, kwargs...)
 	i = 0
 	Ntotal = length(Tratios)*length(minals)*length(Qdts)*length(Phis)*length(kos)*length(wdens)
 	function maxu(τ21ratiolim, minal, Qdt, phi, ko, wdens1)
