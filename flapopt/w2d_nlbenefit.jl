@@ -97,14 +97,16 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 
 	function scatterAndShadow(xi, yi, zi, camera, ylabel; markeralpha=0.1)
 		Z = ones(size(zi))
-		p1 = scatter3d(xi, yi, zi, camera=(30,60), m=:bluesreds_r, zcolor=zi, legend=false, xlabel="T ratio", ylabel=ylabel, markerstrokewidth=0)
+		p1 = scatter3d(camera=camera, legend=false, xlabel="T ratio", ylabel=ylabel)
 		# shadows
 		scatter3d!(p1, xi, yi, minimum(zi)*Z, color=:gray, markeralpha=markeralpha, markerstrokewidth=0)
 		scatter3d!(p1, minimum(xi)*Z, yi, zi, color=:gray, markeralpha=markeralpha, markerstrokewidth=0)
 		scatter3d!(p1, xi, maximum(yi)*Z, zi, color=:gray, markeralpha=markeralpha, markerstrokewidth=0)
+		# actual points
+		scatter3d!(p1, xi, yi, zi, m=:bluesreds_r, zcolor=zi, markerstrokewidth=0)
 	end
 
-	function createPlots(MODE, ii; title="", ypl=nothing)
+	function createPlots(MODE, ii, scatcam; title="", ypl=nothing)
 		xyzi, Nhead, ylabel = prepareDataNonlinBenefit(fname, MODE, ii)
 		# for plotting
 		head = xyzi[1:Nhead,:]
@@ -140,7 +142,7 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 			]
 		elseif MODE == 1
 			return [
-				scatterAndShadow(Tractual, koratio, FLspec, (30,60), ylabel),
+				scatterAndShadow(Tractual, koratio, FLspec, scatcam, ylabel),
 				contourFromUnstructured(Tractual, koratio, FLspec, ylabel; colorbar_title="FL sp.", title=title, rev=true, ypl=ypl),
 				# contourFromUnstructured(Tractual, koratio, ko_I, ylabel; title="ko/I"),
 				# contourFromUnstructured(Tractual, koratio, params[6,:], ylabel; title="Aw [mm^2]"),
@@ -157,11 +159,14 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 			]
 		end
 	end
+
+	
 	
 	return [
+		# FIXME: low/high I (1 vs. 3 in the last element really seem to not make a big difference)
 		# Mode 1: al;Qdt;phi;wingdens
-		plot(createPlots(1, (4, 1, 2, 2); title="Low I, 120deg")..., createPlots(1, (4, 1, 2, 3); title="High I, 120deg")..., layout=(2,2)),
-		# plot(createPlots(1, (1, 1, 1, 2); title="Low I, 90deg", ypl=(0.5,0.65))..., createPlots(1, (1, 1, 1, 3); title="High I, 90deg", ypl=(0.5,0.65))..., layout=(2,1)),
+		createPlots(1, ([2,3,4,5], [1,2], 2, [1,2,3]), (30,60); title="120deg")..., 
+		createPlots(1, ([2,3,4,5], [1,2], 1, [1,2,3]), (30,60); title="90deg")...,
 		# plot(createPlots(1, [4, 1, 2, 2])..., createPlots(1, [4, 1, 2, 3])..., title="Wing density (low, high)"),
 	]
 	# createPlots(1, [3, 1, 2, 3])
