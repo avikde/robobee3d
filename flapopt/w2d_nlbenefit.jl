@@ -22,6 +22,7 @@ function nonlinBenefit(fname, ret, Tratios, minals, Qdts=[5e3, 1e4], Phis=[90,12
 	return res
 end
 
+"Helper for plotNonlinBenefit"
 function prepareDataNonlinBenefit(fname, MODE, ii)
 	Nhead = 5#length(size(results))
 	resultsOrig = matread(fname)["res"]
@@ -72,6 +73,7 @@ function prepareDataNonlinBenefit(fname, MODE, ii)
 	return xyzi, Nhead, ylabel
 end
 
+"Plot benefits of nonlin transmission from big sim data"
 function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	function contourFromUnstructured(xi, yi, zi, ylabel; colorbar_title="", title="", rev=false, ypl=nothing)
 		xpl = minimum(xi), maximum(xi)
@@ -91,6 +93,15 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 			titlefontsize=10, grid=false, lw=2, c=(rev ? :bluesreds_r : :bluesreds), 
 			xlabel="T ratio", ylabel=ylabel, colorbar_title=colorbar_title, title=title,
 			xlims=xpl, ylims=ypl)
+	end
+
+	function scatterAndShadow(xi, yi, zi, camera, ylabel; markeralpha=0.1)
+		Z = ones(size(zi))
+		p1 = scatter3d(xi, yi, zi, camera=(30,60), m=:bluesreds_r, zcolor=zi, legend=false, xlabel="T ratio", ylabel=ylabel, markerstrokewidth=0)
+		# shadows
+		scatter3d!(p1, xi, yi, minimum(zi)*Z, color=:gray, markeralpha=markeralpha, markerstrokewidth=0)
+		scatter3d!(p1, minimum(xi)*Z, yi, zi, color=:gray, markeralpha=markeralpha, markerstrokewidth=0)
+		scatter3d!(p1, xi, maximum(yi)*Z, zi, color=:gray, markeralpha=markeralpha, markerstrokewidth=0)
 	end
 
 	function createPlots(MODE, ii; title="", ypl=nothing)
@@ -116,6 +127,7 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 
 		# SET AXES HERE
 
+
 		if MODE == 0
 			return [
 				# scatter(xyzi[1,:], xyzi[4,:]),
@@ -128,7 +140,7 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 			]
 		elseif MODE == 1
 			return [
-				scatter3d(Tractual, koratio, FLspec, camera=(20,40)),
+				scatterAndShadow(Tractual, koratio, FLspec, (30,60), ylabel),
 				contourFromUnstructured(Tractual, koratio, FLspec, ylabel; colorbar_title="FL sp.", title=title, rev=true, ypl=ypl),
 				# contourFromUnstructured(Tractual, koratio, ko_I, ylabel; title="ko/I"),
 				# contourFromUnstructured(Tractual, koratio, params[6,:], ylabel; title="Aw [mm^2]"),
