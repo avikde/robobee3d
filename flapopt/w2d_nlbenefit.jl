@@ -22,10 +22,9 @@ function nonlinBenefit(fname, ret, Tratios, minals, Qdts=[5e3, 1e4], Phis=[90,12
 	return res
 end
 
-function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
-	resultsOrig = matread(fname)["res"]
-	
+function prepareDataNonlinBenefit(fname, MODE, ii)
 	Nhead = 5#length(size(results))
+	resultsOrig = matread(fname)["res"]
 
 	function normalizeTbenefit(results)
 		# Row 1 has Tratio=0 (res[1,:])
@@ -40,7 +39,40 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 		end
 		return results
 	end
+	
+	# Create unstructured data array
+	xyzi = zeros(length(first(resultsOrig)),0)
+	function appendunstruc!(v, res)
+		if !isnan(res[Nhead+1])
+			v = hcat(v, res)
+		end
+		return v
+	end
 
+	# T;al;Qdt;phi;ko
+	if MODE == 0
+		results = resultsOrig[:,:,1,1,1,1]
+		results = normalizeTbenefit(results)
+		for res in results
+			xyzi = appendunstruc!(xyzi, res)
+		end
+		ylabel = "FL [mg]"
+	elseif MODE == 1
+		for res in resultsOrig[:,ii[1],ii[2],ii[3],:,ii[4]] # Tratio,ko
+			xyzi = appendunstruc!(xyzi, res)
+		end
+		ylabel = "ko ratio"
+	elseif MODE == 2
+		for res in resultsOrig[ii[1],ii[2],ii[3],ii[4],:,:] # Tratio,wingdens
+			xyzi = appendunstruc!(xyzi, res)
+		end
+		ylabel = "Izz"
+	end
+	println("Data:", size(resultsOrig), "->", size(xyzi))
+	return xyzi, Nhead, ylabel
+end
+
+function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	function contourFromUnstructured(xi, yi, zi, ylabel; colorbar_title="", title="", rev=false, ypl=nothing)
 		xpl = minimum(xi), maximum(xi)
 		if isnothing(ypl)
@@ -62,36 +94,7 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	end
 
 	function createPlots(MODE, ii; title="", ypl=nothing)
-		# Create unstructured data array
-		xyzi = zeros(length(first(resultsOrig)),0)
-		function appendunstruc!(v, res)
-			if !isnan(res[Nhead+1])
-				v = hcat(v, res)
-			end
-			return v
-		end
-
-		# T;al;Qdt;phi;ko
-		if MODE == 0
-			results = resultsOrig[:,:,1,1,1,1]
-			results = normalizeTbenefit(results)
-			for res in results
-				xyzi = appendunstruc!(xyzi, res)
-			end
-			ylabel = "FL [mg]"
-		elseif MODE == 1
-			for res in resultsOrig[:,ii[1],ii[2],ii[3],:,ii[4]] # Tratio,ko
-				xyzi = appendunstruc!(xyzi, res)
-			end
-			ylabel = "ko ratio"
-		elseif MODE == 2
-			for res in resultsOrig[ii[1],ii[2],ii[3],ii[4],:,:] # Tratio,wingdens
-				xyzi = appendunstruc!(xyzi, res)
-			end
-			ylabel = "Izz"
-		end
-		println("Data:", size(resultsOrig), "->", size(xyzi))
-
+		xyzi, Nhead, ylabel = prepareDataNonlinBenefit(fname, MODE, ii)
 		# for plotting
 		head = xyzi[1:Nhead,:]
 		stats = xyzi[Nhead+1:Nhead+4,:]
@@ -125,7 +128,7 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 			]
 		elseif MODE == 1
 			return [
-				# scatter3d(Tractual, koratio, FLspec),
+				scatter3d(Tractual, koratio, FLspec, camera=(20,40)),
 				contourFromUnstructured(Tractual, koratio, FLspec, ylabel; colorbar_title="FL sp.", title=title, rev=true, ypl=ypl),
 				# contourFromUnstructured(Tractual, koratio, ko_I, ylabel; title="ko/I"),
 				# contourFromUnstructured(Tractual, koratio, params[6,:], ylabel; title="Aw [mm^2]"),
@@ -145,8 +148,8 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	
 	return [
 		# Mode 1: al;Qdt;phi;wingdens
-		plot(createPlots(1, (4, 1, 2, 2); title="Low I, 120deg")..., createPlots(1, (4, 1, 2, 3); title="High I, 120deg")..., layout=(2,1)),
-		plot(createPlots(1, (1, 1, 1, 2); title="Low I, 90deg", ypl=(0.5,0.65))..., createPlots(1, (1, 1, 1, 3); title="High I, 90deg", ypl=(0.5,0.65))..., layout=(2,1)),
+		plot(createPlots(1, (4, 1, 2, 2); title="Low I, 120deg")..., createPlots(1, (4, 1, 2, 3); title="High I, 120deg")..., layout=(2,2)),
+		# plot(createPlots(1, (1, 1, 1, 2); title="Low I, 90deg", ypl=(0.5,0.65))..., createPlots(1, (1, 1, 1, 3); title="High I, 90deg", ypl=(0.5,0.65))..., layout=(2,1)),
 		# plot(createPlots(1, [4, 1, 2, 2])..., createPlots(1, [4, 1, 2, 3])..., title="Wing density (low, high)"),
 	]
 	# createPlots(1, [3, 1, 2, 3])
