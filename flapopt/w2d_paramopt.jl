@@ -173,6 +173,8 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	ret["mechPow"] = trajMechPow(m, opt, ret["traj"], ret["param"])
 	ret["comps"] = getComponents(m, opt, ret["traj"], ret["param"])
 	ret["FD∞"] = norm(ret["comps"][6][1,:], Inf) # Also store drag (should be same as uinf for scaling but dynamics)
+	ret["Cp"] = Cp
+	ret["dp"] = dp
 	
 	println(ret["status"], ", ", round.(ret["param"]', digits=3), 
 	", fHz=", round(1000/(N*ret["param"][end]), digits=1), 

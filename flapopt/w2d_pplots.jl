@@ -42,15 +42,20 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, rr; compareTo=nothing)
 			plparam(compareTo; markercolor=:green)
         end
 
-        # Test superimpose constraint
-        ftest(Aw, dt) = Aw - 80
-        contour!(pl, X, Y, ftest, fill=false)
+        function plotConstraint(ic, ix, iy)
+            # Test superimpose constraint
+            # ftest(Aw, dt) = dot([-1.0,  100/0.07], [Aw, dt])
+            ftest(x, y) = dot(rr["Cp"][ic,[ix,iy]], [x, y]) - rr["dp"][ic]
+            contour!(pl, X, Y, ftest, fill=false, levels=[0], lw=2, ls=:dash)
+        end
+        plotConstraint(1, 6, 7)
+        
         return pl
     end
 	
 	return [
-		plotSlice(6, 7, "Aw", (50, 100), "dt", (0.05, 0.1)),
-		plotSlice(2, 7, "T1", (1.6, 3.2), "dt", (0.05, 0.1))
+		plotSlice(6, 7, "Aw", (50, 120), "dt", (0.05, 0.15)),
+		# plotSlice(2, 7, "T1", (1.6, 3.2), "dt", (0.05, 0.15))
 		]
 end
 
@@ -85,11 +90,13 @@ function debugConvexity(m, opt, POPTS, ret1)
     POPTS.plimsU[end] = dtlimU0
 
     J(ret) = ret["eval_f"](ret["x"])
+    J2(retf, retv) = retf["eval_f"](retv["x"])
     println("Cost went ", J(ret2), "->", J(ret3))
+    println("Test fold(pnew) ", J2(ret2, ret3), " ", J2(ret3, ret2))
 
     ##
-    # pls = plotParams(m, opt, ret2; compareTo=[16.365 2.462 0.85 4.084 4.924 65.457 0.069])
-    # pls = plotParams(m, opt, ret2; compareTo=[22.109 2.462 1.149 4.415 4.924 88.436 0.094])
-    # plot(pls...)
-    # gui()
+    pls = plotParams(m, opt, ret2; compareTo=ret3["param"])
+    pls2 = plotParams(m, opt, ret3; compareTo=ret2["param"])
+    plot(pls..., pls2...)
+    gui()
 end
