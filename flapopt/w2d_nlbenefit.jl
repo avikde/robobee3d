@@ -74,7 +74,7 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 			results = resultsOrig[ii[1],ii[2],ii[3],ii[4],:,:] # Tratio,wingdens
 			ylabel = "Izz"
 		end
-		# println(size(results))
+		println("Data:", size(resultsOrig), "->", size(results))
 
 		xyzi = zeros(length(results[1,1]),0)
 		for res in results
@@ -134,9 +134,9 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	end
 	
 	return [
-		# al;Qdt;phi;wingdens
-		plot(createPlots(1, [3, 1, 2, 2]; title="Low I, 120deg")..., createPlots(1, [3, 1, 2, 3]; title="High I, 120deg")..., layout=(2,1)),
-		plot(createPlots(1, [2, 1, 1, 2]; title="Low I, 90deg", ypl=(0.5,0.625))..., createPlots(1, [2, 1, 1, 3]; title="High I, 90deg", ypl=(0.5,0.625))..., layout=(2,1)),
+		# Mode 1: al;Qdt;phi;wingdens
+		plot(createPlots(1, [4, 1, 2, 2]; title="Low I, 120deg")..., createPlots(1, [4, 1, 2, 3]; title="High I, 120deg")..., layout=(2,1)),
+		plot(createPlots(1, [1, 1, 1, 2]; title="Low I, 90deg", ypl=(0.5,0.65))..., createPlots(1, [1, 1, 1, 3]; title="High I, 90deg", ypl=(0.5,0.65))..., layout=(2,1)),
 		# plot(createPlots(1, [4, 1, 2, 2])..., createPlots(1, [4, 1, 2, 3])..., title="Wing density (low, high)"),
 	]
 	# createPlots(1, [3, 1, 2, 3])
