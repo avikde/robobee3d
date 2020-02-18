@@ -19,11 +19,29 @@ becky3R = [140	52.88;
 	170	72.65;
 	175	72.46;
 	180	68.01]
-patrick = [120	47.7;
+patrickL = [120	50.3;
+	125 50.5;
+	130 50;
+	135 50.3;
+	140	50.2;
+	145 50.2;
+	150	50.3;
+	155	51.5;
+	160	53.2;
+	165 59;
+	168 62;
+	170	63.4]
+patrickR = [120	47.7;
+	125 47.4;
+	130 46.8;
+	135 46.8;
 	140	49.1;
+	145 49.4;
 	150	49;
-	155	53.8;
+	155	53.7;
 	160	59;
+	165 65;
+	168 67;
 	170	68]
 
 function readOLExpCSV(fname)
@@ -62,7 +80,8 @@ p = plot(xlabel="Freq [Hz]", ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,0.6)
 olExpPlotCurves!(p, readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 a1.csv")..., [180], "Avik ")
 olExpPlotCurves!(p, [180.0], [becky3L], [], "Becky 3L ")
 olExpPlotCurves!(p, [180.0], [becky3R], [], "Becky 3R ")
-olExpPlotCurves!(p, [180.0], [patrick], [], "Patrick ")
+olExpPlotCurves!(p, [180.0], [patrickL], [], "Patrick L ")
+olExpPlotCurves!(p, [180.0], [patrickR], [], "Patrick R ")
 plot(p, size=(400,400))
 
 gui()
