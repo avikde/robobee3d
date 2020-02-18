@@ -1,4 +1,4 @@
-using Plots
+using Plots, DelimitedFiles
 
 mod4bh1_V = [#= 150, =# 160, 170, 180, 190, 200]
 
@@ -41,59 +41,27 @@ mod4bh1 = [
 	170	74.94]
 	]
 
-mod1a1_V = [#= 150, =# 160, 170, 180, 190, 200]
-mod1a1 = [
-	# [150	38.2;
-	# 160	41.88;
-	# 170	53.94;
-	# 180	54.57;
-	# 185	54.39;
-	# 190	55.2;
-	# 200	53.42;
-	# 210	53.6],
-	[160	47.07;
-	170	58.77;
-	180	68.72;
-	185	71.57;
-	190	72.42;
-	200	68.49;
-	210	61.05],
-	[160	53.87;
-	170	67.14;
-	180	77.4;
-	185	81.12;
-	190	79.98;
-	200	72.04;
-	210	64.52],
-	[160	59.6;
-	170	73.76;
-	180	84.93;
-	185	84.36;
-	190	83.8;
-	200	75.55],
-	[160	67.46;
-	170	81.58;
-	180	91.91;
-	185	92.67;
-	190	88.46;
-	200	77.97],
-	[160	75.03;
-	170	88.88;
-	175	95.68;
-	180	97.19;
-	190	92.66;
-	200	80.21]
-	]
+function readOLExpCSV(fname)
+	dat = readdlm(fname, ',', Float64, skipstart=1)
+	Vs = unique(dat[:,1])
+	return Vs, [dat[dat[:,1] .== V,2:3] for V in Vs]
+end
 
-function olExpPlot(V, stroke)
+function olExpPlot(V, stroke; showV=[])
 	Nv = length(V)
 	p = plot(xlabel="Freq [Hz]", ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,0.7))
 	for i=1:Nv
-		plot!(p, stroke[i][:,1], stroke[i][:,2]/V[i], label=V[i], markershape=:auto, lw=2)
+		if length(showV) == 0 || Int(V[i]) in showV
+			plot!(p, stroke[i][:,1], stroke[i][:,2]/V[i], label=Int(V[i]), markershape=:auto, lw=2)
+		end
 	end
 	return p
 end
 
-plot(olExpPlot(mod1a1_V, mod1a1), olExpPlot(mod4bh1_V, mod4bh1), size=(600,400))
+mod1a1_V, mod1a1 = readOLExpCSV("data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv")
+
+plot(
+	olExpPlot(mod1a1_V, mod1a1; showV=[160,170,180,190,200]), 
+	olExpPlot(mod4bh1_V, mod4bh1))
 gui()
 	
