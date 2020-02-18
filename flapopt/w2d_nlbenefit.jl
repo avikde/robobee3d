@@ -164,8 +164,8 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	return [
 		# FIXME: low/high I (1 vs. 2 in the last element really seem to not make a big difference)
 		# Mode 1: al;Qdt;phi;wingdens
-		createPlots(1, ([2,3,4,5], [1,2], 2, [1,2]), (30,60); title="120deg")..., 
-		createPlots(1, ([2,3,4,5], [1,2], 1, [1,2]), (30,60); title="90deg")...,
+		createPlots(1, ([2,3,4,5], [1,2], 2, [1,2]), (80,10); title="120deg")..., 
+		createPlots(1, ([2,3,4,5], [1,2], 1, [1,2]), (80,10); title="90deg")...,
 		# plot(createPlots(1, [4, 1, 2, 2])..., createPlots(1, [4, 1, 2, 3])..., title="Wing density (low, high)"),
 	]
 	# createPlots(1, [3, 1, 2, 3])
