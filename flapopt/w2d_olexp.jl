@@ -21,7 +21,7 @@ plot(
 	olExpPlot(readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 a1.csv")...; showV=[150,180,200], title="SDAB A1"),
 	olExpPlot(readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 4b1.csv")...; showV=[120,150,190], title="SDAB 4B1"),
 	olExpPlot(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv")...; showV=[120,160,190], title="Mod1 A1"), 
-	olExpPlot(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h1.csv")...; showV=[120,150,160,170,180,190], title="Mod1 4B1"),
+	olExpPlot(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h1.csv")...; showV=[120,140,160], title="Mod1 4B1"),
 	size=(800,600))
 gui()
 	
