@@ -201,9 +201,9 @@ function openLoopPlot(m, opt, param0, Vamps; save=false, NLT1scales=nothing, rig
 	fs = 0.03:0.005:0.25
 	mN_PER_V = 75/160
 
-	p1 = plot(ylabel=rightplot ? "" : "Norm. stroke ampl [deg/V]", ylims=(0.3,0.8), legend=rightplot ? false : :topleft, title=rightplot ? "Low inertia" : "High inertia")
+	p1 = plot(ylabel=rightplot ? "" : "Norm. stroke ampl [deg/V]", ylims=(0.3,0.8), legend=false, title=rightplot ? "High inertia" : "Low inertia")
 	p2 = plot(xlabel="Freq [kHz]", ylabel="Hinge ampl [deg]", legend=false, ylims=(0,100))
-	p3 = plot(ylabel=rightplot ? "" : "Norm. act. disp [um/V]", legend=false, ylim=(1.0,2.4), xlabel="Freq [kHz]")
+	p3 = plot(ylabel=rightplot ? "" : "Norm. act. disp [um/V]", legend=rightplot ? false : :topleft, ylim=(1.0,2.4), xlabel="Freq [kHz]")
 	# if rightplot
 	# 	yaxis!(p1, false)
 	# 	yaxis!(p3, false)
@@ -241,7 +241,7 @@ function openLoopPlot(m, opt, param0, Vamps; save=false, NLT1scales=nothing, rig
 
 	println("dens=", param0[3]/param0[6], ", koratio=", m.kbo[1]/(m.kbo[1] + m.ka/param0[2]^2))
 	# plot(p1, #= p2, layout=(2,1),  =# size=(400, 300), dpi=200)
-	return plot(p1, p3, layout=(2,1))
+	return plot(p1, p3, layout=(2,1), size=(400,250))
 end
 
 function openLoopPlotFinal(m, opt, param0)
