@@ -133,8 +133,8 @@ includet("w2d_nlbenefit.jl")
 
 # openLoopPlotFinal(m, opt, param0)
 
-# results = nonlinBenefit("nonlinbig4.zip", ret1, range(0, 3, length=8), range(180, 360, length=6); τ2eq=true, tol=5e-2) # SLOW
-pls = plotNonlinBenefit("nonlinbig3.zip", [180,360]; s=100)
+# results = nonlinBenefit("nonlinbig5.zip", ret1, range(0, 3, length=10), range(180, 360, length=6); τ2eq=true, tol=5e-2) # SLOW
+pls = plotNonlinBenefit("nonlinbig5.zip", [180,360]; s=100)
 plot(pls...)
 gui()
 

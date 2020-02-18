@@ -1,7 +1,7 @@
 using Dierckx, Plots, MAT
 
 NLBENEFIT_FNAME = "nonlin.zip"
-function nonlinBenefit(fname, ret, Tratios, minals, Qdts=[5e3, 1e4], Phis=[90,120], kos=range(20,70,length=8), wdens=range(0.01, 0.013, length=2); τ2eq=false, kwargs...)
+function nonlinBenefit(fname, ret, Tratios, minals, Qdts=[5e3, 1e4], Phis=[90,120], kos=range(20,70,length=10), wdens=range(0.01, 0.013, length=2); τ2eq=false, kwargs...)
 	i = 0
 	Ntotal = length(Tratios)*length(minals)*length(Qdts)*length(Phis)*length(kos)*length(wdens)
 	function maxu(τ21ratiolim, minal, Qdt, phi, ko, wdens1)
@@ -129,7 +129,6 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 
 		# SET AXES HERE
 
-
 		if MODE == 0
 			return [
 				# scatter(xyzi[1,:], xyzi[4,:]),
@@ -163,10 +162,10 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	
 	
 	return [
-		# FIXME: low/high I (1 vs. 3 in the last element really seem to not make a big difference)
+		# FIXME: low/high I (1 vs. 2 in the last element really seem to not make a big difference)
 		# Mode 1: al;Qdt;phi;wingdens
-		createPlots(1, ([2,3,4,5], [1,2], 2, [1,2,3]), (30,60); title="120deg")..., 
-		createPlots(1, ([2,3,4,5], [1,2], 1, [1,2,3]), (30,60); title="90deg")...,
+		createPlots(1, ([2,3,4,5], [1,2], 2, [1,2]), (30,60); title="120deg")..., 
+		createPlots(1, ([2,3,4,5], [1,2], 1, [1,2]), (30,60); title="90deg")...,
 		# plot(createPlots(1, [4, 1, 2, 2])..., createPlots(1, [4, 1, 2, 3])..., title="Wing density (low, high)"),
 	]
 	# createPlots(1, [3, 1, 2, 3])
