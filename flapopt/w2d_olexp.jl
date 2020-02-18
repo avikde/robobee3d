@@ -17,11 +17,10 @@ function olExpPlot(V, stroke; showV=[])
 	return p
 end
 
-mod1a1_V, mod1a1 = readOLExpCSV("data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv")
-mod4bh1_V, mod4bh1 = readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h1.csv")
-
 plot(
-	olExpPlot(mod1a1_V, mod1a1; showV=[120,160,190]), 
-	olExpPlot(mod4bh1_V, mod4bh1; showV=[120,150,160,170,180,190]))
+	olExpPlot(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv")...; showV=[120,160,190]), 
+	olExpPlot(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h1.csv")...; showV=[120,150,160,170,180,190]),
+	olExpPlot(readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 4b1.csv")...; showV=[120,150,180]),
+	size=(800,600))
 gui()
 	
