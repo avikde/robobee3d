@@ -83,6 +83,7 @@ wingPitchFromSparProjAng(angProj, ang0=45) = rad2deg(acos(1 - tan(deg2rad(angPro
 "Only Aw, cbar (wing dims), and dt (freq) are use to calculate lift. Use param0 otherwise."
 function statsFromAmplitudes(m, opt, Amp, param, Aw, Lw, freqHz)
 	m.Amp .= Amp
+	# m.Amp[1] = Amp[1]
 	N, traj = initTraj(m, param, 1; uampl=75, verbose=false)[[1,3]]
 	# scale velocities according to the new freq
 	forig = 1000/(N*param[end])
@@ -110,16 +111,18 @@ function calculateStats(m, opt, param, fname, Aw, Lw, spar10, spar20)
 	spar0 = (spar10, spar20)
 	# get mean wing pitch angle from the two spar measurements
 	pitches = mean(hcat([wingPitchFromSparProjAng.(spars[recordedpts,i], Ref(spar0[i])) for i=1:2]...); dims=2)
-	println(fname, round.(pitches, digits=1))
 
 	volts = dat[recordedpts,1]
 	freqs = dat[recordedpts,2]
 	strokes = dat[recordedpts,3]
 	Amps = deg2rad.(hcat(strokes, 2*pitches))
 
-	return vcat([
+	stats = vcat([
 		[volts[i]; freqs[i]; statsFromAmplitudes(m, opt, Amps[i,:], param, Aw, Lw, freqs[i])]'
 		for i = 1:length(freqs)]...)
+	
+	println(fname, round.(pitches, digits=1), round.(stats[:,3], digits=1))
+	return stats
 end
 
 "Tuples of Aw, Lw, spar1, spar2 from https://github.com/avikde/robobee3d/issues/145. Measured by roughly using area tool in Autocad, and measuring the longest membrane length"
@@ -133,13 +136,13 @@ wingDims = Dict{String,Tuple{Float64,Float64,Float64,Float64}}(
 
 # --------------------------------------------------------
 metc = (m, opt, param0)
-display(calculateStats(metc..., "data/normstroke/Param opt manuf 2 - halfbee1 a1.csv", wingDims["1a"]...))
+calculateStats(metc..., "data/normstroke/Param opt manuf 2 - halfbee1 a1.csv", wingDims["1a"]...)
 # display(calculateStats(metc..., "data/normstroke/Param opt manuf 2 - halfbee1 4b1.csv", wingDims["4b"]...))
-display(calculateStats(metc..., "data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv", wingDims["1a"]...))
-display(calculateStats(metc..., "data/normstroke/Param opt manuf 2 - mod4 b h1.csv", wingDims["4b"]...))
-display(calculateStats(metc..., "data/normstroke/Param opt manuf 2 - bigbee orig.csv", wingDims["bigbee"]...))
-display(calculateStats(metc..., "data/normstroke/Param opt manuf 2 - bigbee b1.csv", wingDims["1b"]...))
-display(calculateStats(metc..., "data/normstroke/Param opt manuf 2 - bigbee 5b1.csv", wingDims["5b"]...))
+calculateStats(metc..., "data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv", wingDims["1a"]...)
+calculateStats(metc..., "data/normstroke/Param opt manuf 2 - mod4 b h1.csv", wingDims["4b"]...)
+calculateStats(metc..., "data/normstroke/Param opt manuf 2 - bigbee orig.csv", wingDims["bigbee"]...)
+calculateStats(metc..., "data/normstroke/Param opt manuf 2 - bigbee b1.csv", wingDims["1b"]...)
+calculateStats(metc..., "data/normstroke/Param opt manuf 2 - bigbee 5b1.csv", wingDims["5b"]...)
 
 
 # # Main plot
