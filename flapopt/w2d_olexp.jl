@@ -102,12 +102,13 @@ function statsFromAmplitudes(m, opt, Amp, param, Aw, Lw, freqHz)
 end
 
 "Estimate lift, power for given stroke/hinge"
-function calculateStats(m, opt, param, fname, Aw, Lw; spar0=[45., 45.])
+function calculateStats(m, opt, param, fname, Aw, Lw, spar10, spar20)
 	println(fname)
 	dat = readdlm(fname, ',', Float64, skipstart=1)
 	spars = dat[:,4:5]
 	# bitarray of rows where the spar proj angle has been recorded
 	recordedpts = .!(spars[:,1] .≈ 0)
+	spar0 = (spar10, spar20)
 	# get mean wing pitch angle from the two spar measurements
 	pitches = mean(hcat([wingPitchFromSparProjAng.(spars[recordedpts,i], Ref(spar0[i])) for i=1:2]...); dims=2)
 
@@ -121,14 +122,13 @@ function calculateStats(m, opt, param, fname, Aw, Lw; spar0=[45., 45.])
 		for i = 1:length(freqs)]...)
 end
 
-"Tuples of Aw, Lw from https://github.com/avikde/robobee3d/issues/145. Measured by roughly using area tool in Autocad, and measuring the longest membrane length"
-wingDims = Dict{String,Tuple{Float64,Float64}}(
-	"1a" => (54, 12.42),
-	"1b" => (64.4, 14.51),
-	"4b" => (54.2, 13.8),
-	"5a" => (61, 15),
-	"5b" => (58, 15),
-	"bigbee" => (156, 25.5),
+"Tuples of Aw, Lw, spar1, spar2 from https://github.com/avikde/robobee3d/issues/145. Measured by roughly using area tool in Autocad, and measuring the longest membrane length"
+wingDims = Dict{String,Tuple{Float64,Float64,Float64,Float64}}(
+	"1a" => (54, 12.42, 45.45, 45.8),
+	"1b" => (64.4, 14.51, 36.18, 45.8),
+	"4b" => (54.2, 13.8, 45, 46),
+	"5b" => (58, 15, 47, 48),
+	"bigbee" => (156, 25.5, 45, 45),
 )
 
 # --------------------------------------------------------
