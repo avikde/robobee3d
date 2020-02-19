@@ -1,4 +1,4 @@
-using Plots, DelimitedFiles
+using Plots, DelimitedFiles, Statistics
 
 # for comparison; my SDAB vs. others. these are all at 180
 becky3L = [140	50.6;
@@ -74,6 +74,25 @@ function olExpPlot2(datasets...; title="", ulim=0.6)
 	return p
 end
 
+"Get the pitch angle from this measurement: see https://github.com/avikde/robobee3d/issues/145#issuecomment-588361995"
+wingPitchFromSparProjAng(angProj, ang0=45) = rad2deg(acos(1 - tan(deg2rad(angProj)) / tan(deg2rad(ang0))))
+
+"Estimate lift, power for given stroke/hinge"
+function calculateStats(fname; spar0=[45., 45.])
+	dat = readdlm(fname, ',', Float64, skipstart=1)
+	spars = dat[:,4:5]
+	# bitarray of rows where the spar proj angle has been recorded
+	recordedpts = .!(spars[:,1] .≈ 0)
+	# get mean wing pitch angle from the two spar measurements
+	pitches = mean(hcat([wingPitchFromSparProjAng.(spars[recordedpts,i], Ref(spar0[i])) for i=1:2]...); dims=2)
+
+	println(pitches)
+end
+
+# --------------------------------------------------------
+
+calculateStats("data/normstroke/Param opt manuf 2 - halfbee1 a1.csv")
+
 # # Main plot
 # plot(
 # 	olExpPlot2(
@@ -95,13 +114,13 @@ end
 # olExpPlotCurves!(p, ([180.0], [patrickR], []), "Patrick R ")
 # plot(p, size=(400,400))
 
-# BigBee
-p = olExpPlot2(
-	(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee b1.csv")..., []), 
-	(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee 5b1.csv")..., []), 
-	(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee orig.csv")..., []); 
-	title="BigBee", ulim=0.8)
-plot(p, size=(400,400))
+# # BigBee
+# p = olExpPlot2(
+# 	(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee b1.csv")..., []), 
+# 	(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee 5b1.csv")..., []), 
+# 	(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee orig.csv")..., []); 
+# 	title="BigBee", ulim=0.8)
+# plot(p, size=(400,400))
 
-gui()
+# gui()
 	
