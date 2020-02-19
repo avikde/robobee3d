@@ -102,12 +102,12 @@ POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 
 ## Bigbee ---------
 
-# # kact = 4x?. for bigbee it seems like to get down to that frequency, it wants huge wings
-# # "high power": Opt Φ=120, Qdt=50000.0, minal=400, τ2/1 lim=2.0 => 0, [17.199 3.423 0.893 6.224 1.899 68.796 0.065], fHz=191.5, al[mg]=386.5, u∞=252.8, FD∞=149.0, pow=37.1, J=320.5, AR=4.0, x=34.7
-# # ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 400; Φ=120, Qdt=5e4)
+# kact = 4x?. for bigbee it seems like to get down to that frequency, it wants huge wings
+# "high power": Opt Φ=120, Qdt=50000.0, minal=400, τ2/1 lim=2.0 => 0, [17.199 3.423 0.893 6.224 1.899 68.796 0.065], fHz=191.5, al[mg]=386.5, u∞=252.8, FD∞=149.0, pow=37.1, J=320.5, AR=4.0, x=34.7
+# ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 400; Φ=120, Qdt=5e4)
 
-# # "low power": Opt Φ=120, Qdt=0.0, minal=300, τ2/1 lim=2.0 => 0, [22.083 3.282 1.147 5.273 6.566 88.333 0.097], fHz=129.1, al[mg]=308.5, u∞=185.0, FD∞=146.2, pow=22.8, J=248.0, AR=4.0, x=39.4
-# ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 300; Φ=120, Qdt=0, Rpow=1e1)
+# "low power": Opt Φ=120, Qdt=0.0, minal=300, τ2/1 lim=2.0 => 0, [22.083 3.282 1.147 5.273 6.566 88.333 0.097], fHz=129.1, al[mg]=308.5, u∞=185.0, FD∞=146.2, pow=22.8, J=248.0, AR=4.0, x=39.4
+ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 300; Φ=120, Qdt=1e3, Rpow=1e0)
 
 ## Param space convexity plot -----------------
 # includet("w2d_pplots.jl")
@@ -129,14 +129,14 @@ POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 
 ## NONLIN BENEFIT -----------------
 
-includet("w2d_nlbenefit.jl")
+# includet("w2d_nlbenefit.jl")
 
-# openLoopPlotFinal(m, opt, param0)
+# # openLoopPlotFinal(m, opt, param0)
 
-# results = nonlinBenefit("nonlinbig5.zip", ret1, range(0, 3, length=10), range(180, 360, length=6); τ2eq=true, tol=5e-2) # SLOW
-pls = plotNonlinBenefit("nonlinbig5.zip", [180,360]; s=100)
-plot(pls...)
-gui()
+# # results = nonlinBenefit("nonlinbig5.zip", ret1, range(0, 3, length=10), range(180, 360, length=6); τ2eq=true, tol=5e-2) # SLOW
+# pls = plotNonlinBenefit("nonlinbig5.zip", [180,360]; s=100)
+# plot(pls...)
+# gui()
 
 ##
 ## ----------------
