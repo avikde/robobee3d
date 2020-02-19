@@ -103,7 +103,6 @@ end
 
 "Estimate lift, power for given stroke/hinge"
 function calculateStats(m, opt, param, fname, Aw, Lw, spar10, spar20)
-	println(fname)
 	dat = readdlm(fname, ',', Float64, skipstart=1)
 	spars = dat[:,4:5]
 	# bitarray of rows where the spar proj angle has been recorded
@@ -111,6 +110,7 @@ function calculateStats(m, opt, param, fname, Aw, Lw, spar10, spar20)
 	spar0 = (spar10, spar20)
 	# get mean wing pitch angle from the two spar measurements
 	pitches = mean(hcat([wingPitchFromSparProjAng.(spars[recordedpts,i], Ref(spar0[i])) for i=1:2]...); dims=2)
+	println(fname, round.(pitches, digits=1))
 
 	volts = dat[recordedpts,1]
 	freqs = dat[recordedpts,2]
