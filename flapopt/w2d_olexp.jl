@@ -80,17 +80,29 @@ end
 "Get the pitch angle from this measurement: see https://github.com/avikde/robobee3d/issues/145#issuecomment-588361995"
 wingPitchFromSparProjAng(angProj, ang0=45) = rad2deg(acos(1 - tan(deg2rad(angProj)) / tan(deg2rad(ang0))))
 
-function statsFromAmplitudes(m, opt, Amp, param)
+"Only Aw, cbar (wing dims), and dt (freq) are use to calculate lift. Use param0 otherwise."
+function statsFromAmplitudes(m, opt, Amp, param, Aw, Lw, freqHz)
 	m.Amp .= Amp
-	traj = initTraj(m, param, 1; uampl=75, verbose=false)[3]
-	pls = plotTrajs(m, opt, [param], [traj])
-	plot(pls...)
-	gui()
-	error("hi")
+	N, traj = initTraj(m, param, 1; uampl=75, verbose=false)[[1,3]]
+	# scale velocities according to the new freq
+	forig = 1000/(N*param[end])
+	ny = 4
+	traj[3:ny:(N+1)*ny] .*= freqHz/forig
+	traj[4:ny:(N+1)*ny] .*= freqHz/forig
+	# update the params according to the inputs
+	param1 = copy(param)
+	param1[1] = (Aw/Lw)^2
+	param1[6] = Aw
+	param1[end] = 1000/(N*freqHz)
+
+	# pls = plotTrajs(m, opt, [param], [traj])
+	# plot(pls...)
+	# gui()
+	return [avgLift(m, opt, traj, param1); 0] # TODO: power
 end
 
 "Estimate lift, power for given stroke/hinge"
-function calculateStats(m, opt, param, fname; spar0=[45., 45.])
+function calculateStats(m, opt, param, fname, Aw, Lw; spar0=[45., 45.])
 	dat = readdlm(fname, ',', Float64, skipstart=1)
 	spars = dat[:,4:5]
 	# bitarray of rows where the spar proj angle has been recorded
@@ -98,11 +110,13 @@ function calculateStats(m, opt, param, fname; spar0=[45., 45.])
 	# get mean wing pitch angle from the two spar measurements
 	pitches = mean(hcat([wingPitchFromSparProjAng.(spars[recordedpts,i], Ref(spar0[i])) for i=1:2]...); dims=2)
 
+	freqs = dat[recordedpts,2]
 	strokes = dat[recordedpts,3]
 	Amps = deg2rad.(hcat(strokes, 2*pitches))
-	println(Amps)
 
-	statsFromAmplitudes(m, opt, Amps[1,:], param)
+	lifts = vcat([statsFromAmplitudes(m, opt, Amps[i,:], param, Aw, Lw, freqs[i]) for i =1:length(freqs)]'...)
+	println(lifts)
+
 	# # get new input traj
 	# traj, Φ1 = initTraj(m, param, KINTYPE; uampl=75, verbose=false)[[3,5]]
 
@@ -111,7 +125,7 @@ end
 
 # --------------------------------------------------------
 
-calculateStats(m, opt, param0, "data/normstroke/Param opt manuf 2 - halfbee1 a1.csv")
+calculateStats(m, opt, param0, "data/normstroke/Param opt manuf 2 - halfbee1 a1.csv", 54, 15)
 
 # # Main plot
 # plot(
