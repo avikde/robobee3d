@@ -1,5 +1,8 @@
 using Plots, DelimitedFiles, Statistics
 
+include("w2d_model.jl")
+include("w2d_paramopt.jl") # for calculating stats for measurements
+
 # for comparison; my SDAB vs. others. these are all at 180
 becky3L = [140	50.6;
 	145	50.74;
@@ -77,8 +80,17 @@ end
 "Get the pitch angle from this measurement: see https://github.com/avikde/robobee3d/issues/145#issuecomment-588361995"
 wingPitchFromSparProjAng(angProj, ang0=45) = rad2deg(acos(1 - tan(deg2rad(angProj)) / tan(deg2rad(ang0))))
 
+function statsFromAmplitudes(m, opt, Amp, param)
+	m.Amp .= Amp
+	traj = initTraj(m, param, 1; uampl=75, verbose=false)[3]
+	pls = plotTrajs(m, opt, [param], [traj])
+	plot(pls...)
+	gui()
+	error("hi")
+end
+
 "Estimate lift, power for given stroke/hinge"
-function calculateStats(fname; spar0=[45., 45.])
+function calculateStats(m, opt, param, fname; spar0=[45., 45.])
 	dat = readdlm(fname, ',', Float64, skipstart=1)
 	spars = dat[:,4:5]
 	# bitarray of rows where the spar proj angle has been recorded
@@ -86,12 +98,20 @@ function calculateStats(fname; spar0=[45., 45.])
 	# get mean wing pitch angle from the two spar measurements
 	pitches = mean(hcat([wingPitchFromSparProjAng.(spars[recordedpts,i], Ref(spar0[i])) for i=1:2]...); dims=2)
 
-	println(pitches)
+	strokes = dat[recordedpts,3]
+	Amps = deg2rad.(hcat(strokes, 2*pitches))
+	println(Amps)
+
+	statsFromAmplitudes(m, opt, Amps[1,:], param)
+	# # get new input traj
+	# traj, Φ1 = initTraj(m, param, KINTYPE; uampl=75, verbose=false)[[3,5]]
+
+	# println(statsFromAmplitudes(m, opt, Amp, param))
 end
 
 # --------------------------------------------------------
 
-calculateStats("data/normstroke/Param opt manuf 2 - halfbee1 a1.csv")
+calculateStats(m, opt, param0, "data/normstroke/Param opt manuf 2 - halfbee1 a1.csv")
 
 # # Main plot
 # plot(
