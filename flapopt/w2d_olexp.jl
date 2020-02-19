@@ -103,6 +103,7 @@ end
 
 "Estimate lift, power for given stroke/hinge"
 function calculateStats(m, opt, param, fname, Aw, Lw; spar0=[45., 45.])
+	println(fname)
 	dat = readdlm(fname, ',', Float64, skipstart=1)
 	spars = dat[:,4:5]
 	# bitarray of rows where the spar proj angle has been recorded
@@ -110,22 +111,36 @@ function calculateStats(m, opt, param, fname, Aw, Lw; spar0=[45., 45.])
 	# get mean wing pitch angle from the two spar measurements
 	pitches = mean(hcat([wingPitchFromSparProjAng.(spars[recordedpts,i], Ref(spar0[i])) for i=1:2]...); dims=2)
 
+	volts = dat[recordedpts,1]
 	freqs = dat[recordedpts,2]
 	strokes = dat[recordedpts,3]
 	Amps = deg2rad.(hcat(strokes, 2*pitches))
 
-	lifts = vcat([statsFromAmplitudes(m, opt, Amps[i,:], param, Aw, Lw, freqs[i]) for i =1:length(freqs)]'...)
-	println(lifts)
-
-	# # get new input traj
-	# traj, Φ1 = initTraj(m, param, KINTYPE; uampl=75, verbose=false)[[3,5]]
-
-	# println(statsFromAmplitudes(m, opt, Amp, param))
+	return vcat([
+		[volts[i]; freqs[i]; statsFromAmplitudes(m, opt, Amps[i,:], param, Aw, Lw, freqs[i])]'
+		for i = 1:length(freqs)]...)
 end
 
-# --------------------------------------------------------
+"Tuples of Aw, Lw from https://github.com/avikde/robobee3d/issues/145. Measured by roughly using area tool in Autocad, and measuring the longest membrane length"
+wingDims = Dict{String,Tuple{Float64,Float64}}(
+	"1a" => (54, 12.42),
+	"1b" => (64.4, 14.51),
+	"4b" => (54.2, 13.8),
+	"5a" => (61, 15),
+	"5b" => (58, 15),
+	"bigbee" => (156, 25.5),
+)
 
-calculateStats(m, opt, param0, "data/normstroke/Param opt manuf 2 - halfbee1 a1.csv", 54, 15)
+# --------------------------------------------------------
+metc = (m, opt, param0)
+display(calculateStats(metc..., "data/normstroke/Param opt manuf 2 - halfbee1 a1.csv", wingDims["1a"]...))
+# display(calculateStats(metc..., "data/normstroke/Param opt manuf 2 - halfbee1 4b1.csv", wingDims["4b"]...))
+display(calculateStats(metc..., "data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv", wingDims["1a"]...))
+display(calculateStats(metc..., "data/normstroke/Param opt manuf 2 - mod4 b h1.csv", wingDims["4b"]...))
+display(calculateStats(metc..., "data/normstroke/Param opt manuf 2 - bigbee orig.csv", wingDims["bigbee"]...))
+display(calculateStats(metc..., "data/normstroke/Param opt manuf 2 - bigbee b1.csv", wingDims["1b"]...))
+display(calculateStats(metc..., "data/normstroke/Param opt manuf 2 - bigbee 5b1.csv", wingDims["5b"]...))
+
 
 # # Main plot
 # plot(
