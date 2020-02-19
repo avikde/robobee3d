@@ -99,7 +99,11 @@ function statsFromAmplitudes(m, opt, Amp, param, Aw, Lw, freqHz)
 	# pls = plotTrajs(m, opt, [param], [traj])
 	# plot(pls...)
 	# gui()
-	return [avgLift(m, opt, traj, param1); 0] # TODO: power
+
+	FD0 = maximum(filter(!isnan, trajAero(m, opt, traj, param1, :drag)))
+	# Approximate power with least dependence on dynamical parameters. If this and force were in-phase and sinusoidal, then
+	# Pmech ~ Fd*Lw*Phi*f/pi (1/pi = integral of sin^2 x)
+	return [avgLift(m, opt, traj, param1); FD0*Lw*Amp[1]*(freqHz*1e-3)/π]
 end
 
 "Estimate lift, power for given stroke/hinge"
@@ -121,7 +125,7 @@ function calculateStats(m, opt, param, fname, Aw, Lw, spar10, spar20)
 		[volts[i]; freqs[i]; statsFromAmplitudes(m, opt, Amps[i,:], param, Aw, Lw, freqs[i])]'
 		for i = 1:length(freqs)]...)
 	
-	println(fname, round.(pitches, digits=1), round.(stats[:,3], digits=1))
+	println(fname, round.(pitches, digits=1), round.(stats[:,3], digits=1), round.(stats[:,4], digits=1))
 	return stats
 end
 
@@ -137,12 +141,11 @@ wingDims = Dict{String,Tuple{Float64,Float64,Float64,Float64}}(
 # --------------------------------------------------------
 metc = (m, opt, param0)
 calculateStats(metc..., "data/normstroke/Param opt manuf 2 - halfbee1 a1.csv", wingDims["1a"]...)
-# display(calculateStats(metc..., "data/normstroke/Param opt manuf 2 - halfbee1 4b1.csv", wingDims["4b"]...))
-calculateStats(metc..., "data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv", wingDims["1a"]...)
-calculateStats(metc..., "data/normstroke/Param opt manuf 2 - mod4 b h1.csv", wingDims["4b"]...)
-calculateStats(metc..., "data/normstroke/Param opt manuf 2 - bigbee orig.csv", wingDims["bigbee"]...)
-calculateStats(metc..., "data/normstroke/Param opt manuf 2 - bigbee b1.csv", wingDims["1b"]...)
-calculateStats(metc..., "data/normstroke/Param opt manuf 2 - bigbee 5b1.csv", wingDims["5b"]...)
+# calculateStats(metc..., "data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv", wingDims["1a"]...)
+# calculateStats(metc..., "data/normstroke/Param opt manuf 2 - mod4 b h1.csv", wingDims["4b"]...)
+# calculateStats(metc..., "data/normstroke/Param opt manuf 2 - bigbee orig.csv", wingDims["bigbee"]...)
+# calculateStats(metc..., "data/normstroke/Param opt manuf 2 - bigbee b1.csv", wingDims["1b"]...)
+# calculateStats(metc..., "data/normstroke/Param opt manuf 2 - bigbee 5b1.csv", wingDims["5b"]...)
 
 
 # # Main plot
