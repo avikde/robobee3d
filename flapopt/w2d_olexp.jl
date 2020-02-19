@@ -59,8 +59,8 @@ function olExpPlotCurves!(p, V, stroke, showV, lbl; kwargs...)
 	end
 end
 
-function olExpPlot(V1, stroke1, showV1, V2, stroke2, showV2; title="")
-	p = plot(xlabel="Freq [Hz]", ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,0.6), legend=:topleft, title=title)
+function olExpPlot(V1, stroke1, showV1, V2, stroke2, showV2; title="", ulim=0.6)
+	p = plot(xlabel="Freq [Hz]", ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,ulim), legend=:topleft, title=title)
 
 	olExpPlotCurves!(p, V1, stroke1, showV1, "")
 	if length(V2) > 0
@@ -75,14 +75,16 @@ end
 # 	olExpPlot(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h1.csv")..., [120,140,160], readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 4b1.csv")..., [120,150,190]; title="Wing 4B1"),
 # 	size=(800,400))
 
-# plot of comparing different SDAB
-p = plot(xlabel="Freq [Hz]", ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,0.6), legend=:topleft, title="Different SDAB")
-olExpPlotCurves!(p, readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 a1.csv")..., [180], "Avik ")
-olExpPlotCurves!(p, [180.0], [becky3L], [], "Becky 3L ")
-olExpPlotCurves!(p, [180.0], [becky3R], [], "Becky 3R ")
-olExpPlotCurves!(p, [180.0], [patrickL], [], "Patrick L ")
-olExpPlotCurves!(p, [180.0], [patrickR], [], "Patrick R ")
-plot(p, size=(400,400))
+# # plot of comparing different SDAB
+# p = plot(xlabel="Freq [Hz]", ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,0.6), legend=:topleft, title="Different SDAB")
+# olExpPlotCurves!(p, readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 a1.csv")..., [180], "Avik ")
+# olExpPlotCurves!(p, [180.0], [becky3L], [], "Becky 3L ")
+# olExpPlotCurves!(p, [180.0], [becky3R], [], "Becky 3R ")
+# olExpPlotCurves!(p, [180.0], [patrickL], [], "Patrick L ")
+# olExpPlotCurves!(p, [180.0], [patrickR], [], "Patrick R ")
+# plot(p, size=(400,400))
+
+olExpPlot(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee b1.csv")..., [], [], [], []; title="Wing A1", ulim=1)
 
 gui()
 	
