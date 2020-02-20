@@ -139,15 +139,15 @@ wingDims = Dict{String,Tuple{Float64,Float64,Float64,Float64}}(
 )
 
 function liftPowerPlot(mop)
-	p1 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="SDAB actuator")
-	p2 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="BigBee actuator")
-	p3 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow/V^2 (S*V*f/V^2)", legend=:topleft)
-	p4 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow/V^2 (S*V*f/V^2)", legend=:topleft)
+	p1 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:bottomright, title="SDAB actuator")
+	p2 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topright, title="BigBee actuator")
+	p3 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow (S*V*f)", legend=false)
+	p4 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow (S*V*f)", legend=false)
 
 	function addToPlot!(p, pn, lbl, args...; kwargs...)
 		s = calculateStats(args...)
 		scatter!(p, s[:,3], s[:,4], label=lbl; kwargs...)
-		scatter!(pn, 1000*s[:,3]./s[:,1].^2, 1000*s[:,4]./s[:,1].^2, label=lbl; kwargs...)
+		scatter!(pn, 1000*s[:,3]./s[:,1].^2, s[:,4], label=lbl; kwargs...)
 	end
 	addToPlot!(p1, p3, "hb 1a1", mop, "data/normstroke/Param opt manuf 2 - halfbee1 a1.csv", wingDims["1a"]...)
 	addToPlot!(p1, p3, "mod1 1a1", mop, "data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv", wingDims["1a"]...; markershape=:rect)
@@ -156,7 +156,7 @@ function liftPowerPlot(mop)
 	addToPlot!(p2, p4, "bigbee 1b", mop, "data/normstroke/Param opt manuf 2 - bigbee b1.csv", wingDims["1b"]...; markershape=:rect)
 	addToPlot!(p2, p4, "bigbee 5b", mop,  "data/normstroke/Param opt manuf 2 - bigbee 5b1.csv", wingDims["5b"]...; markershape=:utriangle)
 
-	plot(p1, p2, p3, p4, size=(800,800))
+	plot(p1, p2, p3, p4, size=(600,600))
 end
 
 # --------------------------------------------------------
