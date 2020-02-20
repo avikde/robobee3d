@@ -81,7 +81,7 @@ end
 wingPitchFromSparProjAng(angProj, ang0=45) = rad2deg(acos(1 - tan(deg2rad(angProj)) / tan(deg2rad(ang0))))
 
 "Only Aw, cbar (wing dims), and dt (freq) are use to calculate lift. Use param0 otherwise."
-function statsFromAmplitudes(m, opt, Amp, param, Aw, Lw, freqHz)
+function statsFromAmplitudes(m, opt, param, Amp, Aw, Lw, freqHz, Fact)
 	m.Amp .= Amp
 	# m.Amp[1] = Amp[1]
 	N, traj = initTraj(m, param, 1; uampl=75, verbose=false)[[1,3]]
@@ -100,14 +100,14 @@ function statsFromAmplitudes(m, opt, Amp, param, Aw, Lw, freqHz)
 	# plot(pls...)
 	# gui()
 
-	FD0 = maximum(filter(!isnan, trajAero(m, opt, traj, param1, :drag)))
+	# FD0 = maximum(filter(!isnan, trajAero(m, opt, traj, param1, :drag)))
 	# Approximate power with least dependence on dynamical parameters. If this and force were in-phase and sinusoidal, then
-	# Pmech ~ Fd*Lw*Phi*f/pi (1/pi = integral of sin^2 x)
-	return [avgLift(m, opt, traj, param1); FD0*Lw*Amp[1]*(freqHz*1e-3)/π]
+	# Pmech ~ Fact*Lw*Phi*f/pi (1/pi = integral of sin^2 x)
+	return [avgLift(m, opt, traj, param1); Fact*Amp[1]*(freqHz*1e-3)]
 end
 
 "Estimate lift, power for given stroke/hinge"
-function calculateStats(m, opt, param, fname, Aw, Lw, spar10, spar20)
+function calculateStats(mop, fname, Aw, Lw, spar10, spar20; kVF=75/180)
 	dat = readdlm(fname, ',', Float64, skipstart=1)
 	spars = dat[:,4:5]
 	# bitarray of rows where the spar proj angle has been recorded
@@ -122,7 +122,7 @@ function calculateStats(m, opt, param, fname, Aw, Lw, spar10, spar20)
 	Amps = deg2rad.(hcat(strokes, 2*pitches))
 
 	stats = vcat([
-		[volts[i]; freqs[i]; statsFromAmplitudes(m, opt, Amps[i,:], param, Aw, Lw, freqs[i])]'
+		[volts[i]; freqs[i]; statsFromAmplitudes(mop..., Amps[i,:], Aw, Lw, freqs[i], volts[i])]'
 		for i = 1:length(freqs)]...)
 	
 	println(fname, round.(pitches, digits=1), round.(stats[:,3], digits=1), round.(stats[:,4], digits=1))
@@ -138,15 +138,31 @@ wingDims = Dict{String,Tuple{Float64,Float64,Float64,Float64}}(
 	"bigbee" => (156, 25.5, 45, 45),
 )
 
-# --------------------------------------------------------
-metc = (m, opt, param0)
-calculateStats(metc..., "data/normstroke/Param opt manuf 2 - halfbee1 a1.csv", wingDims["1a"]...)
-# calculateStats(metc..., "data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv", wingDims["1a"]...)
-# calculateStats(metc..., "data/normstroke/Param opt manuf 2 - mod4 b h1.csv", wingDims["4b"]...)
-# calculateStats(metc..., "data/normstroke/Param opt manuf 2 - bigbee orig.csv", wingDims["bigbee"]...)
-# calculateStats(metc..., "data/normstroke/Param opt manuf 2 - bigbee b1.csv", wingDims["1b"]...)
-# calculateStats(metc..., "data/normstroke/Param opt manuf 2 - bigbee 5b1.csv", wingDims["5b"]...)
+function liftPowerPlot(mop)
+	p1 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="SDAB actuator")
+	p2 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="BigBee actuator")
+	p3 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow/V^2 (S*V*f/V^2)", legend=:topleft)
+	p4 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow/V^2 (S*V*f/V^2)", legend=:topleft)
 
+	function addToPlot!(p, pn, lbl, args...; kwargs...)
+		s = calculateStats(args...)
+		scatter!(p, s[:,3], s[:,4], label=lbl; kwargs...)
+		scatter!(pn, 1000*s[:,3]./s[:,1].^2, 1000*s[:,4]./s[:,1].^2, label=lbl; kwargs...)
+	end
+	addToPlot!(p1, p3, "hb 1a1", mop, "data/normstroke/Param opt manuf 2 - halfbee1 a1.csv", wingDims["1a"]...)
+	addToPlot!(p1, p3, "mod1 1a1", mop, "data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv", wingDims["1a"]...; markershape=:rect)
+	addToPlot!(p1, p3, "mod1 4b1", mop,  "data/normstroke/Param opt manuf 2 - mod4 b h1.csv", wingDims["4b"]...; markershape=:utriangle)
+	addToPlot!(p2, p4, "bigbee orig", mop, "data/normstroke/Param opt manuf 2 - bigbee orig.csv", wingDims["bigbee"]...)
+	addToPlot!(p2, p4, "bigbee 1b", mop, "data/normstroke/Param opt manuf 2 - bigbee b1.csv", wingDims["1b"]...; markershape=:rect)
+	addToPlot!(p2, p4, "bigbee 5b", mop,  "data/normstroke/Param opt manuf 2 - bigbee 5b1.csv", wingDims["5b"]...; markershape=:utriangle)
+
+	plot(p1, p2, p3, p4, size=(800,800))
+end
+
+# --------------------------------------------------------
+mop = (m, opt, param0)
+
+liftPowerPlot(mop)
 
 # # Main plot
 # plot(
