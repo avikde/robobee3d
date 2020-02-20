@@ -146,8 +146,8 @@ function liftPowerPlot(mop)
 
 	function addToPlot!(p, pn, lbl, args...; kwargs...)
 		s = calculateStats(args...)
-		scatter!(p, s[:,3], s[:,4], label=lbl; kwargs...)
-		scatter!(pn, 1000*s[:,3]./s[:,1].^2, s[:,4], label=lbl; kwargs...)
+		scatter!(p, s[:,3], s[:,4], label=lbl; ms=6, kwargs...)
+		scatter!(pn, 1000*s[:,3]./s[:,1].^2, s[:,4], label=lbl; ms=6, kwargs...)
 	end
 	addToPlot!(p1, p3, "hb 1a1", mop, "data/normstroke/Param opt manuf 2 - halfbee1 a1.csv", wingDims["1a"]...)
 	addToPlot!(p1, p3, "mod1 1a1", mop, "data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv", wingDims["1a"]...; markershape=:rect)
