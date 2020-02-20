@@ -48,6 +48,7 @@ patrickR = [120	47.7;
 	170	68]
 
 function readOLExpCSV(fname)
+	println("hi ", fname)
 	dat = readdlm(fname, ',', Float64, skipstart=1)
 	Vs = unique(dat[:,1])
 	return Vs, [dat[dat[:,1] .== V,2:3] for V in Vs]
@@ -152,7 +153,7 @@ function liftPowerPlot(mop)
 	addToPlot!(p1, p3, "hb 1a1", mop, "data/normstroke/Param opt manuf 2 - halfbee1 a1.csv", wingDims["1a"]...)
 	addToPlot!(p1, p3, "mod1 1a1", mop, "data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv", wingDims["1a"]...; markershape=:rect)
 	addToPlot!(p1, p3, "mod1 4b1", mop,  "data/normstroke/Param opt manuf 2 - mod4 b h1.csv", wingDims["4b"]...; markershape=:utriangle)
-	addToPlot!(p1, p3, "mod1 4b3", mop,  "data/normstroke/Param opt manuf 2 - mod4 b h3.csv", wingDims["4b"]...; markershape=:dtriangle)
+	addToPlot!(p1, p3, "mod1 4b2", mop,  "data/normstroke/Param opt manuf 2 - mod4 b h2.csv", wingDims["4b"]...; markershape=:dtriangle)
 	addToPlot!(p2, p4, "bigbee orig", mop, "data/normstroke/Param opt manuf 2 - bigbee orig.csv", wingDims["bigbee"]...)
 	addToPlot!(p2, p4, "bigbee 1b", mop, "data/normstroke/Param opt manuf 2 - bigbee b1.csv", wingDims["1b"]...; markershape=:rect)
 	addToPlot!(p2, p4, "bigbee 5b", mop,  "data/normstroke/Param opt manuf 2 - bigbee 5b1.csv", wingDims["5b"]...; markershape=:utriangle)
@@ -163,20 +164,20 @@ end
 # --------------------------------------------------------
 mop = (m, opt, param0)
 
-# liftPowerPlot(mop)
+liftPowerPlot(mop)
 
-# Main plot
-plot(
-	olExpPlot2(
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv")..., [120,160,190]), 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 a1.csv")..., [150,180,200]); 
-		title="Wing 1A1"), 
-	olExpPlot2(
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h1.csv")..., [120,140,160]), 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 4b1.csv")..., [120,150,190]), 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h3.csv")..., [160,180,200]);
-		title="Wing 4B1"),
-	size=(800,400))
+# # Main plot
+# plot(
+# 	olExpPlot2(
+# 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv")..., [120,160,190]), 
+# 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 a1.csv")..., [150,180,200]); 
+# 		title="Wing 1A1"), 
+# 	olExpPlot2(
+# 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h1.csv")..., [120,140,160]), 
+# 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 4b1.csv")..., [120,150,190]), 
+# 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h2.csv")..., []);
+# 		title="Wing 4B1"),
+# 	size=(800,400))
 
 # # plot of comparing different SDAB
 # p = plot(xlabel="Freq [Hz]", ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,0.6), legend=:topleft, title="Different SDAB")
@@ -195,5 +196,5 @@ plot(
 # 	title="BigBee", ulim=0.8)
 # plot(p, size=(400,400))
 
-# gui()
+gui()
 	
