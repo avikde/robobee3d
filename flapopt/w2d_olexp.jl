@@ -165,25 +165,25 @@ end
 # --------------------------------------------------------
 mop = (m, opt, param0)
 
-liftPowerPlot(mop)
+# liftPowerPlot(mop)
 
-# # Main plot
-# plot(
-# 	olExpPlot2(
-# 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv")..., [120,160,190]), 
-# 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 a1.csv")..., [150,180,200]); 
-# 		title="Wing 1A1"), 
-# 	olExpPlot2(
-# 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h2.csv")..., [120,150,200]),
-# 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 4b1.csv")..., [120,150,190]),
-# 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h1.csv")..., [120,140,160]);
-# 		title="Wing 4B1"),
-# 	size=(800,400))
+# Main plot
+plot(
+	olExpPlot2(
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv")..., [120,160,190]), 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - sdab1.csv")..., []); 
+		title="Wing 1A1"), 
+	olExpPlot2(
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h2.csv")..., [120,150,200]),
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 4b1.csv")..., [120,150,190]),
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h1.csv")..., [120,140,160]);
+		title="Wing 4B1"),
+	size=(800,400))
 
 # # plot of comparing different SDAB
 # p = plot(xlabel="Freq [Hz]", ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,0.6), legend=:topleft, title="Different SDAB")
 # olExpPlotCurves!(p, readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 a1.csv")..., [180], "Avik ")
-# olExpPlotCurves!(p, readOLExpCSV("data/normstroke/Param opt manuf 2 - sdab1.csv")..., [], "Noah ")
+# olExpPlotCurves!(p, readOLExpCSV("data/normstroke/Param opt manuf 2 - sdab1.csv")..., [], "NewSDAB1 ")
 # olExpPlotCurves!(p, ([180.0], [becky3L], []), "Becky 3L ")
 # olExpPlotCurves!(p, ([180.0], [becky3R], []), "Becky 3R ")
 # olExpPlotCurves!(p, ([180.0], [patrickL], []), "Patrick L ")
