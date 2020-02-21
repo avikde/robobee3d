@@ -130,14 +130,16 @@ function calculateStats(mop, fname, Aw, Lw, spar10, spar20; kVF=75/180)
 end
 
 "Tuples of Aw, Lw, spar1, spar2 from https://github.com/avikde/robobee3d/issues/145. Measured by roughly using area tool in Autocad, and measuring the longest membrane length"
+bbHingeOffs = 1.3
+sdabHingeOffs = 2.3
 wingDims = Dict{String,Tuple{Float64,Float64,Float64,Float64}}(
-	"1a" => (54.4, 12.42 + 5.0, 45.45, 45.8),
-	"1al" => (121.76, 18.8 + 5.0, 45.45, 45.8),
-	"1b" => (64.4, 14.51 + 5.0, 36.18, 45.8),
-	"4b" => (54.4, 13.8 + 5.0, 45, 46),
-	"5b" => (58, 15 + 5.0, 47, 48),
-	"bigbee" => (156, 25.5+2.0, 45, 45),
-	"4l" => (107.3, 18.65 + 5.0, 45, 46),
+	"1a" => (54.4, 12.42 + sdabHingeOffs, 45.45, 45.8),
+	"1al" => (121.76, 18.8 + sdabHingeOffs, 45.45, 45.8),
+	"1b" => (64.4, 14.51 + sdabHingeOffs, 36.18, 45.8),
+	"4b" => (54.4, 13.8 + sdabHingeOffs, 45, 46),
+	"5b" => (58, 15 + sdabHingeOffs, 47, 48),
+	"bigbee" => (156, 25.5 + bbHingeOffs, 45, 45),
+	"4l" => (107.3, 18.65 + sdabHingeOffs, 45, 46),
 )
 
 function liftPowerPlot(mop)
