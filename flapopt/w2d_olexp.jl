@@ -131,9 +131,10 @@ end
 
 "Tuples of Aw, Lw, spar1, spar2 from https://github.com/avikde/robobee3d/issues/145. Measured by roughly using area tool in Autocad, and measuring the longest membrane length"
 wingDims = Dict{String,Tuple{Float64,Float64,Float64,Float64}}(
-	"1a" => (54, 12.42 + 5.0, 45.45, 45.8),
+	"1a" => (54.4, 12.42 + 5.0, 45.45, 45.8),
+	"1al" => (121.76, 18.8 + 5.0, 45.45, 45.8),
 	"1b" => (64.4, 14.51 + 5.0, 36.18, 45.8),
-	"4b" => (54.2, 13.8 + 5.0, 45, 46),
+	"4b" => (54.4, 13.8 + 5.0, 45, 46),
 	"5b" => (58, 15 + 5.0, 47, 48),
 	"bigbee" => (156, 25.5 + 5.0, 45, 45),
 	"4l" => (107.3, 18.65 + 5.0, 45, 46),
@@ -185,20 +186,20 @@ normStrokeBigBee() = plot(
 # --------------------------------------------------------
 mop = (m, opt, param0)
 
-# liftPowerPlot(mop)
+liftPowerPlot(mop)
 
 # normStrokeSDAB()
 # normStrokeBigBee()
 
-# plot of comparing different SDAB
-p = plot(xlabel="Freq [Hz]", ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,0.6), legend=:topleft, title="Different SDAB")
-olExpPlotCurves!(p, (readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 a1.csv")..., [180], :rect), "Avik ")
-olExpPlotCurves!(p, (readOLExpCSV("data/normstroke/Param opt manuf 2 - sdab1.csv")..., [], :circle), "NewSDAB1 ")
-olExpPlotCurves!(p, ([180.0], [becky3L], [], :dtriangle), "Becky 3L ")
-olExpPlotCurves!(p, ([180.0], [becky3R], [], :dtriangle), "Becky 3R ")
-olExpPlotCurves!(p, ([180.0], [patrickL], [], :utriangle), "Patrick L ")
-olExpPlotCurves!(p, ([180.0], [patrickR], [], :utriangle), "Patrick R ")
-plot(p, size=(400,400))
+# # plot of comparing different SDAB
+# p = plot(xlabel="Freq [Hz]", ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,0.6), legend=:topleft, title="Different SDAB")
+# olExpPlotCurves!(p, (readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 a1.csv")..., [180], :rect), "Avik ")
+# olExpPlotCurves!(p, (readOLExpCSV("data/normstroke/Param opt manuf 2 - sdab1.csv")..., [], :circle), "NewSDAB1 ")
+# olExpPlotCurves!(p, ([180.0], [becky3L], [], :dtriangle), "Becky 3L ")
+# olExpPlotCurves!(p, ([180.0], [becky3R], [], :dtriangle), "Becky 3R ")
+# olExpPlotCurves!(p, ([180.0], [patrickL], [], :utriangle), "Patrick L ")
+# olExpPlotCurves!(p, ([180.0], [patrickR], [], :utriangle), "Patrick R ")
+# plot(p, size=(400,400))
 
 
 gui()
