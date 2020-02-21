@@ -136,7 +136,7 @@ wingDims = Dict{String,Tuple{Float64,Float64,Float64,Float64}}(
 	"1b" => (64.4, 14.51 + 5.0, 36.18, 45.8),
 	"4b" => (54.4, 13.8 + 5.0, 45, 46),
 	"5b" => (58, 15 + 5.0, 47, 48),
-	"bigbee" => (156, 25.5 + 5.0, 45, 45),
+	"bigbee" => (156, 25.5+2.0, 45, 45),
 	"4l" => (107.3, 18.65 + 5.0, 45, 46),
 )
 
@@ -159,6 +159,8 @@ function liftPowerPlot(mop)
 	addToPlot!(p2, p4, "bigbee orig", mop, "data/normstroke/Param opt manuf 2 - bigbee orig.csv", wingDims["bigbee"]...)
 	addToPlot!(p2, p4, "bigbee 4l", mop, "data/normstroke/Param opt manuf 2 - bigbee 4l3.csv", wingDims["4l"]...; markershape=:rect)
 	addToPlot!(p2, p4, "bigbee 1b", mop,  "data/normstroke/Param opt manuf 2 - bigbee b1.csv", wingDims["1b"]...; markershape=:utriangle)
+	addToPlot!(p2, p4, "bigbee oA", mop,  "data/normstroke/Param opt manuf 2 - bigbee originalA.csv", wingDims["bigbee"]...; markershape=:dtriangle)
+	# addToPlot!(p2, p4, "bigbee 1al", mop,  "data/normstroke/Param opt manuf 2 - bigbee 1al.csv", wingDims["1al"]...; markershape=:dtriangle)
 
 	plot(p1, p2, p3, p4, size=(600,600))
 end
@@ -177,9 +179,10 @@ normStrokeSDAB() = plot(
 
 normStrokeBigBee() = plot(
 	olExpPlot2(
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee b1.csv")..., [], :utriangle), 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee 4l3.csv")..., [150,180,200], :rect), 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee orig.csv")..., [], :circle); 
+		# (readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee b1.csv")..., [], :utriangle), 
+		# (readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee 4l3.csv")..., [150,180,200], :rect), 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee orig.csv")..., [], :circle), 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee originalA.csv")..., [], :star5); 
 		title="BigBee", ulim=0.75), 
 	size=(400,400))
 
