@@ -67,12 +67,9 @@ function olExpPlot2(datasets...; title="", ulim=0.6)
 	p = plot(xlabel="Freq [Hz]", ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,ulim), legend=:topleft, title=title)
 
 	@assert length(datasets) > 0
-	olExpPlotCurves!(p, datasets[1], "")
-	if length(datasets) > 1
-		olExpPlotCurves!(p, datasets[2], ""; ls=:dash)
-	end
-	if length(datasets) > 2
-		olExpPlotCurves!(p, datasets[3], ""; ls=:dot)
+	lss = [:solid, :dash, :dot, :dashdot]
+	for k=1:length(datasets)
+		olExpPlotCurves!(p, datasets[k], "", ls=lss[k])
 	end
 	return p
 end
@@ -132,19 +129,20 @@ end
 "Tuples of Aw, Lw, spar1, spar2 from https://github.com/avikde/robobee3d/issues/145. Measured by roughly using area tool in Autocad, and measuring the longest membrane length"
 bbHingeOffs = 1.3
 sdabHingeOffs = 2.3
+wingRootAddedOffset = 3.28 # to get to the R=17 in Jafferis et al 2016
 wingDims = Dict{String,Tuple{Float64,Float64,Float64,Float64}}(
-	"1a" => (54.4, 12.42 + sdabHingeOffs, 45.45, 45.8),
-	"1al" => (121.76, 18.8 + sdabHingeOffs, 45.45, 45.8),
-	"1b" => (64.4, 14.51 + sdabHingeOffs, 36.18, 45.8),
-	"4b" => (54.4, 13.8 + sdabHingeOffs, 45, 46),
-	"5b" => (58, 15 + sdabHingeOffs, 47, 48),
-	"bigbee" => (156, 25.5 + bbHingeOffs, 45, 45),
-	"4l" => (107.3, 18.65 + sdabHingeOffs, 45, 46),
+	"1a" => (54.4, 12.42 + sdabHingeOffs + wingRootAddedOffset, 45.45, 45.8),
+	"1al" => (121.76, 18.8 + sdabHingeOffs + wingRootAddedOffset, 45.45, 45.8),
+	"1b" => (64.4, 14.51 + sdabHingeOffs + wingRootAddedOffset, 36.18, 45.8),
+	"4b" => (54.4, 13.8 + sdabHingeOffs + wingRootAddedOffset, 45, 46),
+	"5b" => (58, 15 + sdabHingeOffs + wingRootAddedOffset, 47, 48),
+	"bigbee" => (180, 25.5 + bbHingeOffs + wingRootAddedOffset, 45, 45), # FIXME: need bigbee wing area
+	"4l" => (107.3, 18.65 + sdabHingeOffs + wingRootAddedOffset, 45, 46),
 )
 
 function liftPowerPlot(mop)
-	p1 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:bottomright, title="SDAB actuator")
-	p2 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topright, title="BigBee actuator")
+	p1 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="SDAB actuator")
+	p2 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="BigBee actuator")
 	p3 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow (S*V*f)", legend=false)
 	p4 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow (S*V*f)", legend=false)
 
@@ -159,8 +157,8 @@ function liftPowerPlot(mop)
 	# addToPlot!(p1, p3, "mod1 4b1", mop,  "data/normstroke/Param opt manuf 2 - mod4 b h1.csv", wingDims["4b"]...; markershape=:dtriangle)
 	addToPlot!(p1, p3, "mod1 4b2", mop,  "data/normstroke/Param opt manuf 2 - mod4 b h2.csv", wingDims["4b"]...; markershape=:utriangle)
 	addToPlot!(p2, p4, "bigbee orig", mop, "data/normstroke/Param opt manuf 2 - bigbee orig.csv", wingDims["bigbee"]...)
-	addToPlot!(p2, p4, "bigbee 4l", mop, "data/normstroke/Param opt manuf 2 - bigbee 4l3.csv", wingDims["4l"]...; markershape=:rect)
-	addToPlot!(p2, p4, "bigbee 1b", mop,  "data/normstroke/Param opt manuf 2 - bigbee b1.csv", wingDims["1b"]...; markershape=:utriangle)
+	addToPlot!(p2, p4, "bigbee 1b", mop,  "data/normstroke/Param opt manuf 2 - bigbee b1.csv", wingDims["1b"]...; markershape=:rect)
+	addToPlot!(p2, p4, "bigbee 4l", mop, "data/normstroke/Param opt manuf 2 - bigbee 4l3.csv", wingDims["4l"]...; markershape=:utriangle)
 	addToPlot!(p2, p4, "bigbee oA", mop,  "data/normstroke/Param opt manuf 2 - bigbee originalA.csv", wingDims["bigbee"]...; markershape=:dtriangle)
 	# addToPlot!(p2, p4, "bigbee 1al", mop,  "data/normstroke/Param opt manuf 2 - bigbee 1al.csv", wingDims["1al"]...; markershape=:dtriangle)
 
@@ -181,12 +179,12 @@ normStrokeSDAB() = plot(
 
 normStrokeBigBee() = plot(
 	olExpPlot2(
-		# (readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee b1.csv")..., [], :utriangle), 
-		# (readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee 4l3.csv")..., [150,180,200], :rect), 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee b1.csv")..., [], :utriangle), 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee 4l3.csv")..., [150,180,200], :rect), 
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee orig.csv")..., [], :circle), 
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee originalA.csv")..., [], :star5); 
 		title="BigBee", ulim=0.75), 
-	size=(400,400))
+	size=(800,400))
 
 # --------------------------------------------------------
 mop = (m, opt, param0)
