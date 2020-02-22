@@ -3,49 +3,93 @@ using Plots, DelimitedFiles, Statistics
 include("w2d_model.jl")
 include("w2d_paramopt.jl") # for calculating stats for measurements
 
-# for comparison; my SDAB vs. others. these are all at 180
-becky3L = [140	50.6;
-	145	50.74;
-	150	51.38;
-	155	51.79;
-	160	57.75;
-	165	67.38;
-	170	75.51;
-	175	74.89;
-	180	72.94]
-becky3R = [140	52.88;
-	145	54.21;
-	150	56.47;
-	155	59.6;
-	160	69;
-	165	73.6;
-	170	72.65;
-	175	72.46;
-	180	68.01]
-patrickL = [120	50.3;
-	125 50.5;
-	130 50;
-	135 50.3;
-	140	50.2;
-	145 50.2;
-	150	50.3;
-	155	51.5;
-	160	53.2;
-	165 59;
-	168 62;
-	170	63.4]
-patrickR = [120	47.7;
-	125 47.4;
-	130 46.8;
-	135 46.8;
-	140	49.1;
-	145 49.4;
-	150	49;
-	155	53.7;
-	160	59;
-	165 65;
-	168 67;
-	170	68]
+# Simulation traces for norm stroke ------------------------------------
+
+"Normalize by lowering T1 corresponding to the maximum output disp"
+function nlNormalizeByOutput(m, opt, param, σa0, T1scale; τ2ratio=2.0)
+	if !isnothing(T1scale)
+		param[2] *= T1scale
+	else
+		# Automatically try to match output. From transmission:
+		# τfun = σa -> τ1*σa + τ2/3*σa^3
+		# = τ1*σa + τ1*τ2ratio/3*σa^3 = τ1*σa*(1 + τ2ratio/3*σa^2)
+		# So scale τ1 by 1/(1 + τ2ratio/3*σa^2)
+		param[2] *= 1/(1 + τ2ratio/3*σa0^2)
+	end
+	param[5] = τ2ratio*param[2]
+	return param
+end
+
+"""Generate plot like in [Jafferis (2016)] Fig. 4"""
+function openLoopPlot(m, opt, param0, Vamps; save=false, NLT1scales=nothing, rightplot=false)
+	function getResp(f, uamp, nlt, σa0=nothing, T1scale=nothing)
+		param = copy(param0)
+		if nlt
+			param = nlNormalizeByOutput(m, opt, param, σa0, T1scale)
+		end
+		ts = createInitialTraj(m, opt, 0, f, [1e3, 1e2], param, 0; uampl=uamp, trajstats=true, thcoeff=0.1)
+		# println("act disp=",ts[end])
+		return ts
+	end
+	fs = 0.03:0.005:0.25
+	mN_PER_V = 75/160
+
+	p1 = plot(ylabel=rightplot ? "" : "Norm. stroke ampl [deg/V]", ylims=(0.3,0.8), legend=false, title=rightplot ? "High inertia" : "Low inertia")
+	p2 = plot(xlabel="Freq [kHz]", ylabel="Hinge ampl [deg]", legend=false, ylims=(0,100))
+	p3 = plot(ylabel=rightplot ? "" : "Norm. act. disp [um/V]", legend=rightplot ? false : :topleft, ylim=(1.0,2.4), xlabel="Freq [kHz]")
+	# if rightplot
+	# 	yaxis!(p1, false)
+	# 	yaxis!(p3, false)
+	# end
+	function plotForTrans(nlt; T1scales=nothing)
+		nltstr = nlt ? "N" : "L"
+		actdisps = Dict{Float64, Float64}()
+		
+		for ii=1:length(Vamps)
+			Vamp = Vamps[ii]
+			T1scale = isnothing(T1scales) ? nothing : T1scales[ii]
+
+			print("Openloop @ ", Vamp, "V ", nltstr)
+			uamp = Vamp*mN_PER_V
+			σa0 = nothing
+			# println("HI", σa0)
+			amps = hcat(getResp.(fs, uamp, nlt, σa0, T1scale)...)
+			
+			actdisps[Vamp] = maximum(amps[3,:])
+			println(", act disp=", round(actdisps[Vamp], digits=3), "mm")
+			amps[1:2,:] *= 180/pi # to degrees
+			amps[1,:] /= (Vamp) # normalize
+			amps[3,:] *= (1000/Vamp)
+			amps[2,:] /= 2.0 # hinge ampl one direction
+			# println(amps)
+			plot!(p1, fs, amps[1,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt ? :solid : :dash)
+			plot!(p2, fs, amps[2,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt ? :solid : :dash)
+			plot!(p3, fs, amps[3,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt ? :solid : :dash)
+		end
+		return actdisps
+	end
+
+	plotForTrans(false)
+	plotForTrans(true; T1scales=NLT1scales)
+
+	println("dens=", param0[3]/param0[6], ", koratio=", m.kbo[1]/(m.kbo[1] + m.ka/param0[2]^2))
+	# plot(p1, #= p2, layout=(2,1),  =# size=(400, 300), dpi=200)
+	return plot(p1, p3, layout=(2,1), size=(400,250))
+end
+
+function openLoopPlotFinal(m, opt, param0)
+	# mw=0.55 -> [0.975, 0.925], mw=0.7 -> [0.96, 0.9]
+	param = copy(param0)
+	param[3] = 0.55 #mw
+	pl1 = openLoopPlot(m, opt, param, range(140, 180,length=2); NLT1scales=[0.975, 0.925])
+	param[3] = 0.7 #mw
+	pl2 = openLoopPlot(m, opt, param, range(140, 180,length=2); NLT1scales=[0.96, 0.9], rightplot=true)
+	plot(pl1, pl2, size=(500, 500), dpi=150)
+	gui()
+	error("Open loop plot")
+end
+
+# Experimental data ------------------------------------
 
 function readOLExpCSV(fname)
 	dat = readdlm(fname, ',', Float64, skipstart=1)
@@ -153,6 +197,7 @@ function liftPowerPlot(mop)
 	end
 	# addToPlot!(p1, p3, "hb 1a1", mop, "data/normstroke/Param opt manuf 2 - halfbee1 a1.csv", wingDims["1a"]...)
 	addToPlot!(p1, p3, "sdab1", mop, "data/normstroke/Param opt manuf 2 - sdab1.csv", wingDims["1a"]...; markershape=:circle)
+	# addToPlot!(p1, p3, "sdab1", mop, "data/normstroke/Param opt manuf 2 - beckysdab.csv", wingDims["1a"]...; markershape=:circle)
 	addToPlot!(p1, p3, "mod1 1a1", mop, "data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv", wingDims["1a"]...; markershape=:rect)
 	# addToPlot!(p1, p3, "mod1 4b1", mop,  "data/normstroke/Param opt manuf 2 - mod4 b h1.csv", wingDims["4b"]...; markershape=:dtriangle)
 	addToPlot!(p1, p3, "mod1 4b2", mop,  "data/normstroke/Param opt manuf 2 - mod4 b h2.csv", wingDims["4b"]...; markershape=:utriangle)
@@ -169,6 +214,7 @@ normStrokeSDAB() = plot(
 	olExpPlot2(
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv")..., [120,160,190], :rect), 
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - sdab1.csv")..., [], :circle); 
+		# (readOLExpCSV("data/normstroke/Param opt manuf 2 - beckysdab.csv")..., [], :circle); 
 		title="Wing 1A1"), 
 	olExpPlot2(
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h2.csv")..., [120,150,200], :utriangle),
