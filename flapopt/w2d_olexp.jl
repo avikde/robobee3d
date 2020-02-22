@@ -20,6 +20,32 @@ function nlNormalizeByOutput(m, opt, param, σa0, T1scale; τ2ratio=2.0)
 	return param
 end
 
+function simNormStroke!(pls, plh, pla, mop, param, frange, Vs; mN_PER_V=75/160, kwargs...)
+	function simVf(fHz, Vamp)
+		amps = createInitialTraj(mop[1:2]..., 0, fHz*1e-3, [1e3, 1e2], param, 0; uampl=75, trajstats=true, thcoeff=0.1)
+		amps[1:2] *= 180/pi # to degrees
+		amps[1] /= (Vamp) # normalize
+		amps[3] *= (1000/Vamp)
+		amps[2] /= 2.0 # hinge ampl one direction
+		return amps
+	end
+
+	# frequency sweep
+	fs = range(frange..., length=20)
+	for Vamp in Vs
+		println("Running V=", round(Vamp))
+		amps = hcat(simVf.(fs, Ref(Vamp))...)
+		
+		plot!(pls, fs, amps[1,:], lw=2, label=string(Vamp,"V"); kwargs...)
+		if !isnothing(plh)
+			plot!(plh, fs, amps[2,:], lw=2, label=string(Vamp,"V"); kwargs...)
+		end
+		if !isnothing(pla)
+			plot!(pla, fs, amps[3,:], lw=2, label=string(Vamp,"V"); kwargs...)
+		end
+	end
+end
+
 """Generate plot like in [Jafferis (2016)] Fig. 4"""
 function openLoopPlot(m, opt, param0, Vamps; save=false, NLT1scales=nothing, rightplot=false)
 	function getResp(f, uamp, nlt, σa0=nothing, T1scale=nothing)
@@ -107,14 +133,16 @@ function olExpPlotCurves!(p, dataset, lbl; kwargs...)
 	end
 end
 
-function olExpPlot2(datasets...; title="", ulim=0.6)
+function olExpPlot2(mop, datasets...; title="", ulim=0.6)
 	p = plot(xlabel="Freq [Hz]", ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,ulim), legend=:topleft, title=title)
 
 	@assert length(datasets) > 0
 	lss = [:solid, :dash, :dot, :dashdot]
 	for k=1:length(datasets)
-		olExpPlotCurves!(p, datasets[k], "", ls=lss[k])
+		olExpPlotCurves!(p, datasets[k], "", lt=:scatter, ls=lss[k])
 	end
+	param = copy(mop[end])
+	simNormStroke!(p, nothing, nothing, mop, param, (120,200), [180])
 	return p
 end
 
@@ -210,21 +238,21 @@ function liftPowerPlot(mop)
 	plot(p1, p2, p3, p4, size=(600,600))
 end
 
-normStrokeSDAB() = plot(
-	olExpPlot2(
+normStrokeSDAB(mop) = plot(
+	olExpPlot2(mop, 
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv")..., [120,160,190], :rect), 
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - sdab1.csv")..., [], :circle); 
 		# (readOLExpCSV("data/normstroke/Param opt manuf 2 - beckysdab.csv")..., [], :circle); 
 		title="Wing 1A1"), 
-	olExpPlot2(
+	olExpPlot2(mop, 
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h2.csv")..., [120,150,200], :utriangle),
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 4b1.csv")..., [120,150,190], :+),
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h1.csv")..., [120,140,160], :dtriangle);
 		title="Wing 4B1"),
 	size=(800,400))
 
-normStrokeBigBee() = plot(
-	olExpPlot2(
+normStrokeBigBee(mop) = plot(
+	olExpPlot2(mop, 
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee b1.csv")..., [], :utriangle), 
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee 4l3.csv")..., [150,180,200], :rect), 
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee orig.csv")..., [], :circle), 
@@ -235,21 +263,11 @@ normStrokeBigBee() = plot(
 # --------------------------------------------------------
 mop = (m, opt, param0)
 
-liftPowerPlot(mop)
+# liftPowerPlot(mop)
 
-# normStrokeSDAB()
-# normStrokeBigBee()
+normStrokeSDAB(mop)
+# normStrokeBigBee(mop)
 
-# # plot of comparing different SDAB
-# p = plot(xlabel="Freq [Hz]", ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,0.6), legend=:topleft, title="Different SDAB")
-# olExpPlotCurves!(p, (readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 a1.csv")..., [180], :rect), "Avik ")
-# olExpPlotCurves!(p, (readOLExpCSV("data/normstroke/Param opt manuf 2 - sdab1.csv")..., [], :circle), "NewSDAB1 ")
-# olExpPlotCurves!(p, ([180.0], [becky3L], [], :dtriangle), "Becky 3L ")
-# olExpPlotCurves!(p, ([180.0], [becky3R], [], :dtriangle), "Becky 3R ")
-# olExpPlotCurves!(p, ([180.0], [patrickL], [], :utriangle), "Patrick L ")
-# olExpPlotCurves!(p, ([180.0], [patrickR], [], :utriangle), "Patrick R ")
-# plot(p, size=(400,400))
+# openLoopPlotFinal(mop...)
 
-
-gui()
-	
+# gui()
