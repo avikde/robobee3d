@@ -129,6 +129,10 @@ function olExpPlotCurves!(p, dataset, lbl; kwargs...)
 	for i=1:Nv
 		if length(showV) == 0 || Int(V[i]) in showV
 			plot!(p, stroke[i][:,1], stroke[i][:,2]/V[i], label=string(lbl,Int(V[i])), markershape=ms, lw=2.5; kwargs...)
+			# # Plot sim data overlaid
+			# plot!(p, stroke[i][:,1], stroke[i][:,2]/V[i], label=string(lbl,Int(V[i])), markershape=ms, lt=:scatter; kwargs...)
+			# param = copy(mop[end])
+			# simNormStroke!(p, nothing, nothing, mop, param, (120,200), [V[i]]; legend=false, kwargs...)
 		end
 	end
 end
@@ -139,10 +143,8 @@ function olExpPlot2(mop, datasets...; title="", ulim=0.6)
 	@assert length(datasets) > 0
 	lss = [:solid, :dash, :dot, :dashdot]
 	for k=1:length(datasets)
-		olExpPlotCurves!(p, datasets[k], "", lt=:scatter, ls=lss[k])
+		olExpPlotCurves!(p, datasets[k], "", ls=lss[k])
 	end
-	param = copy(mop[end])
-	simNormStroke!(p, nothing, nothing, mop, param, (120,200), [180])
 	return p
 end
 
