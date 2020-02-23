@@ -128,11 +128,13 @@ function olExpPlotCurves!(p, dataset, lbl; kwargs...)
 	Nv = length(V)
 	for i=1:Nv
 		if length(showV) == 0 || Int(V[i]) in showV
-			plot!(p, stroke[i][:,1], stroke[i][:,2]/V[i], label=string(lbl,Int(V[i])), markershape=ms, lw=2.5; kwargs...)
-			# # Plot sim data overlaid
-			# plot!(p, stroke[i][:,1], stroke[i][:,2]/V[i], label=string(lbl,Int(V[i])), markershape=ms, lt=:scatter; kwargs...)
-			# param = copy(mop[end])
-			# simNormStroke!(p, nothing, nothing, mop, param, (120,200), [V[i]]; legend=false, kwargs...)
+			# plot!(p, stroke[i][:,1], stroke[i][:,2]/V[i], label=string(lbl,Int(V[i])), markershape=ms, lw=2.5; kwargs...)
+			# Plot sim data overlaid
+			plot!(p, stroke[i][:,1], stroke[i][:,2]/V[i], label=string(lbl,Int(V[i])), markershape=ms, lt=:scatter; kwargs...)
+			param = copy(mop[end])
+			param[6] = wingDims[1]
+			param[1] = (wingDims[1]/wingDims[2])^2
+			simNormStroke!(p, nothing, nothing, mop, param, (120,200), [V[i]]; legend=false, kwargs...)
 		end
 	end
 end
