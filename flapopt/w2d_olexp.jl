@@ -124,7 +124,7 @@ function readOLExpCSV(fname)
 end
 
 function olExpPlotCurves!(p, dataset, lbl; kwargs...)
-	V, stroke, showV, ms = dataset
+	V, stroke, wingDims, showV, ms = dataset
 	Nv = length(V)
 	for i=1:Nv
 		if length(showV) == 0 || Int(V[i]) in showV
@@ -209,6 +209,7 @@ wingDims = Dict{String,Tuple{Float64,Float64,Float64,Float64}}(
 	"1al" => (121.76, 18.8 + sdabHingeOffs + wingRootAddedOffset, 45.45, 45.8),
 	"1b" => (64.4, 14.51 + sdabHingeOffs + wingRootAddedOffset, 36.18, 45.8),
 	"4b" => (54.4, 13.8 + sdabHingeOffs + wingRootAddedOffset, 45, 46),
+	"4b2" => (54.4, 13.8 + sdabHingeOffs + wingRootAddedOffset, 45, 46),
 	"5b" => (58, 15 + sdabHingeOffs + wingRootAddedOffset, 47, 48),
 	"bigbee" => (180, 25.5 + bbHingeOffs + wingRootAddedOffset, 45, 45), # FIXME: need bigbee wing area
 	"4l" => (107.3, 18.65 + sdabHingeOffs + wingRootAddedOffset, 45, 46),
@@ -242,23 +243,23 @@ end
 
 normStrokeSDAB(mop) = plot(
 	olExpPlot2(mop, 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv")..., [120,160,190], :rect), 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - sdab1.csv")..., [], :circle); 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv")..., wingDims["1a"], [120,160,190], :rect), 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - sdab1.csv")..., wingDims["1a"], [], :circle); 
 		# (readOLExpCSV("data/normstroke/Param opt manuf 2 - beckysdab.csv")..., [], :circle); 
 		title="Wing 1A1"), 
 	olExpPlot2(mop, 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h2.csv")..., [120,150,200], :utriangle),
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 4b1.csv")..., [120,150,190], :+),
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h1.csv")..., [120,140,160], :dtriangle);
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h2.csv")..., wingDims["4b2"], [120,150,200], :utriangle),
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 4b1.csv")..., wingDims["4b"], [120,150,190], :+),
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h1.csv")..., wingDims["4b"], [120,140,160], :dtriangle);
 		title="Wing 4B1"),
 	size=(800,400))
 
 normStrokeBigBee(mop) = plot(
 	olExpPlot2(mop, 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee b1.csv")..., [], :utriangle), 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee 4l3.csv")..., [150,180,200], :rect), 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee orig.csv")..., [], :circle), 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee originalA.csv")..., [], :star5); 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee b1.csv")..., wingDims["1b"], [], :utriangle), 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee 4l3.csv")..., wingDims["4l"], [150,180,200], :rect), 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee orig.csv")..., wingDims["bigbee"], [], :circle), 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee originalA.csv")..., wingDims["bigbee"], [], :star5); 
 		title="BigBee", ulim=0.75), 
 	size=(800,400))
 
@@ -272,4 +273,16 @@ normStrokeSDAB(mop)
 
 # openLoopPlotFinal(mop...)
 
-# gui()
+# pl = plot()
+# param = [3.2^2,  # cbar2[mm^2] (area/R)^2
+# 		2.6666, # τ1 (from 3333 rad/m, [Jafferis (2016)])
+# 		0.7, # mwing[mg] ~=Izz/(mwing*ycp^2). with ycp=8.5, Izz=51.1 [Jafferis (2016)], get
+# 		2.5, # wΨ [mm]
+# 		0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
+# 		54.4, # Aw = 3.2*17 [mm^2] (Jafferis 2016)
+# 		0.0758 # dt DOES NOT AFFECT
+# 	]
+# simNormStroke!(pl, nothing, nothing, mop, param, (80,200), [180]; legend=false)
+# plot(pl)
+
+gui()
