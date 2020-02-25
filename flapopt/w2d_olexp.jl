@@ -143,7 +143,7 @@ function olExpPlot2(mop, datasets...; title="", ulim=0.6)
 	p = plot(xlabel="Freq [Hz]", ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,ulim), legend=:topleft, title=title)
 
 	@assert length(datasets) > 0
-	lss = [:solid, :dash, :dot, :dashdot]
+	lss = [:solid, :dash, :dot, :dash]
 	for k=1:length(datasets)
 		olExpPlotCurves!(p, datasets[k], "", ls=lss[k])
 	end
@@ -225,7 +225,7 @@ wingDims = Dict{String,Tuple{Float64,Float64,Float64,Float64}}(
 	"4b" => (54.4, 13.8 + sdabHingeOffs + wingRootAddedOffset, 45, 46),
 	"4b2" => (54.4, 13.8 + sdabHingeOffs + wingRootAddedOffset, 45, 46),
 	"5b" => (58, 15 + sdabHingeOffs + wingRootAddedOffset, 47, 48),
-	"bigbee" => (180, 25.5 + bbHingeOffs + wingRootAddedOffset, 45, 45), # FIXME: need bigbee wing area
+	"bigbee" => (179, 25.5 + bbHingeOffs + wingRootAddedOffset, 45, 45), # measured https://github.com/avikde/robobee3d/issues/145
 	"4l" => (107.3, 18.65 + sdabHingeOffs + wingRootAddedOffset, 45, 46),
 )
 
@@ -271,19 +271,19 @@ normStrokeSDAB(mop) = plot(
 normStrokeBigBee(mop) = plot(
 	olExpPlot2(mop, 
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee b1.csv")..., wingDims["1b"], [], :utriangle), 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee 4l3.csv")..., wingDims["4l"], [150,180,200], :rect), 
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee orig.csv")..., wingDims["bigbee"], [], :circle), 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee 4l3.csv")..., wingDims["4l"], [150,180,200], :rect), 
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee originalA.csv")..., wingDims["bigbee"], [], :star5); 
 		title="BigBee", ulim=0.75), 
-	size=(800,400))
+	size=(600,400))
 
 # --------------------------------------------------------
 mop = (m, opt, param0)
 
 # liftPowerPlot(mop)
 
-normStrokeSDAB(mop)
-# normStrokeBigBee(mop)
+# normStrokeSDAB(mop)
+normStrokeBigBee(mop)
 
 # openLoopPlotFinal(mop...)
 
