@@ -22,44 +22,50 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, rr; compareTo=nothing)
     # params = hcat(args...) # Np x Nsteps
 	# param0 = args[end] # for the slices use the last param
 	
-    function plotSlice(i1, i2, xlabel, xpl, ylabel, ypl; icboth=[])
+    function plotSlice(i1, i2, xlabel, xpl, ylabel, ypl; icboth=[], icx=[], icy=[])
         function f(p1, p2)
             x = copy(rr["x"])
             x[i1] = p1
             x[i2] = p2
             return rr["eval_f"](x)
         end
-        X = range(xpl..., length=50)
-        Y = range(ypl..., length=50)
+        X = range(xpl..., length=30)
+        Y = range(ypl..., length=30)
         pl = contour(X, Y, f, 
 			titlefontsize=10, grid=false, lw=2, c=:bluesreds, 
 			xlabel=xlabel, ylabel=ylabel, #title=title,
-			xlims=xpl, ylims=ypl)
+			xlims=xpl, ylims=ypl, legend=false, colorbar=false)
 		# Now plot the locations of different params
 		plparam(p; kwargs...) = plot!(pl, [p[i1]], [p[i2]], legend=false, markershape=:auto; kwargs...)
-		plparam(rr["param"]; markercolor=:red)
+		plparam(rr["param"]; markercolor=:green)
 		if !isnothing(compareTo)
-			plparam(compareTo["param"]; markercolor=:green)
+			plparam(compareTo["param"]; markercolor=:red)
         end
 
         function plotConstraint(ic, ix, iy; kwargs...)
             # Test superimpose constraint
-            # ftest(Aw, dt) = dot([-1.0,  100/0.07], [Aw, dt])
             ftest(x, y) = dot(rr["Cp"][ic,[ix,iy]], [x, y]) - rr["dp"][ic]
             contour!(pl, X, Y, ftest, fill=false, levels=[0], lw=2, ls=:dash, kwargs...)
         end
         for ic in icboth
             plotConstraint(ic, i1, i2)
         end
+        for iciy in icx
+            ic, iy = iciy
+            cc = rr["Cp"][ic, [i1,iy]]
+            dd = rr["dp"][ic]
+            vline!(pl, [(dd - cc[2]*rr["param"][iy])/cc[1]], lw=2, ls=:dash, color=:black)
+        end
         return pl
     end
 	
 	pls = [
-		plotSlice(6, 7, "Aw", (50, 120), "dt", (0.05, 0.15); icboth=[1]),
+		# plotSlice(6, 7, "Aw", (50, 120), "dt", (0.05, 0.15); icboth=[1]),
 		# plotSlice(2, 7, "T1", (1.6, 3.2), "dt", (0.05, 0.15)),
-		plotSlice(6, 3, "Aw", (50, 120), "mw", (0.3, 1.5); icboth=[3,4]),
-		plotSlice(6, 1, "Aw", (50, 120), "cb2", (10, 30); icboth=[5,6]),
-		plotSlice(3, 1, "mw", (0.3, 1.5), "cb2", (10, 30))
+		plotSlice(6, 3, "Aw", (50, 120), "mw", (0.3, 1.5); icboth=[3,4], icx=[[1,7]]),
+		# plotSlice(6, 1, "Aw", (50, 120), "cb2", (10, 30); icboth=[5,6]),
+		# plotSlice(3, 1, "mw", (0.3, 1.5), "cb2", (10, 30)),
+		plotSlice(2, 5, "T1", (1, 4), "T2", (2,10); icboth=[2])
 		]
 
     # draw a line between the params
@@ -110,5 +116,16 @@ function debugConvexity(m, opt, POPTS, ret1)
     pls = plotParams(m, opt, ret2; compareTo=ret3)
     pls2 = plotParams(m, opt, ret3; compareTo=ret2)
     plot(pls..., pls2..., size=(1000,600))
+    gui()
+end
+
+"try to get mw, Aw, dt constraints, since those seem active. Transmission nonlinearity?"
+function paramSpaceVis(m, opt, POPTS, ret1)
+    ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=0)#, print_level=3)
+    
+    J(ret) = ret["eval_f"](ret["x"])
+    ##
+    pls = plotParams(m, opt, ret2)
+    plot(pls..., size=(800,400))
     gui()
 end
