@@ -87,7 +87,7 @@ POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 # # resdict = scaling1(m, opt, traj0, param0, 2, range(60, 120, length=7), range(160, 420, length=7), range(1e3, 1e5, length=4)) # SLOW
 # pls = scaling1disp("scaling1_3d4.zip"; scatterOnly=false, xpl=[27,33], ypl=[220,420], s=5e5, useFDasFact=true, Fnom=75, mactline=10e3) # Found this by setting useFDasFact=false, and checking magnitudes
 # # plot(pls..., size=(1000,600), window_title="Scaling1")#, dpi=200)
-# plot(pls[3], pls[4], pls[6], pls[7], size=(600,500))
+# plot(pls[3], #= pls[4],  =#pls[6], #= pls[7], =# size=(600,250))
 # # savefig("scaling1.png")
 # gui()
 
