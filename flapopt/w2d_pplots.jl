@@ -1,7 +1,9 @@
 using Plots
+include("w2d_model.jl")
+include("w2d_paramopt.jl")
 
 "Param space plots"
-function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, rr; compareTo=nothing)
+function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, POPTS, rr; compareTo=nothing, σamax=0.3)
     # # First plot the param landscape
     # pranges = [
     #     0:0.25:6.0, # cbars
@@ -56,6 +58,14 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, rr; compareTo=nothing)
             dd = rr["dp"][ic]
             vline!(pl, [(dd - cc[2]*rr["param"][iy])/cc[1]], lw=2, ls=:dash, color=:black)
         end
+
+        if i1 == POPTS.τinds[1] && i2 == POPTS.τinds[2]
+            # transmission linearized constraint
+            Ct, dt = cu.transmissionLinearConstraint(POPTS, length(rr["param"]), σamax, maximum(abs.(rr["traj"][1:ny:(N+1)*ny])))
+            ftest(x, y) = dot(Ct[[i1,i2]], [x, y]) - dt[1]
+            contour!(pl, X, Y, ftest, fill=false, levels=[0], lw=2, ls=:dash)
+        end
+        
         return pl
     end
 	
@@ -65,7 +75,7 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, rr; compareTo=nothing)
 		plotSlice(6, 3, "Aw", (50, 120), "mw", (0.3, 1.5); icboth=[3,4], icx=[[1,7]]),
 		# plotSlice(6, 1, "Aw", (50, 120), "cb2", (10, 30); icboth=[5,6]),
 		# plotSlice(3, 1, "mw", (0.3, 1.5), "cb2", (10, 30)),
-		plotSlice(2, 5, "T1", (1, 4), "T2", (2,10); icboth=[2])
+		plotSlice(2, 5, "T1", (1.5, 4), "T2", (2,10); icboth=[2])
 		]
 
     # draw a line between the params
@@ -113,19 +123,19 @@ function debugConvexity(m, opt, POPTS, ret1)
     println("Test fold(pnew) ", J2(ret2, ret3), " ", J2(ret3, ret2))
 
     ##
-    pls = plotParams(m, opt, ret2; compareTo=ret3)
-    pls2 = plotParams(m, opt, ret3; compareTo=ret2)
+    pls = plotParams(m, opt, POPTS, ret2; compareTo=ret3)
+    pls2 = plotParams(m, opt, POPTS, ret3; compareTo=ret2)
     plot(pls..., pls2..., size=(1000,600))
     gui()
 end
 
 "try to get mw, Aw, dt constraints, since those seem active. Transmission nonlinearity?"
-function paramSpaceVis(m, opt, POPTS, ret1)
+function paramSpaceVis(m, opt, POPTS, ret1, σamax)
     ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=0)#, print_level=3)
     
     J(ret) = ret["eval_f"](ret["x"])
     ##
-    pls = plotParams(m, opt, ret2)
-    plot(pls..., size=(800,400))
+    pls = plotParams(m, opt, POPTS, ret2; σamax=σamax)
+    plot(pls..., size=(600,300))
     gui()
 end

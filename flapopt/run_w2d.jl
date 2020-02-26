@@ -107,11 +107,12 @@ POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 # ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 400; Φ=120, Qdt=5e4)
 
 # "low power": Opt Φ=120, Qdt=0.0, minal=300, τ2/1 lim=2.0 => 0, [22.083 3.282 1.147 5.273 6.566 88.333 0.097], fHz=129.1, al[mg]=308.5, u∞=185.0, FD∞=146.2, pow=22.8, J=248.0, AR=4.0, x=39.4
-ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 300; Φ=120, Qdt=1e3, Rpow=1e0)
+# ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 300; Φ=120, Qdt=1e3, Rpow=1e0)
 
 ## Param space convexity plot -----------------
-# includet("w2d_pplots.jl")
+includet("w2d_pplots.jl")
 # debugConvexity(m, opt, POPTS, ret1)
+paramSpaceVis(m, opt, POPTS, ret1, σamax)
 
 ## DEBUG ----------
 
