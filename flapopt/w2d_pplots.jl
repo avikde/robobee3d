@@ -31,23 +31,17 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, POPTS, rr; compareTo=n
             x[i2] = p2
             return rr["eval_f"](x)
         end
-        X = range(xpl..., length=30)
-        Y = range(ypl..., length=30)
+        X = range(xpl..., length=50)
+        Y = range(ypl..., length=50)
         pl = contour(X, Y, f, 
-			titlefontsize=10, grid=false, lw=2, c=:bluesreds, 
+			titlefontsize=10, grid=false, lw=1, fill=(true,cgrad(:grays_r,[500,0.1,1000.0])), #c=:bluesreds, 
 			xlabel=xlabel, ylabel=ylabel, #title=title,
 			xlims=xpl, ylims=ypl, legend=false, colorbar=false)
-		# Now plot the locations of different params
-		plparam(p; kwargs...) = plot!(pl, [p[i1]], [p[i2]], legend=false, markershape=:auto; kwargs...)
-		plparam(rr["param"]; markercolor=:green)
-		if !isnothing(compareTo)
-			plparam(compareTo["param"]; markercolor=:red)
-        end
 
         function plotConstraint(ic, ix, iy; kwargs...)
             # Test superimpose constraint
             ftest(x, y) = dot(rr["Cp"][ic,[ix,iy]], [x, y]) - rr["dp"][ic]
-            contour!(pl, X, Y, ftest, fill=false, levels=[0], lw=2, ls=:dash, kwargs...)
+            contour!(pl, X, Y, ftest, fill=false, levels=[0], lw=2, color=:blue, kwargs...)
         end
         for ic in icboth
             plotConstraint(ic, i1, i2)
@@ -56,14 +50,24 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, POPTS, rr; compareTo=n
             ic, iy = iciy
             cc = rr["Cp"][ic, [i1,iy]]
             dd = rr["dp"][ic]
-            vline!(pl, [(dd - cc[2]*rr["param"][iy])/cc[1]], lw=2, ls=:dash, color=:black)
+            vline!(pl, [(dd - cc[2]*rr["param"][iy])/cc[1]], lw=2, color=:purple)
         end
 
         if i1 == POPTS.τinds[1] && i2 == POPTS.τinds[2]
             # transmission linearized constraint
-            Ct, dt = cu.transmissionLinearConstraint(POPTS, length(rr["param"]), σamax, maximum(abs.(rr["traj"][1:ny:(N+1)*ny])))
-            ftest(x, y) = dot(Ct[[i1,i2]], [x, y]) - dt[1]
-            contour!(pl, X, Y, ftest, fill=false, levels=[0], lw=2, ls=:dash)
+            qamax = maximum(abs.(rr["traj"][1:ny:(N+1)*ny]))
+            Ct, dt = cu.transmissionLinearConstraint(POPTS, length(rr["param"]), σamax, qamax)
+            flin(x, y) = dot(Ct[[i1,i2]], [x, y]) - dt[1]
+            contour!(pl, X, Y, flin, fill=false, levels=[0], lw=2, color=:purple)
+            # nonlinear transmission constraint (tauinv)
+            fnl(τ1, τ2) = qamax/τ1 - qamax^3*τ2/(3*τ1^4) - σamax
+            contour!(pl, X, Y, fnl, fill=false, levels=[0], lw=2, color=:red)
+        end
+		# Now plot the locations of different params
+		plparam(p; kwargs...) = plot!(pl, [p[i1]], [p[i2]], legend=false, markershape=:auto; kwargs...)
+		plparam(rr["param"]; markercolor=:green)
+		if !isnothing(compareTo)
+			plparam(compareTo["param"]; markercolor=:red)
         end
         
         return pl
@@ -75,7 +79,7 @@ function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, POPTS, rr; compareTo=n
 		plotSlice(6, 3, "Aw", (50, 120), "mw", (0.3, 1.5); icboth=[3,4], icx=[[1,7]]),
 		# plotSlice(6, 1, "Aw", (50, 120), "cb2", (10, 30); icboth=[5,6]),
 		# plotSlice(3, 1, "mw", (0.3, 1.5), "cb2", (10, 30)),
-		plotSlice(2, 5, "T1", (1.5, 4), "T2", (2,10); icboth=[2])
+		plotSlice(2, 5, "T1", (2, 3.5), "T2", (2,10); icboth=[2])
 		]
 
     # draw a line between the params
@@ -130,12 +134,10 @@ function debugConvexity(m, opt, POPTS, ret1)
 end
 
 "try to get mw, Aw, dt constraints, since those seem active. Transmission nonlinearity?"
-function paramSpaceVis(m, opt, POPTS, ret1, σamax)
-    ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 180; Φ=90, Qdt=0)#, print_level=3)
-    
+function paramSpaceVis(m, opt, POPTS, ret, σamax)
     J(ret) = ret["eval_f"](ret["x"])
     ##
-    pls = plotParams(m, opt, POPTS, ret2; σamax=σamax)
+    pls = plotParams(m, opt, POPTS, ret; σamax=σamax)
     plot(pls..., size=(600,300))
     gui()
 end
