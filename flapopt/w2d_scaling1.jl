@@ -125,12 +125,12 @@ function scaling1disp(resarg; useFDasFact=true, scatterOnly=false, xpl=nothing, 
 				zspl = spl(x,y)
 				return zspl >= minimum(zi) && zspl <= maximum(zi) ? zspl : NaN
 			end
-			X = range(1, 2, length=50)
-			Y = range(20, 40, length=50)
+			X = range(1.5, 2.5, length=50)
+			Y = range(20, 35, length=50)
 			return contour(X, Y, ff, 
 				titlefontsize=10, grid=false, lw=2, c=:bluesreds, 
 				xlabel="mact [x]", ylabel="pow [mW]", title=title,
-				xlims=[1.,2.], ylims=[20.,40])
+				xlims=[1.5, 2.5], ylims=[20, 35])
 		end
 
 		"Get an isoline along an mact https://github.com/avikde/robobee3d/pull/140"
