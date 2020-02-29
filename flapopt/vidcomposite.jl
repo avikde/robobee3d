@@ -21,4 +21,5 @@ end
 # darkGhostDir("../../../Desktop/hb1 a1/")
 # darkGhostDir("../../../Desktop/hb1 4b1/")
 # darkGhostDir("../../../Desktop/mod1a1  a/")
-darkGhostDir("../../../Desktop/mod1a1  a/")
+# darkGhostDir("../../../Desktop/bborig/")
+darkGhostDir("../../../Desktop/bb4l/")
