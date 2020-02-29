@@ -252,7 +252,7 @@ function liftPowerPlot(mop)
 	addToPlot!(p2, p4, "bigbee oA", mop,  "data/normstroke/Param opt manuf 2 - bigbee originalA.csv", wingDims["bigbee"]...; markershape=:dtriangle)
 	# addToPlot!(p2, p4, "bigbee 1al", mop,  "data/normstroke/Param opt manuf 2 - bigbee 1al.csv", wingDims["1al"]...; markershape=:dtriangle)
 
-	plot(p1, p2, p3, p4, size=(600,600))
+	plot(p1, p3, p2, p4, size=(800,500))
 end
 
 normStrokeSDAB(mop) = plot(
@@ -283,8 +283,8 @@ mop = (m, opt, param0)
 # liftPowerPlot(mop)
 
 # normStrokeSDAB(mop)
-normStrokeBigBee(mop)
+# normStrokeBigBee(mop)
 
-# openLoopPlotFinal(mop...)
+openLoopPlotFinal(mop...)
 
 gui()

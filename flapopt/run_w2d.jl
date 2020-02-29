@@ -133,11 +133,9 @@ POPTS.plimsU .= [50.0, 3.5, 100.0, 20.0, 100.0, 500.0, dtlims[2]]
 
 # includet("w2d_nlbenefit.jl")
 
-# # openLoopPlotFinal(m, opt, param0)
-
 # # results = nonlinBenefit("nonlinbig5.zip", ret1, range(0, 3, length=10), range(180, 360, length=6); τ2eq=true, tol=5e-2) # SLOW
 # pls = plotNonlinBenefit("nonlinbig5.zip", [180,360]; s=100)
-# plot(pls...)
+# plot(pls..., layout=(1,2), size=(600,250))
 # gui()
 
 ##

@@ -98,10 +98,10 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 	function scatterAndShadow(xi, yi, zi, camera, ylabel; markeralpha=0.1)
 		Z = ones(size(zi))
 		p1 = scatter3d(camera=camera, legend=false, xlabel="T ratio", ylabel=ylabel)
-		# shadows
-		scatter3d!(p1, xi, yi, minimum(zi)*Z, color=:gray, markeralpha=markeralpha, markerstrokewidth=0)
-		scatter3d!(p1, minimum(xi)*Z, yi, zi, color=:gray, markeralpha=markeralpha, markerstrokewidth=0)
-		scatter3d!(p1, xi, maximum(yi)*Z, zi, color=:gray, markeralpha=markeralpha, markerstrokewidth=0)
+		# # shadows
+		# scatter3d!(p1, xi, yi, minimum(zi)*Z, color=:gray, markeralpha=markeralpha, markerstrokewidth=0)
+		# scatter3d!(p1, minimum(xi)*Z, yi, zi, color=:gray, markeralpha=markeralpha, markerstrokewidth=0)
+		# scatter3d!(p1, xi, maximum(yi)*Z, zi, color=:gray, markeralpha=markeralpha, markerstrokewidth=0)
 		# actual points
 		scatter3d!(p1, xi, yi, zi, m=:bluesreds_r, zcolor=zi, markerstrokewidth=0)
 	end
@@ -165,7 +165,7 @@ function plotNonlinBenefit(fname, ypl; s=100, xpl=[0,3])
 		# FIXME: low/high I (1 vs. 2 in the last element really seem to not make a big difference)
 		# Mode 1: al;Qdt;phi;wingdens
 		createPlots(1, ([2,3,4,5], [1,2], 2, [1,2]), (80,10); title="120deg")..., 
-		createPlots(1, ([2,3,4,5], [1,2], 1, [1,2]), (80,10); title="90deg")...,
+		# createPlots(1, ([2,3,4,5], [1,2], 1, [1,2]), (80,10); title="90deg")...,
 		# plot(createPlots(1, [4, 1, 2, 2])..., createPlots(1, [4, 1, 2, 3])..., title="Wing density (low, high)"),
 	]
 	# createPlots(1, [3, 1, 2, 3])
