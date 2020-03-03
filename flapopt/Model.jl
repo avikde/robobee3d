@@ -44,15 +44,6 @@ function robj(m::Model, opt::OptOptions, traj::AbstractArray, params::AbstractAr
 	return zeros(0)
 end
 
-function pdims(m::Model)::Int
-	return 0
-end
-
-function plimits(m::Model)
-	return [], []
-end
-
-
 #=========================================================================
 Functions that can be specialized optionally
 =========================================================================#

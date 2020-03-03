@@ -1,6 +1,6 @@
 
-using Parameters, LinearAlgebra, DifferentialEquations, Dierckx
-using Plots; gr()
+using Parameters, LinearAlgebra, DifferentialEquations, Dierckx, Statistics
+using Plots
 
 import controlutils
 cu = controlutils
@@ -34,8 +34,7 @@ NOTE:
 """
 @with_kw struct Wing2DOFModel <: controlutils.Model
     # params
-    ko::Float64 # [mN/mm]
-    bo::Float64 = 0 # [mN/(mm/ms)]
+    kbo::Array{Float64,1} = [0., 0.] # [mN/mm], [mN/(mm/ms)]
     # Actuator params
     ma::Float64 # [mg]; effective
     ba::Float64 = 0 # [mN/(mm/ms)]
@@ -54,15 +53,6 @@ const γ = 0.5 # location of mwing lumped mass is γ*cbar down from the spar
 function cu.dims(m::Wing2DOFModel)::Tuple{Int, Int}
     return m.SEA ? 6 : 4, 1
 end
-
-# function cu.limits(m::Wing2DOFModel)::Tuple{Vector, Vector, Vector, Vector}
-#     # This is based on observing the OL trajectory. See note on units above.
-#     umax = @SVector [75.0] # [mN]
-#     umin = -umax
-#     xmax = @SVector [300e-3, 1.5, 100, 100] # [mm, rad, mm/ms, rad/ms]
-#     xmin = -xmax
-#     return umin, umax, xmin, xmax
-# end
 
 "Tried going directly from Doshi model-driven, but haven't been able to get that to match up"
 function hingeParams(wΨ)
@@ -140,10 +130,10 @@ function cu.dydt(m::Wing2DOFModel, yo::AbstractArray, u::AbstractArray, param::V
     cor1 = [cbar2*mwing*γ^2*sin(2*Ψ)*dφ*dΨ - γ*cbar*mwing*ycp*sin(Ψ)*dΨ^2, 
         -cbar2*mwing*γ^2*cos(Ψ)*sin(Ψ)*dφ^2]
     # NOTE: dropping τinv'' term
-    corgrav = [m.ko*φ, kΨ*Ψ] + (m.bCoriolis ? cor1 : zeros(2))
+    corgrav = [m.kbo[1]*φ, kΨ*Ψ] + (m.bCoriolis ? cor1 : zeros(2))
 
     # non-lagrangian terms
-    τdamp = [-(m.bo + m.ba/T^2) * dφ, -bΨ * dΨ]
+    τdamp = [-(m.kbo[2] + m.ba/T^2) * dφ, -bΨ * dΨ]
     _, Jaero, Faero = w2daero(m, yo, param)
     τaero = Jaero' * Faero # units of [mN, mN-mm]
     # input
@@ -212,8 +202,10 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
         # don't return dirtran traj; only traj stats
         Nend = 1000
         solend = hcat(sol.u[end-Nend+1:end]...) # (ny,N) shaped
-        campl = k -> maximum(solend[k,:]) - minimum(solend[k,:])
-        return [campl(1), campl(3)] # stroke and hinge ampl
+        vecrange(x) = maximum(x) - minimum(x)
+        campl = k -> vecrange(solend[k,:])
+        σa = [cu.transmission(m, solend[:,k], params; o2a=true)[1][1] for k=1:Nend]
+        return [campl(1), campl(3), vecrange(σa)/2] # stroke, hinge ampl, act disp ampl
     end
     if makeplot
         # Plot
@@ -297,39 +289,6 @@ function plotTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs; legends=
 	return (stroket, Ψt, ut, liftt, dragt, actt, phaset)
 end
 
-function plotParamImprovement(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs, paramObj::Function)
-    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, trajs[1])
-
-    # The param space plots
-    pls = plotParams(m, opt, trajs[1], paramObj, params...)
-    # Traj plots
-    σt, Ψt, ut, liftt, dragt = plotTrajs(m, opt, params, trajs)
-
-    return pls..., σt, Ψt, ut, liftt, dragt
-end
-
-function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param, traj, lift, drag)
-	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-	Ny = (N+1)*ny
-    cbar2, τ1, mwing, wΨ, τ2, Aw, dt = param
-    # Plot of aero forces at each instant
-    function aeroPlotVec(_traj::Vector, _param, i)
-        Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end]
-        Faeros = hcat([Faerok(k) for k=1:N]...)
-        return [Faeros[i,:]' NaN]'
-    end
-    liftp = plot(t, lift, marker=:auto, legend=false, label="daq", ylabel="lift [mN]")
-    plot!(liftp, t, aeroPlotVec(traj, param, 2), marker=:auto, legend=false, label="pred")
-    dragp = plot(t, drag, marker=:auto, label="daq", ylabel="drag [mN]")
-    plot!(dragp, t, aeroPlotVec(traj, param, 1), marker=:auto, label="pred")
-
-    # Get the basic kinematics
-    σt, Ψt, ut, _ = plotTrajs(m, opt, [param], [traj])
-
-    # Combine the subplots
-	return (σt, Ψt, ut, liftp, dragp)
-end
-
 function drawFrame(m::Wing2DOFModel, yk, uk, param; Faeroscale=1.0)
     cbar2, τ1, mwing, wΨ, τ2, Aw, dt = param
     yo, T, _, _ = cu.transmission(m, yk, param)
@@ -368,95 +327,6 @@ function animateTrajs(m::Wing2DOFModel, opt::cu.OptOptions, params, trajs)
 
     # return wingdraw 
 end
-
-function plotParams(m::Wing2DOFModel, opt::cu.OptOptions, traj::Vector, paramObj::Function, args...; μ::Float64=1e-1, Vclip=50000)
-    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-    # First plot the param landscape
-    pranges = [
-        0:0.25:6.0, # cbars
-        10.0:1.0:50, # Ts
-        0.1:0.1:3.0, # mwings
-        0.1:1.0:20.0, # kΨs
-        0.1:1.0:20.0 # bΨs
-    ]
-    labels = [
-        "chord",
-        "T",
-        "mwing",
-        "hinge k",
-        "hinge b"
-    ]
-
-    # different param vectors passed in
-    params = hcat(args...) # Np x Nsteps
-    param0 = args[end] # for the slices use the last param
-
-    # # Old: f defined here
-    # Ng = opt.boundaryConstraint == cu.SYMMETRIC ? (N+2)*ny : (N+1)*ny
-    # g = zeros(Ng)#cu.gbounds(m, opt, traj)[1]
-    # f(p1, p2) = begin
-    #     cu.gvalues!(g, m, opt, traj, [p1,p2], traj[1:4])
-    #     cu.Jobj(m, opt, traj, [p1,p2]) + μ/2 * g' * g
-    # end
-
-    function plotSlice(i1, i2)
-        function f(p1, p2)
-            parg = copy(param0)
-            parg[i1] = p1
-            parg[i2] = p2
-            V = paramObj(parg)
-            return V > Vclip ? NaN : V
-        end
-        pl = contour(pranges[i1], pranges[i2], f, fill=true, seriescolor=cgrad(:bluesreds), xlabel=labels[i1], ylabel=labels[i2])
-        # Now plot the path taken
-        plot!(pl, params[i1,:], params[i2,:], marker=:auto, legend=false)
-        # just in case
-        xlims!(pl, (pranges[i1][1], pranges[i1][end]))
-        ylims!(pl, (pranges[i2][1], pranges[i2][end]))
-        return pl
-    end
-    
-    return (plotSlice(1, 2), # cbar, T slice
-        plotSlice(1, 3), # cbar, mwing slice
-        plotSlice(2, 3), # T, mwing slice
-        plotSlice(4, 5) # T, khinge slice
-    )
-end
-
-# Test applying euler integration to the initial traj
-function eulerIntegrate(m::cu.Model, opt::cu.OptOptions, traj::Vector, params::Vector)
-    trajei = copy(traj)
-    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-
-    yk(k) = @view trajei[liy[:,k]]
-    uk(k) = @view trajei[liu[:,k]]
-    for k=1:N
-        trajei[liy[:,k+1]] = cu.ddynamics(m, yk(k), uk(k), params, δt)
-    end
-    return trajei
-end
-
-# "Cost function components" ------------------
-
-# "Objective to minimize"
-# function cu.robj(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray)::AbstractArray
-#     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
-    
-# 	yk = k -> @view traj[liy[:,k]]
-# 	uk = k -> @view traj[liu[:,k]]
-    
-#     cbar2, τ1, mwing, wΨ, τ2, Aw, dt = param
-
-#     Favg = @SVector zeros(2)
-#     for k = 1:N
-#         paero, _, Faero = w2daero(m, cu.transmission(m, yk(k), param)[1], param)
-#         Favg += Faero
-#     end
-#     # Divide by the total time
-#     Favg /= (N) # [mN]
-#     # avg lift
-#     return [Favg[3] - 100]
-# end
 
 # param opt stuff ------------------------
 
@@ -532,7 +402,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
         # [(m.ko*φ + m.ka/T*τifun(φ)), kΨ*Ψ]
         # τdamp = [-(m.bo + m.ba/T^2) * dφ, -bΨ * Ψ̇]
         φ, Ψ = y[1:2]
-        return [m.ko*φ   0   0   0   0   0   0    0   0;
+        return [m.kbo[1]*φ   0   0   0   0   0   0    0   0;
         0   Ψ   0    0   0   0   0   0   0]
     end
     """Stiffness actuator"""
@@ -545,7 +415,7 @@ function cu.paramAffine(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArra
     function Hdamp(y)
         φ, Ψ = y[1:2]
         dφ, Ψ̇ = y[3:4] * dtold
-        return [m.bo*dφ   0   0   0   0   0   0    m.ba*dφ   m.ba*dφ*(-φ^2);
+        return [m.kbo[2]*dφ   0   0   0   0   0   0    m.ba*dφ   m.ba*dφ*(-φ^2);
         0   0   Ψ̇   0   0   0   0   0   0]
     end
     """Ext force (aero)"""

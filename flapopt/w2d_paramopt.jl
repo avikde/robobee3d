@@ -2,8 +2,7 @@
 import controlutils
 cu = controlutils
 
-include("Wing2DOF.jl")
-include("LoadWingKinData.jl")
+# include("w2d_loaddata.jl") # For ID
 
 # Indices into param array
 const cb_idx = 1
@@ -28,7 +27,7 @@ function estimateWingDensity(test=false)
 	# meanpred = mwings2 ./ cbar0
 	# FIXME: for robobee design this is producing torques that are too high
 	# rholims = [meanpred[1] * cbar0, meanpred[end] * cbar0]
-	rholims = [0.013, 0.02] # from param0 = 0.7/54.4
+	rholims = [0.009, 0.02] # from param0 = 0.5/54.4
 
 	if test
 		p1 = plot(dspar, mwings, ylabel="mwing from Ixx", lw=2)
@@ -47,7 +46,7 @@ end
 kinType -- 0 => ID'ed real data, 1 => openloop sim with param0 then truncate, 2 => generate kinematics(t)
 fix -- Make traj satisfy dyn constraint with these params?
 """
-function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, starti=214, verbose=true, freq=0.165, N=80)
+function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, uampl=65, starti=212, verbose=true, freq=0.16, N=80)
 	if kinType==1
 		opt = cu.OptOptions(false, false, 1/(N*freq), 1, :none, 1e-8, false) # sim
 		N = opt.boundaryConstraint == :symmetric ? N÷2 : N
@@ -88,45 +87,6 @@ function initTraj(m, param0, kinType=0; fix=false, makeplot=false, Ψshift=0, ua
 	return N, trajt, traj0, opt, currentAmpl(1)
 end
 
-"""Generate plot like in [Jafferis (2016)] Fig. 4"""
-function openLoopPlot(m, opt, param0; save=false)
-	function getResp(f, uamp, nlt=false)
-		param = copy(param0)
-		param[5] = nlt ? 2*param[2] : 0.0
-		return createInitialTraj(m, opt, 0, f, [1e3, 1e2], param, 0; uampl=uamp, trajstats=true, thcoeff=0.1)
-	end
-	fs = 0.03:0.005:0.25
-	mN_PER_V = 75/160
-
-	p1 = plot(ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,0.8))
-	p2 = plot(xlabel="Freq [kHz]", ylabel="Hinge ampl [deg]", legend=false, ylims=(0,100))
-
-	function plotForTrans(nlt)
-		nltstr = nlt ? "N" : "L"
-		for Vamp=130:30:210
-			println("Openloop @ ", Vamp, "V ", nltstr)
-			uamp = Vamp*mN_PER_V
-			amps = hcat(getResp.(fs, uamp, nlt)...)
-			amps *= 180/pi # to degrees
-			amps[1,:] /= (Vamp) # normalize
-			amps[2,:] /= 2.0 # hinge ampl one direction
-			# println(amps)
-			plot!(p1, fs, amps[1,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt ? :solid : :dash)
-			plot!(p2, fs, amps[2,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt ? :solid : :dash)
-		end
-	end
-
-	plotForTrans(false)
-	plotForTrans(true)
-
-	plot(p1, p2, layout=(2,1), size=(500,500), dpi=200)
-	if save
-		savefig("olplot.png")
-	end
-	gui()
-	error("Open loop plot")
-end
-
 """Linear approx of wing AR constraint at cbar https://github.com/avikde/robobee3d/issues/113. Returns a,b s.t. dot(a, [cb,Aw]) <= b is the constraint"""
 function wingARconstraintLin(maxAR=6, minAR=4)
 	# AR<=?: see https://github.com/avikde/robobee3d/pull/133 - changed to cbar2
@@ -155,7 +115,7 @@ function trajMechPow(m, opt, traj, param)
 end
 
 """One-off ID or opt"""
-function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, testReconstruction=false, Φ=nothing, Rpow=nothing, kwargs...)
+function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, testAfter=false, Φ=nothing, Rpow=nothing, Qdt=nothing, τ2eq=false, wingdens1=nothing, kwargs...)
 	# Make any desired changes
 	if !isnothing(Φ)
 		m.Amp[1] = deg2rad(Φ)
@@ -167,24 +127,37 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	if !isnothing(Rpow)
 		POPTS.R[2] .= reshape([Rpow],1,1)
 	end
+	if !isnothing(Qdt)
+		POPTS.pdesQ[end] = Qdt
+	end
 	# A polytope constraint for the params: cbar >= cbarmin => -cbar <= -cbarmin. Second, τ2 <= 2*τ1 => -2*τ1 + τ2 <= 0
 
     # cbar2, τ1, mwing, wΨ, τ2, Aw, dt  = param
 	# Poly constraint
 	rholims = estimateWingDensity()
+	if !isnothing(wingdens1)
+		rholims[1] = wingdens1
+	end
 	wARa, wARb = wingARconstraintLin()
 	mla, mlb = minLiftConstraintLin(minal, param0, avgLift0, Φ0, Φ1, 4.0) # need a guess of new AR
 	# Polytope constraint
 	Cp = Float64[0  0  0  0  0  mla[1]  mla[2]; # min lift
-		0  -τ21ratiolim  0  0  1  0  0; # transmission nonlinearity τ2 <= τ21ratiolim * τ1
+		0  -τ21ratiolim-(τ2eq ? 0.1 : 0)  0  0  1  0  0; # transmission nonlinearity τ2 <= τ21ratiolim * τ1
 		0   0  -1  0  0  rholims[1]  0; # wing density mw >= Aw*ρ1
 		0   0  1  0  0  -rholims[2]  0; # wing density mw <= Aw*ρ2
 		wARa[1]   0  0  0  0  wARa[2]  0; # wing AR <= ?
 		wARb[1]   0  0  0  0  wARb[2]  0] # wing AR >= ?
 	dp = [mlb; 0; 0; 0; 0; 0]
-	print(mode==2 ? "ID" : "Opt", " Φ=", isnothing(Φ) ? "-" : Φ, ", Rpow=", round(POPTS.R[2][1,1]), ", minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
 
-	ret = cu.paramOpt(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, testTrajReconstruction=testReconstruction, 
+	# fix \tau_2
+	if τ2eq
+		Cp = [Cp; [0  τ21ratiolim  0  0  -1  0  0]] # τ2 >= τ21ratiolim * τ1]]
+		dp = [dp; 0]
+	end
+
+	print(mode==2 ? "ID" : "Opt", " Φ=", isnothing(Φ) ? "-" : Φ, ", Qdt=", round(POPTS.pdesQ[end]), ", minal=", minal, ", τ2/1 lim=", τ21ratiolim, " => ")
+
+	ret = cu.paramOpt(m, opt, traj, param, POPTS, mode, σamax; test=testAffine, Cp=Cp, dp=dp, 
 		# https://coin-or.github.io/Ipopt/OPTIONS.html - can be overwritten by used kwargs
 		tol=1e-3, 
 		kwargs...)
@@ -200,6 +173,8 @@ function opt1(m, traj, param, mode, minal, τ21ratiolim=2.0; testAffine=false, t
 	ret["mechPow"] = trajMechPow(m, opt, ret["traj"], ret["param"])
 	ret["comps"] = getComponents(m, opt, ret["traj"], ret["param"])
 	ret["FD∞"] = norm(ret["comps"][6][1,:], Inf) # Also store drag (should be same as uinf for scaling but dynamics)
+	ret["Cp"] = Cp
+	ret["dp"] = dp
 	
 	println(ret["status"], ", ", round.(ret["param"]', digits=3), 
 	", fHz=", round(1000/(N*ret["param"][end]), digits=1), 
@@ -290,7 +265,7 @@ function debugComponentsPlot(m::Wing2DOFModel, opt, POPTS, ret)
 	pl1 = plotTrajs(m, opt, listOfParamTraj(ret)...)
 	plstroke = plotComponents(1, "stroke")
 	plhinge = plotComponents(2, "hinge")
-	plot!(pl1[4], t2, 10*mechpow, label="mp", lw=2)
+	plot!(pl1[4], t2, 10*mechpow, label="mp", lw=2, legend=:outertopright)
 	plot!(pl1[4], t2, 10*ret["mechPow"], lw=2, ls=:dash, label="mpT")
 
 	# Note that gamma is here

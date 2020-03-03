@@ -1,8 +1,8 @@
 
-include("OptBase.jl") #< including this helps vscode reference the functions in there
+include("Model.jl") #< including this helps vscode reference the functions in there
 using Parameters, ForwardDiff, LinearAlgebra, Ipopt, DSP, SparseArrays
 
-@with_kw struct ParamOptOpts
+@with_kw mutable struct ParamOptOpts
 	τinds::Array{Int}
 	"(Ryy, Ryu (mech pow), Ruu, wΔy, wlse)"
 	R::Tuple
@@ -77,17 +77,11 @@ function reconstructTrajFromΔy(m::Model, opt::OptOptions, POPTS, traj::Abstract
 
 	# Also convert the output traj with the Δy, new T, and inputs
 	traj2 = copy(traj)
-	# Calculate the new traj (which is in act coordinates, so needs scaling by T)
+	# Calculate the new traj
 	ptnew = getpt(m, pnew)
 	for k=1:N+1
-		if opt.trajAct
-			# Go from output to act coords
-			ya, Tk = transmission(m, yo(k) + Δyk(k), pnew; o2a=true)[1:2]
-			yknew = ya
-		else
-			yknew = yo(k) + Δyk(k)
-		end
-		# velocity scaling for https://github.com/avikde/robobee3d/issues/110 FIXME: after Δy?
+		yknew = yo(k) + Δyk(k)
+		# velocity scaling for https://github.com/avikde/robobee3d/issues/110 after Δy since that is how Δy was calculated
 		if abs(dtold/dtnew - 1.0) > 0.001
 			yknew[nq+1:end] = yknew[nq+1:end]*dtold/dtnew
 		end
@@ -381,13 +375,12 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	dp2 = copy(dp) # No idea why this was getting modified. Storing a copy seems to work.
 	nΔy = (N+1)*ny
 
-	eval_g_pieces(k, Δykm1, Δyk, Δykp1, p) = Bperp * Hk(k, Δykm1, Δyk, Δykp1)[1] * getpt(m, p)
-
 	function eval_g(x, g)
 		pp = x[1:np]
+		pt = getpt(m,pp)
 		Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 		
-		g .= [vcat([eval_g_pieces(k, Δyk(max(k-1,1)), Δyk(k), Δyk(k+1), pp) for k=1:N]...); # unact
+		g .= [vcat([Bperp * Hk(k, Δyk(max(k-1,1)), Δyk(k), Δyk(k+1))[1] * pt for k=1:N]...); # unact
 			CpS * pp; # Polytope constraint on the params must be <= dp
 			ΔySpikyConst ? spikyD * x[np+1 : np+(N+1)*ny] : []] # D*Δy within bounds
 	end
@@ -408,18 +401,20 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 		if imode == :Values
 			Δyk = k -> x[np+(k-1)*ny+1 : np+k*ny]
 			p = x[1:np]
-			pbb, τ1, τ2, dt  = paramLumped(m, x[1:np])
+			pt = getpt(m, p)
+			# can replace by inplace
+			dpt_dp = ForwardDiff.jacobian(x -> getpt(m, x), p) # 1,npt X npt,np
 		end
 
 		for k=1:N
 			# Use AD for these. These individual terms should not be expected to be sparse since it is a np -> nunact map.
 			kprev = max(k-1,1)
 			if imode == :Values
-				# Tested https://github.com/avikde/robobee3d/pull/139 that explicitly leaving this out (and reducing nnz) does not perform better and is slower?
-				ForwardDiff.jacobian!(dykm1, yy -> eval_g_pieces(k, yy, Δyk(k), Δyk(k+1), p), Δyk(kprev))
-				ForwardDiff.jacobian!(dyk, yy -> eval_g_pieces(k, Δyk(kprev), yy, Δyk(k+1), p), Δyk(k))
-				ForwardDiff.jacobian!(dykp1, yy -> eval_g_pieces(k, Δyk(kprev), Δyk(k), yy, p), Δyk(k+1))
-				ForwardDiff.jacobian!(dp, yy -> eval_g_pieces(k, Δyk(kprev), Δyk(k), Δyk(k+1), yy), p)
+				# Tested https://github.com/avikde/robobee3d/pull/139 that explicitly leaving this out if not centralDiff (and reducing nnz) does not perform better and is slower?
+				ForwardDiff.jacobian!(dykm1, yy -> Bperp * Hk(k, yy, Δyk(k), Δyk(k+1))[1] * pt, Δyk(kprev))
+				ForwardDiff.jacobian!(dyk, yy -> Bperp * Hk(k, Δyk(kprev), yy, Δyk(k+1))[1] * pt, Δyk(k))
+				ForwardDiff.jacobian!(dykp1, yy -> Bperp * Hk(k, Δyk(kprev), Δyk(k), yy)[1] * pt, Δyk(k+1))
+				dp .= Bperp * Hk(k, Δyk(kprev), Δyk(k), Δyk(k+1))[1] * dpt_dp
 			end
 			for i=1:nunact
 				for j=1:ny
@@ -497,8 +492,8 @@ function paramOptConstraint(m::Model, POPTS::ParamOptOpts, mode, np, ny, δt, Hk
 	glimsL = [glimsL; -1e3 * ones(ncpolytope)] # Scott said having non-inf bounds helps IPOPT
 	glimsU = [glimsU; dp2 + POPTS.εpoly * ones(ncpolytope)] # must be <= 0
 
-	glimsL = [glimsL; -0.05 * ones(ncspiky)] # empirical from https://github.com/avikde/robobee3d/pull/138
-	glimsU = [glimsU; 0.05 * ones(ncspiky)]
+	glimsL = [glimsL; -POPTS.ΔySpikyBound * ones(ncspiky)] # empirical from https://github.com/avikde/robobee3d/pull/138
+	glimsU = [glimsU; POPTS.ΔySpikyBound * ones(ncspiky)]
 	
 	return nctotal, glimsL, glimsU, eval_g, eval_jac_g, Dgnnz, Bperp
 end
@@ -510,7 +505,7 @@ end
 - σamax -- actuator strain limit. This is used to constrain the transmission coeffs s.t. the actuator displacement is limited to σamax. The form of the actuator constraint depends on bTrCon.
 - Cp, dp -- polytope constraint for params. Can pass Cp=ones(0,X) to not include.
 "
-function paramOpt(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::ParamOptOpts, mode::Int, σamax; test=false, testTrajReconstruction=false, Cp::Matrix=ones(0,1), dp::Vector=ones(0), scaleTraj=1.0, dtFix=false, kwargs...)
+function paramOpt(m::Model, opt::OptOptions, traj::AbstractArray, param::AbstractArray, POPTS::ParamOptOpts, mode::Int, σamax; test=false, Cp::Matrix=ones(0,1), dp::Vector=ones(0), scaleTraj=1.0, dtFix=false, kwargs...)
 	if test
 		affineTest(m, opt, traj, param, POPTS)
 	end
@@ -574,15 +569,6 @@ function paramOpt(m::Model, opt::OptOptions, traj::AbstractArray, param::Abstrac
 	status = Ipopt.solveProblem(prob)
 	pnew = prob.x[1:np]
 	trajnew = reconstructTrajFromΔy(m, opt, POPTS, traj, yo, prob.x[np+1:np+nΔy], param, pnew)
-
-	if testTrajReconstruction
-		# Test traj reconstruction:
-		Hk, yo, umeas, B, N = paramAffine(m, opt, trajnew, pnew, POPTS)
-		Hh = Hk(k, zeros(ny), zeros(ny), zeros(ny))[1]
-		eval_g_ret2(p) = vcat([Bperp * Hh * (getpt(m, p)) for k=1:N]...)
-		display(eval_g_ret2(pnew)')
-		error("Tested")
-	end
 
 	return Dict("x"=>prob.x, "traj"=>trajnew, "param"=>prob.x[1:np], "eval_f"=>eval_f, "eval_grad_f"=>eval_grad_f, "eval_g"=>eval_g, "nc"=>nctotal, "status"=>status)
 end

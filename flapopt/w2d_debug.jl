@@ -1,3 +1,4 @@
+using Plots
 
 # # Test feasibility
 # function paramTest(p, paramConstraint)
@@ -11,8 +12,9 @@
 # 	println("Obj: ", paramObj(xtest))
 # end
 
-"See https://github.com/avikde/robobee3d/pull/136"
-function debugDeltaYEffect(N, ny, rr)
+"See https://github.com/avikde/robobee3d/pull/136.
+Also try to see how the traj was changed https://github.com/avikde/robobee3d/issues/142"
+function debugΔYEffect(N, ny, rr, rr0=nothing)
 	pt, Hk, B, Js, actVec = rr["eval_f"](rr["x"]; debug=true)
 	println("Js ", Js)
 	Δy = rr["x"][length(rr["param"])+1:end]
@@ -28,13 +30,23 @@ function debugDeltaYEffect(N, ny, rr)
 	rr["eval_g"](rr["x"], infeas)
 	np = length(rr["param"])
 
+	#Hinge deltay
+	function ΔyOutputChange(i)
+		pp = plot(rr["traj"][i:ny:(N+1)*ny], lw=2, ylabel=(i==1 ? "Stroke [rad]" : "Pitch [rad]"), label="new", legend=(i == 2 ? :bottomright : false))
+		if !isnothing(rr0)
+			plot!(pp, rr0["traj"][i:ny:(N+1)*ny] * (i==1 ? rr0["param"][end]/rr["param"][end] : 1), lw=2, label="orig")
+		end
+		return pp
+	end
+
 	D = cu.trajDiffMat(N, ny)
 
 	return (p1, 
 		plot([plot(Δy[i:ny:(N+1)*ny], legend=false, lw=2, ylabel=string(i)) for i=1:ny]...), 
 		plot(D * rr["x"][np+1:end],lw=2,ylabel="diff(Δy)", legend=false), 
 		plot(infeas[1:N],lw=2,ylabel="unact constraint", legend=false), 
-		plot(infeas[N+1:N+np], ylims=(-0.1,0.1),lw=2,ylabel="polytope constraint", legend=false)
+		plot(infeas[N+1:N+np], ylims=(-0.1,0.1),lw=2,ylabel="polytope constraint", legend=false),
+		plot(ΔyOutputChange(1), ΔyOutputChange(2)#= , layout=(2,1) =#)
 		)
 end
 
@@ -68,3 +80,25 @@ function debugGradient(rr)
 	gui()
 	error("h")
 end
+
+# function compareTrajToDAQ(m::Wing2DOFModel, opt::cu.OptOptions, t::Vector, param, traj, lift, drag)
+# 	ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+# 	Ny = (N+1)*ny
+#     cbar2, τ1, mwing, wΨ, τ2, Aw, dt = param
+#     # Plot of aero forces at each instant
+#     function aeroPlotVec(_traj::Vector, _param, i)
+#         Faerok = k -> w2daero(m, _traj[@view liy[:,k]], _param)[end]
+#         Faeros = hcat([Faerok(k) for k=1:N]...)
+#         return [Faeros[i,:]' NaN]'
+#     end
+#     liftp = plot(t, lift, marker=:auto, legend=false, label="daq", ylabel="lift [mN]")
+#     plot!(liftp, t, aeroPlotVec(traj, param, 2), marker=:auto, legend=false, label="pred")
+#     dragp = plot(t, drag, marker=:auto, label="daq", ylabel="drag [mN]")
+#     plot!(dragp, t, aeroPlotVec(traj, param, 1), marker=:auto, label="pred")
+
+#     # Get the basic kinematics
+#     σt, Ψt, ut, _ = plotTrajs(m, opt, [param], [traj])
+
+#     # Combine the subplots
+# 	return (σt, Ψt, ut, liftp, dragp)
+# end
