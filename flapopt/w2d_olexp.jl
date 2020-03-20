@@ -221,7 +221,7 @@ wingRootAddedOffset = 3.28 # to get to the R=17 in Jafferis et al 2016
 wingDims = Dict{String,Tuple{Float64,Float64,Float64,Float64}}(
 	"1a" => (54.4, 12.42 + sdabHingeOffs + wingRootAddedOffset, 45.45, 45.8),
 	"1al" => (121.76, 18.8 + sdabHingeOffs + wingRootAddedOffset, 45.45, 45.8),
-	"1alx2" => (243.52, 18.8 + sdabHingeOffs + wingRootAddedOffset, 45.45, 45.8),
+	# "1alx2" => (243.52, 18.8 + sdabHingeOffs + wingRootAddedOffset, 45.45, 45.8),
 	"1b" => (64.4, 14.51 + sdabHingeOffs + wingRootAddedOffset, 36.18, 45.8),
 	"4b" => (54.4, 13.8 + sdabHingeOffs + wingRootAddedOffset, 45, 46),
 	"4b2" => (54.4, 13.8 + sdabHingeOffs + wingRootAddedOffset, 45, 46),
@@ -249,12 +249,12 @@ function liftPowerPlot(mop)
 	addToPlot!(p1, p3, "mod1 4b2", mop,  "data/normstroke/Param opt manuf 2 - mod4 b h2.csv", wingDims["4b"]...; markershape=:utriangle)
 	addToPlot!(p2, p4, "bigbee orig", mop, "data/normstroke/Param opt manuf 2 - bigbee orig.csv", wingDims["bigbee"]...)
 	addToPlot!(p2, p4, "bigbee 1b", mop,  "data/normstroke/Param opt manuf 2 - bigbee b1.csv", wingDims["1b"]...; markershape=:rect)
-	addToPlot!(p2, p4, "bigbee 4l", mop, "data/normstroke/Param opt manuf 2 - bigbee 4l3.csv", wingDims["4l"]...; markershape=:utriangle)
-	addToPlot!(p2, p4, "bbx 1al", mop, "data/normstroke/Param opt manuf 2 - bbx 1alx2.csv", wingDims["1alx2"]...; markershape=:star5)
-	addToPlot!(p2, p4, "bbx o", mop,  "data/normstroke/Param opt manuf 2 - bbx bborig.csv", wingDims["bigbee"]...; markershape=:dtriangle)
-	# addToPlot!(p2, p4, "bbx 4l", mop, "data/normstroke/Param opt manuf 2 - bbx 4l3.csv", wingDims["4l"]...; markershape=:star5)
-	# addToPlot!(p2, p4, "bigbee oA", mop,  "data/normstroke/Param opt manuf 2 - bigbee originalA.csv", wingDims["bigbee"]...; markershape=:dtriangle)
-	# addToPlot!(p2, p4, "bigbee 1al", mop,  "data/normstroke/Param opt manuf 2 - bigbee 1al.csv", wingDims["1al"]...; markershape=:dtriangle)
+	# addToPlot!(p2, p4, "bigbee 4l", mop, "data/normstroke/Param opt manuf 2 - bigbee 4l3.csv", wingDims["4l"]...; markershape=:utriangle)
+	# addToPlot!(p2, p4, "bbx 1al", mop, "data/normstroke/Param opt manuf 2 - bbx 1alx2.csv", wingDims["1alx2"]...; markershape=:star5)
+	# addToPlot!(p2, p4, "bbx o", mop,  "data/normstroke/Param opt manuf 2 - bbx bborig.csv", wingDims["bigbee"]...; markershape=:dtriangle)
+	addToPlot!(p2, p4, "bbx 4l", mop, "data/normstroke/Param opt manuf 2 - bbx 4l3.csv", wingDims["4l"]...; markershape=:star5)
+	addToPlot!(p2, p4, "bigbee oA", mop,  "data/normstroke/Param opt manuf 2 - bigbee originalA.csv", wingDims["bigbee"]...; markershape=:dtriangle)
+	addToPlot!(p2, p4, "bigbee 1al", mop,  "data/normstroke/Param opt manuf 2 - bigbee 1al.csv", wingDims["1al"]...; markershape=:dtriangle)
 
 	plot(p1, p3, p2, p4, size=(800,500))
 end
@@ -274,23 +274,23 @@ normStrokeSDAB(mop) = plot(
 
 normStrokeBigBee(mop) = plot(
 	olExpPlot2(mop, 
-		# (readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee b1.csv")..., wingDims["1b"], [], :utriangle), 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee b1.csv")..., wingDims["1b"], [], :utriangle), 
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee orig.csv")..., wingDims["bigbee"], [], :circle), 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bbx bborig.csv")..., wingDims["bigbee"], [], :dtriangle),  
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bbx 1alx2.csv")..., wingDims["1alx2"], [], :dtriangle), 
-		# (readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee 4l3.csv")..., wingDims["4l"], [150,180,200], :rect), 
-		# (readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee originalA.csv")..., wingDims["bigbee"], [], :star5); 
+		# (readOLExpCSV("data/normstroke/Param opt manuf 2 - bbx bborig.csv")..., wingDims["bigbee"], [], :dtriangle),  
+		# (readOLExpCSV("data/normstroke/Param opt manuf 2 - bbx 1alx2.csv")..., wingDims["1alx2"], [], :dtriangle), 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee 4l3.csv")..., wingDims["4l"], [150,180,200], :rect), 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee originalA.csv")..., wingDims["bigbee"], [], :star5); 
 		title="BigBee", ulim=0.75), 
 	size=(600,400))
 
 # --------------------------------------------------------
 mop = (m, opt, param0)
 
-liftPowerPlot(mop)
+# liftPowerPlot(mop)
 
 # normStrokeSDAB(mop)
 # normStrokeBigBee(mop)
 
-# openLoopPlotFinal(mop...)
+openLoopPlotFinal(mop...)
 
 gui()
