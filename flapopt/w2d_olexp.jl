@@ -50,8 +50,10 @@ end
 function openLoopPlot(m, opt, param0, Vamps; save=false, NLT1scales=nothing, rightplot=false)
 	function getResp(f, uamp, nlt, σa0=nothing, T1scale=nothing)
 		param = copy(param0)
-		if nlt
+		if nlt==1
 			param = nlNormalizeByOutput(m, opt, param, σa0, T1scale)
+		elseif nlt==2
+			param[POPTS.τinds[1]] *= T1scale # and don't change \tau2
 		end
 		ts = createInitialTraj(m, opt, 0, f, [1e3, 1e2], param, 0; uampl=uamp, trajstats=true, thcoeff=0.1)
 		# println("act disp=",ts[end])
@@ -68,7 +70,7 @@ function openLoopPlot(m, opt, param0, Vamps; save=false, NLT1scales=nothing, rig
 	# 	yaxis!(p3, false)
 	# end
 	function plotForTrans(nlt; T1scales=nothing)
-		nltstr = nlt ? "N" : "L"
+		nltstr = nlt == 1 ? "N" : (nlt == 2 ? "LL" : "L")
 		actdisps = Dict{Float64, Float64}()
 		
 		for ii=1:length(Vamps)
@@ -88,15 +90,16 @@ function openLoopPlot(m, opt, param0, Vamps; save=false, NLT1scales=nothing, rig
 			amps[3,:] *= (1000/Vamp)
 			amps[2,:] /= 2.0 # hinge ampl one direction
 			# println(amps)
-			plot!(p1, fs, amps[1,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt ? :solid : :dash)
-			plot!(p2, fs, amps[2,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt ? :solid : :dash)
-			plot!(p3, fs, amps[3,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt ? :solid : :dash)
+			plot!(p1, fs, amps[1,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt==1 ? :solid : (nlt == 2 ? :dot : :dash))
+			plot!(p2, fs, amps[2,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt==1 ? :solid : (nlt == 2 ? :dot : :dash))
+			plot!(p3, fs, amps[3,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt==1 ? :solid : (nlt == 2 ? :dot : :dash))
 		end
 		return actdisps
 	end
 
-	plotForTrans(false)
-	plotForTrans(true; T1scales=NLT1scales)
+	plotForTrans(0)
+	plotForTrans(1; T1scales=NLT1scales)
+	# plotForTrans(2; T1scales=NLT1scales) # NOTE: for Rob test
 
 	println("dens=", param0[3]/param0[6], ", koratio=", m.kbo[1]/(m.kbo[1] + m.ka/param0[2]^2))
 	# plot(p1, #= p2, layout=(2,1),  =# size=(400, 300), dpi=200)
