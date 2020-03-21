@@ -123,12 +123,21 @@ function readOLExpCSV(fname)
 	return Vs, [dat[dat[:,1] .== V,2:3] for V in Vs]
 end
 
+STROKE_ACT_COORDS = false # to respond to Rob question about what act disp was in these trials
+
+function toAct(stroke, τcoeffs)
+	param = copy(param0)
+	param[POPTS.τinds[1]] = τcoeffs[1]
+	param[POPTS.τinds[2]] = τcoeffs[2]
+	return [cu.transmission(m, [deg2rad(stroke[k]/2), 0, 0, 0], param; o2a=true)[1][1] for k=1:length(stroke)]
+end
+
 function olExpPlotCurves!(p, dataset, lbl; kwargs...)
 	V, stroke, wingDims, showV, ms, τcoeffs = dataset
 	Nv = length(V)
 	for i=1:Nv
 		if length(showV) == 0 || Int(V[i]) in showV
-			plot!(p, stroke[i][:,1], stroke[i][:,2]/V[i], label=string(lbl,Int(V[i])), markershape=ms, lw=2.5; kwargs...)
+			plot!(p, stroke[i][:,1], (STROKE_ACT_COORDS ? toAct(stroke[i][:,2], τcoeffs) : stroke[i][:,2]/V[i]), label=string(lbl,Int(V[i])), markershape=ms, lw=2.5; kwargs...)
 			# # Plot sim data overlaid
 			# plot!(p, stroke[i][:,1], stroke[i][:,2]/V[i], label=string(lbl,Int(V[i])), markershape=ms, lt=:scatter; kwargs...)
 			# param = copy(mop[end])
@@ -140,7 +149,9 @@ function olExpPlotCurves!(p, dataset, lbl; kwargs...)
 end
 
 function olExpPlot2(mop, datasets...; title="", ulim=0.6)
-	p = plot(xlabel="Freq [Hz]", ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,ulim), legend=:topleft, title=title)
+	p = STROKE_ACT_COORDS ? 
+		plot(xlabel="Freq [Hz]", ylabel="Peak act disp [mm]", legend=:topleft, title=title) :
+		plot(xlabel="Freq [Hz]", ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,ulim), legend=:topleft, title=title)
 
 	@assert length(datasets) > 0
 	lss = [:solid, :dash, :dot, :dash]
@@ -229,7 +240,7 @@ wingDims = Dict{String,Tuple{Float64,Float64,Float64,Float64}}(
 	"bigbee" => (179, 25.5 + bbHingeOffs + wingRootAddedOffset, 45, 45), # measured https://github.com/avikde/robobee3d/issues/145
 	"4l" => (107.3, 18.65 + sdabHingeOffs + wingRootAddedOffset, 45, 46),
 )
-τCOEFFS_MOD1 = (1.8, 3.8)
+τCOEFFS_MOD1 = (1.8, 4.4)
 τCOEFFS_SDAB = (2.6666, 0)
 τCOEFFS_BB = (3.28, 0)
 
