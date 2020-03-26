@@ -42,8 +42,21 @@ skew(a) = [0 -a[3] a[2];
 wrench(paero, Faero) = [Faero; skew(paero) * Faero]
 
 
-# ts = createInitialTraj(m, opt, 0, f, [1e3, 1e2], param, 0; uampl=75, trajstats=true, thcoeff=0.1)
+function wrenchAt(inp, param)
+	freq, uampl, thcoeff = inp
+	Nn = 100
+	yN = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uampl, thcoeff=thcoeff, rawtraj=true) # ny,N array
+	
+	size(yN)
+	
+	# # loop through the traj, and compute rcop, F and return vector
+	# yk = k -> traj0[k*ny + 1:(k+1)*ny]
+	# for k=1:N
+	# 	paero, Jaero, Faero = w2daero(m, yk(k), param)
+	# end
+end
 
+wrenchAt([0.16, 75, 0.1], param0)
 
 # "Objective to minimize"
 # function cu.robj(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray)::AbstractArray
