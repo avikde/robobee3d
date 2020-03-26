@@ -8,92 +8,75 @@ using BenchmarkTools
 using Revise # while developing
 import controlutils
 cu = controlutils
-includet("Wing2DOF.jl")
+includet("w2d_model.jl")
 
-# create an instance
-# From Patrick 300 mN-mm/rad. 1 rad => R/2 σ-displacement. The torque is applied with a lever arm of R/2 => force = torque / (R/2)
-# so overall, get 300 / (R/2)^2.
-# Noah said lumped stiffness is ~60% transmission and 40% actuator => k = 1.5 = ko + ka/T^2.
-# For T=20, get ka = 240.
-# To get ma, use the fact that actuator resonance is ~1KHz => equivalent ma = 240/(2*pi)^2 ~= 6mg
 m = Wing2DOFModel(
-	17.0, # R, [Jafferis (2016)]
-	0.55#= 1.5 =#, #k output
-	0, #b output
-	6, # ma
-	0, # ba
-	150#= 0 =#, # ka
-	true) # bCoriolis
+	kbo = [30, 0],
+	ma = 6,
+	ka = 240,
+	Amp = deg2rad.([90, 140]))
 ny, nu = cu.dims(m)
 
 function getInitialParams(itype=0)
-	if itype==0
-		# robobee scale
-		return 70, [3.2,  # cbar[mm] (area/R)
-			28.33, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
-			0.52, # mwing[mg]
-			5, # kΨ [mN-mm/rad]
-			3, # bΨ [mN-mm/(rad/ms)]
-			0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
-			0.135 # dt
-		]
-	elseif itype==1
-		# scaled up
-		return 100, [5.411,  # cbar[mm] (area/R)
-			18.681, # τ1 (from 3333 rad/m, R=17, [Jafferis (2016)])
-			0.866, # mwing[mg]
-			22.633, # kΨ [mN-mm/rad]
-			12.037, # bΨ [mN-mm/(rad/ms)]
-			0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
-			0.109 # dt
-		]
-	end
+	# robobee scale
+	return 75, [3.2^2,  # cbar2[mm^2] (area/R)^2
+		2.6666, # τ1 (from 3333 rad/m, [Jafferis (2016)])
+		0.55, # mwing[mg] ~=Izz/(mwing*ycp^2). with ycp=8.5, Izz=51.1 [Jafferis (2016)], get
+		2.5, # wΨ [mm]
+		0, # τ2 quadratic term https://github.com/avikde/robobee3d/pull/92
+		54.4, # Aw = 3.2*17 [mm^2] (Jafferis 2016)
+		0.0758 # dt
+	]
 end
-uampl, param0 = getInitialParams(1)
+uampl, param0 = getInitialParams()
 σamax = 0.3 # [mm] constant? for robobee actuators
 
-includet("w2d_paramopt.jl")
-
-# IMPORTANT - load which traj here!!!
-KINTYPE = 1
-N, trajt, traj0, opt, avgLift0 = initTraj(KINTYPE; uampl=uampl)
+include("w2d_paramopt.jl") # for opt
+N, trajt, traj0, opt, Φ0 = initTraj(m, param0, 1; uampl=uampl)
 
 # "Cost function components" ------------------
 
-wrench(paero, Faero) = [Faero; paero' * [0 -1; 1 0] * Faero]
+skew(a) = [0 -a[3] a[2];
+	a[3] 0 -a[1];
+	-a[2] a[1] 0]
+wrench(paero, Faero) = [Faero; skew(paero) * Faero]
 
-"Objective to minimize"
-function cu.robj(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray)::AbstractArray
-    ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
+
+# ts = createInitialTraj(m, opt, 0, f, [1e3, 1e2], param, 0; uampl=75, trajstats=true, thcoeff=0.1)
+
+
+# "Objective to minimize"
+# function cu.robj(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray)::AbstractArray
+#     ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj)
     
-	yk = k -> @view traj[liy[:,k]]
-	uk = k -> @view traj[liu[:,k]]
+# 	yk = k -> @view traj[liy[:,k]]
+# 	uk = k -> @view traj[liu[:,k]]
     
-	cbar, τ1, mwing, kΨ, bΨ, τ2, dt = param
+# 	cbar, τ1, mwing, kΨ, bΨ, τ2, dt = param
 	
-	function wrenchk(k)
-		paero, _, Faero = w2daero(m, cu.transmission(m, yk(k), param)[1], param)
-		return wrench(paero, Faero)
-	end
+# 	function wrenchk(k)
+# 		paero, _, Faero = w2daero(m, cu.transmission(m, yk(k), param)[1], param)
+# 		return wrench(paero, Faero)
+# 	end
 
-	# Compute the average wrench over the cycle
-	wrenchAvg = zeros(3)
-	for k=1:N
-		wrenchAvg += wrenchk(k)
-	end
-	wrenchAvg /= N
-    # avg lift
-    return [wrenchAvg[2] - 100]
-end
+# 	# Compute the average wrench over the cycle
+# 	wrenchAvg = zeros(3)
+# 	for k=1:N
+# 		wrenchAvg += wrenchk(k)
+# 	end
+# 	wrenchAvg /= N
+#     # avg lift
+#     return [wrenchAvg[2] - 100]
+# end
 
-# traj opt ------------------------------------
+# # traj opt ------------------------------------
 
-εs = [0.05, 0.005, 0.001] # IC, dyn, symm
-prob = cu.ipoptsolve(m, opt, traj0, param0, εs, :traj; print_level=1)
-traj1 = prob.x
+# εs = [0.05, 0.005, 0.001] # IC, dyn, symm
+# prob = cu.ipoptsolve(m, opt, traj0, param0, εs, :traj; print_level=1)
+# traj1 = prob.x
 
-pls = plotTrajs(m, opt, [param0, param0], [traj0, traj1])
-plot(pls...)
+# pls = plotTrajs(m, opt, [param0, param0], [traj0, traj1])
+# plot(pls...)
 
 # # plot(plot(prob.g), plot(prob.mult_g), size=(900,400))
 
