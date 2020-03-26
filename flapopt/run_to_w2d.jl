@@ -40,23 +40,40 @@ skew(a) = [0 -a[3] a[2];
 	a[3] 0 -a[1];
 	-a[2] a[1] 0]
 wrench(paero, Faero) = [Faero; skew(paero) * Faero]
-
+function wrenchy(y, param, flip=false)
+	paero, Jaero, Faero = w2daero(m, y, param)
+	if flip
+		paero[2] = -paero[2]
+		Faero[2] = -Faero[2]
+	end
+	return wrench(paero, Faero)
+end
 
 function wrenchAt(inp, param)
 	freq, uampl, thcoeff = inp
 	Nn = 100
-	yN = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uampl, thcoeff=thcoeff, rawtraj=true) # ny,N array
+	yL = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uampl, thcoeff=thcoeff, rawtraj=true) # ny,N array
+	Ntot = size(yL, 2)
 	
-	size(yN)
+	yR = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uampl, thcoeff=thcoeff, rawtraj=true)
 	
-	# # loop through the traj, and compute rcop, F and return vector
-	# yk = k -> traj0[k*ny + 1:(k+1)*ny]
-	# for k=1:N
-	# 	paero, Jaero, Faero = w2daero(m, yk(k), param)
-	# end
+	Nend = 500 # how many to look at
+	totalWrench = zeros(Nend, 6)
+	# loop through the traj, and compute rcop, F and return vector
+	for k=1:Nend
+		totalWrench[k,:] = wrenchy(yL[:,Ntot-Nend+k], param) + wrenchy(yR[:,Ntot-Nend+k], param, true)
+	end
+	return totalWrench
 end
 
-wrenchAt([0.16, 75, 0.1], param0)
+tw = wrenchAt([0.16, 75, 0.1], param0)
+
+pls = [plot(tw[:,c]) for c=1:6]
+plot(pls...)
+gui()
+
+
+## ----
 
 # "Objective to minimize"
 # function cu.robj(m::Wing2DOFModel, opt::cu.OptOptions, traj::AbstractArray, param::AbstractArray)::AbstractArray
