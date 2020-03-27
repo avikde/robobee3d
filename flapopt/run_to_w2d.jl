@@ -4,11 +4,11 @@
 # using Plots
 # Plots.scalefontsizes(0.7) # Only needs to be run once
 
-using BenchmarkTools, Statistics
+using BenchmarkTools, Statistics, MAT
 using Revise # while developing
 import controlutils
 cu = controlutils
-includet("w2d_model.jl")
+include("w2d_model.jl")
 
 m = Wing2DOFModel(
 	kbo = [30, 0],
@@ -76,6 +76,22 @@ tws = vcat([wrenchAt([0.16, 75, 0, 75, 0, p], param0) for p=phoffs]...)
 pls = [plot(phoffs, tws[:,c]) for c=1:6]
 plot(pls...)
 gui()
+
+## grids of inputs
+
+function runInputs(m::Wing2DOFModel, opt, param, freq, uas, phoffs)
+	np = length(param)
+	i = 0
+	Ntotal = length(uas)*length(phoffs)
+	results = [(wrenchAt([0.16, ua, 0, ua, 0, p], param0); println(i, "/", Ntotal); i+=1) for ua in uas, p in phoffs]
+	resdict = Dict("results" => results)
+	# ^ returns a 2D array result arrays
+	matwrite(string("runInputs_", freq, ".zip"), resdict; compress=true)
+
+	return resdict
+end
+
+runInputs(m, opt, param0, 0.18, range(40, 80, length=8), range(-0.5,0.5, length=8))
 
 
 ## ----
