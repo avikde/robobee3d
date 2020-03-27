@@ -4,7 +4,7 @@
 # using Plots
 # Plots.scalefontsizes(0.7) # Only needs to be run once
 
-using BenchmarkTools
+using BenchmarkTools, Statistics
 using Revise # while developing
 import controlutils
 cu = controlutils
@@ -50,13 +50,13 @@ function wrenchy(y, param, flip=false)
 end
 
 function wrenchAt(inp, param)
-	freq, uamplL, dcL, uamplR, dcR = inp
+	freq, uamplL, dcL, uamplR, dcR, phaseoffs = inp
 	thcoeff = 0.1
 	Nn = 100
 	yL = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uamplL, thcoeff=thcoeff, rawtraj=true, verbose=false, dcoffs=dcL) # ny,N array
 	Ntot = size(yL, 2)
 	
-	yR = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uamplR, thcoeff=thcoeff, rawtraj=true, verbose=false, dcoffs=dcR)
+	yR = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uamplR, thcoeff=thcoeff, rawtraj=true, verbose=false, dcoffs=dcR, phaseoffs=phaseoffs)
 	
 	Nend = 500 # how many to look at
 	totalWrench = zeros(Nend, 6)
@@ -64,12 +64,16 @@ function wrenchAt(inp, param)
 	for k=1:Nend
 		totalWrench[k,:] = wrenchy(yL[:,Ntot-Nend+k], param) + wrenchy(yR[:,Ntot-Nend+k], param, true)
 	end
-	return totalWrench
+	return mean(totalWrench; dims=1)
 end
 
-tw = wrenchAt([0.16, 75, 20, 75, 20], param0)
+# test wrt ampl
+# uas = 40:5:80
+# tws = vcat([wrenchAt([0.16, ua, 0, ua, 0, 0], param0) for ua=uas]...)
+phoffs = -0.5:0.1:0.5
+tws = vcat([wrenchAt([0.16, 75, 0, 75, 0, p], param0) for p=phoffs]...)
 
-pls = [plot(tw[:,c]) for c=1:6]
+pls = [plot(phoffs, tws[:,c]) for c=1:6]
 plot(pls...)
 gui()
 
