@@ -50,12 +50,13 @@ function wrenchy(y, param, flip=false)
 end
 
 function wrenchAt(inp, param)
-	freq, uampl, thcoeff = inp
+	freq, uamplL, dcL, uamplR, dcR = inp
+	thcoeff = 0.1
 	Nn = 100
-	yL = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uampl, thcoeff=thcoeff, rawtraj=true) # ny,N array
+	yL = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uamplL, thcoeff=thcoeff, rawtraj=true, verbose=false, dcoffs=dcL) # ny,N array
 	Ntot = size(yL, 2)
 	
-	yR = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uampl, thcoeff=thcoeff, rawtraj=true)
+	yR = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uamplR, thcoeff=thcoeff, rawtraj=true, verbose=false, dcoffs=dcR)
 	
 	Nend = 500 # how many to look at
 	totalWrench = zeros(Nend, 6)
@@ -66,7 +67,7 @@ function wrenchAt(inp, param)
 	return totalWrench
 end
 
-tw = wrenchAt([0.16, 75, 0.1], param0)
+tw = wrenchAt([0.16, 75, 0, 75, 0], param0)
 
 pls = [plot(tw[:,c]) for c=1:6]
 plot(pls...)
