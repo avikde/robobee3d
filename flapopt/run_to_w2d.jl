@@ -67,7 +67,7 @@ function wrenchAt(inp, param)
 	return totalWrench
 end
 
-tw = wrenchAt([0.16, 75, 0, 75, 0], param0)
+tw = wrenchAt([0.16, 75, 20, 75, 20], param0)
 
 pls = [plot(tw[:,c]) for c=1:6]
 plot(pls...)
