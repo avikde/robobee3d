@@ -4,7 +4,7 @@
 # using Plots
 # Plots.scalefontsizes(0.7) # Only needs to be run once
 
-using BenchmarkTools, Statistics, MAT
+using BenchmarkTools, Statistics, MAT, Dierckx
 using Revise # while developing
 import controlutils
 cu = controlutils
@@ -77,22 +77,74 @@ pls = [plot(phoffs, tws[:,c]) for c=1:6]
 plot(pls...)
 gui()
 
-## grids of inputs
+## grids of inputs ------------------
 
 function runInputs(m::Wing2DOFModel, opt, param, freq, uas, phoffs)
-	np = length(param)
 	i = 0
 	Ntotal = length(uas)*length(phoffs)
-	results = [(wrenchAt([0.16, ua, 0, ua, 0, p], param0); println(i, "/", Ntotal); i+=1) for ua in uas, p in phoffs]
+	function runRow(ua, p)
+		i+=1
+		println(i, "/", Ntotal)
+		return [ua p wrenchAt([freq, ua, 0, ua, 0, p], param0)]
+	end
+	results = [runRow(ua, p) for ua in uas, p in phoffs]
 	resdict = Dict("results" => results)
 	# ^ returns a 2D array result arrays
 	matwrite(string("runInputs_", freq, ".zip"), resdict; compress=true)
 
 	return resdict
 end
+runInputs(m, opt, param0, 0.14, range(40, 80, length=8), range(-0.5,0.5, length=8))
 
-runInputs(m, opt, param0, 0.18, range(40, 80, length=8), range(-0.5,0.5, length=8))
+## Plot against grids of inputs -------------
 
+function plotInputs(resarg, nvars=2; s=0)
+	resdict = typeof(resarg) == String ? matread(resarg) : resarg
+	
+	# Produced unstructured xi,yi,zi data
+	uai = []
+	phoffi = []
+	wri = zeros(6,0)
+	for res in resdict["results"]
+		# println(res)
+		# Append to unstructured data - first the variables
+		append!(uai, res[1])
+		append!(phoffi, res[2])
+		# then the results
+		wri = [wri  res[nvars+1:nvars+6]]
+	end
+	
+	# println(size(wri))
+
+	# functions for making splines for plotting
+	splineFromUnstructured(xi, yi, zi) = Spline2D(xi, yi, zi; s=s)
+	function contourFromUnstructured(xi, yi, zi; xlabel="", ylabel="", title="")
+		spl = splineFromUnstructured(xi, yi, zi)
+		function ff(x,y)
+			zspl = spl(x,y)
+			return zspl >= minimum(zi) && zspl <= maximum(zi) ? zspl : NaN
+		end
+		# TODO: may have to make these be external
+		xpl = (minimum(xi), maximum(xi))
+		ypl = (minimum(yi), maximum(yi))
+		X = range(xpl..., length=50)
+		Y = range(ypl..., length=50)
+		return contour(X, Y, ff, 
+			titlefontsize=10, grid=false, lw=2, c=:bluesreds, 
+			xlabel=xlabel, ylabel=ylabel, title=title,
+			xlims=xpl, ylims=ypl)
+	end
+
+	wrenchNames = ["Fx", "Fx", "Fz", "Rx roll", "Ry pitch", "Rz yaw"]
+
+	return [
+		contourFromUnstructured(uai, phoffi, wri[c,:]; xlabel="Fact [mN]", ylabel="phoffs [rad]", title=wrenchNames[c]) 
+		for c=1:6]
+end
+
+pls = plotInputs("runInputs_0.14.zip"; s=10)
+plot(pls...)
+gui()
 
 ## ----
 
