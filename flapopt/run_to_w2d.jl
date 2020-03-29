@@ -79,37 +79,39 @@ gui()
 
 ## grids of inputs ------------------
 
-function runInputs(m::Wing2DOFModel, opt, param, freq, uas, phoffs)
+function runInputs(m::Wing2DOFModel, opt, param, freq, uas, phoffs, dcoffs)
 	i = 0
-	Ntotal = length(uas)*length(phoffs)
-	function runRow(ua, p)
+	Ntotal = length(uas)*length(phoffs)*length(dcoffs)
+	function runRow(ua, p, dc)
 		i+=1
 		println(i, "/", Ntotal)
-		return [ua p wrenchAt([freq, ua, 0, ua, 0, p], param0)]
+		return [ua p dc wrenchAt([freq, ua, dc, ua, dc, p], param0)]
 	end
-	results = [runRow(ua, p) for ua in uas, p in phoffs]
+	results = [runRow(ua, p, dc) for ua in uas, p in phoffs, dc in dcoffs]
 	resdict = Dict("results" => results)
 	# ^ returns a 2D array result arrays
 	matwrite(string("runInputs_", freq, ".zip"), resdict; compress=true)
 
 	return resdict
 end
-runInputs(m, opt, param0, 0.14, range(40, 80, length=8), range(-0.5,0.5, length=8))
+runInputs(m, opt, param0, 0.16, range(40, 80, length=8), range(-0.5,0.5, length=8), range(-20,20, length=8))
 
 ## Plot against grids of inputs -------------
 
-function plotInputs(resarg, nvars=2; s=0)
+function plotInputs(resarg, nvars=3; s=0)
 	resdict = typeof(resarg) == String ? matread(resarg) : resarg
 	
 	# Produced unstructured xi,yi,zi data
 	uai = []
 	phoffi = []
+	dci = []
 	wri = zeros(6,0)
 	for res in resdict["results"]
 		# println(res)
 		# Append to unstructured data - first the variables
 		append!(uai, res[1])
 		append!(phoffi, res[2])
+		append!(dci, res[3])
 		# then the results
 		wri = [wri  res[nvars+1:nvars+6]]
 	end
@@ -135,15 +137,18 @@ function plotInputs(resarg, nvars=2; s=0)
 			xlims=xpl, ylims=ypl)
 	end
 
-	wrenchNames = ["Fx", "Fx", "Fz", "Rx roll", "Ry pitch", "Rz yaw"]
+	wrenchNames = ["Fx", "Fy", "Fz", "Rx roll", "Ry pitch", "Rz yaw"]
 
-	return [
-		contourFromUnstructured(uai, phoffi, wri[c,:]; xlabel="Fact [mN]", ylabel="phoffs [rad]", title=wrenchNames[c]) 
+	return vcat(
+		[contourFromUnstructured(uai, phoffi, wri[c,:]; xlabel="Fact [mN]", ylabel="phoffs [rad]", title=wrenchNames[c]) 
+		for c=1:6],
+		[contourFromUnstructured(uai, dci, wri[c,:]; xlabel="Fact [mN]", ylabel="dcoffs [mN]", title=wrenchNames[c]) 
 		for c=1:6]
+	)
 end
 
-pls = plotInputs("runInputs_0.14.zip"; s=10)
-plot(pls...)
+pls = plotInputs("runInputs_0.16.zip"; s=1000)
+plot(pls..., size=(1000,500))
 gui()
 
 ## ----
