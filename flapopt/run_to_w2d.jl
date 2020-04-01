@@ -49,17 +49,20 @@ function wrenchy(y, param, flip=false)
 	return wrench(paero, Faero)
 end
 
-function wrenchAt(inp, param; makeplot=false, Ncycend=5)
+function wrenchAt(inp, param; makeplot=false, Ncycav=5)
 	freq, uamplL, dcL, uamplR, dcR, phaseoffs = inp
 	thcoeff = 0.1
 	Nn = 100
-	yL = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uamplL, thcoeff=thcoeff, rawtraj=true, verbose=false, dcoffs=dcL, makeplot=makeplot) # ny,N array
+	simdt = 0.02
+	yL = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uamplL, thcoeff=thcoeff, rawtraj=true, verbose=false, dcoffs=dcL, makeplot=makeplot, simdt=simdt) # ny,N array
 	Ntot = size(yL, 2)
 	
-	yR = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uamplR, thcoeff=thcoeff, rawtraj=true, verbose=false, dcoffs=dcR, phaseoffs=phaseoffs, makeplot=makeplot)
+	yR = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uamplR, thcoeff=thcoeff, rawtraj=true, verbose=false, dcoffs=dcR, phaseoffs=phaseoffs, makeplot=makeplot, simdt=simdt)
+
+	# Figure out how many points make up Ncyc cycles
+	tNcyc = Ncycav/freq
+	Nend = convert(Int64, round(tNcyc/simdt)) # how many to look at
 	
-	# TODO: Ncycend -> Nend
-	Nend = 480 # how many to look at
 	totalWrench = zeros(Nend, 6)
 	# loop through the traj, and compute rcop, F and return vector
 	for k=1:Nend
