@@ -94,7 +94,7 @@ function runInputs(m::Wing2DOFModel, opt, param, freq, uas, phoffs, dcoffs)
 
 	return resdict
 end
-runInputs(m, opt, param0, 0.16, range(40, 80, length=8), range(-0.5,0.5, length=8), range(-20,20, length=8))
+runInputs(m, opt, param0, 0.16, range(40, 80, length=8), range(-0.5,0.5, length=8), range(-10,10, length=8))
 
 ## Plot against grids of inputs -------------
 
@@ -131,10 +131,12 @@ function plotInputs(resarg, nvars=3; s=0)
 		ypl = (minimum(yi), maximum(yi))
 		X = range(xpl..., length=50)
 		Y = range(ypl..., length=50)
-		return contour(X, Y, ff, 
+		pl = contour(X, Y, ff, 
 			titlefontsize=10, grid=false, lw=2, c=:bluesreds, 
 			xlabel=xlabel, ylabel=ylabel, title=title,
 			xlims=xpl, ylims=ypl)
+		hline!(pl, [0], ls=:dash, lw=2, color=:black, legend=false)
+		return pl
 	end
 
 	wrenchNames = ["Fx", "Fy", "Fz", "Rx roll", "Ry pitch", "Rz yaw"]
