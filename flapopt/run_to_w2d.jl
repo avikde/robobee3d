@@ -106,7 +106,7 @@ function runInputs(m::Wing2DOFModel, opt, param, freq, uas, phoffs, dcoffs)
 
 	return resdict
 end
-runInputs(m, opt, param0, 0.16, range(40, 80, length=8), range(-0.5,0.5, length=8), range(-10,10, length=8))
+runInputs(m, opt, param0, 0.16, range(40, 80, length=8), #= range(0,π, length=8) =#[0], range(-20,20, length=8))
 
 ## Plot against grids of inputs -------------
 
@@ -133,6 +133,10 @@ function plotInputs(resarg, nvars=3; s=0)
 	# functions for making splines for plotting
 	splineFromUnstructured(xi, yi, zi) = Spline2D(xi, yi, zi; s=s)
 	function contourFromUnstructured(xi, yi, zi; xlabel="", ylabel="", title="")
+		# If there is no variation at all the spline fails
+		if maximum(zi) - minimum(zi) < 1e-2
+			return nothing
+		end
 		spl = splineFromUnstructured(xi, yi, zi)
 		function ff(x,y)
 			zspl = spl(x,y)
@@ -151,16 +155,19 @@ function plotInputs(resarg, nvars=3; s=0)
 		return pl
 	end
 
-	return vcat(
-		[contourFromUnstructured(uai, phoffi, wri[c,:]; xlabel="Fact [mN]", ylabel="phoffs [rad]", title=wrenchNames[c]) 
-		for c=1:6],
-		[contourFromUnstructured(uai, dci, wri[c,:]; xlabel="Fact [mN]", ylabel="dcoffs [mN]", title=wrenchNames[c]) 
-		for c=1:6]
-	)
+	plsDC = [contourFromUnstructured(uai, dci, wri[c,:]; xlabel="Fact [mN]", ylabel="dcoffs [mN]", title=wrenchNames[c])  for c=1:6]
+	filter!(x -> !isnothing(x), plsDC)
+	return plsDC
+	# 		vcat(
+	# 	# [contourFromUnstructured(uai, phoffi, wri[c,:]; xlabel="Fact [mN]", ylabel="phoffs [rad]", title=wrenchNames[c]) 
+	# 	# for c=1:6],
+	# 	[contourFromUnstructured(uai, dci, wri[c,:]; xlabel="Fact [mN]", ylabel="dcoffs [mN]", title=wrenchNames[c]) 
+	# 	for c=1:6]
+	# )
 end
 
 pls = plotInputs("runInputs_0.16.zip"; s=1000)
-plot(pls..., size=(1000,500))
+plot(pls...)#, size=(1000,500))
 gui()
 
 ## ----
