@@ -49,16 +49,16 @@ function wrenchy(y, param, flip=false)
 	return wrench(paero, Faero)
 end
 
-function wrenchAt(inp, param)
+function wrenchAt(inp, param; makeplot=false)
 	freq, uamplL, dcL, uamplR, dcR, phaseoffs = inp
 	thcoeff = 0.1
 	Nn = 100
-	yL = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uamplL, thcoeff=thcoeff, rawtraj=true, verbose=false, dcoffs=dcL) # ny,N array
+	yL = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uamplL, thcoeff=thcoeff, rawtraj=true, verbose=false, dcoffs=dcL, makeplot=makeplot) # ny,N array
 	Ntot = size(yL, 2)
 	
-	yR = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uamplR, thcoeff=thcoeff, rawtraj=true, verbose=false, dcoffs=dcR, phaseoffs=phaseoffs)
+	yR = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uamplR, thcoeff=thcoeff, rawtraj=true, verbose=false, dcoffs=dcR, phaseoffs=phaseoffs, makeplot=makeplot)
 	
-	Nend = 500 # how many to look at
+	Nend = 480 # how many to look at
 	totalWrench = zeros(Nend, 6)
 	# loop through the traj, and compute rcop, F and return vector
 	for k=1:Nend
@@ -68,6 +68,8 @@ function wrenchAt(inp, param)
 end
 
 wrenchNames = ["Fx", "Fy", "Fz", "Rx roll", "Ry pitch", "Rz yaw"]
+
+# wrenchAt([0.16, 75, 0, 75, 0, 0], param0; makeplot=true)
 
 ## Single variable ----
 
