@@ -67,13 +67,19 @@ function wrenchAt(inp, param)
 	return mean(totalWrench; dims=1)
 end
 
-# test wrt ampl
-# uas = 40:5:80
-# tws = vcat([wrenchAt([0.16, ua, 0, ua, 0, 0], param0) for ua=uas]...)
-phoffs = -0.5:0.1:0.5
-tws = vcat([wrenchAt([0.16, 75, 0, 75, 0, p], param0) for p=phoffs]...)
+wrenchNames = ["Fx", "Fy", "Fz", "Rx roll", "Ry pitch", "Rz yaw"]
 
-pls = [plot(phoffs, tws[:,c]) for c=1:6]
+## Single variable ----
+
+# test wrt ampl
+# xs = range(40, 80, length=10) # uas
+# tws = vcat([wrenchAt([0.16, ua, 0, ua, 0, 0], param0) for ua=xs]...)
+# xs = range(-0.5, 0.5, length=10) # ph offs
+# tws = vcat([wrenchAt([0.16, 75, 0, 75, 0, p], param0) for p=xs]...)
+xs = range(-0.5, 0.5, length=10) # dc offs
+tws = vcat([wrenchAt([0.16, 75, dc, 75, dc, 0], param0) for dc=xs]...)
+
+pls = [plot(xs, tws[:,c], legend=false, ylabel=wrenchNames[c], lw=2) for c=1:6]
 plot(pls...)
 gui()
 
@@ -138,8 +144,6 @@ function plotInputs(resarg, nvars=3; s=0)
 		hline!(pl, [0], ls=:dash, lw=2, color=:black, legend=false)
 		return pl
 	end
-
-	wrenchNames = ["Fx", "Fy", "Fz", "Rx roll", "Ry pitch", "Rz yaw"]
 
 	return vcat(
 		[contourFromUnstructured(uai, phoffi, wri[c,:]; xlabel="Fact [mN]", ylabel="phoffs [rad]", title=wrenchNames[c]) 
