@@ -112,9 +112,11 @@ end
 # according to the order in the row
 varNames = ["Fact [mN]", "Phase offs [rad]", "DC offs [mN]", "Harmonic 2 [ ]", "Harmonic 3 [ ]"]
 # # ua, dc
-# runInputs(m, opt, param0, 0.16, range(40, 80, length=8), #= range(0,π, length=8) =#[0], range(-20,20, length=8))
-# h2, h3
-runInputs(m, opt, param0, 0.16, [75], [0], [0], range(-0.2, 0.2, length=8), range(-0.2, 0.2, length=8))
+# runInputs(m, opt, param0, 0.16, range(40, 80, length=8), [0], range(-20,20, length=8), [0], [0])
+# dc, h2
+runInputs(m, opt, param0, 0.25, [75], [0], range(-20,20, length=8), range(-0.2, 0.2, length=8), [0])
+# # h2, h3
+# runInputs(m, opt, param0, 0.25, [75], [0], [0], range(-0.2, 0.2, length=8), range(-0.2, 0.2, length=8))
 
 ## Plot against grids of inputs -------------
 
@@ -170,7 +172,9 @@ function plotInputs(resarg, ix, iy, nvars=5; s=0)
 	# )
 end
 
-pls = plotInputs("runInputs_0.16.zip", 4, 5; s=1000)
+# pls = plotInputs("runInputs_0.25.zip", 4, 5; s=1000) # h2h3
+# pls = plotInputs("runInputs_0.25.zip", 1, 3; s=1000) # ua, dc
+pls = plotInputs("runInputs_0.25.zip", 3, 4; s=1000) # dc, h2
 plot(pls...)#, size=(1000,500))
 gui()
 
