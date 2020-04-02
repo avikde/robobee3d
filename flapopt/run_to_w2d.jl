@@ -109,6 +109,8 @@ function runInputs(m::Wing2DOFModel, opt, param, freq, uas, phoffs, dcoffs, h2s,
 
 	return resdict
 end
+# according to the order in the row
+varNames = ["Fact [mN]", "Phase offs [rad]", "DC offs [mN]", "Harmonic 2 [ ]", "Harmonic 3 [ ]"]
 # # ua, dc
 # runInputs(m, opt, param0, 0.16, range(40, 80, length=8), #= range(0,π, length=8) =#[0], range(-20,20, length=8))
 # h2, h3
@@ -116,26 +118,22 @@ runInputs(m, opt, param0, 0.16, [75], [0], [0], range(-0.2, 0.2, length=8), rang
 
 ## Plot against grids of inputs -------------
 
-function plotInputs(resarg, nvars=3; s=0)
+
+"ix, iy index into varNames (which is the order of variables in the row)"
+function plotInputs(resarg, ix, iy, nvars=5; s=0)
 	resdict = typeof(resarg) == String ? matread(resarg) : resarg
 	
 	# Produced unstructured xi,yi,zi data
-	uai = []
-	phoffi = []
-	dci = []
+	vari = zeros(nvars, 0)
 	wri = zeros(6,0)
 	for res in resdict["results"]
 		# println(res)
 		# Append to unstructured data - first the variables
-		append!(uai, res[1])
-		append!(phoffi, res[2])
-		append!(dci, res[3])
+		vari = [vari  res[1:nvars]]
 		# then the results
 		wri = [wri  res[nvars+1:nvars+6]]
 	end
 	
-	# println(size(wri))
-
 	# functions for making splines for plotting
 	splineFromUnstructured(xi, yi, zi) = Spline2D(xi, yi, zi; s=s)
 	function contourFromUnstructured(xi, yi, zi; xlabel="", ylabel="", title="")
@@ -161,7 +159,7 @@ function plotInputs(resarg, nvars=3; s=0)
 		return pl
 	end
 
-	plsDC = [contourFromUnstructured(uai, dci, wri[c,:]; xlabel="Fact [mN]", ylabel="dcoffs [mN]", title=wrenchNames[c])  for c=1:6]
+	plsDC = [contourFromUnstructured(vari[ix,:], vari[iy,:], wri[c,:]; xlabel=varNames[ix], ylabel=varNames[iy], title=wrenchNames[c])  for c=1:6]
 	filter!(x -> !isnothing(x), plsDC)
 	return plsDC
 	# 		vcat(
@@ -172,7 +170,7 @@ function plotInputs(resarg, nvars=3; s=0)
 	# )
 end
 
-pls = plotInputs("runInputs_0.16.zip"; s=1000)
+pls = plotInputs("runInputs_0.16.zip", 4, 5; s=1000)
 plot(pls...)#, size=(1000,500))
 gui()
 
