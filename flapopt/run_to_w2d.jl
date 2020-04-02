@@ -55,10 +55,10 @@ function wrenchAt(inp, param; makeplot=false, Ncycav=5)
 	# (1 + h3)sin(wt) + h3 sin(3wt) + h2 sin(2wt)
 	Nn = 100
 	simdt = 0.02
-	yL = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uamplL, h3=h3, rawtraj=true, verbose=false, dcoffs=dcL, makeplot=makeplot, simdt=simdt) # ny,N array
+	yL = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uamplL, h3=h3, rawtraj=true, verbose=false, dcoffs=dcL, makeplot=makeplot, simdt=simdt, h2=h2) # ny,N array
 	Ntot = size(yL, 2)
-	
-	yR = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uamplR, h3=h3, rawtraj=true, verbose=false, dcoffs=dcR, phaseoffs=phaseoffs, makeplot=makeplot, simdt=simdt)
+	# second harmonic reversed for split cycle yaw
+	yR = createInitialTraj(m, opt, Nn, freq, [1e3, 1e2], param, 0; uampl=uamplR, h3=h3, rawtraj=true, verbose=false, dcoffs=dcR, phaseoffs=phaseoffs, makeplot=makeplot, simdt=simdt, h2=-h2)
 
 	# Figure out how many points make up Ncyc cycles
 	tNcyc = Ncycav/freq
@@ -83,8 +83,10 @@ wrenchNames = ["Fx", "Fy", "Fz", "Rx roll", "Ry pitch", "Rz yaw"]
 # tws = vcat([wrenchAt([0.16, ua, 0, ua, 0, 0, 0, 0], param0) for ua=xs]...)
 # xs = range(-0.5, 0.5, length=10) # ph offs
 # tws = vcat([wrenchAt([0.16, 75, 0, 75, 0, p, 0, 0], param0) for p=xs]...)
-xs = range(-0.5, 0.5, length=10) # dc offs
-tws = vcat([wrenchAt([0.16, 75, dc, 75, dc, 0, 0, 0], param0) for dc=xs]...)
+# xs = range(-0.5, 0.5, length=10) # dc offs
+# tws = vcat([wrenchAt([0.16, 75, dc, 75, dc, 0, 0, 0], param0) for dc=xs]...)
+xs = range(-0.2, 0.2, length=8) # h2
+tws = vcat([wrenchAt([0.16, 75, 0, 75, 0, 0, h2, 0], param0) for h2=xs]...)
 
 pls = [plot(xs, tws[:,c], legend=false, ylabel=wrenchNames[c], lw=2) for c=1:6]
 plot(pls...)
