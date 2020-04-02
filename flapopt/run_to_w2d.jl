@@ -94,22 +94,25 @@ gui()
 
 ## grids of inputs ------------------
 
-function runInputs(m::Wing2DOFModel, opt, param, freq, uas, phoffs, dcoffs)
+function runInputs(m::Wing2DOFModel, opt, param, freq, uas, phoffs, dcoffs, h2s, h3s)
 	i = 0
-	Ntotal = length(uas)*length(phoffs)*length(dcoffs)
-	function runRow(ua, p, dc)
+	Ntotal = length(uas)*length(phoffs)*length(dcoffs)*length(h2s)*length(h3s)
+	function runRow(ua, p, dc, h2, h3)
 		i+=1
 		println(i, "/", Ntotal)
-		return [ua p dc wrenchAt([freq, ua, dc, ua, dc, p], param0)]
+		return [ua p dc h2 h3 wrenchAt([freq, ua, dc, ua, dc, p, h2, h3], param0)]
 	end
-	results = [runRow(ua, p, dc) for ua in uas, p in phoffs, dc in dcoffs]
+	results = [runRow(ua, p, dc, h2, h3) for ua in uas, p in phoffs, dc in dcoffs, h2 in h2s, h3 in h3s]
 	resdict = Dict("results" => results)
 	# ^ returns a 2D array result arrays
 	matwrite(string("runInputs_", freq, ".zip"), resdict; compress=true)
 
 	return resdict
 end
-runInputs(m, opt, param0, 0.16, range(40, 80, length=8), #= range(0,π, length=8) =#[0], range(-20,20, length=8))
+# # ua, dc
+# runInputs(m, opt, param0, 0.16, range(40, 80, length=8), #= range(0,π, length=8) =#[0], range(-20,20, length=8))
+# h2, h3
+runInputs(m, opt, param0, 0.16, [75], [0], [0], range(-0.2, 0.2, length=8), range(-0.2, 0.2, length=8))
 
 ## Plot against grids of inputs -------------
 
