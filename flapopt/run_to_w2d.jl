@@ -34,6 +34,10 @@ uampl, param0 = getInitialParams()
 include("w2d_paramopt.jl") # for opt
 N, trajt, traj0, opt, Φ0 = initTraj(m, param0, 1; uampl=uampl)
 
+# # TEST nonlin transmission
+# param0[2] = 2
+# param0[5] = 2.5 * param0[2]
+
 # "Cost function components" ------------------
 
 skew(a) = [0 -a[3] a[2];
@@ -110,16 +114,16 @@ function runInputs(m::Wing2DOFModel, opt, param, freq, uas, phoffs, dcoffs, h2s,
 	return resdict
 end
 # according to the order in the row
-varNames = ["Fact [mN]", "DC diff offs [mN]", "DC offs [mN]", "Harmonic 2 [ ]", "Harmonic 3 [ ]"]
+varNames = ["Fact [mN]", "Fact diff [mN]", "DC offs [mN]", "Harmonic 2 [ ]", "Harmonic 3 [ ]"]
 for ff = 0.14:0.04:0.22
 	# ua, dc
 	# runInputs(m, opt, param0, ff, range(40, 80, length=8), [0], range(-20,20, length=8), [0], [0])
 	# dc, h2
 	# runInputs(m, opt, param0, ff, [75], [0], range(-20,20, length=8), range(-0.2, 0.2, length=8), [0])
 	# h2, h3
-	runInputs(m, opt, param0, ff, [75], [0], [0], range(-0.2, 0.2, length=8), range(-0.2, 0.2, length=8))
-	# dcdiff, dc
-	# runInputs(m, opt, param0, ff, [75], range(-20, 20, length=8), range(-20, 20, length=8), [0], [0])
+	# runInputs(m, opt, param0, ff, [75], [0], [0], range(-0.2, 0.2, length=8), range(-0.2, 0.2, length=8))
+	# adiff, dc
+	runInputs(m, opt, param0, ff, [75], range(-20, 20, length=8), range(-20, 20, length=8), [0], [0])
 end
 
 ## Plot against grids of inputs -------------
@@ -176,11 +180,11 @@ function plotInputs(resarg, ix, iy, nvars=5; s=0)
 	# )
 end
 
-pls = plotInputs("runInputs_0.22.zip", 4, 5; s=1000) # h2h3
+# pls = plotInputs("runInputs_0.14.zip", 4, 5; s=1000) # h2h3
 # pls = plotInputs("runInputs_0.22.zip", 1, 3; s=1000) # ua, dc
-# pls = plotInputs("runInputs_0.14.zip", 2, 3; s=1000) # dcdiff, dc
+pls = plotInputs("runInputs_0.22.zip", 2, 3; s=1000) # adiff, dc
 # pls = plotInputs("runInputs_0.14.zip", 1, 2; s=1000) # ua, p
-# pls = plotInputs("runInputs_0.14.zip", 3, 4; s=1000) # dc, h2
+# pls = plotInputs("runInputs_0.22.zip", 3, 4; s=1000) # dc, h2
 if length(pls) == 2
 	plot(pls..., size=(500,250))
 else
