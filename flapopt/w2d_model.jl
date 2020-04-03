@@ -167,20 +167,20 @@ end
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, thcoeff=0.0, posctrl=false, makeplot=false, trajstats=false, simdt=0.02, verbose=true)
+function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, h3=0.0, h2=0.0, posctrl=false, makeplot=false, trajstats=false, simdt=0.02, verbose=true, rawtraj=false, phaseoffs=0, dcoffs=0)
     # Create a traj
     φampl = 0.6 # output, only used if posctrl=true
     tend = 100.0 # [ms]
     function controller(y, t)
         if posctrl
             # Stroke pos control
-            φdes = φampl * sin(freq * 2 * π * t)
+            φdes = φampl * sin(freq * 2 * π * t + phaseoffs)
             dφdes = φampl * freq * 2 * π * cos(freq * 2 * π * t)
             dφ = m.SEA ? y[4] : y[3]
             return posGains[1] * (φdes - y[1]) + posGains[2] * (dφdes - dφ)
         else
-            ph = freq * 2 * π * t
-            return uampl * ((1+thcoeff)*cos(ph) - thcoeff*sin(3*ph))
+            ph = freq * 2 * π * t + phaseoffs
+            return uampl * ((1+h3)*sin(ph) + h3*sin(3*ph) + h2*sin(2*ph)) + dcoffs
         end
     end
     vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
@@ -215,6 +215,9 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
         plot(phit, dphit, Ψt, layout=(3,1))
         gui()
         error("createInitialTraj")
+    end
+    if rawtraj
+        return hcat(sol.u...)
     end
     # expectedInterval = opt.boundaryConstraint == cu.SYMMETRIC ? 1/(2*freq) : 1/freq # [ms]
     # expectedPts = expectedInterval / simdt
