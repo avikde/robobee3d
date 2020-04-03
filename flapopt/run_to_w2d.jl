@@ -72,7 +72,7 @@ function wrenchAt(inp, param; makeplot=false, Ncycav=5)
 	return mean(totalWrench; dims=1)
 end
 
-wrenchNames = ["Fx", "Fy", "Fz", "Rx roll", "Ry pitch", "Rz yaw"]
+wrenchNames = ["Fx [mN]", "Fy [mN]", "Fz [mN]", "Rx roll [mN-mm]", "Ry pitch [mN-mm]", "Rz yaw [mN-mm]"]
 
 # wrenchAt([0.16, 75, 0, 75, 0, 0], param0; makeplot=true)
 
@@ -100,7 +100,7 @@ function runInputs(m::Wing2DOFModel, opt, param, freq, uas, phoffs, dcoffs, h2s,
 	function runRow(ua, p, dc, h2, h3)
 		i+=1
 		println(i, "/", Ntotal)
-		return [ua p dc h2 h3 wrenchAt([freq, ua, dc, ua, dc, p, h2, h3], param0)]
+		return [ua p dc h2 h3 wrenchAt([freq, ua+p, dc, ua-p, dc, 0, h2, h3], param0)]
 	end
 	results = [runRow(ua, p, dc, h2, h3) for ua in uas, p in phoffs, dc in dcoffs, h2 in h2s, h3 in h3s]
 	resdict = Dict("results" => results)
@@ -110,13 +110,17 @@ function runInputs(m::Wing2DOFModel, opt, param, freq, uas, phoffs, dcoffs, h2s,
 	return resdict
 end
 # according to the order in the row
-varNames = ["Fact [mN]", "Phase offs [rad]", "DC offs [mN]", "Harmonic 2 [ ]", "Harmonic 3 [ ]"]
-# # ua, dc
-# runInputs(m, opt, param0, 0.16, range(40, 80, length=8), [0], range(-20,20, length=8), [0], [0])
-# dc, h2
-runInputs(m, opt, param0, 0.25, [75], [0], range(-20,20, length=8), range(-0.2, 0.2, length=8), [0])
-# # h2, h3
-# runInputs(m, opt, param0, 0.25, [75], [0], [0], range(-0.2, 0.2, length=8), range(-0.2, 0.2, length=8))
+varNames = ["Fact [mN]", "DC diff offs [mN]", "DC offs [mN]", "Harmonic 2 [ ]", "Harmonic 3 [ ]"]
+for ff = 0.14:0.04:0.22
+	# ua, dc
+	# runInputs(m, opt, param0, ff, range(40, 80, length=8), [0], range(-20,20, length=8), [0], [0])
+	# dc, h2
+	# runInputs(m, opt, param0, ff, [75], [0], range(-20,20, length=8), range(-0.2, 0.2, length=8), [0])
+	# h2, h3
+	runInputs(m, opt, param0, ff, [75], [0], [0], range(-0.2, 0.2, length=8), range(-0.2, 0.2, length=8))
+	# dcdiff, dc
+	# runInputs(m, opt, param0, ff, [75], range(-20, 20, length=8), range(-20, 20, length=8), [0], [0])
+end
 
 ## Plot against grids of inputs -------------
 
@@ -140,7 +144,7 @@ function plotInputs(resarg, ix, iy, nvars=5; s=0)
 	splineFromUnstructured(xi, yi, zi) = Spline2D(xi, yi, zi; s=s)
 	function contourFromUnstructured(xi, yi, zi; xlabel="", ylabel="", title="")
 		# If there is no variation at all the spline fails
-		if maximum(zi) - minimum(zi) < 1e-2
+		if maximum(zi) - minimum(zi) < 5e-2
 			return nothing
 		end
 		spl = splineFromUnstructured(xi, yi, zi)
@@ -172,11 +176,18 @@ function plotInputs(resarg, ix, iy, nvars=5; s=0)
 	# )
 end
 
-# pls = plotInputs("runInputs_0.25.zip", 4, 5; s=1000) # h2h3
-# pls = plotInputs("runInputs_0.25.zip", 1, 3; s=1000) # ua, dc
-pls = plotInputs("runInputs_0.25.zip", 3, 4; s=1000) # dc, h2
-plot(pls...)#, size=(1000,500))
-gui()
+pls = plotInputs("runInputs_0.22.zip", 4, 5; s=1000) # h2h3
+# pls = plotInputs("runInputs_0.22.zip", 1, 3; s=1000) # ua, dc
+# pls = plotInputs("runInputs_0.14.zip", 2, 3; s=1000) # dcdiff, dc
+# pls = plotInputs("runInputs_0.14.zip", 1, 2; s=1000) # ua, p
+# pls = plotInputs("runInputs_0.14.zip", 3, 4; s=1000) # dc, h2
+if length(pls) == 2
+	plot(pls..., size=(500,250))
+else
+	plot(pls...)
+end
+# gui()
+savefig("h2h3.png")
 
 ## ----
 
