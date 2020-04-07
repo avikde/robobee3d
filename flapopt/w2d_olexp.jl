@@ -50,8 +50,10 @@ end
 function openLoopPlot(m, opt, param0, Vamps; save=false, NLT1scales=nothing, rightplot=false)
 	function getResp(f, uamp, nlt, σa0=nothing, T1scale=nothing)
 		param = copy(param0)
-		if nlt
+		if nlt==1
 			param = nlNormalizeByOutput(m, opt, param, σa0, T1scale)
+		elseif nlt==2
+			param[POPTS.τinds[1]] *= T1scale # and don't change \tau2
 		end
 		ts = createInitialTraj(m, opt, 0, f, [1e3, 1e2], param, 0; uampl=uamp, trajstats=true, thcoeff=0.1)
 		# println("act disp=",ts[end])
@@ -68,7 +70,7 @@ function openLoopPlot(m, opt, param0, Vamps; save=false, NLT1scales=nothing, rig
 	# 	yaxis!(p3, false)
 	# end
 	function plotForTrans(nlt; T1scales=nothing)
-		nltstr = nlt ? "N" : "L"
+		nltstr = nlt == 1 ? "N" : (nlt == 2 ? "LL" : "L")
 		actdisps = Dict{Float64, Float64}()
 		
 		for ii=1:length(Vamps)
@@ -88,15 +90,16 @@ function openLoopPlot(m, opt, param0, Vamps; save=false, NLT1scales=nothing, rig
 			amps[3,:] *= (1000/Vamp)
 			amps[2,:] /= 2.0 # hinge ampl one direction
 			# println(amps)
-			plot!(p1, fs, amps[1,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt ? :solid : :dash)
-			plot!(p2, fs, amps[2,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt ? :solid : :dash)
-			plot!(p3, fs, amps[3,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt ? :solid : :dash)
+			plot!(p1, fs, amps[1,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt==1 ? :solid : (nlt == 2 ? :dot : :dash))
+			plot!(p2, fs, amps[2,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt==1 ? :solid : (nlt == 2 ? :dot : :dash))
+			plot!(p3, fs, amps[3,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt==1 ? :solid : (nlt == 2 ? :dot : :dash))
 		end
 		return actdisps
 	end
 
-	plotForTrans(false)
-	plotForTrans(true; T1scales=NLT1scales)
+	plotForTrans(0)
+	plotForTrans(1; T1scales=NLT1scales)
+	# plotForTrans(2; T1scales=NLT1scales) # NOTE: for Rob test
 
 	println("dens=", param0[3]/param0[6], ", koratio=", m.kbo[1]/(m.kbo[1] + m.ka/param0[2]^2))
 	# plot(p1, #= p2, layout=(2,1),  =# size=(400, 300), dpi=200)
@@ -123,12 +126,21 @@ function readOLExpCSV(fname)
 	return Vs, [dat[dat[:,1] .== V,2:3] for V in Vs]
 end
 
+STROKE_ACT_COORDS = false # to respond to Rob question about what act disp was in these trials
+
+function toAct(stroke, τcoeffs)
+	param = copy(param0)
+	param[POPTS.τinds[1]] = τcoeffs[1]
+	param[POPTS.τinds[2]] = τcoeffs[2]
+	return [cu.transmission(m, [deg2rad(stroke[k]/2), 0, 0, 0], param; o2a=true)[1][1] for k=1:length(stroke)]
+end
+
 function olExpPlotCurves!(p, dataset, lbl; kwargs...)
-	V, stroke, wingDims, showV, ms = dataset
+	V, stroke, wingDims, showV, ms, τcoeffs = dataset
 	Nv = length(V)
 	for i=1:Nv
 		if length(showV) == 0 || Int(V[i]) in showV
-			plot!(p, stroke[i][:,1], stroke[i][:,2]/V[i], label=string(lbl,Int(V[i])), markershape=ms, lw=2.5; kwargs...)
+			plot!(p, stroke[i][:,1], (STROKE_ACT_COORDS ? toAct(stroke[i][:,2], τcoeffs) : stroke[i][:,2]/V[i]), label=string(lbl,Int(V[i])), markershape=ms, lw=2.5; kwargs...)
 			# # Plot sim data overlaid
 			# plot!(p, stroke[i][:,1], stroke[i][:,2]/V[i], label=string(lbl,Int(V[i])), markershape=ms, lt=:scatter; kwargs...)
 			# param = copy(mop[end])
@@ -140,7 +152,9 @@ function olExpPlotCurves!(p, dataset, lbl; kwargs...)
 end
 
 function olExpPlot2(mop, datasets...; title="", ulim=0.6)
-	p = plot(xlabel="Freq [Hz]", ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,ulim), legend=:topleft, title=title)
+	p = STROKE_ACT_COORDS ? 
+		plot(xlabel="Freq [Hz]", ylabel="Peak act disp [mm]", legend=:topleft, title=title) :
+		plot(xlabel="Freq [Hz]", ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,ulim), legend=:topleft, title=title)
 
 	@assert length(datasets) > 0
 	lss = [:solid, :dash, :dot, :dash]
@@ -229,6 +243,9 @@ wingDims = Dict{String,Tuple{Float64,Float64,Float64,Float64}}(
 	"bigbee" => (179, 25.5 + bbHingeOffs + wingRootAddedOffset, 45, 45), # measured https://github.com/avikde/robobee3d/issues/145
 	"4l" => (107.3, 18.65 + sdabHingeOffs + wingRootAddedOffset, 45, 46),
 )
+τCOEFFS_MOD1 = (1.8, 4.4)
+τCOEFFS_SDAB = (2.6666, 0)
+τCOEFFS_BB = (3.28, 0)
 
 function liftPowerPlot(mop)
 	p1 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="SDAB actuator")
@@ -261,25 +278,25 @@ end
 
 normStrokeSDAB(mop) = plot(
 	olExpPlot2(mop, 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv")..., wingDims["1a"], [120,160,190], :rect), 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - sdab1.csv")..., wingDims["1a"], [], :circle); 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv")..., wingDims["1a"], [120,160,190], :rect, τCOEFFS_MOD1), 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - sdab1.csv")..., wingDims["1a"], [], :circle, τCOEFFS_SDAB); 
 		# (readOLExpCSV("data/normstroke/Param opt manuf 2 - beckysdab.csv")..., [], :circle); 
 		title="Wing 1A1"), 
 	olExpPlot2(mop, 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h2.csv")..., wingDims["4b2"], [120,150,200], :utriangle),
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 4b1.csv")..., wingDims["4b"], [120,150,190], :+),
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h1.csv")..., wingDims["4b"], [120,140,160], :dtriangle);
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h2.csv")..., wingDims["4b2"], [120,150,200], :utriangle, τCOEFFS_MOD1),
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 4b1.csv")..., wingDims["4b"], [120,150,190], :+, τCOEFFS_SDAB),
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h1.csv")..., wingDims["4b"], [120,140,160], :dtriangle, τCOEFFS_MOD1);
 		title="Wing 4B1"),
 	size=(800,400))
 
 normStrokeBigBee(mop) = plot(
 	olExpPlot2(mop, 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee b1.csv")..., wingDims["1b"], [], :utriangle), 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee orig.csv")..., wingDims["bigbee"], [], :circle), 
-		# (readOLExpCSV("data/normstroke/Param opt manuf 2 - bbx bborig.csv")..., wingDims["bigbee"], [], :dtriangle),  
-		# (readOLExpCSV("data/normstroke/Param opt manuf 2 - bbx 1alx2.csv")..., wingDims["1alx2"], [], :dtriangle), 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee 4l3.csv")..., wingDims["4l"], [150,180,200], :rect), 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee originalA.csv")..., wingDims["bigbee"], [], :star5); 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee b1.csv")..., wingDims["1b"], [], :utriangle, τCOEFFS_BB), 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee orig.csv")..., wingDims["bigbee"], [], :circle, τCOEFFS_BB), 
+		# (readOLExpCSV("data/normstroke/Param opt manuf 2 - bbx bborig.csv")..., wingDims["bigbee"], [], :dtriangle, τCOEFFS_BB),  
+		# (readOLExpCSV("data/normstroke/Param opt manuf 2 - bbx 1alx2.csv")..., wingDims["1alx2"], [], :dtriangle, τCOEFFS_BB), 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee 4l3.csv")..., wingDims["4l"], [150,180,200], :rect, τCOEFFS_BB), 
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee originalA.csv")..., wingDims["bigbee"], [], :star5, τCOEFFS_BB); 
 		title="BigBee", ulim=0.75), 
 	size=(600,400))
 
@@ -288,9 +305,9 @@ mop = (m, opt, param0)
 
 # liftPowerPlot(mop)
 
-# normStrokeSDAB(mop)
+normStrokeSDAB(mop)
 # normStrokeBigBee(mop)
 
-openLoopPlotFinal(mop...)
+# openLoopPlotFinal(mop...)
 
 gui()
