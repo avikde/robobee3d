@@ -122,8 +122,10 @@ for ff = 0.14:0.04:0.22
 	# runInputs(m, opt, param0, ff, [75], [0], range(-20,20, length=8), range(-0.2, 0.2, length=8), [0])
 	# h2, h3
 	# runInputs(m, opt, param0, ff, [75], [0], [0], range(-0.2, 0.2, length=8), range(-0.2, 0.2, length=8))
-	# adiff, dc
-	runInputs(m, opt, param0, ff, [75], range(-20, 20, length=8), range(-20, 20, length=8), [0], [0])
+	# # adiff, dc
+	# runInputs(m, opt, param0, ff, [75], range(-20, 20, length=8), range(-20, 20, length=8), [0], [0])
+	# ua, adiff
+	runInputs(m, opt, param0, ff, range(40, 80, length=8), range(-20, 20, length=8), [0], [0], [0])
 end
 
 ## Plot against grids of inputs -------------
@@ -182,8 +184,8 @@ end
 
 # pls = plotInputs("runInputs_0.14.zip", 4, 5; s=1000) # h2h3
 # pls = plotInputs("runInputs_0.22.zip", 1, 3; s=1000) # ua, dc
-pls = plotInputs("runInputs_0.22.zip", 2, 3; s=1000) # adiff, dc
-# pls = plotInputs("runInputs_0.14.zip", 1, 2; s=1000) # ua, p
+# pls = plotInputs("runInputs_0.22.zip", 2, 3; s=1000) # adiff, dc
+pls = plotInputs("runInputs_0.14.zip", 1, 2; s=1000) # ua, adiff
 # pls = plotInputs("runInputs_0.22.zip", 3, 4; s=1000) # dc, h2
 if length(pls) == 2
 	plot(pls..., size=(500,250))
