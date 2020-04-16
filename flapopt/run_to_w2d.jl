@@ -203,23 +203,30 @@ function plotInputs(resarg, ix, iy; s=0)
 	# )
 end
 
-function ellipseInteriorIndices(resarg, ix, iy, ep)
-	vari, wri = unpackGridData(resarg)
+function ellipseInteriorIndices(wri, ix, iy, ep)
 	# boolean array
-	return [ellipseInterior(wri[:,i], ix, iy ,ep) for i = 1:size(wri,2)]
+	return [ellipseInterior(wri[:,i], ix, iy, ep) for i = 1:size(wri,2)]
 end
 
 "Plot in the wrench space. ix, iy are wrench components"
-function plotWspace(resarg, ix, iy, ep)
+function plotWspace(resarg, iu, iw, ep)
 	vari, wri = unpackGridData(resarg)
-	iin = ellipseInteriorIndices(resarg, ix, iy, ep)
-	p1 = scatter(xlabel=wrenchNames[ix], ylabel=wrenchNames[iy], legend=false)
-	scatter!(p1, wri[ix,iin], wri[iy,iin], markercolor=:red, markerstrokewidth=0)
-	scatter!(p1, wri[ix,.!iin], wri[iy,.!iin], markercolor=:blue, markerstrokewidth=0)
+	iin = ellipseInteriorIndices(wri, iw..., ep)
+
+	# wrench space
+	p1 = scatter(xlabel=wrenchNames[iw[1]], ylabel=wrenchNames[iw[2]], legend=false)
+	scatter!(p1, wri[iw[1],iin], wri[iw[2],iin], markercolor=:red, markerstrokewidth=0)
+	scatter!(p1, wri[iw[1],.!iin], wri[iw[2],.!iin], markercolor=:blue, markerstrokewidth=0)
 	if !isnothing(ep)
 		plotEllipse!(p1, ep)
 	end
-	return [p1]
+
+	# input space
+	p2 = scatter(xlabel=varNames[iu[1]], ylabel=varNames[iu[2]], legend=false)
+	scatter!(p2, vari[iu[1],iin], vari[iu[2],iin], markercolor=:red, markerstrokewidth=0)
+	scatter!(p2, vari[iu[1],.!iin], vari[iu[2],.!iin], markercolor=:blue, markerstrokewidth=0)
+
+	return [p2, p1]
 end
 
 ## --- plot in input space
@@ -241,13 +248,12 @@ savefig("h2h3.png")
 
 pls = vcat(
 	# ua, adiff (planar)
-	plotWspace("runInputs_0.14.zip", 3, 4, [0.7,5,1,0]), 
-	plotWspace("runInputs_0.18.zip", 3, 4, [1.3,9,2,0]),
-	plotWspace("runInputs_0.22.zip", 3, 4, [1.05,7,1.6,0])
+	plotWspace("runInputs_0.14.zip", [1,2], [3,4], [0.7,5,1,0]), 
+	plotWspace("runInputs_0.18.zip", [1,2], [3,4], [1.3,9,2,0]),
+	plotWspace("runInputs_0.22.zip", [1,2], [3,4], [1.05,7,1.6,0])
 )
 plot(pls...)
 savefig("h2h3.png")
-# gui()
 
 ## ----
 
