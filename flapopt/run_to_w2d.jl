@@ -130,9 +130,16 @@ end
 
 ## Plot against grids of inputs -------------
 
+"The ellipse parameterization is [r1, r2, d1, d2] where d is the affine offset"
+function plotEllipse!(pl, ep)
+	r1, r2, d1, d2 = ep
+	x(t) = d1 + r1*sin(t)
+	y(t) = d2 + r2*cos(t)
+	plot!(pl, x, y, 0, 2π, leg=false, fill=(0,:orange), fillalpha=0.3)
+end
 
 "ix, iy index into varNames (which is the order of variables in the row)"
-function plotInputs(resarg, ix, iy, nvars=5; s=0, wspace=false)
+function plotInputs(resarg, ix, iy, nvars=5; s=0, wspace=false, ep=nothing)
 	resdict = typeof(resarg) == String ? matread(resarg) : resarg
 	
 	# Produced unstructured xi,yi,zi data
@@ -172,8 +179,11 @@ function plotInputs(resarg, ix, iy, nvars=5; s=0, wspace=false)
 	end
 
 	if wspace
-		pls = [scatter(wri[ix,:], wri[iy,:], xlabel=wrenchNames[ix], ylabel=wrenchNames[iy], legend=false)]
-		return pls
+		p1 = scatter(wri[ix,:], wri[iy,:], xlabel=wrenchNames[ix], ylabel=wrenchNames[iy], legend=false)
+		if !isnothing(ep)
+			plotEllipse!(p1, ep)
+		end
+		return [p1]
 	else
 		plsDC = [contourFromUnstructured(vari[ix,:], vari[iy,:], wri[c,:]; xlabel=varNames[ix], ylabel=varNames[iy], title=wrenchNames[c])  for c=1:6]
 		filter!(x -> !isnothing(x), plsDC)
@@ -205,12 +215,13 @@ savefig("h2h3.png")
 ## ---- plot in wrench space
 
 pls = vcat(
-	plotInputs("runInputs_0.14.zip", 3, 4; wspace=true), # ua, adiff
-	plotInputs("runInputs_0.18.zip", 3, 4; wspace=true),
-	plotInputs("runInputs_0.22.zip", 3, 4; wspace=true)
+	plotInputs("runInputs_0.14.zip", 3, 4; wspace=true, ep=[0.7,5,1,0]), # ua, adiff
+	plotInputs("runInputs_0.18.zip", 3, 4; wspace=true, ep=[1.3,9,2,0]),
+	plotInputs("runInputs_0.22.zip", 3, 4; wspace=true, ep=[1.05,7,1.6,0])
 )
 plot(pls...)
 savefig("h2h3.png")
+# gui()
 
 ## ----
 
