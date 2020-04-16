@@ -193,17 +193,29 @@ function plotInputs(resarg, ix, iy; s=0)
 	# )
 end
 
+"Is wrench w inside the ellipse?"
+function ellipseInterior(w, ep)
+	return false; # TODO:
+end
+
+function ellipseInteriorIndices(resarg, ix, iy, ep)
+	vari, wri = unpackGridData(resarg)
+	# boolean array
+	return [ellipseInterior(wri[:,i], ep) for i = 1:size(wri,2)]
+end
+
+"Plot in the wrench space. ix, iy are wrench components"
 function plotWspace(resarg, ix, iy, ep)
 	vari, wri = unpackGridData(resarg)
-	p1 = scatter(wri[ix,:], wri[iy,:], xlabel=wrenchNames[ix], ylabel=wrenchNames[iy], legend=false)
+	iin = ellipseInteriorIndices(resarg, ix, iy, ep)
+	p1 = scatter(xlabel=wrenchNames[ix], ylabel=wrenchNames[iy], legend=false)
+	for i=1:size(wri,2)
+		scatter!(p1, wri[ix,:], wri[iy,:], markercolor=(iin[i] ? :blue : :red), markerstrokewidth=0)
+	end
 	if !isnothing(ep)
 		plotEllipse!(p1, ep)
 	end
 	return [p1]
-end
-
-function ellipseInteriorIndices(ep)
-	
 end
 
 ## --- plot in input space
