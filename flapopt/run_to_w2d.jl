@@ -138,8 +138,7 @@ function plotEllipse!(pl, ep)
 	plot!(pl, x, y, 0, 2π, leg=false, fill=(0,:orange), fillalpha=0.3)
 end
 
-"ix, iy index into varNames (which is the order of variables in the row)"
-function plotInputs(resarg, ix, iy, nvars=5; s=0, wspace=false, ep=nothing)
+function unpackGridData(resarg, nvars=5)
 	resdict = typeof(resarg) == String ? matread(resarg) : resarg
 	
 	# Produced unstructured xi,yi,zi data
@@ -152,7 +151,12 @@ function plotInputs(resarg, ix, iy, nvars=5; s=0, wspace=false, ep=nothing)
 		# then the results
 		wri = [wri  res[nvars+1:nvars+6]]
 	end
-	
+	return vari, wri
+end
+
+"ix, iy index into varNames (which is the order of variables in the row)"
+function plotInputs(resarg, ix, iy; s=0)
+	vari, wri = unpackGridData(resarg)
 	# functions for making splines for plotting
 	splineFromUnstructured(xi, yi, zi) = Spline2D(xi, yi, zi; s=s)
 	function contourFromUnstructured(xi, yi, zi; xlabel="", ylabel="", title="")
@@ -178,23 +182,28 @@ function plotInputs(resarg, ix, iy, nvars=5; s=0, wspace=false, ep=nothing)
 		return pl
 	end
 
-	if wspace
-		p1 = scatter(wri[ix,:], wri[iy,:], xlabel=wrenchNames[ix], ylabel=wrenchNames[iy], legend=false)
-		if !isnothing(ep)
-			plotEllipse!(p1, ep)
-		end
-		return [p1]
-	else
-		plsDC = [contourFromUnstructured(vari[ix,:], vari[iy,:], wri[c,:]; xlabel=varNames[ix], ylabel=varNames[iy], title=wrenchNames[c])  for c=1:6]
-		filter!(x -> !isnothing(x), plsDC)
-		return plsDC
-		# 		vcat(
-		# 	# [contourFromUnstructured(uai, phoffi, wri[c,:]; xlabel="Fact [mN]", ylabel="phoffs [rad]", title=wrenchNames[c]) 
-		# 	# for c=1:6],
-		# 	[contourFromUnstructured(uai, dci, wri[c,:]; xlabel="Fact [mN]", ylabel="dcoffs [mN]", title=wrenchNames[c]) 
-		# 	for c=1:6]
-		# )
+	plsDC = [contourFromUnstructured(vari[ix,:], vari[iy,:], wri[c,:]; xlabel=varNames[ix], ylabel=varNames[iy], title=wrenchNames[c])  for c=1:6]
+	filter!(x -> !isnothing(x), plsDC)
+	return plsDC
+	# 		vcat(
+	# 	# [contourFromUnstructured(uai, phoffi, wri[c,:]; xlabel="Fact [mN]", ylabel="phoffs [rad]", title=wrenchNames[c]) 
+	# 	# for c=1:6],
+	# 	[contourFromUnstructured(uai, dci, wri[c,:]; xlabel="Fact [mN]", ylabel="dcoffs [mN]", title=wrenchNames[c]) 
+	# 	for c=1:6]
+	# )
+end
+
+function plotWspace(resarg, ix, iy, ep)
+	vari, wri = unpackGridData(resarg)
+	p1 = scatter(wri[ix,:], wri[iy,:], xlabel=wrenchNames[ix], ylabel=wrenchNames[iy], legend=false)
+	if !isnothing(ep)
+		plotEllipse!(p1, ep)
 	end
+	return [p1]
+end
+
+function ellipseInteriorIndices(ep)
+	
 end
 
 ## --- plot in input space
@@ -215,13 +224,14 @@ savefig("h2h3.png")
 ## ---- plot in wrench space
 
 pls = vcat(
-	plotInputs("runInputs_0.14.zip", 3, 4; wspace=true, ep=[0.7,5,1,0]), # ua, adiff
-	plotInputs("runInputs_0.18.zip", 3, 4; wspace=true, ep=[1.3,9,2,0]),
-	plotInputs("runInputs_0.22.zip", 3, 4; wspace=true, ep=[1.05,7,1.6,0])
+	# ua, adiff (planar)
+	plotWspace("runInputs_0.14.zip", 3, 4, [0.7,5,1,0]), 
+	plotWspace("runInputs_0.18.zip", 3, 4, [1.3,9,2,0]),
+	plotWspace("runInputs_0.22.zip", 3, 4, [1.05,7,1.6,0])
 )
 plot(pls...)
-savefig("h2h3.png")
-# gui()
+# savefig("h2h3.png")
+gui()
 
 ## ----
 
