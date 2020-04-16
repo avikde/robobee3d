@@ -214,9 +214,8 @@ function plotWspace(resarg, ix, iy, ep)
 	vari, wri = unpackGridData(resarg)
 	iin = ellipseInteriorIndices(resarg, ix, iy, ep)
 	p1 = scatter(xlabel=wrenchNames[ix], ylabel=wrenchNames[iy], legend=false)
-	for i=1:size(wri,2)
-		scatter!(p1, [wri[ix,i]], [wri[iy,i]], markercolor=(iin[i] ? :red : :blue), markerstrokewidth=0)
-	end
+	scatter!(p1, wri[ix,iin], wri[iy,iin], markercolor=:red, markerstrokewidth=0)
+	scatter!(p1, wri[ix,.!iin], wri[iy,.!iin], markercolor=:blue, markerstrokewidth=0)
 	if !isnothing(ep)
 		plotEllipse!(p1, ep)
 	end
