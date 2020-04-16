@@ -138,6 +138,16 @@ function plotEllipse!(pl, ep)
 	plot!(pl, x, y, 0, 2π, leg=false, fill=(0,:orange), fillalpha=0.3)
 end
 
+"Is wrench w inside the ellipse?"
+function ellipseInterior(w, ix, iy, ep)
+	r = ep[1:2] # radii
+	x0 = ep[3:4]
+	x = [w[ix], w[iy]]
+	eldist = (x-x0)' * Diagonal(1 ./ r.^2) * (x-x0)
+	inside = eldist <= 1
+	return inside
+end
+
 function unpackGridData(resarg, nvars=5)
 	resdict = typeof(resarg) == String ? matread(resarg) : resarg
 	
@@ -193,15 +203,10 @@ function plotInputs(resarg, ix, iy; s=0)
 	# )
 end
 
-"Is wrench w inside the ellipse?"
-function ellipseInterior(w, ep)
-	return false; # TODO:
-end
-
 function ellipseInteriorIndices(resarg, ix, iy, ep)
 	vari, wri = unpackGridData(resarg)
 	# boolean array
-	return [ellipseInterior(wri[:,i], ep) for i = 1:size(wri,2)]
+	return [ellipseInterior(wri[:,i], ix, iy ,ep) for i = 1:size(wri,2)]
 end
 
 "Plot in the wrench space. ix, iy are wrench components"
@@ -210,7 +215,7 @@ function plotWspace(resarg, ix, iy, ep)
 	iin = ellipseInteriorIndices(resarg, ix, iy, ep)
 	p1 = scatter(xlabel=wrenchNames[ix], ylabel=wrenchNames[iy], legend=false)
 	for i=1:size(wri,2)
-		scatter!(p1, wri[ix,:], wri[iy,:], markercolor=(iin[i] ? :blue : :red), markerstrokewidth=0)
+		scatter!(p1, [wri[ix,i]], [wri[iy,i]], markercolor=(iin[i] ? :red : :blue), markerstrokewidth=0)
 	end
 	if !isnothing(ep)
 		plotEllipse!(p1, ep)
@@ -242,8 +247,8 @@ pls = vcat(
 	plotWspace("runInputs_0.22.zip", 3, 4, [1.05,7,1.6,0])
 )
 plot(pls...)
-# savefig("h2h3.png")
-gui()
+savefig("h2h3.png")
+# gui()
 
 ## ----
 
