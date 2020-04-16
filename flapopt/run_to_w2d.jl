@@ -132,7 +132,7 @@ end
 
 
 "ix, iy index into varNames (which is the order of variables in the row)"
-function plotInputs(resarg, ix, iy, nvars=5; s=0)
+function plotInputs(resarg, ix, iy, nvars=5; s=0, wspace=false)
 	resdict = typeof(resarg) == String ? matread(resarg) : resarg
 	
 	# Produced unstructured xi,yi,zi data
@@ -171,21 +171,28 @@ function plotInputs(resarg, ix, iy, nvars=5; s=0)
 		return pl
 	end
 
-	plsDC = [contourFromUnstructured(vari[ix,:], vari[iy,:], wri[c,:]; xlabel=varNames[ix], ylabel=varNames[iy], title=wrenchNames[c])  for c=1:6]
-	filter!(x -> !isnothing(x), plsDC)
-	return plsDC
-	# 		vcat(
-	# 	# [contourFromUnstructured(uai, phoffi, wri[c,:]; xlabel="Fact [mN]", ylabel="phoffs [rad]", title=wrenchNames[c]) 
-	# 	# for c=1:6],
-	# 	[contourFromUnstructured(uai, dci, wri[c,:]; xlabel="Fact [mN]", ylabel="dcoffs [mN]", title=wrenchNames[c]) 
-	# 	for c=1:6]
-	# )
+	if wspace
+		pls = [scatter(wri[ix,:], wri[iy,:], xlabel=wrenchNames[ix], ylabel=wrenchNames[iy], legend=false)]
+		return pls
+	else
+		plsDC = [contourFromUnstructured(vari[ix,:], vari[iy,:], wri[c,:]; xlabel=varNames[ix], ylabel=varNames[iy], title=wrenchNames[c])  for c=1:6]
+		filter!(x -> !isnothing(x), plsDC)
+		return plsDC
+		# 		vcat(
+		# 	# [contourFromUnstructured(uai, phoffi, wri[c,:]; xlabel="Fact [mN]", ylabel="phoffs [rad]", title=wrenchNames[c]) 
+		# 	# for c=1:6],
+		# 	[contourFromUnstructured(uai, dci, wri[c,:]; xlabel="Fact [mN]", ylabel="dcoffs [mN]", title=wrenchNames[c]) 
+		# 	for c=1:6]
+		# )
+	end
 end
+
+## --- plot in input space
 
 # pls = plotInputs("runInputs_0.14.zip", 4, 5; s=1000) # h2h3
 # pls = plotInputs("runInputs_0.22.zip", 1, 3; s=1000) # ua, dc
 # pls = plotInputs("runInputs_0.22.zip", 2, 3; s=1000) # adiff, dc
-pls = plotInputs("runInputs_0.14.zip", 1, 2; s=1000) # ua, adiff
+pls = plotInputs("runInputs_0.22.zip", 1, 2; s=1000) # ua, adiff
 # pls = plotInputs("runInputs_0.22.zip", 3, 4; s=1000) # dc, h2
 if length(pls) == 2
 	plot(pls..., size=(500,250))
@@ -193,6 +200,16 @@ else
 	plot(pls...)
 end
 # gui()
+savefig("h2h3.png")
+
+## ---- plot in wrench space
+
+pls = vcat(
+	plotInputs("runInputs_0.14.zip", 3, 4; wspace=true), # ua, adiff
+	plotInputs("runInputs_0.18.zip", 3, 4; wspace=true),
+	plotInputs("runInputs_0.22.zip", 3, 4; wspace=true)
+)
+plot(pls...)
 savefig("h2h3.png")
 
 ## ----
