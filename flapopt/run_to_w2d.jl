@@ -80,22 +80,6 @@ wrenchNames = ["Fx [mN]", "Fy [mN]", "Fz [mN]", "Rx roll [mN-mm]", "Ry pitch [mN
 
 # wrenchAt([0.16, 75, 0, 75, 0, 0], param0; makeplot=true)
 
-## Single variable ----
-
-# test wrt ampl
-# xs = range(40, 80, length=10) # uas
-# tws = vcat([wrenchAt([0.16, ua, 0, ua, 0, 0, 0, 0], param0) for ua=xs]...)
-# xs = range(-0.5, 0.5, length=10) # ph offs
-# tws = vcat([wrenchAt([0.16, 75, 0, 75, 0, p, 0, 0], param0) for p=xs]...)
-# xs = range(-0.5, 0.5, length=10) # dc offs
-# tws = vcat([wrenchAt([0.16, 75, dc, 75, dc, 0, 0, 0], param0) for dc=xs]...)
-xs = range(-0.2, 0.2, length=8) # h2
-tws = vcat([wrenchAt([0.16, 75, 0, 75, 0, 0, h2, 0], param0) for h2=xs]...)
-
-pls = [plot(xs, tws[:,c], legend=false, ylabel=wrenchNames[c], lw=2) for c=1:6]
-plot(pls...)
-gui()
-
 ## grids of inputs ------------------
 
 function runInputs(m::Wing2DOFModel, opt, param, freq, uas, phoffs, dcoffs, h2s, h3s)
@@ -229,6 +213,22 @@ function plotWspace(resarg, iu, iw, ep)
 	return [p2, p1]
 end
 
+## Single variable ----
+
+# test wrt ampl
+# xs = range(40, 80, length=10) # uas
+# tws = vcat([wrenchAt([0.16, ua, 0, ua, 0, 0, 0, 0], param0) for ua=xs]...)
+# xs = range(-0.5, 0.5, length=10) # ph offs
+# tws = vcat([wrenchAt([0.16, 75, 0, 75, 0, p, 0, 0], param0) for p=xs]...)
+# xs = range(-0.5, 0.5, length=10) # dc offs
+# tws = vcat([wrenchAt([0.16, 75, dc, 75, dc, 0, 0, 0], param0) for dc=xs]...)
+xs = range(-0.2, 0.2, length=8) # h2
+tws = vcat([wrenchAt([0.16, 75, 0, 75, 0, 0, h2, 0], param0) for h2=xs]...)
+
+pls = [plot(xs, tws[:,c], legend=false, ylabel=wrenchNames[c], lw=2) for c=1:6]
+plot(pls...)
+gui()
+
 ## --- plot in input space
 
 # pls = plotInputs("runInputs_0.14.zip", 4, 5; s=1000) # h2h3
@@ -252,7 +252,7 @@ pls = vcat(
 	plotWspace("runInputs_0.18.zip", [1,2], [3,4], [1.3,9,2,0]),
 	plotWspace("runInputs_0.22.zip", [1,2], [3,4], [1.05,7,1.6,0])
 )
-plot(pls...)
+plot(pls..., layout=(3,2), size=(500,500))
 savefig("h2h3.png")
 
 ## ----
