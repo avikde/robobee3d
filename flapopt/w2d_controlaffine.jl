@@ -1,11 +1,8 @@
 using LinearAlgebra, DifferentialEquations, Plots
 
 # control-affine
-function controlAffinePlanarDynamics(qb, dqb, f, Φ, Ψ, fns)
+function aeroWrench(f, Φ)
 	# params?
-	mb = 100 #[mg]
-	ib = 3333 #[mg-mm^2]
-	g = 9.81e-3 #[mN/mg]
     CLmax = 1.8
     CDmax = 3.4
     CD0 = 0.4
@@ -20,38 +17,49 @@ function controlAffinePlanarDynamics(qb, dqb, f, Φ, Ψ, fns)
 	kt = k * CLmax * π^2
 	Lw = Aw/cbar
 	ycp = 0.5 * Lw
+	
+	Ψ = 1.0 # TODO:
+
+	Fz = kt * f^2 * Φ^2 * cos(Ψ)*sin(Ψ)
+	return [Fz, ycp*Fz]
+end
+
+function controlAffinePlanarDynamics(qb, dqb, xwL, xwR)
+	mb = 100 #[mg]
+	ib = 3333 #[mg-mm^2]
+	g = 9.81e-3 #[mN/mg]
 
 	# dynamics stuff
 	Mb = diagm(0 => [mb, mb, ib])
 	h = [0; mb*g; 0]
 	rot(x) = [cos(x) -sin(x); sin(x) cos(x)]
-
-	return Mb \ (-h + kt * [rot(qb[3]) * [0;1]; ycp] * f^2 * Φ^2 * cos(Ψ)*sin(Ψ))
+	totalWrench = aeroWrench(xwL...)# + diagm(0=>[1,-1]) * aeroWrench(xwR...)
+	Fz, Rx = totalWrench
+	return Mb \ (-h + [rot(qb[3]) * [0;Fz]; Rx])
 end
 
 function controlAffinePlanar(y)
 	# unpack
 	qb = y[1:3]
 	dqb = y[4:6]
-	f = y[7] # freq
-	Φ = y[8]
+	fL = y[7] # freq
+	ΦL = y[8]
 
 	# control-related
 	kf = 1
 	kv = 1
-	Ψ = 1.0 # TODO:
 	fns(f) = deg2rad(0.5) # TODO:
 
-	ddq = controlAffinePlanarDynamics(qb, dqb, f, Φ, Ψ, fns)
+	ddq = controlAffinePlanarDynamics(qb, dqb, [fL, ΦL], [])
 
 	fy = [dqb; 
 		ddq;
-		-kf * f;
-		-kv * Φ]
+		-kf * fL;
+		-kv * ΦL]
 	
 	gy = [zeros(6, 2);
 		kf 0;
-		0 kv * fns(f)]
+		0 kv * fns(fL)]
 
 	return fy, gy
 end
