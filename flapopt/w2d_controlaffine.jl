@@ -1,4 +1,4 @@
-using LinearAlgebra, DifferentialEquations
+using LinearAlgebra, DifferentialEquations, Plots
 
 # control-affine
 function controlAffinePlanar(y)
@@ -50,12 +50,25 @@ function controlAffinePlanar(y)
 end
 
 # test
-y = [zeros(6, 1); 0.15; π/2]
-fy, gy = controlAffinePlanar(y)
+y0 = vcat(zeros(6),0.15,π/2)
+fy, gy = controlAffinePlanar(y0)
 
-# vf(y, p, t) = cu.dydt(m, y, [controller(y, t)], params)
-# # OL traj1
-# teval = collect(0:simdt:tend) # [ms]
-# y0 = m.SEA ? [0.,0.01,0.,0.01,0.,0.] : [0.,0.01,0.01,0.]
-# prob = ODEProblem(vf, y0, (teval[1], teval[end]))
-# sol = solve(prob, saveat=teval)
+function vf(y, p, t)
+	fy, gy = controlAffinePlanar(y)
+	return fy + gy * [0.15; π/2]
+end
+# OL traj1
+simdt = 0.02
+tend = 10
+teval = collect(0:simdt:tend) # [ms]
+prob = ODEProblem(vf, y0, (teval[1], teval[end]))
+sol = solve(prob, saveat=teval)
+# vf(y0, [], 0)
+
+# # Plot
+# traj = plot(sol.t, vars=1, ylabel="stroke [rad]")
+# dphit = plot(sol, vars=3, ylabel="stroke vel [rad/ms]")
+# Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
+# plot(phit, dphit, Ψt, layout=(3,1))
+# gui()
+# error("createInitialTraj")
