@@ -1,4 +1,4 @@
-using LinearAlgebra, DifferentialEquations, Plots
+using LinearAlgebra, DifferentialEquations, Plots, OSQP, SparseArrays
 
 # control-affine
 function aeroWrench(f, Φ)
@@ -66,6 +66,22 @@ function controlAffinePlanar(y)
 
 	return fy, gy
 end
+
+# --- OSQP
+
+model = OSQP.Model()
+# QP solution with only u
+n = 4
+m = 4
+P = sparse(ones(n,n))
+q = zeros(n)
+l = fill(-Inf, m)
+u = fill(Inf, m)
+A = sparse(ones(m,n))
+OSQP.setup!(model; P=P, q=q, A=A, l=l, u=u, eps_rel=1e-2, eps_abs=1e-2)
+res = OSQP.solve!(model)
+
+# ----
 
 # test
 y0 = vcat(zeros(6),0.15,π/2,0.15,π/2)
