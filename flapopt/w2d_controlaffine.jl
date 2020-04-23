@@ -69,28 +69,53 @@ end
 
 # --- OSQP
 
-model = OSQP.Model()
-# QP solution with only u
-n = 4
-m = 4
-P = sparse(ones(n,n))
-q = zeros(n)
-l = fill(-Inf, m)
-u = fill(Inf, m)
-A = sparse(ones(m,n))
-OSQP.setup!(model; P=P, q=q, A=A, l=l, u=u, eps_rel=1e-2, eps_abs=1e-2)
-res = OSQP.solve!(model)
+function qpSetupDense()
+	model = OSQP.Model()
+	# QP solution with only u
+	# with a desired dydes, want 
+	n = 4
+	m = 4
+	P = sparse(ones(n,n))
+	q = zeros(n)
+	l = fill(-Inf, m)
+	u = fill(Inf, m)
+	A = sparse(ones(m,n))
+	OSQP.setup!(model; P=P, q=q, A=A, l=l, u=u, eps_rel=1e-2, eps_abs=1e-2, verbose=false)
+	return model
+end
+
+function qpSolve(model, fy, gy, vdes)
+	# this is for the 3dof body vel only
+	wb = fill(10.0, 3)
+	Qb = diagm(0 => wb)
+	gb = gy[1:3,:]
+	fb = fy[1:3]
+	P = gb' * Qb * gb + 1e-10 * I
+	q = gb' * Qb * (vdes - fb)
+
+	# update OSQP
+	OSQP.update!(model, Px=P[:], q=q)
+
+	# solve
+	res = OSQP.solve!(model)
+	return res.x
+end
 
 # ----
 
 # test
 y0 = vcat(zeros(6),0.15,π/2,0.15,π/2)
 fy, gy = controlAffinePlanar(y0)
+model = qpSetupDense()
+# print(fieldnames(typeof(model.workspace)))
 
 function runSim(y0, tend; simdt=0.02)
 	function vf(y, p, t)
 		fy, gy = controlAffinePlanar(y)
-		return fy + gy * [0.15, π/2, 0.15, π/2]
+		vdes = [0,0.1,0]
+		u = qpSolve(model, fy, gy, vdes)
+		# u = [0.15, π/2, 0.15, π/2]
+		return fy + gy * u
 	end
 	# OL traj1
 	teval = collect(0:simdt:tend) # [ms]
