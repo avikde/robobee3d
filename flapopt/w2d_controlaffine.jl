@@ -5,7 +5,7 @@ function controlAffinePlanarDynamics(qb, dqb, f, Φ, Ψ, fns)
 	# params?
 	mb = 100 #[mg]
 	ib = 3333 #[mg-mm^2]
-	g = 9.81e3 #[mm/ms^2]
+	g = 9.81 #[mN/mg]
     CLmax = 1.8
     CDmax = 3.4
     CD0 = 0.4
