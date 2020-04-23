@@ -5,7 +5,7 @@ function controlAffinePlanarDynamics(qb, dqb, f, Φ, Ψ, fns)
 	# params?
 	mb = 100 #[mg]
 	ib = 3333 #[mg-mm^2]
-	g = 9.81 #[mN/mg]
+	g = 9.81e-3 #[mN/mg]
     CLmax = 1.8
     CDmax = 3.4
     CD0 = 0.4
@@ -26,7 +26,7 @@ function controlAffinePlanarDynamics(qb, dqb, f, Φ, Ψ, fns)
 	h = [0; mb*g; 0]
 	rot(x) = [cos(x) -sin(x); sin(x) cos(x)]
 
-	return Mb \ (-h + kt * [rot(qb[3]) * [0;1]; ycp] * f * Φ^2 * cos(Ψ)*sin(Ψ))
+	return Mb \ (-h + kt * [rot(qb[3]) * [0;1]; ycp] * f^2 * Φ^2 * cos(Ψ)*sin(Ψ))
 end
 
 function controlAffinePlanar(y)
@@ -42,8 +42,10 @@ function controlAffinePlanar(y)
 	Ψ = 1.0 # TODO:
 	fns(f) = deg2rad(0.5) # TODO:
 
+	ddq = controlAffinePlanarDynamics(qb, dqb, f, Φ, Ψ, fns)
+
 	fy = [dqb; 
-		controlAffinePlanarDynamics(qb, dqb, f, Φ, Ψ, fns);
+		ddq;
 		-kf * f;
 		-kv * Φ]
 	
