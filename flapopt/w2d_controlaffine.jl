@@ -53,22 +53,26 @@ end
 y0 = vcat(zeros(6),0.15,π/2)
 fy, gy = controlAffinePlanar(y0)
 
-function vf(y, p, t)
-	fy, gy = controlAffinePlanar(y)
-	return fy + gy * [0.15; π/2]
+function runSim(y0, tend; simdt=0.02)
+	function vf(y, p, t)
+		fy, gy = controlAffinePlanar(y)
+		return fy + gy * [0.15; π/2]
+	end
+	# OL traj1
+	teval = collect(0:simdt:tend) # [ms]
+	prob = ODEProblem(vf, y0, (teval[1], teval[end]))
+	sol = solve(prob, saveat=teval)
+	return sol.t, hcat(sol.u...)
 end
-# OL traj1
-simdt = 0.02
-tend = 10
-teval = collect(0:simdt:tend) # [ms]
-prob = ODEProblem(vf, y0, (teval[1], teval[end]))
-sol = solve(prob, saveat=teval)
+
+tt, yy = runSim(y0, 1)
 # vf(y0, [], 0)
 
-# # Plot
-# traj = plot(sol.t, vars=1, ylabel="stroke [rad]")
-# dphit = plot(sol, vars=3, ylabel="stroke vel [rad/ms]")
-# Ψt = plot(sol, vars=2, ylabel="hinge ang [r]")
-# plot(phit, dphit, Ψt, layout=(3,1))
-# gui()
-# error("createInitialTraj")
+# Plot
+p1 = plot(yy[1,:], yy[2,:], lw=2, xlabel="y", ylabel="z", legend=false)
+p2 = plot(tt, yy[1,:], lw=2, xlabel="t", label="y")
+plot!(p2, tt, yy[2,:], lw=2, xlabel="t", label="z")
+p3 = plot(tt, yy[3,:], lw=2, xlabel="t", label="phi")
+
+plot(p1, p2, p3)
+gui()
