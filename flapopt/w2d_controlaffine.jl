@@ -33,7 +33,7 @@ function controlAffinePlanarDynamics(qb, dqb, xwL, xwR)
 	Mb = diagm(0 => [mb, mb, ib])
 	h = [0; mb*g; 0]
 	rot(x) = [cos(x) -sin(x); sin(x) cos(x)]
-	totalWrench = aeroWrench(xwL...)# + diagm(0=>[1,-1]) * aeroWrench(xwR...)
+	totalWrench = aeroWrench(xwL...) + diagm(0=>[1,-1]) * aeroWrench(xwR...)
 	Fz, Rx = totalWrench
 	return Mb \ (-h + [rot(qb[3]) * [0;Fz]; Rx])
 end
@@ -44,34 +44,37 @@ function controlAffinePlanar(y)
 	dqb = y[4:6]
 	fL = y[7] # freq
 	ΦL = y[8]
+	fR = y[9] # freq
+	ΦR = y[10]
 
 	# control-related
 	kf = 1
 	kv = 1
 	fns(f) = deg2rad(0.5) # TODO:
 
-	ddq = controlAffinePlanarDynamics(qb, dqb, [fL, ΦL], [])
+	ddq = controlAffinePlanarDynamics(qb, dqb, [fL, ΦL], [fR, ΦR])
 
 	fy = [dqb; 
 		ddq;
 		-kf * fL;
-		-kv * ΦL]
+		-kv * ΦL;
+		-kf * fR;
+		-kv * ΦR]
 	
-	gy = [zeros(6, 2);
-		kf 0;
-		0 kv * fns(fL)]
+	gy = [zeros(6, 4);
+		diagm(0 => [kf, kv * fns(fL), kf, kv * fns(fR)])]
 
 	return fy, gy
 end
 
 # test
-y0 = vcat(zeros(6),0.15,π/2)
+y0 = vcat(zeros(6),0.15,π/2,0.15,π/2)
 fy, gy = controlAffinePlanar(y0)
 
 function runSim(y0, tend; simdt=0.02)
 	function vf(y, p, t)
 		fy, gy = controlAffinePlanar(y)
-		return fy + gy * [0.15; π/2]
+		return fy + gy * [0.15, π/2, 0.15, π/2]
 	end
 	# OL traj1
 	teval = collect(0:simdt:tend) # [ms]
