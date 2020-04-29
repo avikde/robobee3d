@@ -69,6 +69,8 @@ end
 
 # --- OSQP
 
+nu = 4
+
 function qpSetupDense()
 	model = OSQP.Model()
 	# QP solution with only u
@@ -105,26 +107,38 @@ end
 
 # test
 y0 = vcat(zeros(6),0.15,π/2,0.15,π/2)
+ny = length(y0)
 fy, gy = controlAffinePlanar(y0)
 model = qpSetupDense()
 # print(fieldnames(typeof(model.workspace)))
 
 function runSim(y0, tend; simdt=0.02)
+	# Functions to evaluate the vector field
+	function getU(fy, gy)
+		vdes = [0,0.1,0]
+		return qpSolve(model, fy, gy, vdes)
+	end
 	function vf(y, p, t)
 		fy, gy = controlAffinePlanar(y)
-		vdes = [0,0.1,0]
-		u = qpSolve(model, fy, gy, vdes)
 		# u = [0.15, π/2, 0.15, π/2]
-		return fy + gy * u
+		return fy + gy * getU(fy, gy)
 	end
 	# OL traj1
 	teval = collect(0:simdt:tend) # [ms]
 	prob = ODEProblem(vf, y0, (teval[1], teval[end]))
 	sol = solve(prob, saveat=teval)
-	return sol.t, hcat(sol.u...)
+	# re-calculate all the inputs
+	yk = hcat(sol.u...) # ny,N
+	N = size(yk,2)
+	uk = zeros(nu, N)
+	for k = 1:N
+		fy, gy = controlAffinePlanar(yk[:,k])
+		uk[:,k] = getU(fy, gy)
+	end
+	return sol.t, yk, uk
 end
 
-tt, yy = runSim(y0, 1)
+tt, yy, uu = runSim(y0, 1)
 # vf(y0, [], 0)
 
 # Plot
@@ -132,6 +146,11 @@ p1 = plot(yy[1,:], yy[2,:], lw=2, xlabel="y", ylabel="z", legend=false)
 p2 = plot(tt, yy[1,:], lw=2, xlabel="t", label="y")
 plot!(p2, tt, yy[2,:], lw=2, xlabel="t", label="z")
 p3 = plot(tt, yy[3,:], lw=2, xlabel="t", label="phi")
+# Plot inputs
+pu1 = plot(tt, uu[1,:], lw=2, xlabel="t", label="fL")
+plot!(pu1, tt, uu[3,:], lw=2, xlabel="t", label="fR")
+pu2 = plot(tt, uu[2,:], lw=2, xlabel="t", label="VL")
+plot!(pu2, tt, uu[4,:], lw=2, xlabel="t", label="VR")
 
-plot(p1, p2, p3)
+plot(p1, p2, p3, pu1, pu2)
 gui()
