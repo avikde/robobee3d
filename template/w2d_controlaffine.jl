@@ -120,8 +120,8 @@ function cavController(ca, t, dt, y, fy, gy)
 	# project by A1 into the only state needed by the objective
 	A1 = ForwardDiff.gradient(yy -> ddq(ca, yy), y)
 	a1 = ddq(ca, y) - dot(A1, y)
-	ft = y[2] + a1 * dt + dot(A1, fd)
-	gt = dot(A1, gd) # these are now just scalars
+	ft = y[2] + (a1 + dot(A1, fd)) * dt
+	gt = dt * dot(A1, gd) # these are now just scalars
 	P = [gt^2]
 	q = [gt * (ft - zdotdes)]
 	l = [0.0]
@@ -160,7 +160,7 @@ function nonLinearDynamics(m::CAPlanar, y)
 	vR = y[8]
 	# control-related
 	kv = 1
-	fns = deg2rad(0.5) # TODO: function of freq
+	fns = 1.0#deg2rad(0.5) # TODO: function of freq
 
 	# Similar to vertical
 	fy = [y[4:6];  ddq(m, y);  -kv * vL; -kv * vR]
@@ -175,32 +175,33 @@ ny = length(y0)
 fy, gy = nonLinearDynamics(cap, y0)
 # print(fieldnames(typeof(model.workspace)))
 
-# model = qpSetupDense(2, 2)
-# function capController(ca, t, dt, y, fy, gy)
-# 	dqbdes = [0.0,1.0,0.0]
-# 	# discretized model ZOH. dydt = f(y) + g(y)v. y2 = y1 + dydt*dt = (y1 + dt * fy) + dt * dy * v
-# 	fd = (y + dt * fy)
-# 	gd = dt * gy
-# 	# project by A1 into the only states needed by the objective: dqb2 = dqb1 + dt * 
-# 	A1 = [0, 1, dt]
-# 	ft = dot(A1, fd)
-# 	gt = dot(A1, gd) # these are now just scalars
-# 	P = [gt^2]
-# 	q = [gt' * (ft - dqbdes)]
-# 	l = [0.0,0.0]
-# 	u = [200.0,200.0]
-# 	# update OSQP
-# 	OSQP.update!(model, Px=P[:], q=q, l=l, u=u)
-# 	# solve
-# 	res = OSQP.solve!(model)
-# 	return res.x[1] # since it is a scalar
-# end
+model = qpSetupDense(2, 2)
 function capController(ca, t, dt, y, fy, gy)
-	# vdes = [0,0.1,0]
-	# return qpSolve(ca, model, fy, gy, vdes)
-	return [150., 140.]
+	dqbdes = [0.0,1.0,0.0]
+	# discretized model ZOH. dydt = f(y) + g(y)v. y2 = y1 + dydt*dt = (y1 + dt * fy) + dt * dy * v
+	fd = (y + dt * fy)
+	gd = dt * gy
+	# project by A1 into the only state needed by the objective
+	A1 = ForwardDiff.jacobian(yy -> ddq(ca, yy), y)
+	a1 = ddq(ca, y) - A1 * y
+	ft = y[4:6] + (a1 + A1 * fd) * dt
+	gt = dt * A1 * gd # these are now just scalars
+	P = gt' * gt
+	q = gt' * (ft - dqbdes)
+	l = [0.0,0.0]
+	u = [200.0,200.0]
+	# update OSQP
+	OSQP.update!(model, Px=P[:], q=q, l=l, u=u)
+	# solve
+	res = OSQP.solve!(model)
+	return res.x # since it is a scalar
 end
-tt, yy, tu, uu = runSim(cap, y0, 100, capController; udt=2)
+# function capController(ca, t, dt, y, fy, gy)
+# 	# vdes = [0,0.1,0]
+# 	# return qpSolve(ca, model, fy, gy, vdes)
+# 	return [150., 140.]
+# end
+tt, yy, tu, uu = runSim(cap, y0, 20, capController; udt=2)
 # vf(y0, [], 0)
 
 # Plot
@@ -209,8 +210,10 @@ p2 = plot(tt, yy[4,:], lw=2, xlabel="t", label="dy")
 plot!(p2, tt, yy[5,:], lw=2, xlabel="t", label="dz")
 p3 = plot(tt, yy[3,:], lw=2, xlabel="t", label="phi")
 # Plot inputs
-pu1 = plot(tu, uu[1,:], lw=2, xlabel="t", label="VL")
-plot!(pu1, tu, uu[2,:], lw=2, xlabel="t", label="VR")
+pu1 = plot(tu, uu[1,:], lw=2, xlabel="t", ls=:dash, label="VLdes")
+plot!(pu1, tt, yy[7,:], lw=2, xlabel="t", label="VL")
+plot!(pu1, tu, uu[2,:], lw=2, xlabel="t", ls=:dash, label="VRdes")
+plot!(pu1, tt, yy[8,:], lw=2, xlabel="t", label="VR")
 
 plot(p1, p2, p3, pu1)
 gui()
