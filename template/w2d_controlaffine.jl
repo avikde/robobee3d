@@ -114,15 +114,16 @@ end
 "ddz = v; dv = k(vdes - v)"
 function nonLinearDynamics(m::CAVertical, y)
 	k = 1.0 # first order vdot
+	g = 1
 	z, dz, v = y
 	# control-affine cts
-	dydt0 = [dz; v; -k * v]
+	dydt0 = [dz; v - g; -k * v]
 	dydt1 = [0; 0; k] # * vdes (input)
 	return dydt0, dydt1
 end
 
 # ----
-function runSim(ca::ControlAffine, y0, tend, controller; simdt=0.02, udt=0.1)
+function runSim(ca::ControlAffine, y0, tend, controller; simdt=0.1, udt=1)
 	# Functions to evaluate the vector field
 	lastUUpdate = -Inf
 	Uts = []
@@ -155,9 +156,9 @@ y0 = zeros(3)
 model = qpSetupDense(1, 1)
 
 function cavController(ca, t, dt, y, fy, gy)
-	zdotdes = 1.0 # zdotdes
-	# discretized model ZOH
-	fd = (1 + dt) * fy
+	zdotdes = 5 # zdotdes
+	# discretized model ZOH. dydt = f(y) + g(y)v. y2 = y1 + dydt*dt = (y1 + dt * fy) + dt * dy * v
+	fd = (y + dt * fy)
 	gd = dt * gy
 	# project by A1 into the only state needed by the objective
 	A1 = [0, 1, dt]
@@ -173,10 +174,10 @@ function cavController(ca, t, dt, y, fy, gy)
 	res = OSQP.solve!(model)
 	return res.x[1] # since it is a scalar
 end
-tt, yy, tu, uu = runSim(cav, y0, 2, cavController)
+tt, yy, tu, uu = runSim(cav, y0, 20, cavController; udt=1)
 
-p2 = plot(tt, yy[2,:], lw=2, xlabel="t", label="dz")
-p3 = plot(tt, yy[3,:], lw=2, xlabel="t", label="v")
+p2 = plot(tt, yy[2,:], lw=2, xlabel="t", label="dz", ylabel="dz", legend=false)
+p3 = plot(tt, yy[3,:], lw=2, xlabel="t", label="v", ylabel="v")
 plot!(p3, tu, uu[1,:], lw=2, xlabel="t", label="vdes")
 plot(p2, p3)
 gui()
