@@ -1,4 +1,4 @@
-using LinearAlgebra, DifferentialEquations, Plots, OSQP, SparseArrays
+using LinearAlgebra, DifferentialEquations, Plots, OSQP, SparseArrays, ForwardDiff
 
 # TYPES ----------------------
 
@@ -61,21 +61,6 @@ function qpSetupDense(n, m)
 	return model
 end
 
-# --- 1D model
-
-"ddz = v; dv = k(vdes - v)"
-function nonLinearDynamics(m::CAVertical, y)
-	mb = 100 #[mg]
-	g = 9.81e-3 #[mN/mg]
-	k = 1.0 # first order vdot
-	kaero = 5.0 # very approx: mN for v = 1
-	z, dz, v = y
-	# control-affine cts
-	dydt0 = [dz; 1/mb * (kaero*v) - g; -k * v]
-	dydt1 = [0; 0; k] # * vdes (input)
-	return dydt0, dydt1
-end
-
 # ----
 function runSim(ca::ControlAffine, y0, tend, controller; simdt=0.1, udt=1)
 	# Functions to evaluate the vector field
@@ -103,7 +88,25 @@ function runSim(ca::ControlAffine, y0, tend, controller; simdt=0.1, udt=1)
 	return sol.t, yk, Uts, uk
 end
 
-# test vertical ---------------------------
+# test vertical 1D model ------------------
+
+function ddq(m::CAVertical, y)
+	z, dz, v = y
+	mb = 100 #[mg]
+	g = 9.81e-3 #[mN/mg]
+	kaero = 5.0 # very approx: mN for v = 1
+	return 1/mb * (kaero*v) - g
+end
+
+"ddz = v; dv = k(vdes - v)"
+function nonLinearDynamics(m::CAVertical, y)
+	k = 1.0 # first order vdot
+	z, dz, v = y
+	# control-affine cts
+	dydt0 = [dz; ddq(m, y); -k * v]
+	dydt1 = [0; 0; k] # * vdes (input)
+	return dydt0, dydt1
+end
 
 cav = CAVertical()
 y0 = zeros(3)
@@ -115,8 +118,9 @@ function cavController(ca, t, dt, y, fy, gy)
 	fd = (y + dt * fy)
 	gd = dt * gy
 	# project by A1 into the only state needed by the objective
-	A1 = [0, 1, dt]
-	ft = dot(A1, fd)
+	A1 = ForwardDiff.gradient(yy -> ddq(ca, yy), y)
+	a1 = ddq(ca, y) - dot(A1, y)
+	ft = y[2] + a1 * dt + dot(A1, fd)
 	gt = dot(A1, gd) # these are now just scalars
 	P = [gt^2]
 	q = [gt * (ft - zdotdes)]
@@ -164,38 +168,37 @@ function nonLinearDynamics(m::CAPlanar, y)
 	return fy, gy
 end
 
-# nu = 4
-
-# function qpSolve(m::CAPlanar, model, fy, gy, vdes)
-# 	# this is for the 3dof body vel only
-# 	wb = fill(10.0, 3)
-# 	Qb = diagm(0 => wb)
-# 	gb = gy[1:3,:]
-# 	fb = fy[1:3]
-# 	P = gb' * Qb * gb + 1e-10 * I
-# 	q = gb' * Qb * (vdes - fb)
-
-# 	# update OSQP
-# 	OSQP.update!(model, Px=P[:], q=q)
-
-# 	# solve
-# 	res = OSQP.solve!(model)
-# 	return res.x
-# end
-
 cap = CAPlanar()
 y0 = zeros(8)#vcat(zeros(6),π/2,π/2)
 ny = length(y0)
 fy, gy = nonLinearDynamics(cap, y0)
 # print(fieldnames(typeof(model.workspace)))
 
-model = qpSetupDense(2, 2)
+# model = qpSetupDense(2, 2)
+# function capController(ca, t, dt, y, fy, gy)
+# 	dqbdes = [0.0,1.0,0.0]
+# 	# discretized model ZOH. dydt = f(y) + g(y)v. y2 = y1 + dydt*dt = (y1 + dt * fy) + dt * dy * v
+# 	fd = (y + dt * fy)
+# 	gd = dt * gy
+# 	# project by A1 into the only states needed by the objective: dqb2 = dqb1 + dt * 
+# 	A1 = [0, 1, dt]
+# 	ft = dot(A1, fd)
+# 	gt = dot(A1, gd) # these are now just scalars
+# 	P = [gt^2]
+# 	q = [gt' * (ft - dqbdes)]
+# 	l = [0.0,0.0]
+# 	u = [200.0,200.0]
+# 	# update OSQP
+# 	OSQP.update!(model, Px=P[:], q=q, l=l, u=u)
+# 	# solve
+# 	res = OSQP.solve!(model)
+# 	return res.x[1] # since it is a scalar
+# end
 function capController(ca, t, dt, y, fy, gy)
 	# vdes = [0,0.1,0]
 	# return qpSolve(ca, model, fy, gy, vdes)
 	return [150., 140.]
 end
-
 tt, yy, tu, uu = runSim(cap, y0, 100, capController; udt=2)
 # vf(y0, [], 0)
 
