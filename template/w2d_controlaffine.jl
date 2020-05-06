@@ -8,8 +8,8 @@ struct CAPlanar <: ControlAffine end
 
 # ----------------------------
 
-# control-affine
-function aeroWrench(f, Φ)
+"As in the vertical case, v = Φ^(1/2)"
+function aeroWrench(f, Φ2)
 	# params?
     CLmax = 1.8
     CDmax = 3.4
@@ -28,7 +28,7 @@ function aeroWrench(f, Φ)
 	
 	Ψ = 1.0 # TODO:
 
-	Fz = kt * f^2 * Φ^2 * cos(Ψ)*sin(Ψ)
+	Fz = kt * f^2 * Φ2 * cos(Ψ)*sin(Ψ)
 	return [Fz, ycp*Fz]
 end
 
@@ -46,38 +46,7 @@ function controlAffinePlanarDynamics(qb, dqb, xwL, xwR)
 	return Mb \ (-h + [rot(qb[3]) * [0;Fz]; Rx])
 end
 
-function nonLinearDynamics(m::CAPlanar, y)
-	# unpack
-	qb = y[1:3]
-	dqb = y[4:6]
-	fL = y[7] # freq
-	ΦL = y[8]
-	fR = y[9] # freq
-	ΦR = y[10]
-
-	# control-related
-	kf = 1
-	kv = 1
-	fns(f) = deg2rad(0.5) # TODO:
-
-	ddq = controlAffinePlanarDynamics(qb, dqb, [fL, ΦL], [fR, ΦR])
-
-	fy = [dqb; 
-		ddq;
-		-kf * fL;
-		-kv * ΦL;
-		-kf * fR;
-		-kv * ΦR]
-	
-	gy = [zeros(6, 4);
-		diagm(0 => [kf, kv * fns(fL), kf, kv * fns(fR)])]
-
-	return fy, gy
-end
-
-# --- OSQP
-
-nu = 4
+# OSQP basic --------------
 
 function qpSetupDense(n, m)
 	model = OSQP.Model()
@@ -90,23 +59,6 @@ function qpSetupDense(n, m)
 	A = sparse(ones(m,n))
 	OSQP.setup!(model; P=P, q=q, A=A, l=l, u=u, eps_rel=1e-2, eps_abs=1e-2, verbose=false)
 	return model
-end
-
-function qpSolve(m::CAPlanar, model, fy, gy, vdes)
-	# this is for the 3dof body vel only
-	wb = fill(10.0, 3)
-	Qb = diagm(0 => wb)
-	gb = gy[1:3,:]
-	fb = fy[1:3]
-	P = gb' * Qb * gb + 1e-10 * I
-	q = gb' * Qb * (vdes - fb)
-
-	# update OSQP
-	OSQP.update!(model, Px=P[:], q=q)
-
-	# solve
-	res = OSQP.solve!(model)
-	return res.x
 end
 
 # --- 1D model
@@ -184,34 +136,77 @@ plot!(p3, tu, uu[1,:], lw=2, xlabel="t", label="vdes")
 plot(p2, p3)
 gui()
 
-## test planar -------------------
+## --- Planar model -----------
+
+"As in the vertical model, use v or Φ2"
+function nonLinearDynamics(m::CAPlanar, y)
+	# unpack
+	qb = y[1:3]
+	dqb = y[4:6]
+	# as in the vertical example, 
+	vL = y[7]
+	vR = y[8]
+	# TODO: freq in input
+	fL = 0.15
+	fR = 0.15
+
+	# control-related
+	kv = 1
+	fns(f) = deg2rad(0.5) # TODO:
+
+	ddq = controlAffinePlanarDynamics(qb, dqb, [fL, vL], [fR, vR])
+	# Similar to vertical
+	fy = [dqb;  ddq;  -kv * vL; -kv * vR]
+	
+	gy = [zeros(6, 2);
+		diagm(0 => kv * [fns(fL), fns(fR)])]
+
+	return fy, gy
+end
+
+# nu = 4
+
+# function qpSolve(m::CAPlanar, model, fy, gy, vdes)
+# 	# this is for the 3dof body vel only
+# 	wb = fill(10.0, 3)
+# 	Qb = diagm(0 => wb)
+# 	gb = gy[1:3,:]
+# 	fb = fy[1:3]
+# 	P = gb' * Qb * gb + 1e-10 * I
+# 	q = gb' * Qb * (vdes - fb)
+
+# 	# update OSQP
+# 	OSQP.update!(model, Px=P[:], q=q)
+
+# 	# solve
+# 	res = OSQP.solve!(model)
+# 	return res.x
+# end
 
 cap = CAPlanar()
-y0 = vcat(zeros(6),0.15,π/2,0.15,π/2)
+y0 = zeros(8)#vcat(zeros(6),π/2,π/2)
 ny = length(y0)
 fy, gy = nonLinearDynamics(cap, y0)
 # print(fieldnames(typeof(model.workspace)))
 
-model = qpSetupDense(4, 4)
+model = qpSetupDense(2, 2)
 function capController(ca, t, dt, y, fy, gy)
-	vdes = [0,0.1,0]
-	return qpSolve(ca, model, fy, gy, vdes)
-	# u = [0.15, π/2, 0.15, π/2]
+	# vdes = [0,0.1,0]
+	# return qpSolve(ca, model, fy, gy, vdes)
+	return [150., 140.]
 end
 
-tt, yy, tu, uu = runSim(cap, y0, 1, capController)
+tt, yy, tu, uu = runSim(cap, y0, 100, capController; udt=2)
 # vf(y0, [], 0)
 
 # Plot
 p1 = plot(yy[1,:], yy[2,:], lw=2, xlabel="y", ylabel="z", legend=false)
-p2 = plot(tt, yy[1,:], lw=2, xlabel="t", label="y")
-plot!(p2, tt, yy[2,:], lw=2, xlabel="t", label="z")
+p2 = plot(tt, yy[4,:], lw=2, xlabel="t", label="dy")
+plot!(p2, tt, yy[5,:], lw=2, xlabel="t", label="dz")
 p3 = plot(tt, yy[3,:], lw=2, xlabel="t", label="phi")
 # Plot inputs
-pu1 = plot(tu, uu[1,:], lw=2, xlabel="t", label="fL")
-plot!(pu1, tu, uu[3,:], lw=2, xlabel="t", label="fR")
-pu2 = plot(tu, uu[2,:], lw=2, xlabel="t", label="VL")
-plot!(pu2, tu, uu[4,:], lw=2, xlabel="t", label="VR")
+pu1 = plot(tu, uu[1,:], lw=2, xlabel="t", label="VL")
+plot!(pu1, tu, uu[2,:], lw=2, xlabel="t", label="VR")
 
-plot(p1, p2, p3, pu1, pu2)
+plot(p1, p2, p3, pu1)
 gui()
