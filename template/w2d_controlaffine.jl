@@ -113,11 +113,13 @@ end
 
 "ddz = v; dv = k(vdes - v)"
 function nonLinearDynamics(m::CAVertical, y)
+	mb = 100 #[mg]
+	g = 9.81e-3 #[mN/mg]
 	k = 1.0 # first order vdot
-	g = 1
+	kaero = 5.0 # very approx: mN for v = 1
 	z, dz, v = y
 	# control-affine cts
-	dydt0 = [dz; v - g; -k * v]
+	dydt0 = [dz; 1/mb * (kaero*v) - g; -k * v]
 	dydt1 = [0; 0; k] # * vdes (input)
 	return dydt0, dydt1
 end
@@ -156,7 +158,7 @@ y0 = zeros(3)
 model = qpSetupDense(1, 1)
 
 function cavController(ca, t, dt, y, fy, gy)
-	zdotdes = 5 # zdotdes
+	zdotdes = 1 # zdotdes
 	# discretized model ZOH. dydt = f(y) + g(y)v. y2 = y1 + dydt*dt = (y1 + dt * fy) + dt * dy * v
 	fd = (y + dt * fy)
 	gd = dt * gy
@@ -167,14 +169,14 @@ function cavController(ca, t, dt, y, fy, gy)
 	P = [gt^2]
 	q = [gt * (ft - zdotdes)]
 	l = [0.0]
-	u = [10.0]
+	u = [1.0]
 	# update OSQP
 	OSQP.update!(model, Px=P[:], q=q, l=l, u=u)
 	# solve
 	res = OSQP.solve!(model)
 	return res.x[1] # since it is a scalar
 end
-tt, yy, tu, uu = runSim(cav, y0, 20, cavController; udt=1)
+tt, yy, tu, uu = runSim(cav, y0, 200, cavController; udt=2)
 
 p2 = plot(tt, yy[2,:], lw=2, xlabel="t", label="dz", ylabel="dz", legend=false)
 p3 = plot(tt, yy[3,:], lw=2, xlabel="t", label="v", ylabel="v")
