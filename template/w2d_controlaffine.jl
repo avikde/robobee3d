@@ -119,7 +119,7 @@ function nonLinearDynamics(m::CAVertical, y)
 	z, dz, v = y
 	# control-affine cts
 	dydt0 = [dz; v; -k * v]
-	dydt1 = k # * vdes (input)
+	dydt1 = [0; 0; k] # * vdes (input)
 	return dydt0, dydt1
 end
 
@@ -150,7 +150,23 @@ function runSim(ca::ControlAffine, y0, tend, controller; simdt=0.02, udt=0.1)
 	return sol.t, yk, Uts, uk
 end
 
-# test -------------------
+# test vertical ---------------------------
+
+cav = CAVertical()
+y0 = zeros(3)
+
+function cavController(ca, t, y, fy, gy)
+	return 1.0
+end
+tt, yy, tu, uu = runSim(cav, y0, 1, cavController)
+
+p2 = plot(tt, yy[1,:], lw=2, xlabel="t", label="z")
+p3 = plot(tt, yy[3,:], lw=2, xlabel="t", label="v")
+plot!(p3, tu, uu[1,:], lw=2, xlabel="t", label="vdes")
+plot(p2, p3)
+gui()
+
+## test planar -------------------
 
 cap = CAPlanar()
 y0 = vcat(zeros(6),0.15,π/2,0.15,π/2)
@@ -158,14 +174,13 @@ ny = length(y0)
 fy, gy = nonLinearDynamics(cap, y0)
 # print(fieldnames(typeof(model.workspace)))
 
+model = qpSetupDense(cap)
 function capController(ca, t, y, fy, gy)
 	vdes = [0,0.1,0]
 	return qpSolve(ca, model, fy, gy, vdes)
 	# u = [0.15, π/2, 0.15, π/2]
 end
 
-
-model = qpSetupDense(cap)
 tt, yy, tu, uu = runSim(cap, y0, 1, capController)
 # vf(y0, [], 0)
 
