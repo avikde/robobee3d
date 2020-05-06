@@ -142,28 +142,29 @@ gui()
 
 ## --- Planar model -----------
 
-"As in the vertical model, use v or Φ2"
-function nonLinearDynamics(m::CAPlanar, y)
-	# unpack
-	qb = y[1:3]
-	dqb = y[4:6]
-	# as in the vertical example, 
-	vL = y[7]
-	vR = y[8]
+function ddq(m::CAPlanar, y)
 	# TODO: freq in input
 	fL = 0.15
 	fR = 0.15
+	# as in the vertical example, 
+	vL = y[7]
+	vR = y[8]
 
+	return controlAffinePlanarDynamics(y[1:3], y[4:6], [fL, vL], [fR, vR])
+end
+
+"As in the vertical model, use v or Φ2"
+function nonLinearDynamics(m::CAPlanar, y)
+	# unpack
+	vL = y[7]
+	vR = y[8]
 	# control-related
 	kv = 1
-	fns(f) = deg2rad(0.5) # TODO:
+	fns = deg2rad(0.5) # TODO: function of freq
 
-	ddq = controlAffinePlanarDynamics(qb, dqb, [fL, vL], [fR, vR])
 	# Similar to vertical
-	fy = [dqb;  ddq;  -kv * vL; -kv * vR]
-	
-	gy = [zeros(6, 2);
-		diagm(0 => kv * [fns(fL), fns(fR)])]
+	fy = [y[4:6];  ddq(m, y);  -kv * vL; -kv * vR]
+	gy = [zeros(6, 2); diagm(0 => kv * [fns, fns])]
 
 	return fy, gy
 end
