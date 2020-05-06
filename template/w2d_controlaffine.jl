@@ -79,12 +79,10 @@ end
 
 nu = 4
 
-function qpSetupDense(m::CAPlanar)
+function qpSetupDense(n, m)
 	model = OSQP.Model()
 	# QP solution with only u
 	# with a desired dydes, want 
-	n = 4
-	m = 4
 	P = sparse(ones(n,n))
 	q = zeros(n)
 	l = fill(-Inf, m)
@@ -135,7 +133,7 @@ function runSim(ca::ControlAffine, y0, tend, controller; simdt=0.02, udt=0.1)
 
 		if t > lastUUpdate + udt
 			append!(Uts, t)
-			push!(Us, controller(ca, t, y, fy, gy))
+			push!(Us, controller(ca, t, udt, y, fy, gy))
 			lastUUpdate = t
 		end
 
@@ -154,13 +152,30 @@ end
 
 cav = CAVertical()
 y0 = zeros(3)
+model = qpSetupDense(1, 1)
 
-function cavController(ca, t, y, fy, gy)
-	return 1.0
+function cavController(ca, t, dt, y, fy, gy)
+	zdotdes = 1.0 # zdotdes
+	# discretized model ZOH
+	fd = (1 + dt) * fy
+	gd = dt * gy
+	# project by A1 into the only state needed by the objective
+	A1 = [0, 1, dt]
+	ft = dot(A1, fd)
+	gt = dot(A1, gd) # these are now just scalars
+	P = [gt^2]
+	q = [gt * (ft - zdotdes)]
+	l = [0.0]
+	u = [10.0]
+	# update OSQP
+	OSQP.update!(model, Px=P[:], q=q, l=l, u=u)
+	# solve
+	res = OSQP.solve!(model)
+	return res.x[1] # since it is a scalar
 end
-tt, yy, tu, uu = runSim(cav, y0, 1, cavController)
+tt, yy, tu, uu = runSim(cav, y0, 2, cavController)
 
-p2 = plot(tt, yy[1,:], lw=2, xlabel="t", label="z")
+p2 = plot(tt, yy[2,:], lw=2, xlabel="t", label="dz")
 p3 = plot(tt, yy[3,:], lw=2, xlabel="t", label="v")
 plot!(p3, tu, uu[1,:], lw=2, xlabel="t", label="vdes")
 plot(p2, p3)
@@ -174,8 +189,8 @@ ny = length(y0)
 fy, gy = nonLinearDynamics(cap, y0)
 # print(fieldnames(typeof(model.workspace)))
 
-model = qpSetupDense(cap)
-function capController(ca, t, y, fy, gy)
+model = qpSetupDense(4, 4)
+function capController(ca, t, dt, y, fy, gy)
 	vdes = [0,0.1,0]
 	return qpSolve(ca, model, fy, gy, vdes)
 	# u = [0.15, π/2, 0.15, π/2]
