@@ -201,8 +201,9 @@ function statsFromAmplitudes(m, opt, param, Amp, Aw, Lw, freqHz, Fact)
 
 	# FD0 = maximum(filter(!isnan, trajAero(m, opt, traj, param1, :drag)))
 	# Approximate power with least dependence on dynamical parameters. If this and force were in-phase and sinusoidal, then
-	# Pmech ~ Fact*Lw*Phi*f/pi (1/pi = integral of sin^2 x)
-	return [avgLift(m, opt, traj, param1); Fact*Amp[1]*(freqHz*1e-3)]
+	# Pmech ~ Fact/T*Lw*Phi*f/pi (1/pi = integral of sin^2 x)
+	Fwing = Fact/param1[2]
+	return [avgLift(m, opt, traj, param1); Fwing*Amp[1]*(freqHz*1e-3)]
 end
 
 "Estimate lift, power for given stroke/hinge"
@@ -218,6 +219,7 @@ function calculateStats(mop, fname, Aw, Lw, spar10, spar20; kVF=75/180)
 	volts = dat[recordedpts,1]
 	freqs = dat[recordedpts,2]
 	strokes = dat[recordedpts,3]
+	# Here Amps = [stroke amplitude rad,  2 * pitch amplitude rad] (stacked column)
 	Amps = deg2rad.(hcat(strokes, 2*pitches))
 
 	stats = vcat([
@@ -225,7 +227,7 @@ function calculateStats(mop, fname, Aw, Lw, spar10, spar20; kVF=75/180)
 		for i = 1:length(freqs)]...)
 	
 	println(fname, round.(pitches, digits=1), round.(stats[:,3], digits=1), round.(stats[:,4], digits=1))
-	return stats
+	return stats, volts
 end
 
 "Tuples of Aw, Lw, spar1, spar2 from https://github.com/avikde/robobee3d/issues/145. Measured by roughly using area tool in Autocad, and measuring the longest membrane length"
@@ -247,33 +249,46 @@ wingDims = Dict{String,Tuple{Float64,Float64,Float64,Float64}}(
 τCOEFFS_SDAB = (2.6666, 0)
 τCOEFFS_BB = (3.28, 0)
 
-function liftPowerPlot(mop)
+function liftPowerPlot(mop; includeBigbee=false)
 	p1 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="SDAB actuator")
-	p2 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="BigBee actuator")
 	p3 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow (S*V*f)", legend=false)
-	p4 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow (S*V*f)", legend=false)
 
 	function addToPlot!(p, pn, lbl, args...; kwargs...)
-		s = calculateStats(args...)
-		scatter!(p, s[:,3], s[:,4], label=lbl; ms=6, kwargs...)
-		scatter!(pn, 1000*s[:,3]./s[:,1].^2, s[:,4], label=lbl; ms=6, kwargs...)
+		s, Vs = calculateStats(args...)
+		# # Old: plot all voltages together
+		# scatter!(p, s[:,3], s[:,4], label=lbl; ms=6, kwargs...)
+		# scatter!(pn, 1000*s[:,3]./s[:,1].^2, s[:,4], label=lbl; ms=6, kwargs...)
+		# New: group by voltage
+		uVs = unique(Vs)
+		for uV in uVs
+			lbl2 = string(lbl, " ", convert(Int,uV),"V")
+			inds = Vs .== uV
+			scatter!(p, s[inds,3], s[inds,4], label=lbl2; ms=6, kwargs...)
+			scatter!(pn, 1000*s[inds,3]./s[inds,1].^2, s[inds,4], label=lbl2; ms=6, kwargs...)
+		end
 	end
 	# addToPlot!(p1, p3, "hb 1a1", mop, "data/normstroke/Param opt manuf 2 - halfbee1 a1.csv", wingDims["1a"]...)
-	addToPlot!(p1, p3, "sdab1", mop, "data/normstroke/Param opt manuf 2 - sdab1.csv", wingDims["1a"]...; markershape=:circle)
+	addToPlot!(p1, p3, "orig", mop, "data/normstroke/Param opt manuf 2 - sdab1.csv", wingDims["1a"]...; markershape=:circle)
 	# addToPlot!(p1, p3, "sdab1", mop, "data/normstroke/Param opt manuf 2 - beckysdab.csv", wingDims["1a"]...; markershape=:circle)
-	addToPlot!(p1, p3, "mod1 1a1", mop, "data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv", wingDims["1a"]...; markershape=:rect)
+	addToPlot!(p1, p3, "modreg", mop, "data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv", wingDims["1a"]...; markershape=:rect)
 	# addToPlot!(p1, p3, "mod1 4b1", mop,  "data/normstroke/Param opt manuf 2 - mod4 b h1.csv", wingDims["4b"]...; markershape=:dtriangle)
-	addToPlot!(p1, p3, "mod1 4b2", mop,  "data/normstroke/Param opt manuf 2 - mod4 b h2.csv", wingDims["4b"]...; markershape=:utriangle)
-	addToPlot!(p2, p4, "bigbee orig", mop, "data/normstroke/Param opt manuf 2 - bigbee orig.csv", wingDims["bigbee"]...)
-	addToPlot!(p2, p4, "bigbee 1b", mop,  "data/normstroke/Param opt manuf 2 - bigbee b1.csv", wingDims["1b"]...; markershape=:rect)
-	addToPlot!(p2, p4, "bigbee 4l", mop, "data/normstroke/Param opt manuf 2 - bigbee 4l3.csv", wingDims["4l"]...; markershape=:utriangle)
-	# addToPlot!(p2, p4, "bbx 1al", mop, "data/normstroke/Param opt manuf 2 - bbx 1alx2.csv", wingDims["1alx2"]...; markershape=:star5)
-	# addToPlot!(p2, p4, "bbx o", mop,  "data/normstroke/Param opt manuf 2 - bbx bborig.csv", wingDims["bigbee"]...; markershape=:dtriangle)
-	# addToPlot!(p2, p4, "bbx 4l", mop, "data/normstroke/Param opt manuf 2 - bbx 4l3.csv", wingDims["4l"]...; markershape=:dtriangle)
-	addToPlot!(p2, p4, "bigbee oA", mop,  "data/normstroke/Param opt manuf 2 - bigbee originalA.csv", wingDims["bigbee"]...; markershape=:dtriangle)
-	# addToPlot!(p2, p4, "bigbee 1al", mop,  "data/normstroke/Param opt manuf 2 - bigbee 1al.csv", wingDims["1al"]...; markershape=:dtriangle)
+	addToPlot!(p1, p3, "modhAR", mop,  "data/normstroke/Param opt manuf 2 - mod4 b h2.csv", wingDims["4b"]...; markershape=:utriangle)
 
-	plot(p1, p3, p2, p4, size=(800,500))
+	if includeBigbee
+		p2 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="BigBee actuator")
+		p4 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow (S*V*f)", legend=false)
+		addToPlot!(p2, p4, "bigbee orig", mop, "data/normstroke/Param opt manuf 2 - bigbee orig.csv", wingDims["bigbee"]...)
+		addToPlot!(p2, p4, "bigbee 1b", mop,  "data/normstroke/Param opt manuf 2 - bigbee b1.csv", wingDims["1b"]...; markershape=:rect)
+		addToPlot!(p2, p4, "bigbee 4l", mop, "data/normstroke/Param opt manuf 2 - bigbee 4l3.csv", wingDims["4l"]...; markershape=:utriangle)
+		# addToPlot!(p2, p4, "bbx 1al", mop, "data/normstroke/Param opt manuf 2 - bbx 1alx2.csv", wingDims["1alx2"]...; markershape=:star5)
+		# addToPlot!(p2, p4, "bbx o", mop,  "data/normstroke/Param opt manuf 2 - bbx bborig.csv", wingDims["bigbee"]...; markershape=:dtriangle)
+		# addToPlot!(p2, p4, "bbx 4l", mop, "data/normstroke/Param opt manuf 2 - bbx 4l3.csv", wingDims["4l"]...; markershape=:dtriangle)
+		addToPlot!(p2, p4, "bigbee oA", mop,  "data/normstroke/Param opt manuf 2 - bigbee originalA.csv", wingDims["bigbee"]...; markershape=:dtriangle)
+		# addToPlot!(p2, p4, "bigbee 1al", mop,  "data/normstroke/Param opt manuf 2 - bigbee 1al.csv", wingDims["1al"]...; markershape=:dtriangle)
+		plot(p1, p3, p2, p4, size=(800,500))
+	else
+		plot(p1, p3, size=(800,500))
+	end
 end
 
 normStrokeSDAB(mop) = plot(
