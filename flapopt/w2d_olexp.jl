@@ -126,7 +126,7 @@ function readOLExpCSV(fname)
 	return Vs, [dat[dat[:,1] .== V,2:3] for V in Vs]
 end
 
-STROKE_ACT_COORDS = false # to respond to Rob question about what act disp was in these trials
+STROKE_ACT_COORDS = true # to respond to Rob question about what act disp was in these trials
 
 function toAct(stroke, τcoeffs)
 	param = copy(param0)
@@ -270,7 +270,8 @@ function liftPowerPlot(mop; includeBigbee=false)
 	# addToPlot!(p1, p3, "hb 1a1", mop, "data/normstroke/Param opt manuf 2 - halfbee1 a1.csv", wingDims["1a"]...)
 	addToPlot!(p1, p3, "orig", mop, "data/normstroke/Param opt manuf 2 - sdab1.csv", wingDims["1a"]...; markershape=:circle)
 	# addToPlot!(p1, p3, "sdab1", mop, "data/normstroke/Param opt manuf 2 - beckysdab.csv", wingDims["1a"]...; markershape=:circle)
-	addToPlot!(p1, p3, "modreg", mop, "data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv", wingDims["1a"]...; markershape=:rect)
+	# addToPlot!(p1, p3, "modreg", mop, "data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv", wingDims["1a"]...; markershape=:rect)
+	# ^ was originally included
 	# addToPlot!(p1, p3, "mod1 4b1", mop,  "data/normstroke/Param opt manuf 2 - mod4 b h1.csv", wingDims["4b"]...; markershape=:dtriangle)
 	addToPlot!(p1, p3, "modhAR", mop,  "data/normstroke/Param opt manuf 2 - mod4 b h2.csv", wingDims["4b"]...; markershape=:utriangle)
 
@@ -287,7 +288,7 @@ function liftPowerPlot(mop; includeBigbee=false)
 		# addToPlot!(p2, p4, "bigbee 1al", mop,  "data/normstroke/Param opt manuf 2 - bigbee 1al.csv", wingDims["1al"]...; markershape=:dtriangle)
 		plot(p1, p3, p2, p4, size=(800,500))
 	else
-		plot(p1, p3, size=(800,500))
+		plot(p1, p3, size=(800,250))
 	end
 end
 
@@ -298,7 +299,7 @@ normStrokeSDAB(mop) = plot(
 		# (readOLExpCSV("data/normstroke/Param opt manuf 2 - beckysdab.csv")..., [], :circle); 
 		title="Wing 1A1"), 
 	olExpPlot2(mop, 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h2.csv")..., wingDims["4b2"], [120,150,200], :utriangle, τCOEFFS_MOD1),
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h2.csv")..., wingDims["4b2"], [120,150,190], :utriangle, τCOEFFS_MOD1),
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 4b1.csv")..., wingDims["4b"], [120,150,190], :+, τCOEFFS_SDAB),
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h1.csv")..., wingDims["4b"], [120,140,160], :dtriangle, τCOEFFS_MOD1);
 		title="Wing 4B1"),
@@ -318,9 +319,9 @@ normStrokeBigBee(mop) = plot(
 # --------------------------------------------------------
 mop = (m, opt, param0)
 
-# liftPowerPlot(mop)
+liftPowerPlot(mop)
 
-normStrokeSDAB(mop)
+# normStrokeSDAB(mop)
 # normStrokeBigBee(mop)
 
 # openLoopPlotFinal(mop...)
