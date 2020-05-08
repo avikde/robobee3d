@@ -26,46 +26,6 @@ function nonLinearDynamicsTAD(m::ControlAffine, y, dt)
 	return yT0 + dt * fT, dt * gT, yA0 + dt * fA, dt * gA
 end
 
-# ----------------------------
-
-"As in the vertical case, v = Φ^(1/2)"
-function aeroWrench(f, Φ2)
-	# params?
-    CLmax = 1.8
-    CDmax = 3.4
-    CD0 = 0.4
-	ρ = 1.225e-3 # [mg/(mm^3)]
-	Aw = 54.4 #mm^2
-	cbar = 3.2 #mm
-	r2h = 0.551
-
-	# calculated
-	AR = Aw/cbar^2
-	k = 1/2 * ρ * Aw^2 * AR * r2h^2
-	kt = k * CLmax * π^2
-	Lw = Aw/cbar
-	ycp = 0.5 * Lw
-	
-	Ψ = 1.0 # TODO:
-
-	Fz = kt * f^2 * Φ2 * cos(Ψ)*sin(Ψ)
-	return [Fz, ycp*Fz]
-end
-
-function controlAffinePlanarDynamics(qb, dqb, xwL, xwR)
-	mb = 100 #[mg]
-	ib = 3333 #[mg-mm^2]
-	g = 9.81e-3 #[mN/mg]
-
-	# dynamics stuff
-	Mb = diagm(0 => [mb, mb, ib])
-	h = [0; mb*g; 0]
-	rot(x) = [cos(x) -sin(x); sin(x) cos(x)]
-	totalWrench = aeroWrench(xwL...) + diagm(0=>[1,-1]) * aeroWrench(xwR...)
-	Fz, Rx = totalWrench
-	return Mb \ (-h + [rot(qb[3]) * [0;Fz]; Rx])
-end
-
 # OSQP basic --------------
 
 function qpSetupDense(n, m)
@@ -108,7 +68,7 @@ function runSim(ca::ControlAffine, y0, tend, controller; simdt=0.1, udt=1)
 	return sol.t, yk, Uts, uk
 end
 
-# test vertical 1D model ------------------
+## test vertical 1D model ------------------
 
 "Returns a0, a1, s.t. ddq = a0 + a1 * u"
 function caddq(m::CAVertical, y)
@@ -169,31 +129,72 @@ gui()
 
 ## --- Planar model -----------
 
-function ddq(m::CAPlanar, y)
+"When multiplied by Φ^2, gives the aero wrench"
+function aeroWrenchAffine(f)
+	# params?
+    CLmax = 1.8
+    CDmax = 3.4
+    CD0 = 0.4
+	ρ = 1.225e-3 # [mg/(mm^3)]
+	Aw = 54.4 #mm^2
+	cbar = 3.2 #mm
+	r2h = 0.551
+
+	# calculated
+	AR = Aw/cbar^2
+	k = 1/2 * ρ * Aw^2 * AR * r2h^2
+	kt = k * CLmax * π^2
+	Lw = Aw/cbar
+	ycp = 0.5 * Lw
+	
+	Ψ = 1.0 # TODO:
+
+	Fz = kt * f^2 * cos(Ψ)*sin(Ψ)
+	return [Fz, ycp*Fz]
+end
+
+"Returns a0, a1, s.t. ddq = a0 + a1 * u. Here u = Φ^2"
+function caddq(m::CAPlanar, y)
 	# TODO: freq in input
 	fL = 0.15
 	fR = 0.15
-	# as in the vertical example, 
-	vL = y[7]
-	vR = y[8]
 
-	return controlAffinePlanarDynamics(y[1:3], y[4:6], [fL, vL], [fR, vR])
+	# dynamics
+	mb = 100 #[mg]
+	ib = 3333 #[mg-mm^2]
+	g = 9.81e-3 #[mN/mg]
+
+	# dynamics stuff
+	Mb = diagm(0 => [mb, mb, ib])
+	h = [0; mb*g; 0]
+	rot(x) = [cos(x) -sin(x); sin(x) cos(x)]
+	# now should be multiplied by u = [ΦL^2; ΦR^2]
+	totalWrenchAffine = hcat(aeroWrenchAffine(fL), diagm(0=>[1,-1]) * aeroWrenchAffine(fR)) # 2x2 matrix
+
+	a0 = -Mb \ h # 3x1
+	a1 = Mb \ [rot(y[3])[:,2] zeros(2,1); 0 1] # this is now 3x2, should be multiplied by u = [ΦL^2; ΦR^2]
+
+	return a0, a1
 end
 
-"As in the vertical model, use v or Φ2"
-function nonLinearDynamics(m::CAPlanar, y)
+"ddz = v; dv = k(vdes - v)"
+function nonLinearDynamicsTA(m::CAPlanar, y)
 	# unpack
-	vL = y[7]
-	vR = y[8]
+	qb = y[1:3]
+	dqb = y[4:6]
+	yA = y[7:8]
 	# control-related
-	kv = 1
-	fns = 1.0#deg2rad(0.5) # TODO: function of freq
+	k = 1.0 # first order vdot
+	fns = 1.0 # deg2rad(0.5)
 
-	# Similar to vertical
-	fy = [y[4:6];  ddq(m, y);  -kv * vL; -kv * vR]
-	gy = [zeros(6, 2); diagm(0 => kv * [fns, fns])]
-
-	return fy, gy
+	# control-affine cts
+	a0, a1 = caddq(m, y)
+	fT = [dqb; a0]
+	gT = [zeros(3,2); a1]
+	# Lower rows (anchor)
+	fA = -k * yA
+	gA = diagm(0 => k * [fns, fns])
+	return fT, gT, fA, gA
 end
 
 cap = CAPlanar()
@@ -203,31 +204,28 @@ fy, gy = nonLinearDynamics(cap, y0)
 # print(fieldnames(typeof(model.workspace)))
 
 model = qpSetupDense(2, 2)
-function capController(ca, t, dt, y, fy, gy)
-	dqbdes = [0.0,1.0,0.0]
-	# discretized model ZOH. dydt = f(y) + g(y)v. y2 = y1 + dydt*dt = (y1 + dt * fy) + dt * dy * v
-	fd = (y + dt * fy)
-	gd = dt * gy
-	# project by A1 into the only state needed by the objective
-	A1 = ForwardDiff.jacobian(yy -> ddq(ca, yy), y)
-	a1 = ddq(ca, y) - A1 * y
-	ft = y[4:6] + (a1 + A1 * fd) * dt
-	gt = dt * A1 * gd # these are now just scalars
-	P = gt' * gt
-	q = gt' * (ft - dqbdes)
-	l = [0.0,0.0]
-	u = [200.0,200.0]
-	# update OSQP
-	OSQP.update!(model, Px=P[:], q=q, l=l, u=u)
-	# solve
-	res = OSQP.solve!(model)
-	return res.x # since it is a scalar
+function capController(ca, t, dt, y)
+	return [150., 140.]
+	# dqbdes = [0.0,1.0,0.0]
+	# # discretized model ZOH. dydt = f(y) + g(y)v. y2 = y1 + dydt*dt = (y1 + dt * fy) + dt * dy * v
+	# fd = (y + dt * fy)
+	# gd = dt * gy
+	# # project by A1 into the only state needed by the objective
+	# A1 = ForwardDiff.jacobian(yy -> ddq(ca, yy), y)
+	# a1 = ddq(ca, y) - A1 * y
+	# ft = y[4:6] + (a1 + A1 * fd) * dt
+	# gt = dt * A1 * gd # these are now just scalars
+	# P = gt' * gt
+	# q = gt' * (ft - dqbdes)
+	# l = [0.0,0.0]
+	# u = [200.0,200.0]
+	# # update OSQP
+	# OSQP.update!(model, Px=P[:], q=q, l=l, u=u)
+	# # solve
+	# res = OSQP.solve!(model)
+	# return res.x # since it is a scalar
 end
-# function capController(ca, t, dt, y, fy, gy)
-# 	# vdes = [0,0.1,0]
-# 	# return qpSolve(ca, model, fy, gy, vdes)
-# 	return [150., 140.]
-# end
+
 tt, yy, tu, uu = runSim(cap, y0, 20, capController; udt=2)
 # vf(y0, [], 0)
 
