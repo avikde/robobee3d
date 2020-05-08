@@ -145,9 +145,8 @@ function cavController(ca, t, dt, y)
 	# Need to linearize at the next state for the low-res next dynamics
 	yT1 = fT0 + gT0 * yA0
 	fT1, gT1 = nonLinearDynamicsTAD(ca, [yT1;0], dt)[1:2] # Only need fT,gT so does not matter what yA1 is
-	# yT2depu = gT1 * (fA0 + gA0 * u)
-	# project by A1 into the only state needed by the objective
-	ft = gT1[2] * fA0
+	# project by A1 into the only state needed by the objective. This is the second element of yT2
+	ft = fT1[2:2] + gT1[2] * fA0
 	gt = gT1[2] * gA0
 	P = [gt' * gt]
 	q = [gt' * (ft - zdotdes)]
