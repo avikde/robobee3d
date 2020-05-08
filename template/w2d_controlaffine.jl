@@ -169,10 +169,10 @@ function caddq(m::CAPlanar, y)
 	h = [0; mb*g; 0]
 	rot(x) = [cos(x) -sin(x); sin(x) cos(x)]
 	# now should be multiplied by u = [ΦL^2; ΦR^2]
-	totalWrenchAffine = hcat(aeroWrenchAffine(fL), diagm(0=>[1,-1]) * aeroWrenchAffine(fR)) # 2x2 matrix
+	totalWrenchAffine = hcat(aeroWrenchAffine(fL), Diagonal([1,-1]) * aeroWrenchAffine(fR)) # 2x2 matrix
 
 	a0 = -Mb \ h # 3x1
-	a1 = Mb \ [rot(y[3])[:,2] zeros(2,1); 0 1] # this is now 3x2, should be multiplied by u = [ΦL^2; ΦR^2]
+	a1 = Mb \ [rot(y[3])[:,2] zeros(2,1); 0 1] * totalWrenchAffine # this is now 3x2, should be multiplied by u = [ΦL^2; ΦR^2]
 
 	return a0, a1
 end
@@ -185,7 +185,7 @@ function nonLinearDynamicsTA(m::CAPlanar, y)
 	yA = y[7:8]
 	# control-related
 	k = 1.0 # first order vdot
-	fns = 1.0 # deg2rad(0.5)
+	fns = 1.#deg2rad(0.5)
 
 	# control-affine cts
 	a0, a1 = caddq(m, y)
@@ -193,7 +193,7 @@ function nonLinearDynamicsTA(m::CAPlanar, y)
 	gT = [zeros(3,2); a1]
 	# Lower rows (anchor)
 	fA = -k * yA
-	gA = diagm(0 => k * [fns, fns])
+	gA = Diagonal(k * [fns, fns])
 	return fT, gT, fA, gA
 end
 
@@ -205,7 +205,7 @@ fy, gy = nonLinearDynamics(cap, y0)
 
 model = qpSetupDense(2, 2)
 function capController(ca, t, dt, y)
-	wy = [1.,1.,10.]
+	wy = [1.,1.,1.]
 	Ax = Float64[1,0,0,1]
 	# return [150., 140.]
 	dqbdes = [0.0,0.0,0.0]
@@ -229,7 +229,7 @@ function capController(ca, t, dt, y)
 	return res.x
 end
 
-tt, yy, tu, uu = runSim(cap, y0, 100, capController; udt=2)
+tt, yy, tu, uu = runSim(cap, y0, 20, capController; udt=2)
 # vf(y0, [], 0)
 
 # Plot
