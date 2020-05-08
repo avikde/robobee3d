@@ -205,8 +205,9 @@ fy, gy = nonLinearDynamics(cap, y0)
 
 model = qpSetupDense(2, 2)
 function capController(ca, t, dt, y)
+	wy = [1.,1.,10.]
 	# return [150., 140.]
-	dqbdes = [0.0,1.0,0.0]
+	dqbdes = [0.0,0.0,0.0]
 	# current state
 	yA0 = y[7:8]
 	fT0, gT0, fA0, gA0 = nonLinearDynamicsTAD(ca, y, dt)
@@ -216,8 +217,8 @@ function capController(ca, t, dt, y)
 	# project into the only state needed by the objective. This is the dqb part of yT2
 	ft = fT1[4:6] + gT1[4:6,:] * fA0
 	gt = gT1[4:6,:] * gA0
-	P = gt' * gt
-	q = gt' * (ft - dqbdes)
+	P = gt' * Diagonal(wy) * gt
+	q = gt' * Diagonal(wy) * (ft - dqbdes)
 	l = [0.0]
 	u = [1.0]
 	l = [0.0,0.0]
@@ -229,7 +230,7 @@ function capController(ca, t, dt, y)
 	return res.x # since it is a scalar
 end
 
-tt, yy, tu, uu = runSim(cap, y0, 20, capController; udt=2)
+tt, yy, tu, uu = runSim(cap, y0, 100, capController; udt=2)
 # vf(y0, [], 0)
 
 # Plot
