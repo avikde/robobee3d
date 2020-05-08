@@ -205,25 +205,28 @@ fy, gy = nonLinearDynamics(cap, y0)
 
 model = qpSetupDense(2, 2)
 function capController(ca, t, dt, y)
-	return [150., 140.]
-	# dqbdes = [0.0,1.0,0.0]
-	# # discretized model ZOH. dydt = f(y) + g(y)v. y2 = y1 + dydt*dt = (y1 + dt * fy) + dt * dy * v
-	# fd = (y + dt * fy)
-	# gd = dt * gy
-	# # project by A1 into the only state needed by the objective
-	# A1 = ForwardDiff.jacobian(yy -> ddq(ca, yy), y)
-	# a1 = ddq(ca, y) - A1 * y
-	# ft = y[4:6] + (a1 + A1 * fd) * dt
-	# gt = dt * A1 * gd # these are now just scalars
-	# P = gt' * gt
-	# q = gt' * (ft - dqbdes)
-	# l = [0.0,0.0]
-	# u = [200.0,200.0]
-	# # update OSQP
-	# OSQP.update!(model, Px=P[:], q=q, l=l, u=u)
-	# # solve
-	# res = OSQP.solve!(model)
-	# return res.x # since it is a scalar
+	# return [150., 140.]
+	dqbdes = [0.0,1.0,0.0]
+	# current state
+	yA0 = y[7:8]
+	fT0, gT0, fA0, gA0 = nonLinearDynamicsTAD(ca, y, dt)
+	# Need to linearize at the next state for the low-res next dynamics
+	yT1 = fT0 + gT0 * yA0
+	fT1, gT1 = nonLinearDynamicsTAD(ca, [yT1;yA0], dt)[1:2] # Only need fT,gT so does not matter what yA1 is
+	# project into the only state needed by the objective. This is the dqb part of yT2
+	ft = fT1[4:6] + gT1[4:6,:] * fA0
+	gt = gT1[4:6,:] * gA0
+	P = gt' * gt
+	q = gt' * (ft - dqbdes)
+	l = [0.0]
+	u = [1.0]
+	l = [0.0,0.0]
+	u = [200.0,200.0]
+	# update OSQP
+	OSQP.update!(model, Px=P[:], q=q, l=l, u=u)
+	# solve
+	res = OSQP.solve!(model)
+	return res.x # since it is a scalar
 end
 
 tt, yy, tu, uu = runSim(cap, y0, 20, capController; udt=2)
