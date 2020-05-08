@@ -6,6 +6,15 @@ abstract type ControlAffine end
 struct CAVertical <: ControlAffine end
 struct CAPlanar <: ControlAffine end
 
+"Cascaded A->T system dynamics. dyT = fT + gT * yA; dyA = fA + gA * u. Returns fy, gy s.t. dy = fy + gy * u"
+function nonLinearDynamics(m::ControlAffine, y)
+	fT, gT, fA, gA = nonLinearDynamicsTA(m, y)
+	nT = length(fT)
+	nU = size(gA, 2)
+	yA = y[nT+1:end]
+	return [fT + gT * yA; fA], [zeros(nT, nU); gA]
+end
+
 # ----------------------------
 
 "As in the vertical case, v = Φ^(1/2)"
@@ -90,22 +99,27 @@ end
 
 # test vertical 1D model ------------------
 
-function ddq(m::CAVertical, y)
+"Returns a0, a1, s.t. ddq = a0 + a1 * u"
+function caddq(m::CAVertical, y)
 	z, dz, v = y
 	mb = 100 #[mg]
 	g = 9.81e-3 #[mN/mg]
 	kaero = 5.0 # very approx: mN for v = 1
-	return 1/mb * (kaero*v) - g
+	return -g, 1/mb * kaero
 end
 
 "ddz = v; dv = k(vdes - v)"
-function nonLinearDynamics(m::CAVertical, y)
+function nonLinearDynamicsTA(m::CAVertical, y)
 	k = 1.0 # first order vdot
 	z, dz, v = y
 	# control-affine cts
-	dydt0 = [dz; ddq(m, y); -k * v]
-	dydt1 = [0; 0; k] # * vdes (input)
-	return dydt0, dydt1
+	a0, a1 = caddq(m, y)
+	fT = [dz; a0]
+	gT = [0; a1]
+	# Lower rows (anchor)
+	fA = [-k * v]
+	gA = [k]
+	return fT, gT, fA, gA
 end
 
 cav = CAVertical()
@@ -113,24 +127,24 @@ y0 = zeros(3)
 model = qpSetupDense(1, 1)
 
 function cavController(ca, t, dt, y, fy, gy)
-	zdotdes = 1 # zdotdes
-	# discretized model ZOH. dydt = f(y) + g(y)v. y2 = y1 + dydt*dt = (y1 + dt * fy) + dt * dy * v
-	fd = (y + dt * fy)
-	gd = dt * gy
-	# project by A1 into the only state needed by the objective
-	A1 = ForwardDiff.gradient(yy -> ddq(ca, yy), y)
-	a1 = ddq(ca, y) - dot(A1, y)
-	ft = y[2] + (a1 + dot(A1, fd)) * dt
-	gt = dt * dot(A1, gd) # these are now just scalars
-	P = [gt^2]
-	q = [gt * (ft - zdotdes)]
-	l = [0.0]
-	u = [1.0]
-	# update OSQP
-	OSQP.update!(model, Px=P[:], q=q, l=l, u=u)
-	# solve
-	res = OSQP.solve!(model)
-	return res.x[1] # since it is a scalar
+	# zdotdes = 1 # zdotdes
+	# # discretized model ZOH. dydt = f(y) + g(y)v. y2 = y1 + dydt*dt = (y1 + dt * fy) + dt * dy * v
+	# fd = (y + dt * fy)
+	# gd = dt * gy
+	# # project by A1 into the only state needed by the objective
+	# A1 = ForwardDiff.gradient(yy -> ddq(ca, yy), y)
+	# a1 = ddq(ca, y) - dot(A1, y)
+	# ft = y[2] + (a1 + dot(A1, fd)) * dt
+	# gt = dt * dot(A1, gd) # these are now just scalars
+	# P = [gt^2]
+	# q = [gt * (ft - zdotdes)]
+	# l = [0.0]
+	# u = [1.0]
+	# # update OSQP
+	# OSQP.update!(model, Px=P[:], q=q, l=l, u=u)
+	# # solve
+	# res = OSQP.solve!(model)
+	return 1.0#res.x[1] # since it is a scalar
 end
 tt, yy, tu, uu = runSim(cav, y0, 200, cavController; udt=2)
 
