@@ -219,8 +219,6 @@ function capController(ca, t, dt, y)
 	gt = gT1[4:6,:] * gA0
 	P = gt' * Diagonal(wy) * gt
 	q = gt' * Diagonal(wy) * (ft - dqbdes)
-	l = [0.0]
-	u = [1.0]
 	l = [0.0,0.0]
 	u = [200.0,200.0]
 	# update OSQP
