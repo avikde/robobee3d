@@ -80,22 +80,6 @@ wrenchNames = ["Fx [mN]", "Fy [mN]", "Fz [mN]", "Rx roll [mN-mm]", "Ry pitch [mN
 
 # wrenchAt([0.16, 75, 0, 75, 0, 0], param0; makeplot=true)
 
-## Single variable ----
-
-# test wrt ampl
-# xs = range(40, 80, length=10) # uas
-# tws = vcat([wrenchAt([0.16, ua, 0, ua, 0, 0, 0, 0], param0) for ua=xs]...)
-# xs = range(-0.5, 0.5, length=10) # ph offs
-# tws = vcat([wrenchAt([0.16, 75, 0, 75, 0, p, 0, 0], param0) for p=xs]...)
-# xs = range(-0.5, 0.5, length=10) # dc offs
-# tws = vcat([wrenchAt([0.16, 75, dc, 75, dc, 0, 0, 0], param0) for dc=xs]...)
-xs = range(-0.2, 0.2, length=8) # h2
-tws = vcat([wrenchAt([0.16, 75, 0, 75, 0, 0, h2, 0], param0) for h2=xs]...)
-
-pls = [plot(xs, tws[:,c], legend=false, ylabel=wrenchNames[c], lw=2) for c=1:6]
-plot(pls...)
-gui()
-
 ## grids of inputs ------------------
 
 function runInputs(m::Wing2DOFModel, opt, param, freq, uas, phoffs, dcoffs, h2s, h3s)
@@ -122,15 +106,33 @@ for ff = 0.14:0.04:0.22
 	# runInputs(m, opt, param0, ff, [75], [0], range(-20,20, length=8), range(-0.2, 0.2, length=8), [0])
 	# h2, h3
 	# runInputs(m, opt, param0, ff, [75], [0], [0], range(-0.2, 0.2, length=8), range(-0.2, 0.2, length=8))
-	# adiff, dc
-	runInputs(m, opt, param0, ff, [75], range(-20, 20, length=8), range(-20, 20, length=8), [0], [0])
+	# # adiff, dc
+	# runInputs(m, opt, param0, ff, [75], range(-20, 20, length=8), range(-20, 20, length=8), [0], [0])
+	# ua, adiff
+	runInputs(m, opt, param0, ff, range(40, 80, length=8), range(-20, 20, length=8), [0], [0], [0])
 end
 
 ## Plot against grids of inputs -------------
 
+"The ellipse parameterization is [r1, r2, d1, d2] where d is the affine offset"
+function plotEllipse!(pl, ep)
+	r1, r2, d1, d2 = ep
+	x(t) = d1 + r1*sin(t)
+	y(t) = d2 + r2*cos(t)
+	plot!(pl, x, y, 0, 2π, leg=false, fill=(0,:orange), fillalpha=0.3)
+end
 
-"ix, iy index into varNames (which is the order of variables in the row)"
-function plotInputs(resarg, ix, iy, nvars=5; s=0)
+"Is wrench w inside the ellipse?"
+function ellipseInterior(w, ix, iy, ep)
+	r = ep[1:2] # radii
+	x0 = ep[3:4]
+	x = [w[ix], w[iy]]
+	eldist = (x-x0)' * Diagonal(1 ./ r.^2) * (x-x0)
+	inside = eldist <= 1
+	return inside
+end
+
+function unpackGridData(resarg, nvars=5)
 	resdict = typeof(resarg) == String ? matread(resarg) : resarg
 	
 	# Produced unstructured xi,yi,zi data
@@ -143,7 +145,12 @@ function plotInputs(resarg, ix, iy, nvars=5; s=0)
 		# then the results
 		wri = [wri  res[nvars+1:nvars+6]]
 	end
-	
+	return vari, wri
+end
+
+"ix, iy index into varNames (which is the order of variables in the row)"
+function plotInputs(resarg, ix, iy; s=0)
+	vari, wri = unpackGridData(resarg)
 	# functions for making splines for plotting
 	splineFromUnstructured(xi, yi, zi) = Spline2D(xi, yi, zi; s=s)
 	function contourFromUnstructured(xi, yi, zi; xlabel="", ylabel="", title="")
@@ -180,10 +187,54 @@ function plotInputs(resarg, ix, iy, nvars=5; s=0)
 	# )
 end
 
+function ellipseInteriorIndices(wri, ix, iy, ep)
+	# boolean array
+	return [ellipseInterior(wri[:,i], ix, iy, ep) for i = 1:size(wri,2)]
+end
+
+"Plot in the wrench space. ix, iy are wrench components"
+function plotWspace(resarg, iu, iw, ep)
+	vari, wri = unpackGridData(resarg)
+	iin = ellipseInteriorIndices(wri, iw..., ep)
+
+	# wrench space
+	p1 = scatter(xlabel=wrenchNames[iw[1]], ylabel=wrenchNames[iw[2]], legend=false)
+	scatter!(p1, wri[iw[1],iin], wri[iw[2],iin], markercolor=:red, markerstrokewidth=0)
+	scatter!(p1, wri[iw[1],.!iin], wri[iw[2],.!iin], markercolor=:blue, markerstrokewidth=0)
+	if !isnothing(ep)
+		plotEllipse!(p1, ep)
+	end
+
+	# input space
+	p2 = scatter(xlabel=varNames[iu[1]], ylabel=varNames[iu[2]], legend=false)
+	scatter!(p2, vari[iu[1],iin], vari[iu[2],iin], markercolor=:red, markerstrokewidth=0)
+	scatter!(p2, vari[iu[1],.!iin], vari[iu[2],.!iin], markercolor=:blue, markerstrokewidth=0)
+
+	return [p2, p1]
+end
+
+## Single variable ----
+
+# test wrt ampl
+# xs = range(40, 80, length=10) # uas
+# tws = vcat([wrenchAt([0.16, ua, 0, ua, 0, 0, 0, 0], param0) for ua=xs]...)
+# xs = range(-0.5, 0.5, length=10) # ph offs
+# tws = vcat([wrenchAt([0.16, 75, 0, 75, 0, p, 0, 0], param0) for p=xs]...)
+# xs = range(-0.5, 0.5, length=10) # dc offs
+# tws = vcat([wrenchAt([0.16, 75, dc, 75, dc, 0, 0, 0], param0) for dc=xs]...)
+xs = range(-0.2, 0.2, length=8) # h2
+tws = vcat([wrenchAt([0.16, 75, 0, 75, 0, 0, h2, 0], param0) for h2=xs]...)
+
+pls = [plot(xs, tws[:,c], legend=false, ylabel=wrenchNames[c], lw=2) for c=1:6]
+plot(pls...)
+gui()
+
+## --- plot in input space
+
 # pls = plotInputs("runInputs_0.14.zip", 4, 5; s=1000) # h2h3
 # pls = plotInputs("runInputs_0.22.zip", 1, 3; s=1000) # ua, dc
-pls = plotInputs("runInputs_0.22.zip", 2, 3; s=1000) # adiff, dc
-# pls = plotInputs("runInputs_0.14.zip", 1, 2; s=1000) # ua, p
+# pls = plotInputs("runInputs_0.22.zip", 2, 3; s=1000) # adiff, dc
+pls = plotInputs("runInputs_0.22.zip", 1, 2; s=1000) # ua, adiff
 # pls = plotInputs("runInputs_0.22.zip", 3, 4; s=1000) # dc, h2
 if length(pls) == 2
 	plot(pls..., size=(500,250))
@@ -191,6 +242,17 @@ else
 	plot(pls...)
 end
 # gui()
+savefig("h2h3.png")
+
+## ---- plot in wrench space
+
+pls = vcat(
+	# ua, adiff (planar)
+	plotWspace("runInputs_0.14.zip", [1,2], [3,4], [0.7,5,1,0]), 
+	plotWspace("runInputs_0.18.zip", [1,2], [3,4], [1.3,9,2,0]),
+	plotWspace("runInputs_0.22.zip", [1,2], [3,4], [1.05,7,1.6,0])
+)
+plot(pls..., layout=(3,2), size=(500,500))
 savefig("h2h3.png")
 
 ## ----
