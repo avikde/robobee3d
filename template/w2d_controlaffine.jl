@@ -206,6 +206,7 @@ fy, gy = nonLinearDynamics(cap, y0)
 model = qpSetupDense(2, 2)
 function capController(ca, t, dt, y)
 	wy = [1.,1.,10.]
+	Ax = Float64[1,0,0,1]
 	# return [150., 140.]
 	dqbdes = [0.0,0.0,0.0]
 	# current state
@@ -222,10 +223,10 @@ function capController(ca, t, dt, y)
 	l = [0.0,0.0]
 	u = [200.0,200.0]
 	# update OSQP
-	OSQP.update!(model, Px=P[:], q=q, l=l, u=u)
+	OSQP.update!(model, Px=P[:], q=q, l=l, u=u, Ax=Ax)
 	# solve
 	res = OSQP.solve!(model)
-	return res.x # since it is a scalar
+	return res.x
 end
 
 tt, yy, tu, uu = runSim(cap, y0, 100, capController; udt=2)
