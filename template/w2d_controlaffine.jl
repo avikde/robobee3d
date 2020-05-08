@@ -15,6 +15,17 @@ function nonLinearDynamics(m::ControlAffine, y)
 	return [fT + gT * yA; fA], [zeros(nT, nU); gA]
 end
 
+"ZOH version"
+function nonLinearDynamicsTAD(m::ControlAffine, y, dt)
+	fT, gT, fA, gA = nonLinearDynamicsTA(m, y)
+	# y1 = y0 + dt * dyT = y0 + dt * (fT + gT * yA) = (y0 + dt * fT) + (dt * gt) * yA
+	nT = length(fT)
+	yT0 = y[1:nT]
+	yA0 = y[nT+1:end]
+	# yA1 = yA0 + dt * dyA = (yA0 + dt * fA) + (dt * gA) * uA
+	return yT0 + dt * fT, dt * gT, yA0 + dt * fA, dt * gA
+end
+
 # ----------------------------
 
 "As in the vertical case, v = Φ^(1/2)"
@@ -82,7 +93,7 @@ function runSim(ca::ControlAffine, y0, tend, controller; simdt=0.1, udt=1)
 
 		if t > lastUUpdate + udt
 			append!(Uts, t)
-			push!(Us, controller(ca, t, udt, y, fy, gy))
+			push!(Us, controller(ca, t, udt, y))
 			lastUUpdate = t
 		end
 
@@ -126,25 +137,28 @@ cav = CAVertical()
 y0 = zeros(3)
 model = qpSetupDense(1, 1)
 
-function cavController(ca, t, dt, y, fy, gy)
-	# zdotdes = 1 # zdotdes
-	# # discretized model ZOH. dydt = f(y) + g(y)v. y2 = y1 + dydt*dt = (y1 + dt * fy) + dt * dy * v
-	# fd = (y + dt * fy)
-	# gd = dt * gy
-	# # project by A1 into the only state needed by the objective
-	# A1 = ForwardDiff.gradient(yy -> ddq(ca, yy), y)
-	# a1 = ddq(ca, y) - dot(A1, y)
-	# ft = y[2] + (a1 + dot(A1, fd)) * dt
-	# gt = dt * dot(A1, gd) # these are now just scalars
-	# P = [gt^2]
-	# q = [gt * (ft - zdotdes)]
-	# l = [0.0]
-	# u = [1.0]
-	# # update OSQP
-	# OSQP.update!(model, Px=P[:], q=q, l=l, u=u)
-	# # solve
-	# res = OSQP.solve!(model)
-	return 1.0#res.x[1] # since it is a scalar
+function cavController(ca, t, dt, y)
+	zdotdes = [1.] # zdotdes
+	# current state
+	z0, dz0, yA0 = y
+	fT0, gT0, fA0, gA0 = nonLinearDynamicsTAD(ca, y, dt)
+	# Need to linearize at the next state for the low-res next dynamics
+	yT1 = fT0 + gT0 * yA0
+	fT1, gT1 = nonLinearDynamicsTAD(ca, [yT1;0], dt)[1:2] # Only need fT,gT so does not matter what yA1 is
+	# yT2depu = gT1 * (fA0 + gA0 * u)
+	# project by A1 into the only state needed by the objective
+	ft = gT1[2] * fA0
+	gt = gT1[2] * gA0
+	P = [gt' * gt]
+	q = [gt' * (ft - zdotdes)]
+	l = [0.0]
+	u = [1.0]
+	# update OSQP
+	OSQP.update!(model, Px=P[:], q=q, l=l, u=u)
+	# solve
+	res = OSQP.solve!(model)
+	
+	return res.x[1] # since it is a scalar
 end
 tt, yy, tu, uu = runSim(cav, y0, 200, cavController; udt=2)
 
