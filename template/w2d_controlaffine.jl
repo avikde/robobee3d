@@ -165,14 +165,18 @@ function caddq(m::CAPlanar, y)
 	g = 9.81e-3 #[mN/mg]
 
 	# dynamics stuff
-	Mb = diagm(0 => [mb, mb, ib])
+	Mb = Diagonal([mb, mb, ib])
 	h = [0; mb*g; 0]
 	rot(x) = [cos(x) -sin(x); sin(x) cos(x)]
 	# now should be multiplied by u = [ΦL^2; ΦR^2]
 	totalWrenchAffine = hcat(aeroWrenchAffine(fL), Diagonal([1,-1]) * aeroWrenchAffine(fR)) # 2x2 matrix
 
 	a0 = -Mb \ h # 3x1
-	a1 = Mb \ [rot(y[3])[:,2] zeros(2,1); 0 1] * totalWrenchAffine # this is now 3x2, should be multiplied by u = [ΦL^2; ΦR^2]
+	# println("HI ", y[3])
+	a1 = Mb \ ([rot(y[3])[:,2] zeros(2,1); 0 1] * totalWrenchAffine) # this is now 3x2, should be multiplied by u = [ΦL^2; ΦR^2]
+	# display(totalWrenchAffine)
+	# display([rot(y[3])[:,1] zeros(2,1); 0 1])
+	# display(a1)
 
 	return a0, a1
 end
@@ -205,9 +209,9 @@ fy, gy = nonLinearDynamics(cap, y0)
 
 model = qpSetupDense(2, 2)
 function capController(ca, t, dt, y)
+	# return [1.2,1]#deg2rad(0.5)*[150., 140.]
 	wy = [1.,1.,1.]
 	Ax = Float64[1,0,0,1]
-	# return [150., 140.]
 	dqbdes = [0.0,0.0,0.0]
 	# current state
 	yA0 = y[7:8]
@@ -244,4 +248,5 @@ plot!(pu1, tu, uu[2,:], lw=2, xlabel="t", ls=:dash, label="VRdes")
 plot!(pu1, tt, yy[8,:], lw=2, xlabel="t", label="VR")
 
 plot(p1, p2, p3, pu1)
-gui()
+# gui()
+savefig("test.png")
