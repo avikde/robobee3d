@@ -212,7 +212,8 @@ function capController(ca, t, dt, y)
 	# return [1.2,1]#deg2rad(0.5)*[150., 140.]
 	wy = [0.,1.,1.]
 	Ax = Float64[1,0,0,1]
-	dqbdes = [0.0,0.1,0.1*y[1]-0.1*y[3]]
+	y1des = 0#sin(0.1*t)
+	dqbdes = [0.0,0.1,0.1*(y[1] - y1des)-0.5*y[3]]
 	# current state
 	yA0 = y[7:8]
 	fT0, gT0, fA0, gA0 = nonLinearDynamicsTAD(ca, y, dt)
@@ -233,7 +234,7 @@ function capController(ca, t, dt, y)
 	return res.x
 end
 
-tt, yy, tu, uu = runSim(cap, y0, 50, capController; udt=2)
+tt, yy, tu, uu = runSim(cap, y0, 100, capController; udt=2)
 # vf(y0, [], 0)
 
 # Plot
