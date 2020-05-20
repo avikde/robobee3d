@@ -220,62 +220,62 @@ function reactiveQPAffine(ca, y, dt)
 	return ft, gt
 end
 
-# REACTIVE CONTROLLER ---
-model = qpSetupDense(2, 2)
-function capController(ca, t, dt, y)
-	# return [1.2,1]#deg2rad(0.5)*[150., 140.]
-	wy = [0.,1.,1.]
-	Ax = Float64[1,0,0,1]
-	
-	# # sine traj
-	# y1des = sin(0.1*t)
-	# dqbdes = [0.0,0.1,0.1*(y[1] - y1des)-1.0*y[3]]
-	
-	# circle traj
-	y1des = 5*sin(0.01*t)
-	dqbdes = [0.0,
-		0.01*(5*(1+sin(0.01*t)) - y[2]),
-		0.1*(y[1] - y1des)-1.0*y[3]]
-	ft, gt = reactiveQPAffine(ca, y, dt)
-	P = gt' * Diagonal(wy) * gt
-	q = gt' * Diagonal(wy) * (ft - dqbdes)
-	l = [0.0,0.0]
-	u = [200.0,200.0]
-	# update OSQP
-	OSQP.update!(model, Px=P[triu!(trues(size(P)),0)], q=q, l=l, u=u, Ax=Ax)
-	# solve
-	res = OSQP.solve!(model)
-	return res.x
-end
-# # MPC N=1 --------------------------
-# model = qpSetupDense(4, 4)
+# # REACTIVE CONTROLLER ---
+# model = qpSetupDense(2, 2)
 # function capController(ca, t, dt, y)
 # 	# return [1.2,1]#deg2rad(0.5)*[150., 140.]
 # 	wy = [0.,1.,1.]
-# 	Amat = Diagonal(ones(4))
-# 	Ax = Array(Amat[:])
+# 	Ax = Float64[1,0,0,1]
 	
-# 	dqbdes = [0,0.1,-1.0*y[3]]
+# 	# # sine traj
+# 	# y1des = sin(0.1*t)
+# 	# dqbdes = [0.0,0.1,0.1*(y[1] - y1des)-1.0*y[3]]
+	
+# 	# circle traj
+# 	y1des = 5*sin(0.01*t)
+# 	dqbdes = [0.0,
+# 		0.01*(5*(1+sin(0.01*t)) - y[2]),
+# 		0.1*(y[1] - y1des)-1.0*y[3]]
 # 	ft, gt = reactiveQPAffine(ca, y, dt)
-# 	A = ft
-# 	B = hcat(gt, ones(3,2))
-# 	P = B' * Diagonal(wy) * B
-# 	q = B' * Diagonal(wy) * (A - dqbdes)
-# 	l = zeros(4)
-# 	u = 200.0 * ones(4)
+# 	P = gt' * Diagonal(wy) * gt
+# 	q = gt' * Diagonal(wy) * (ft - dqbdes)
+# 	l = [0.0,0.0]
+# 	u = [200.0,200.0]
 # 	# update OSQP
 # 	OSQP.update!(model, Px=P[triu!(trues(size(P)),0)], q=q, l=l, u=u, Ax=Ax)
 # 	# solve
 # 	res = OSQP.solve!(model)
-
-# 	println("HI")
-# 	display(P)
-# 	display(q)
-# 	display(Ax)
-# 	display(l)
-# 	display(u)
-# 	return res.x[1:2]
+# 	return res.x
 # end
+# MPC N=1 --------------------------
+model = qpSetupDense(4, 4)
+function capController(ca, t, dt, y)
+	# return [1.2,1]#deg2rad(0.5)*[150., 140.]
+	wy = [0.,1.,1.]
+	Amat = Diagonal(ones(4))
+	Ax = Array(Amat[:])
+	
+	dqbdes = [0,0.1,-1.0*y[3]]
+	ft, gt = reactiveQPAffine(ca, y, dt)
+	A = ft
+	B = hcat(gt, ones(3,2))
+	P = B' * Diagonal(wy) * B
+	q = B' * Diagonal(wy) * (A - dqbdes)
+	l = zeros(4)
+	u = 200.0 * ones(4)
+	# update OSQP
+	OSQP.update!(model, Px=P[triu!(trues(size(P)),0)], q=q, l=l, u=u, Ax=Ax)
+	# solve
+	res = OSQP.solve!(model)
+
+	println("HI", res.x[3:4])
+	# display(P)
+	# display(q)
+	# display(Ax)
+	# display(l)
+	# display(u)
+	return res.x[1:2]
+end
 
 tt, yy, tu, uu = runSim(cap, y0, 1000, capController; udt=2)
 # vf(y0, [], 0)
