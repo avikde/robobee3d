@@ -207,6 +207,20 @@ ny = length(y0)
 fy, gy = nonLinearDynamics(cap, y0)
 # print(fieldnames(typeof(model.workspace)))
 
+function reactiveQPAffine(ca, y, dt)
+	# current state
+	yA0 = y[7:8]
+	fT0, gT0, fA0, gA0 = nonLinearDynamicsTAD(ca, y, dt)
+	# Need to linearize at the next state for the low-res next dynamics
+	yT1 = fT0 + gT0 * yA0
+	fT1, gT1 = nonLinearDynamicsTAD(ca, [yT1;yA0], dt)[1:2] # Only need fT,gT so does not matter what yA1 is
+	# project into the only state needed by the objective. This is the dqb part of yT2
+	ft = fT1[4:6] + gT1[4:6,:] * fA0
+	gt = gT1[4:6,:] * gA0
+	return ft, gt
+end
+
+# REACTIVE CONTROLLER ---
 model = qpSetupDense(2, 2)
 function capController(ca, t, dt, y)
 	# return [1.2,1]#deg2rad(0.5)*[150., 140.]
@@ -222,25 +236,46 @@ function capController(ca, t, dt, y)
 	dqbdes = [0.0,
 		0.01*(5*(1+sin(0.01*t)) - y[2]),
 		0.1*(y[1] - y1des)-1.0*y[3]]
-	# current state
-	yA0 = y[7:8]
-	fT0, gT0, fA0, gA0 = nonLinearDynamicsTAD(ca, y, dt)
-	# Need to linearize at the next state for the low-res next dynamics
-	yT1 = fT0 + gT0 * yA0
-	fT1, gT1 = nonLinearDynamicsTAD(ca, [yT1;yA0], dt)[1:2] # Only need fT,gT so does not matter what yA1 is
-	# project into the only state needed by the objective. This is the dqb part of yT2
-	ft = fT1[4:6] + gT1[4:6,:] * fA0
-	gt = gT1[4:6,:] * gA0
+	ft, gt = reactiveQPAffine(ca, y, dt)
 	P = gt' * Diagonal(wy) * gt
 	q = gt' * Diagonal(wy) * (ft - dqbdes)
 	l = [0.0,0.0]
 	u = [200.0,200.0]
 	# update OSQP
-	OSQP.update!(model, Px=P[:], q=q, l=l, u=u, Ax=Ax)
+	OSQP.update!(model, Px=P[triu!(trues(size(P)),0)], q=q, l=l, u=u, Ax=Ax)
 	# solve
 	res = OSQP.solve!(model)
 	return res.x
 end
+# # MPC N=1 --------------------------
+# model = qpSetupDense(4, 4)
+# function capController(ca, t, dt, y)
+# 	# return [1.2,1]#deg2rad(0.5)*[150., 140.]
+# 	wy = [0.,1.,1.]
+# 	Amat = Diagonal(ones(4))
+# 	Ax = Array(Amat[:])
+	
+# 	dqbdes = [0,0.1,-1.0*y[3]]
+# 	ft, gt = reactiveQPAffine(ca, y, dt)
+# 	A = ft
+# 	B = hcat(gt, ones(3,2))
+# 	P = B' * Diagonal(wy) * B
+# 	q = B' * Diagonal(wy) * (A - dqbdes)
+# 	l = zeros(4)
+# 	u = 200.0 * ones(4)
+# 	# update OSQP
+# 	OSQP.update!(model, Px=P[triu!(trues(size(P)),0)], q=q, l=l, u=u, Ax=Ax)
+# 	# solve
+# 	res = OSQP.solve!(model)
+
+# 	println("HI")
+# 	display(P)
+# 	display(q)
+# 	display(Ax)
+# 	display(l)
+# 	display(u)
+# 	return res.x[1:2]
+# end
 
 tt, yy, tu, uu = runSim(cap, y0, 1000, capController; udt=2)
 # vf(y0, [], 0)
