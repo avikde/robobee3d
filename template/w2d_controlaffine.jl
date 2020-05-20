@@ -210,9 +210,18 @@ fy, gy = nonLinearDynamics(cap, y0)
 model = qpSetupDense(2, 2)
 function capController(ca, t, dt, y)
 	# return [1.2,1]#deg2rad(0.5)*[150., 140.]
-	wy = [1.,1.,1.]
+	wy = [0.,1.,1.]
 	Ax = Float64[1,0,0,1]
-	dqbdes = [0.0,0.0,0.0]
+	
+	# # sine traj
+	# y1des = sin(0.1*t)
+	# dqbdes = [0.0,0.1,0.1*(y[1] - y1des)-1.0*y[3]]
+	
+	# circle traj
+	y1des = 5*sin(0.01*t)
+	dqbdes = [0.0,
+		0.01*(5*(1+sin(0.01*t)) - y[2]),
+		0.1*(y[1] - y1des)-1.0*y[3]]
 	# current state
 	yA0 = y[7:8]
 	fT0, gT0, fA0, gA0 = nonLinearDynamicsTAD(ca, y, dt)
@@ -233,7 +242,7 @@ function capController(ca, t, dt, y)
 	return res.x
 end
 
-tt, yy, tu, uu = runSim(cap, y0, 20, capController; udt=2)
+tt, yy, tu, uu = runSim(cap, y0, 1000, capController; udt=2)
 # vf(y0, [], 0)
 
 # Plot
@@ -248,5 +257,5 @@ plot!(pu1, tu, uu[2,:], lw=2, xlabel="t", ls=:dash, label="VRdes")
 plot!(pu1, tt, yy[8,:], lw=2, xlabel="t", label="VR")
 
 plot(p1, p2, p3, pu1)
-# gui()
-savefig("test.png")
+gui()
+# savefig("test.png")
