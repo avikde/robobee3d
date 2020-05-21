@@ -217,7 +217,7 @@ function reactiveQPAffine(ca, y, dt)
 	# project into the only state needed by the objective. This is the dqb part of yT2
 	ft = fT1[4:6] + gT1[4:6,:] * fA0
 	gt = gT1[4:6,:] * gA0
-	return ft, gt
+	return ft, gt, yT1
 end
 
 # # REACTIVE CONTROLLER ---
@@ -236,7 +236,7 @@ end
 # 	dqbdes = [0.0,
 # 		0.01*(5*(1+sin(0.01*t)) - y[2]),
 # 		0.1*(y[1] - y1des)-1.0*y[3]]
-# 	ft, gt = reactiveQPAffine(ca, y, dt)
+# 	ft, gt, yT1 = reactiveQPAffine(ca, y, dt)
 # 	P = gt' * Diagonal(wy) * gt
 # 	q = gt' * Diagonal(wy) * (ft - dqbdes)
 # 	l = [0.0,0.0]
@@ -257,10 +257,18 @@ function capController(ca, t, dt, y)
 	Amat = Diagonal(ones(nx))
 	Ax = Array(Amat[:])
 	
-	dqbdes = [0,0.1,-1.0*y[3]]
-	ft, gt = reactiveQPAffine(ca, y, dt)
-	A = ft
-	B = hcat(gt, zeros(3,2))
+	dqbdes = [0,0.1,0]#-1.0*y[3]]
+	ft, gt, yT1 = reactiveQPAffine(ca, y, dt)
+	# Need W2, i.e. first a predicted yT2
+	yT2 = yT1 # TODO: other options
+	W2 = caddq(ca, yT2)[2]
+	# Also need affine form fA(y1)
+	yA1 = y[7:8] # FIXME:
+	fA1, gA1 = nonLinearDynamicsTAD(ca, [yT1; yA1], dt)[3:4]
+
+	# Construct the QP
+	A = ft + W2 * fA1
+	B = hcat(gt, W2 * gA1)
 	P = B' * Diagonal(wy) * B
 	q = B' * Diagonal(wy) * (A - dqbdes)
 	l = zeros(nx)
@@ -272,7 +280,7 @@ function capController(ca, t, dt, y)
 	return res.x[1:2]
 end
 
-tt, yy, tu, uu = runSim(cap, y0, 1000, capController; udt=2)
+tt, yy, tu, uu = runSim(cap, y0, 100, capController; udt=2)
 # vf(y0, [], 0)
 
 # Plot
