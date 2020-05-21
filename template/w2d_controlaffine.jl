@@ -248,32 +248,27 @@ end
 # 	return res.x
 # end
 # MPC N=1 --------------------------
-model = qpSetupDense(4, 4)
+# Increased size: now x=[uA0, uA1]
+nx = 4
+model = qpSetupDense(nx, nx)
 function capController(ca, t, dt, y)
 	# return [1.2,1]#deg2rad(0.5)*[150., 140.]
 	wy = [0.,1.,1.]
-	Amat = Diagonal(ones(4))
+	Amat = Diagonal(ones(nx))
 	Ax = Array(Amat[:])
 	
 	dqbdes = [0,0.1,-1.0*y[3]]
 	ft, gt = reactiveQPAffine(ca, y, dt)
 	A = ft
-	B = hcat(gt, ones(3,2))
+	B = hcat(gt, zeros(3,2))
 	P = B' * Diagonal(wy) * B
 	q = B' * Diagonal(wy) * (A - dqbdes)
-	l = zeros(4)
-	u = 200.0 * ones(4)
+	l = zeros(nx)
+	u = 200.0 * ones(nx)
 	# update OSQP
 	OSQP.update!(model, Px=P[triu!(trues(size(P)),0)], q=q, l=l, u=u, Ax=Ax)
 	# solve
 	res = OSQP.solve!(model)
-
-	println("HI", res.x[3:4])
-	# display(P)
-	# display(q)
-	# display(Ax)
-	# display(l)
-	# display(u)
 	return res.x[1:2]
 end
 
