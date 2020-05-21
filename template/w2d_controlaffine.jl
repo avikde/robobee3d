@@ -214,73 +214,86 @@ function reactiveQPAffine(ca, y, dt)
 	# Need to linearize at the next state for the low-res next dynamics
 	yT1 = fT0 + gT0 * yA0
 	fT1, gT1 = nonLinearDynamicsTAD(ca, [yT1;yA0], dt)[1:2] # Only need fT,gT so does not matter what yA1 is
-	# project into the only state needed by the objective. This is the dqb part of yT2
-	ft = fT1[4:6] + gT1[4:6,:] * fA0
-	gt = gT1[4:6,:] * gA0
+	# Return both pos, vel components
+	ft = fT1 + gT1 * fA0
+	gt = gT1 * gA0
 	return ft, gt, yT1
 end
 
-# # REACTIVE CONTROLLER ---
-# model = qpSetupDense(2, 2)
-# function capController(ca, t, dt, y)
-# 	# return [1.2,1]#deg2rad(0.5)*[150., 140.]
-# 	wy = [0.,1.,1.]
-# 	Ax = Float64[1,0,0,1]
-	
-# 	# # sine traj
-# 	# y1des = sin(0.1*t)
-# 	# dqbdes = [0.0,0.1,0.1*(y[1] - y1des)-1.0*y[3]]
-	
-# 	# circle traj
-# 	y1des = 5*sin(0.01*t)
-# 	dqbdes = [0.0,
-# 		0.01*(5*(1+sin(0.01*t)) - y[2]),
-# 		0.1*(y[1] - y1des)-1.0*y[3]]
-# 	ft, gt, yT1 = reactiveQPAffine(ca, y, dt)
-# 	P = gt' * Diagonal(wy) * gt
-# 	q = gt' * Diagonal(wy) * (ft - dqbdes)
-# 	l = [0.0,0.0]
-# 	u = [200.0,200.0]
-# 	# update OSQP
-# 	OSQP.update!(model, Px=P[triu!(trues(size(P)),0)], q=q, l=l, u=u, Ax=Ax)
-# 	# solve
-# 	res = OSQP.solve!(model)
-# 	return res.x
-# end
-# MPC N=1 --------------------------
-# Increased size: now x=[uA0, uA1]
-nx = 4
-model = qpSetupDense(nx, nx)
+# REACTIVE CONTROLLER ---
+model = qpSetupDense(2, 2)
 function capController(ca, t, dt, y)
-	# return [1.2,1]#deg2rad(0.5)*[150., 140.]
-	wy = [0.,1.,1.]
-	Amat = Diagonal(ones(nx))
-	Ax = Array(Amat[:])
-	
-	dqbdes = [0,0.1,0]#-1.0*y[3]]
+	velControl = false
 	ft, gt, yT1 = reactiveQPAffine(ca, y, dt)
-	# Need W2, i.e. first a predicted yT2
-	yT2 = yT1 # TODO: other options
-	W2 = caddq(ca, yT2)[2]
-	# Also need affine form fA(y1)
-	yA1 = y[7:8] # FIXME:
-	fA1, gA1 = nonLinearDynamicsTAD(ca, [yT1; yA1], dt)[3:4]
+	Ax = Float64[1,0,0,1]
 
-	# Construct the QP
-	A = ft + W2 * fA1
-	B = hcat(gt, W2 * gA1)
-	P = B' * Diagonal(wy) * B
-	q = B' * Diagonal(wy) * (A - dqbdes)
-	l = zeros(nx)
-	u = 200.0 * ones(nx)
+	if velControl
+		ft = ft[4:6]
+		gt = gt[4:6,:]
+		# return [1.2,1]#deg2rad(0.5)*[150., 140.]
+		wy = [0.,1.,1.]
+		
+		# # sine traj
+		# y1des = sin(0.1*t)
+		# dqbdes = [0.0,0.1,0.1*(y[1] - y1des)-1.0*y[3]]
+		
+		# circle traj
+		y1des = 5*sin(0.01*t)
+		ydesproj = [0.0,
+			0.01*(5*(1+sin(0.01*t)) - y[2]),
+			0.1*(y[1] - y1des)-1.0*y[3]]
+	else
+		# position control
+		ft = ft[1:3] + dt * ft[4:6]
+		gt = gt[1:3,:] + dt * gt[4:6,:]
+		wy = [0.,1.,1.]
+		ydesproj = Float64[1,10,0]
+	end
+	
+	P = gt' * Diagonal(wy) * gt
+	q = gt' * Diagonal(wy) * (ft - ydesproj)
+	l = [0.0,0.0]
+	u = [200.0,200.0]
 	# update OSQP
 	OSQP.update!(model, Px=P[triu!(trues(size(P)),0)], q=q, l=l, u=u, Ax=Ax)
 	# solve
 	res = OSQP.solve!(model)
-	return res.x[1:2]
+	return res.x
 end
+# # MPC N=1 --------------------------
+# # Increased size: now x=[uA0, uA1]
+# nx = 4
+# model = qpSetupDense(nx, nx)
+# function capController(ca, t, dt, y)
+# 	# return [1.2,1]#deg2rad(0.5)*[150., 140.]
+# 	wy = [0.,1.,1.]
+# 	Amat = Diagonal(ones(nx))
+# 	Ax = Array(Amat[:])
+	
+# 	dqbdes = [0,0.1,0]#-1.0*y[3]]
+# 	ft, gt, yT1 = reactiveQPAffine(ca, y, dt)
+# 	# Need W2, i.e. first a predicted yT2
+# 	yT2 = yT1 # TODO: other options
+# 	W2 = caddq(ca, yT2)[2]
+# 	# Also need affine form fA(y1)
+# 	yA1 = y[7:8] # FIXME:
+# 	fA1, gA1 = nonLinearDynamicsTAD(ca, [yT1; yA1], dt)[3:4]
 
-tt, yy, tu, uu = runSim(cap, y0, 100, capController; udt=2)
+# 	# Construct the QP
+# 	A = ft + W2 * fA1
+# 	B = hcat(gt, W2 * gA1)
+# 	P = B' * Diagonal(wy) * B
+# 	q = B' * Diagonal(wy) * (A - dqbdes)
+# 	l = zeros(nx)
+# 	u = 200.0 * ones(nx)
+# 	# update OSQP
+# 	OSQP.update!(model, Px=P[triu!(trues(size(P)),0)], q=q, l=l, u=u, Ax=Ax)
+# 	# solve
+# 	res = OSQP.solve!(model)
+# 	return res.x[1:2]
+# end
+
+tt, yy, tu, uu = runSim(cap, y0, 500, capController; udt=2)
 # vf(y0, [], 0)
 
 # Plot
