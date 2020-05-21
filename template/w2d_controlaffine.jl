@@ -4,7 +4,7 @@ using LinearAlgebra, DifferentialEquations, Plots, OSQP, SparseArrays, ForwardDi
 
 abstract type ControlAffine end
 struct CAVertical <: ControlAffine end
-struct CAPlanar <: ControlAffine end
+struct CARollPlane <: ControlAffine end
 
 "Cascaded A->T system dynamics. dyT = fT + gT * yA; dyA = fA + gA * u. Returns fy, gy s.t. dy = fy + gy * u"
 function nonLinearDynamics(m::ControlAffine, y)
@@ -154,7 +154,7 @@ function aeroWrenchAffine(f)
 end
 
 "Returns a0, a1, s.t. ddq = a0 + a1 * u. Here u = Φ^2"
-function caddq(m::CAPlanar, y)
+function caddq(m::CARollPlane, y)
 	# TODO: freq in input
 	fL = 0.15
 	fR = 0.15
@@ -182,7 +182,7 @@ function caddq(m::CAPlanar, y)
 end
 
 "ddz = v; dv = k(vdes - v)"
-function nonLinearDynamicsTA(m::CAPlanar, y)
+function nonLinearDynamicsTA(m::CARollPlane, y)
 	# unpack
 	qb = y[1:3]
 	dqb = y[4:6]
@@ -201,7 +201,7 @@ function nonLinearDynamicsTA(m::CAPlanar, y)
 	return fT, gT, fA, gA
 end
 
-cap = CAPlanar()
+cap = CARollPlane()
 y0 = zeros(8)#vcat(zeros(6),π/2,π/2)
 ny = length(y0)
 fy, gy = nonLinearDynamics(cap, y0)
@@ -246,7 +246,7 @@ function capController(ca, t, dt, y)
 		# position control
 		ft = ft[1:3] + dt * ft[4:6]
 		gt = gt[1:3,:] + dt * gt[4:6,:]
-		wy = [0.,1.,1.]
+		wy = [1.,1.,0.]
 		ydesproj = Float64[1,10,0]
 	end
 	
