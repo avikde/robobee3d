@@ -86,10 +86,10 @@ function nonLinearDynamicsTA(m::CAVertical, y)
 	# control-affine cts
 	a0, a1 = caddq(m, y)
 	fT = [dz; a0]
-	gT = [0; a1]
+	gT = reshape([0; a1], 2, 1)
 	# Lower rows (anchor)
 	fA = [-k * v]
-	gA = [k]
+	gA = reshape([k], 1, 1)
 	return fT, gT, fA, gA
 end
 
@@ -106,10 +106,10 @@ function cavController(ca, t, dt, y)
 	yT1 = fT0 + gT0 * yA0
 	fT1, gT1 = nonLinearDynamicsTAD(ca, [yT1;0], dt)[1:2] # Only need fT,gT so does not matter what yA1 is
 	# project by A1 into the only state needed by the objective. This is the second element of yT2
-	ft = fT1[2:2] + gT1[2] * fA0
-	gt = gT1[2] * gA0
-	P = [gt' * gt]
-	q = [gt' * (ft - zdotdes)]
+	ft = fT1[2:2] + gT1[2:2,:] * fA0
+	gt = gT1[2:2,:] * gA0
+	P = gt' * gt
+	q = gt' * (ft - zdotdes)
 	l = [0.0]
 	u = [1.0]
 	# update OSQP
@@ -117,7 +117,7 @@ function cavController(ca, t, dt, y)
 	# solve
 	res = OSQP.solve!(model)
 	
-	return res.x[1] # since it is a scalar
+	return res.x # since it is a scalar
 end
 tt, yy, tu, uu = runSim(cav, y0, 200, cavController; udt=2)
 
