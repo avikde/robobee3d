@@ -304,7 +304,9 @@ function capController(ca, t, dt, y)
 	# now should be multiplied by u = [ΦL^2; ΦR^2]
 	W = hcat(aeroWrenchAffine(fL), Diagonal([1,-1]) * aeroWrenchAffine(fR)) # 2x2 matrix
 
-	wdes = [1.0*(10 - y[2]) - 20.0*y[5],0.0] # Fz,Rx
+	# Task
+	y1des = 10
+	wdes = [1.0*(10 - y[2]) - 20.0*y[5], 0.1*(y[1] - y1des)-10.0*y[3] - 10*y[6]] # Fz,Rx
 	# wdes = [1.0,0.0] # Fz,Rx
 	wy = [1.,1.]
 	P = W' * Diagonal(wy) * W
@@ -349,12 +351,12 @@ end
 # 	return res.x[1:2]
 # end
 
-tt, yy, tu, uu = runSim(cap, y0, 100, capController; udt=2)
+tt, yy, tu, uu = runSim(cap, y0, 200, capController; udt=2)
 # vf(y0, [], 0)
 
 # Plot
-# p1 = plot(yy[1,:], yy[2,:], lw=2, xlabel="y", ylabel="z", legend=false)
-p1 = plot(tt, yy[2:3,:]', lw=2, xlabel="t", ylabel="z", legend=false)
+p1 = plot(yy[1,:], yy[2,:], lw=2, xlabel="y", ylabel="z", legend=false)
+# p1 = plot(tt, yy[2:3,:]', lw=2, xlabel="t", ylabel="z", legend=false)
 p2 = plot(tt, yy[4,:], lw=2, xlabel="t", label="dy")
 plot!(p2, tt, yy[5,:], lw=2, xlabel="t", label="dz")
 p3 = plot(tt, yy[3,:], lw=2, xlabel="t", label="phi")
