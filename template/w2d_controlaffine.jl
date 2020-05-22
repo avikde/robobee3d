@@ -26,6 +26,9 @@ function nonLinearDynamicsTAD(m::ControlAffine, y, dt)
 	return yT0 + dt * fT, dt * gT, yA0 + dt * fA, dt * gA
 end
 
+"N * y returns next pos, current vel"
+nextPos(nT, dt) = diagm(0 => ones(nT), 1 => dt * ones(nT - 1))
+
 # OSQP basic --------------
 
 function qpSetupDense(n, m)
@@ -124,7 +127,7 @@ function cavController(ca, t, dt, y)
 		wy = [1.]
 	else
 		# position control
-		N = [1. dt; 0. 1.] # returns next pos, current vel
+		N = nextPos(length(ft), dt)
 		ft = N * ft
 		gt = N * gt
 		ydesproj = [10., 0.]
