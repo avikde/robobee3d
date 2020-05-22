@@ -115,18 +115,20 @@ function cavController(ca, t, dt, y)
 	# current state
 	# z0, dz0, yA0 = y
 	ft, gt, yT1 = reactiveQPAffine(ca, y, dt)
-	velControl = true
+	velControl = false
 	if velControl
-		zdotdes = [1.] # zdotdes
+		ydesproj = [1.] # zdotdes
 		# project to vel components
 		ft = ft[2:2]
 		gt = gt[2:2,:]
 	else
 		# position control
-
+		ft = ft[1:1] + dt * ft[2:2]
+		gt = gt[1:1,:] + dt * gt[2:2,:]
+		ydesproj = [10.0]
 	end
 	P = gt' * gt
-	q = gt' * (ft - zdotdes)
+	q = gt' * (ft - ydesproj)
 	l = [0.0]
 	u = [1.0]
 	# update OSQP
@@ -138,10 +140,11 @@ function cavController(ca, t, dt, y)
 end
 tt, yy, tu, uu = runSim(cav, y0, 200, cavController; udt=2)
 
+p1 = plot(tt, yy[1,:], lw=2, xlabel="t", label="z", ylabel="z", legend=false)
 p2 = plot(tt, yy[2,:], lw=2, xlabel="t", label="dz", ylabel="dz", legend=false)
 p3 = plot(tt, yy[3,:], lw=2, xlabel="t", label="v", ylabel="v")
 plot!(p3, tu, uu[1,:], lw=2, xlabel="t", label="vdes")
-plot(p2, p3)
+plot(p1, p2, p3)
 gui()
 
 ## --- Planar model -----------
