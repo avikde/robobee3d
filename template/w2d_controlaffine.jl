@@ -260,11 +260,13 @@ function capController(ca, t, dt, y)
 			0.1*(y[1] - y1des)-1.0*y[3]]
 	else
 		# position control
+		ydesproj = vcat([10.,10.,0.], zeros(3))
 		N = nextPos(3, dt)
 		ft = N * ft
 		gt = N * gt
-		wy = [1.,1.,1.,50.,50.,20.]
-		ydesproj = vcat([1.,10.,0.], zeros(3))
+		wy = [1.,1.,10.,50.,50.,1000.]
+		# put y err in phidotdes
+		# ydesproj[3] += 0.01*(y[1] - ydesproj[1])
 	end
 	
 	P = gt' * Diagonal(wy) * gt
@@ -310,7 +312,7 @@ end
 # 	return res.x[1:2]
 # end
 
-tt, yy, tu, uu = runSim(cap, y0, 500, capController; udt=2)
+tt, yy, tu, uu = runSim(cap, y0, 1000, capController; udt=2)
 # vf(y0, [], 0)
 
 # Plot
