@@ -27,7 +27,10 @@ function nonLinearDynamicsTAD(m::ControlAffine, y, dt)
 end
 
 "N * y returns next pos, current vel"
-nextPos(nT, dt) = diagm(0 => ones(nT), 1 => dt * ones(nT - 1))
+function nextPos(nq, dt; inclVel=true)
+	Ii = diagm(0 => ones(nq))
+	return inclVel ? [Ii  dt*Ii; zeros(nq,nq)  Ii] : [Ii  dt*Ii]
+end
 
 # OSQP basic --------------
 
@@ -127,7 +130,7 @@ function cavController(ca, t, dt, y)
 		wy = [1.]
 	else
 		# position control
-		N = nextPos(length(ft), dt)
+		N = nextPos(1, dt)
 		ft = N * ft
 		gt = N * gt
 		ydesproj = [10., 0.]
@@ -257,10 +260,11 @@ function capController(ca, t, dt, y)
 			0.1*(y[1] - y1des)-1.0*y[3]]
 	else
 		# position control
-		ft = ft[1:3] + dt * ft[4:6]
-		gt = gt[1:3,:] + dt * gt[4:6,:]
-		wy = [1.,1.,0.]
-		ydesproj = Float64[1,10,0]
+		N = nextPos(3, dt)
+		ft = N * ft
+		gt = N * gt
+		wy = [1.,1.,1.,50.,50.,20.]
+		ydesproj = vcat([1.,10.,0.], zeros(3))
 	end
 	
 	P = gt' * Diagonal(wy) * gt
@@ -310,7 +314,8 @@ tt, yy, tu, uu = runSim(cap, y0, 500, capController; udt=2)
 # vf(y0, [], 0)
 
 # Plot
-p1 = plot(yy[1,:], yy[2,:], lw=2, xlabel="y", ylabel="z", legend=false)
+# p1 = plot(yy[1,:], yy[2,:], lw=2, xlabel="y", ylabel="z", legend=false)
+p1 = plot(tt, yy[2:3,:]', lw=2, xlabel="t", ylabel="z", legend=false)
 p2 = plot(tt, yy[4,:], lw=2, xlabel="t", label="dy")
 plot!(p2, tt, yy[5,:], lw=2, xlabel="t", label="dz")
 p3 = plot(tt, yy[3,:], lw=2, xlabel="t", label="phi")
