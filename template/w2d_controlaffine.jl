@@ -117,27 +117,45 @@ cav = CAVertical()
 y0 = zeros(3)
 model = qpSetupDense(1, 1)
 
+# function cavController(ca, t, dt, y)
+# 	# current state
+# 	# z0, dz0, yA0 = y
+# 	ft, gt, yT1 = reactiveQPAffine(ca, y, dt)
+# 	velControl = false
+# 	if velControl
+# 		ydesproj = [1.] # zdotdes
+# 		# project to vel components
+# 		ft = ft[2:2]
+# 		gt = gt[2:2,:]
+# 		wy = [1.]
+# 	else
+# 		# position control
+# 		N = nextPos(1, dt)
+# 		ft = N * ft
+# 		gt = N * gt
+# 		ydesproj = [10., 0.]
+# 		wy = [1.,30.]
+# 	end
+# 	P = gt' * Diagonal(wy) * gt
+# 	q = gt' * Diagonal(wy) * (ft - ydesproj)
+# 	l = [0.0]
+# 	u = [1.0]
+# 	# update OSQP
+# 	OSQP.update!(model, Px=P[:], q=q, l=l, u=u)
+# 	# solve
+# 	res = OSQP.solve!(model)
+	
+# 	return res.x
+# end
+"Wrench-tracking version"
 function cavController(ca, t, dt, y)
-	# current state
-	# z0, dz0, yA0 = y
-	ft, gt, yT1 = reactiveQPAffine(ca, y, dt)
-	velControl = false
-	if velControl
-		ydesproj = [1.] # zdotdes
-		# project to vel components
-		ft = ft[2:2]
-		gt = gt[2:2,:]
-		wy = [1.]
-	else
-		# position control
-		N = nextPos(1, dt)
-		ft = N * ft
-		gt = N * gt
-		ydesproj = [10., 0.]
-		wy = [1.,30.]
-	end
+	fT, gT, fA, gA = nonLinearDynamicsTA(ca, y)
+	wdes = [1.0*(10 - y[1]) - 20.0*y[2]] # Fz
+	wy = [1.]
+	ft = [0.]
+	gt = reshape([5.],1,1) # kaero
 	P = gt' * Diagonal(wy) * gt
-	q = gt' * Diagonal(wy) * (ft - ydesproj)
+	q = gt' * Diagonal(wy) * (ft - wdes)
 	l = [0.0]
 	u = [1.0]
 	# update OSQP
@@ -145,7 +163,7 @@ function cavController(ca, t, dt, y)
 	# solve
 	res = OSQP.solve!(model)
 	
-	return res.x # since it is a scalar
+	return res.x
 end
 tt, yy, tu, uu = runSim(cav, y0, 200, cavController; udt=2)
 
