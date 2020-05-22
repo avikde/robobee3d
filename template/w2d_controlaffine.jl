@@ -121,14 +121,17 @@ function cavController(ca, t, dt, y)
 		# project to vel components
 		ft = ft[2:2]
 		gt = gt[2:2,:]
+		wy = [1.]
 	else
 		# position control
-		ft = ft[1:1] + dt * ft[2:2]
-		gt = gt[1:1,:] + dt * gt[2:2,:]
-		ydesproj = [10.0]
+		N = [1. dt; 0. 1.] # returns next pos, current vel
+		ft = N * ft
+		gt = N * gt
+		ydesproj = [10., 0.]
+		wy = [1.,30.]
 	end
-	P = gt' * gt
-	q = gt' * (ft - ydesproj)
+	P = gt' * Diagonal(wy) * gt
+	q = gt' * Diagonal(wy) * (ft - ydesproj)
 	l = [0.0]
 	u = [1.0]
 	# update OSQP
