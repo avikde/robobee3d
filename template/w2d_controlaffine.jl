@@ -68,6 +68,20 @@ function runSim(ca::ControlAffine, y0, tend, controller; simdt=0.1, udt=1)
 	return sol.t, yk, Uts, uk
 end
 
+function reactiveQPAffine(ca, y, dt)
+	# current state
+	fT0, gT0, fA0, gA0 = nonLinearDynamicsTAD(ca, y, dt)
+	# Need to linearize at the next state for the low-res next dynamics
+	nT = length(fT0)
+	yA0 = y[nT+1:end]
+	yT1 = fT0 + gT0 * yA0
+	fT1, gT1 = nonLinearDynamicsTAD(ca, [yT1;yA0], dt)[1:2] # Only need fT,gT so does not matter what yA1 is
+	# Return both pos, vel components
+	ft = fT1 + gT1 * fA0
+	gt = gT1 * gA0
+	return ft, gt, yT1
+end
+
 ## test vertical 1D model ------------------
 
 "Returns a0, a1, s.t. ddq = a0 + a1 * u"
@@ -99,20 +113,17 @@ model = qpSetupDense(1, 1)
 
 function cavController(ca, t, dt, y)
 	# current state
-	z0, dz0, yA0 = y
-	fT0, gT0, fA0, gA0 = nonLinearDynamicsTAD(ca, y, dt)
+	# z0, dz0, yA0 = y
+	ft, gt, yT1 = reactiveQPAffine(ca, y, dt)
 	velControl = true
 	if velControl
 		zdotdes = [1.] # zdotdes
-		# Need to linearize at the next state for the low-res next dynamics
-		yT1 = fT0 + gT0 * yA0
-		fT1, gT1 = nonLinearDynamicsTAD(ca, [yT1;0], dt)[1:2] # Only need fT,gT so does not matter what yA1 is
-		# project by A1 into the only state needed by the objective. This is the second element of yT2
-		ft = fT1[2:2] + gT1[2:2,:] * fA0
-		gt = gT1[2:2,:] * gA0
+		# project to vel components
+		ft = ft[2:2]
+		gt = gt[2:2,:]
 	else
 		# position control
-		
+
 	end
 	P = gt' * gt
 	q = gt' * (ft - zdotdes)
@@ -212,19 +223,6 @@ y0 = zeros(8)#vcat(zeros(6),π/2,π/2)
 ny = length(y0)
 fy, gy = nonLinearDynamics(cap, y0)
 # print(fieldnames(typeof(model.workspace)))
-
-function reactiveQPAffine(ca, y, dt)
-	# current state
-	yA0 = y[7:8]
-	fT0, gT0, fA0, gA0 = nonLinearDynamicsTAD(ca, y, dt)
-	# Need to linearize at the next state for the low-res next dynamics
-	yT1 = fT0 + gT0 * yA0
-	fT1, gT1 = nonLinearDynamicsTAD(ca, [yT1;yA0], dt)[1:2] # Only need fT,gT so does not matter what yA1 is
-	# Return both pos, vel components
-	ft = fT1 + gT1 * fA0
-	gt = gT1 * gA0
-	return ft, gt, yT1
-end
 
 # REACTIVE CONTROLLER ---
 model = qpSetupDense(2, 2)
