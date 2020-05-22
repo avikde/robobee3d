@@ -141,7 +141,7 @@ model = qpSetupDense(1, 1)
 # 	l = [0.0]
 # 	u = [1.0]
 # 	# update OSQP
-# 	OSQP.update!(model, Px=P[:], q=q, l=l, u=u)
+# 	OSQP.update!(model, Px=P[triu!(trues(size(P)),0)], q=q, l=l, u=u)
 # 	# solve
 # 	res = OSQP.solve!(model)
 	
@@ -158,7 +158,7 @@ function cavController(ca, t, dt, y)
 	l = [0.0]
 	u = [1.0]
 	# update OSQP
-	OSQP.update!(model, Px=P[:], q=q, l=l, u=u)
+	OSQP.update!(model, Px=P[triu!(trues(size(P)),0)], q=q, l=l, u=u)
 	# solve
 	res = OSQP.solve!(model)
 	
@@ -255,44 +255,64 @@ fy, gy = nonLinearDynamics(cap, y0)
 
 # REACTIVE CONTROLLER ---
 model = qpSetupDense(2, 2)
-function capController(ca, t, dt, y)
-	velControl = false
-	ft, gt, yT1 = reactiveQPAffine(ca, y, dt)
-	Ax = Float64[1,0,0,1]
+# function capController(ca, t, dt, y)
+# 	velControl = false
+# 	ft, gt, yT1 = reactiveQPAffine(ca, y, dt)
+# 	Ax = Float64[1,0,0,1]
 
-	if velControl
-		ft = ft[4:6]
-		gt = gt[4:6,:]
-		# return [1.2,1]#deg2rad(0.5)*[150., 140.]
-		wy = [0.,1.,1.]
+# 	if velControl
+# 		ft = ft[4:6]
+# 		gt = gt[4:6,:]
+# 		# return [1.2,1]#deg2rad(0.5)*[150., 140.]
+# 		wy = [0.,1.,1.]
 		
-		# # sine traj
-		# y1des = sin(0.1*t)
-		# dqbdes = [0.0,0.1,0.1*(y[1] - y1des)-1.0*y[3]]
+# 		# # sine traj
+# 		# y1des = sin(0.1*t)
+# 		# dqbdes = [0.0,0.1,0.1*(y[1] - y1des)-1.0*y[3]]
 		
-		# circle traj
-		y1des = 5*sin(0.01*t)
-		ydesproj = [0.0,
-			0.01*(5*(1+sin(0.01*t)) - y[2]),
-			0.1*(y[1] - y1des)-1.0*y[3]]
-	else
-		# position control
-		ydesproj = vcat([10.,10.,0.], zeros(3))
-		N = nextPos(3, dt)
-		ft = N * ft
-		gt = N * gt
-		wy = [1.,1.,10.,50.,50.,1000.]
-		# put y err in phidotdes
-		# ydesproj[3] += 0.01*(y[1] - ydesproj[1])
-	end
+# 		# circle traj
+# 		y1des = 5*sin(0.01*t)
+# 		ydesproj = [0.0,
+# 			0.01*(5*(1+sin(0.01*t)) - y[2]),
+# 			0.1*(y[1] - y1des)-1.0*y[3]]
+# 	else
+# 		# position control
+# 		ydesproj = vcat([10.,10.,0.], zeros(3))
+# 		N = nextPos(3, dt)
+# 		ft = N * ft
+# 		gt = N * gt
+# 		wy = [1.,1.,10.,50.,50.,1000.]
+# 		# put y err in phidotdes
+# 		# ydesproj[3] += 0.01*(y[1] - ydesproj[1])
+# 	end
 	
-	P = gt' * Diagonal(wy) * gt
-	q = gt' * Diagonal(wy) * (ft - ydesproj)
-	l = [0.0,0.0]
+# 	P = gt' * Diagonal(wy) * gt
+# 	q = gt' * Diagonal(wy) * (ft - ydesproj)
+# 	l = [0.0,0.0]
+# 	u = [200.0,200.0]
+# 	# update OSQP
+# 	OSQP.update!(model, Px=P[triu!(trues(size(P)),0)], q=q, l=l, u=u, Ax=Ax)
+# 	# solve
+# 	res = OSQP.solve!(model)
+# 	return res.x
+# end
+"Wrench-tracking version"
+function capController(ca, t, dt, y)
+	# TODO: freq in input
+	fL = 0.15
+	fR = 0.15
+	# now should be multiplied by u = [ΦL^2; ΦR^2]
+	W = hcat(aeroWrenchAffine(fL), Diagonal([1,-1]) * aeroWrenchAffine(fR)) # 2x2 matrix
+
+	wdes = [1.0*(10 - y[2]) - 20.0*y[5],0.0] # Fz,Rx
+	# wdes = [1.0,0.0] # Fz,Rx
+	wy = [1.,1.]
+	P = W' * Diagonal(wy) * W
+	q = W' * Diagonal(wy) * (-wdes)
+	l = zeros(2)
 	u = [200.0,200.0]
 	# update OSQP
-	OSQP.update!(model, Px=P[triu!(trues(size(P)),0)], q=q, l=l, u=u, Ax=Ax)
-	# solve
+	OSQP.update!(model, Px=P[triu!(trues(size(P)),0)], q=q, l=l, u=u)
 	res = OSQP.solve!(model)
 	return res.x
 end
@@ -329,7 +349,7 @@ end
 # 	return res.x[1:2]
 # end
 
-tt, yy, tu, uu = runSim(cap, y0, 1000, capController; udt=2)
+tt, yy, tu, uu = runSim(cap, y0, 100, capController; udt=2)
 # vf(y0, [], 0)
 
 # Plot
