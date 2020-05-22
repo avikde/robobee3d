@@ -149,7 +149,6 @@ model = qpSetupDense(1, 1)
 # end
 "Wrench-tracking version"
 function cavController(ca, t, dt, y)
-	fT, gT, fA, gA = nonLinearDynamicsTA(ca, y)
 	wdes = [1.0*(10 - y[1]) - 20.0*y[2]] # Fz
 	wy = [1.]
 	ft = [0.]
