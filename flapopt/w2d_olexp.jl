@@ -323,7 +323,7 @@ function openLoopTestTransmission(m, opt, param0)
 	function getResp(f, uamp, nlt)
 		param = copy(param0)
 		if nlt==1
-			param[3] = 0.7 # mw
+			param[3] = 0.75 # mw
 			param[2] *= 0.9
 			param[5] = 2*param[2]
 		end
