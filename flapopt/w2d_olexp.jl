@@ -323,9 +323,11 @@ function openLoopTestTransmission(m, opt, param0)
 	function getResp(f, uamp, nlt)
 		param = copy(param0)
 		if nlt==1
-			param[2] *= 0.8
+			param[3] = 0.7 # mw
+			param[2] *= 0.9
 			param[5] = 2*param[2]
 		end
+		# println(param0, " ", param)
 		ts = createInitialTraj(m, opt, 80, f, [1e3, 1e2], param, 212; uampl=uamp, trajstats2=true, h3=0.1)
 		# To test, also use the amplitudes (same process as the lift/power estimates from data)
 		Aw = param[6]
@@ -333,8 +335,8 @@ function openLoopTestTransmission(m, opt, param0)
 		Lw = Aw / sqrt(cbar2)
 		return [ts; statsFromAmplitudes(m, opt, param, rad2deg.(ts[1:2]), param[6], Lw, f*1e3, uamp)]
 	end
-	fs = 0.05:0.01:0.25
-	mN_PER_V = 75/160
+	fs = 0.05:0.015:0.22
+	mN_PER_V = 75/180
 	rightplot = false
 
 	p1 = plot(ylabel=rightplot ? "" : "Norm. stroke ampl [deg/V]", ylims=(0.3,0.8), legend=false, title=rightplot ? "High inertia" : "Low inertia")
@@ -348,7 +350,7 @@ function openLoopTestTransmission(m, opt, param0)
 	p5 = plot(xlabel="lift est", ylabel="power est")
 
 	"Find the largest Vamp that does not exceed actuator displacement"
-	function findLargestVamp(nlt; maxDisp=0.3, Vrange=range(100, 200; step=20))
+	function findLargestVamp(nlt; maxDisp=0.3, Vrange=range(100, 200; step=10))
 		function maximumDispLift(Vamp)
 			uamp = Vamp*mN_PER_V
 			println("[findLargestVamp] nlt=", nlt, " Vamp=", Vamp)
