@@ -336,6 +336,10 @@ function openLoopTestTransmission(m, opt, param0)
 			param = [12.439, 2.469, 0.617, 2.833, 4.939, 64.659, 0.073]
 		elseif nlt==2
 			param = [13.881, 2.469, 0.706, 2.867, 4.939, 78.581, 0.089] #1e3
+		elseif nlt==3
+			param = [12.637, 2.469, 0.632, 3.518, 4.939, 57.611, 0.068]
+		elseif nlt==4
+			param = [11.599, 2.469, 0.627, 3.348, 4.937, 54.311, 0.066]
 			# param[3] = 0.75 # mw
 			# param[2] *= 0.9
 			# param[5] = 2*param[2]
@@ -348,7 +352,7 @@ function openLoopTestTransmission(m, opt, param0)
 		Lw = Aw / sqrt(cbar2)
 		return [ts; statsFromAmplitudes(m, opt, param, rad2deg.(ts[1:2]), param[6], Lw, f*1e3, uamp)]
 	end
-	fs = 0.05:0.015:0.22
+	fs = 0.05:0.01:0.22
 	mN_PER_V = 75/180
 	rightplot = false
 
@@ -361,7 +365,7 @@ function openLoopTestTransmission(m, opt, param0)
 	# end
 	p4 = plot(xlabel="lift", ylabel="power")
 	p5 = plot(xlabel="lift est", ylabel="power est")
-	mss = [:circle, :utriangle, :dtriangle, :star]
+	mss = [:circle, :utriangle, :dtriangle, :star, :rect]
 
 	function plotForTrans(nlt, Vamp; T1scales=nothing)
 		nltstr = nlt == 0 ? "L" : string(nlt)
@@ -388,6 +392,8 @@ function openLoopTestTransmission(m, opt, param0)
 	plotForTrans(0, 178)
 	plotForTrans(1, 190)
 	plotForTrans(2, 215)
+	plotForTrans(3, 190)
+	plotForTrans(4, 183)
 
 	return plot(p1, p2, p3, p4, p5, size=(1000,600))
 end
