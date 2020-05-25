@@ -336,7 +336,6 @@ function openLoopTestTransmission(m, opt, param0)
 	fs = 0.05:0.01:0.25
 	mN_PER_V = 75/160
 	rightplot = false
-	Vamps = range(140,180,length=2)
 
 	p1 = plot(ylabel=rightplot ? "" : "Norm. stroke ampl [deg/V]", ylims=(0.3,0.8), legend=false, title=rightplot ? "High inertia" : "Low inertia")
 	p2 = plot(xlabel="Freq [kHz]", ylabel="Hinge ampl [deg]", legend=false, ylims=(0,100))
@@ -348,40 +347,46 @@ function openLoopTestTransmission(m, opt, param0)
 	p4 = plot(xlabel="lift", ylabel="power")
 	p5 = plot(xlabel="lift est", ylabel="power est")
 
+	"Find the largest Vamp that does not exceed actuator displacement"
+	function findLargestVamp(nlt; maxDisp=0.3, Vrange=range(100, 200; step=20))
+		function maximumDispLift(Vamp)
+			uamp = Vamp*mN_PER_V
+			println("[findLargestVamp] nlt=", nlt, " Vamp=", Vamp)
+			amps = hcat(getResp.(fs, uamp, nlt)...)
+			return [Vamp, maximum(amps[3,:]), maximum(amps[4,:])]
+		end
+		maxs = hcat([maximumDispLift(Vamp) for Vamp in Vrange]...)
+		safes =  maxs[:, maxs[2,:] .< maxDisp]
+		imaxlift = argmax(safes[3,:])
+		return safes[1,imaxlift]
+	end
+
 	function plotForTrans(nlt; T1scales=nothing)
 		nltstr = nlt == 1 ? "N" : (nlt == 2 ? "LL" : "L")
 		actdisps = Dict{Float64, Float64}()
 		ms = nlt==0 ? :circle : :utriangle
 		
-		for ii=1:length(Vamps)
-			Vamp = Vamps[ii]
-			print("Openloop @ ", Vamp, "V ", nltstr)
-			uamp = Vamp*mN_PER_V
-			σa0 = nothing
-			# println("HI", σa0)
-			amps = hcat(getResp.(fs, uamp, nlt)...)
-			
-			actdisps[Vamp] = maximum(amps[3,:])
-			# println(", act disp=", round(actdisps[Vamp], digits=3), "mm")
-			amps[1:2,:] *= 180/pi # to degrees
-			amps[1,:] /= (Vamp) # normalize
-			amps[2,:] /= 2.0 # hinge ampl one direction
-			# println(amps)
-			plot!(p1, fs, amps[1,:], lw=2, label=string(nltstr, Vamp,"V"), markershape=ms)
-			plot!(p2, fs, amps[2,:], lw=2, label=string(nltstr, Vamp,"V"), markershape=ms)
-			plot!(p3, fs, amps[3,:], lw=2, label=string(nltstr, Vamp,"V"), markershape=ms)
-			# pick the one that produced the max lift
-			imax = argmax(amps[4,:])
-			scatter!(p4, [amps[4,imax]], [amps[5,imax]], markershape=ms)
-			scatter!(p5, [amps[6,imax]], [amps[7,imax]], markershape=ms)
-		end
-		return actdisps
+		Vamp = findLargestVamp(nlt)
+		print("Openloop @ ", Vamp, "V ", nltstr)
+		uamp = Vamp*mN_PER_V
+		amps = hcat(getResp.(fs, uamp, nlt)...)
+		amps[1:2,:] *= 180/pi # to degrees
+		amps[1,:] /= (Vamp) # normalize
+		amps[2,:] /= 2.0 # hinge ampl one direction
+		# println(amps)
+		plot!(p1, fs, amps[1,:], lw=2, label=string(nltstr, Vamp,"V"), markershape=ms)
+		plot!(p2, fs, amps[2,:], lw=2, label=string(nltstr, Vamp,"V"), markershape=ms)
+		plot!(p3, fs, amps[3,:], lw=2, label=string(nltstr, Vamp,"V"), markershape=ms)
+		# pick the one that produced the max lift
+		imax = argmax(amps[4,:])
+		scatter!(p4, [amps[4,imax]], [amps[5,imax]], markershape=ms)
+		scatter!(p5, [amps[6,imax]], [amps[7,imax]], markershape=ms)
 	end
 
 	plotForTrans(0)
 	plotForTrans(1)
 
-	return plot(p1, p2, p3, p4, p5)
+	return plot(p1, p2, p3, p4, p5, size=(1000,600))
 end
 # --------------------------------------------------------
 mop = (m, opt, param0)
