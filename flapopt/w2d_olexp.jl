@@ -55,7 +55,7 @@ function openLoopPlot(m, opt, param0, Vamps; save=false, NLT1scales=nothing, rig
 		elseif nlt==2
 			param[POPTS.τinds[1]] *= T1scale # and don't change \tau2
 		end
-		ts = createInitialTraj(m, opt, 0, f, [1e3, 1e2], param, 0; uampl=uamp, trajstats=true, thcoeff=0.1)
+		ts = createInitialTraj(m, opt, 0, f, [1e3, 1e2], param, 0; uampl=uamp, trajstats=true, h3=0.1)
 		# println("act disp=",ts[end])
 		return ts
 	end
