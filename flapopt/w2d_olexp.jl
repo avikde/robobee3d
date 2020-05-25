@@ -315,18 +315,30 @@ normStrokeBigBee(mop) = plot(
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee originalA.csv")..., wingDims["bigbee"], [], :star5, τCOEFFS_BB); 
 		title="BigBee", ulim=0.75), 
 	size=(600,400))
+##
 
-
-"Use an open-loop sim to test for the nonlin transmission by producing normalized stroke, act disp, as well as lift/power dots"
+"""Use an open-loop sim to test for the nonlin transmission by producing normalized stroke, act disp, as well as lift/power dots.
+WARNING: this overwrites POPTS"""
 function openLoopTestTransmission(m, opt, param0)
+
+	# # limit different params for component-wise optimization debugging
+	# POPTS.plimsL .= copy(param0)
+	# POPTS.plimsU .= copy(param0)
+	# # Allow change in T1, Aw, mw
+	# POPTS.plimsL[]
+
+	# this results in uinf = 73 but has nonlin transmission
+	# ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 150; Φ=90, Qdt=3e4)
+	param1 = [12.439, 2.469, 0.617, 2.833, 4.939, 64.659, 0.073]
+
 	"Returns strokeAmp, pitchAmp, actDisp, lift, power, "
 	function getResp(f, uamp, nlt)
-		param = copy(param0)
-		if nlt==1
-			param[3] = 0.75 # mw
-			param[2] *= 0.9
-			param[5] = 2*param[2]
-		end
+		param = nlt == 1 ? copy(param1) : copy(param0)
+		# if nlt==1
+		# 	param[3] = 0.75 # mw
+		# 	param[2] *= 0.9
+		# 	param[5] = 2*param[2]
+		# end
 		# println(param0, " ", param)
 		ts = createInitialTraj(m, opt, 80, f, [1e3, 1e2], param, 212; uampl=uamp, trajstats2=true, h3=0.1)
 		# To test, also use the amplitudes (same process as the lift/power estimates from data)
@@ -349,26 +361,11 @@ function openLoopTestTransmission(m, opt, param0)
 	p4 = plot(xlabel="lift", ylabel="power")
 	p5 = plot(xlabel="lift est", ylabel="power est")
 
-	"Find the largest Vamp that does not exceed actuator displacement"
-	function findLargestVamp(nlt; maxDisp=0.3, Vrange=range(100, 200; step=10))
-		function maximumDispLift(Vamp)
-			uamp = Vamp*mN_PER_V
-			println("[findLargestVamp] nlt=", nlt, " Vamp=", Vamp)
-			amps = hcat(getResp.(fs, uamp, nlt)...)
-			return [Vamp, maximum(amps[3,:]), maximum(amps[4,:])]
-		end
-		maxs = hcat([maximumDispLift(Vamp) for Vamp in Vrange]...)
-		safes =  maxs[:, maxs[2,:] .< maxDisp]
-		imaxlift = argmax(safes[3,:])
-		return safes[1,imaxlift]
-	end
-
-	function plotForTrans(nlt; T1scales=nothing)
+	function plotForTrans(nlt, Vamp; T1scales=nothing)
 		nltstr = nlt == 1 ? "N" : (nlt == 2 ? "LL" : "L")
 		actdisps = Dict{Float64, Float64}()
 		ms = nlt==0 ? :circle : :utriangle
 		
-		Vamp = findLargestVamp(nlt)
 		print("Openloop @ ", Vamp, "V ", nltstr)
 		uamp = Vamp*mN_PER_V
 		amps = hcat(getResp.(fs, uamp, nlt)...)
@@ -385,8 +382,8 @@ function openLoopTestTransmission(m, opt, param0)
 		scatter!(p5, [amps[6,imax]], [amps[7,imax]], markershape=ms)
 	end
 
-	plotForTrans(0)
-	plotForTrans(1)
+	plotForTrans(0, 180)
+	plotForTrans(1, 190)
 
 	return plot(p1, p2, p3, p4, p5, size=(1000,600))
 end
@@ -402,4 +399,4 @@ mop = (m, opt, param0)
 
 openLoopTestTransmission(mop...)
 
-gui()
+# gui()
