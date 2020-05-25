@@ -22,7 +22,7 @@ end
 
 function simNormStroke!(pls, plh, pla, mop, param, frange, Vs; mN_PER_V=75/160, kwargs...)
 	function simVf(fHz, Vamp)
-		amps = createInitialTraj(mop[1:2]..., 0, fHz*1e-3, [1e3, 1e2], param, 0; uampl=75, trajstats=true, thcoeff=0.1)
+		amps = createInitialTraj(mop[1:2]..., 0, fHz*1e-3, [1e3, 1e2], param, 0; uampl=75, trajstats=true, h3=0.1)
 		amps[1:2] *= 180/pi # to degrees
 		amps[1] /= (Vamp) # normalize
 		amps[3] *= (1000/Vamp)
@@ -122,7 +122,7 @@ end
 function openLoopTestTransmission(m, opt, param0)
 	function getResp(f, uamp)
 		param = copy(param0)
-		ts = createInitialTraj(m, opt, 0, f, [1e3, 1e2], param, 0; uampl=uamp, trajstats=true, h3=0.1)
+		ts = createInitialTraj(m, opt, 80, f, [1e3, 1e2], param, 212; uampl=uamp, trajstats2=true, h3=0.1)
 		# println("act disp=",ts[end])
 		return ts
 	end
@@ -138,6 +138,8 @@ function openLoopTestTransmission(m, opt, param0)
 	# 	yaxis!(p1, false)
 	# 	yaxis!(p3, false)
 	# end
+	p4 = plot(xlabel="lift", ylabel="power")
+
 	function plotForTrans(nlt; T1scales=nothing)
 		nltstr = nlt == 1 ? "N" : (nlt == 2 ? "LL" : "L")
 		actdisps = Dict{Float64, Float64}()
@@ -156,18 +158,19 @@ function openLoopTestTransmission(m, opt, param0)
 			amps[1,:] /= (Vamp) # normalize
 			amps[3,:] *= (1000/Vamp)
 			amps[2,:] /= 2.0 # hinge ampl one direction
+			# statsFromAmplitudes(m, opt, param, Amp, Aw, Lw, freqHz, Fact)
 			# println(amps)
 			plot!(p1, fs, amps[1,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt==1 ? :solid : (nlt == 2 ? :dot : :dash))
 			plot!(p2, fs, amps[2,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt==1 ? :solid : (nlt == 2 ? :dot : :dash))
 			plot!(p3, fs, amps[3,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt==1 ? :solid : (nlt == 2 ? :dot : :dash))
+			scatter!(p4, amps[4,:], amps[5,:])
 		end
 		return actdisps
 	end
 
 	plotForTrans(0)
 
-	# plot(p1, #= p2, layout=(2,1),  =# size=(400, 300), dpi=200)
-	return plot(p1, p3, layout=(2,1), size=(400,250))
+	return plot(p1, p2, p3, p4)
 end
 
 # Experimental data ------------------------------------
