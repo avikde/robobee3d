@@ -118,61 +118,6 @@ function openLoopPlotFinal(m, opt, param0)
 	error("Open loop plot")
 end
 
-"Use an open-loop sim to test for the nonlin transmission by producing normalized stroke, act disp, as well as lift/power dots"
-function openLoopTestTransmission(m, opt, param0)
-	function getResp(f, uamp)
-		param = copy(param0)
-		ts = createInitialTraj(m, opt, 80, f, [1e3, 1e2], param, 212; uampl=uamp, trajstats2=true, h3=0.1)
-		# println("act disp=",ts[end])
-		return ts
-	end
-	fs = 0.03:0.005:0.25
-	mN_PER_V = 75/160
-	rightplot = false
-	Vamps = range(140,180,length=2)
-
-	p1 = plot(ylabel=rightplot ? "" : "Norm. stroke ampl [deg/V]", ylims=(0.3,0.8), legend=false, title=rightplot ? "High inertia" : "Low inertia")
-	p2 = plot(xlabel="Freq [kHz]", ylabel="Hinge ampl [deg]", legend=false, ylims=(0,100))
-	p3 = plot(ylabel=rightplot ? "" : "Norm. act. disp [um/V]", legend=rightplot ? false : :topleft, ylim=(1.0,2.4), xlabel="Freq [kHz]")
-	# if rightplot
-	# 	yaxis!(p1, false)
-	# 	yaxis!(p3, false)
-	# end
-	p4 = plot(xlabel="lift", ylabel="power")
-
-	function plotForTrans(nlt; T1scales=nothing)
-		nltstr = nlt == 1 ? "N" : (nlt == 2 ? "LL" : "L")
-		actdisps = Dict{Float64, Float64}()
-		
-		for ii=1:length(Vamps)
-			Vamp = Vamps[ii]
-			print("Openloop @ ", Vamp, "V ", nltstr)
-			uamp = Vamp*mN_PER_V
-			σa0 = nothing
-			# println("HI", σa0)
-			amps = hcat(getResp.(fs, uamp)...)
-			
-			actdisps[Vamp] = maximum(amps[3,:])
-			# println(", act disp=", round(actdisps[Vamp], digits=3), "mm")
-			amps[1:2,:] *= 180/pi # to degrees
-			amps[1,:] /= (Vamp) # normalize
-			amps[3,:] *= (1000/Vamp)
-			amps[2,:] /= 2.0 # hinge ampl one direction
-			# statsFromAmplitudes(m, opt, param, Amp, Aw, Lw, freqHz, Fact)
-			# println(amps)
-			plot!(p1, fs, amps[1,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt==1 ? :solid : (nlt == 2 ? :dot : :dash))
-			plot!(p2, fs, amps[2,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt==1 ? :solid : (nlt == 2 ? :dot : :dash))
-			plot!(p3, fs, amps[3,:], lw=2, label=string(nltstr, Vamp,"V"), ls=nlt==1 ? :solid : (nlt == 2 ? :dot : :dash))
-			scatter!(p4, amps[4,:], amps[5,:])
-		end
-		return actdisps
-	end
-
-	plotForTrans(0)
-
-	return plot(p1, p2, p3, p4)
-end
-
 # Experimental data ------------------------------------
 
 function readOLExpCSV(fname)
@@ -371,6 +316,73 @@ normStrokeBigBee(mop) = plot(
 		title="BigBee", ulim=0.75), 
 	size=(600,400))
 
+
+"Use an open-loop sim to test for the nonlin transmission by producing normalized stroke, act disp, as well as lift/power dots"
+function openLoopTestTransmission(m, opt, param0)
+	"Returns strokeAmp, pitchAmp, actDisp, lift, power, "
+	function getResp(f, uamp, nlt)
+		param = copy(param0)
+		if nlt==1
+			param[2] *= 0.8
+			param[5] = 2*param[2]
+		end
+		ts = createInitialTraj(m, opt, 80, f, [1e3, 1e2], param, 212; uampl=uamp, trajstats2=true, h3=0.1)
+		# To test, also use the amplitudes (same process as the lift/power estimates from data)
+		Aw = param[6]
+		cbar2 = param[1]
+		Lw = Aw / sqrt(cbar2)
+		return [ts; statsFromAmplitudes(m, opt, param, rad2deg.(ts[1:2]), param[6], Lw, f*1e3, uamp)]
+	end
+	fs = 0.05:0.01:0.25
+	mN_PER_V = 75/160
+	rightplot = false
+	Vamps = range(140,180,length=2)
+
+	p1 = plot(ylabel=rightplot ? "" : "Norm. stroke ampl [deg/V]", ylims=(0.3,0.8), legend=false, title=rightplot ? "High inertia" : "Low inertia")
+	p2 = plot(xlabel="Freq [kHz]", ylabel="Hinge ampl [deg]", legend=false, ylims=(0,100))
+	p3 = plot(ylabel=rightplot ? "" : "Act. disp [um]", legend=rightplot ? false : :topleft, xlabel="Freq [kHz]")
+	# if rightplot
+	# 	yaxis!(p1, false)
+	# 	yaxis!(p3, false)
+	# end
+	p4 = plot(xlabel="lift", ylabel="power")
+	p5 = plot(xlabel="lift est", ylabel="power est")
+
+	function plotForTrans(nlt; T1scales=nothing)
+		nltstr = nlt == 1 ? "N" : (nlt == 2 ? "LL" : "L")
+		actdisps = Dict{Float64, Float64}()
+		ms = nlt==0 ? :circle : :utriangle
+		
+		for ii=1:length(Vamps)
+			Vamp = Vamps[ii]
+			print("Openloop @ ", Vamp, "V ", nltstr)
+			uamp = Vamp*mN_PER_V
+			σa0 = nothing
+			# println("HI", σa0)
+			amps = hcat(getResp.(fs, uamp, nlt)...)
+			
+			actdisps[Vamp] = maximum(amps[3,:])
+			# println(", act disp=", round(actdisps[Vamp], digits=3), "mm")
+			amps[1:2,:] *= 180/pi # to degrees
+			amps[1,:] /= (Vamp) # normalize
+			amps[2,:] /= 2.0 # hinge ampl one direction
+			# println(amps)
+			plot!(p1, fs, amps[1,:], lw=2, label=string(nltstr, Vamp,"V"), markershape=ms)
+			plot!(p2, fs, amps[2,:], lw=2, label=string(nltstr, Vamp,"V"), markershape=ms)
+			plot!(p3, fs, amps[3,:], lw=2, label=string(nltstr, Vamp,"V"), markershape=ms)
+			# pick the one that produced the max lift
+			imax = argmax(amps[4,:])
+			scatter!(p4, [amps[4,imax]], [amps[5,imax]], markershape=ms)
+			scatter!(p5, [amps[6,imax]], [amps[7,imax]], markershape=ms)
+		end
+		return actdisps
+	end
+
+	plotForTrans(0)
+	plotForTrans(1)
+
+	return plot(p1, p2, p3, p4, p5)
+end
 # --------------------------------------------------------
 mop = (m, opt, param0)
 
