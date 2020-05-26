@@ -22,7 +22,7 @@ end
 
 function simNormStroke!(pls, plh, pla, mop, param, frange, Vs; mN_PER_V=75/160, kwargs...)
 	function simVf(fHz, Vamp)
-		amps = createInitialTraj(mop[1:2]..., 0, fHz*1e-3, [1e3, 1e2], param, 0; uampl=75, trajstats=true, thcoeff=0.1)
+		amps = createInitialTraj(mop[1:2]..., 0, fHz*1e-3, [1e3, 1e2], param, 0; uampl=75, trajstats=true, h3=0.1)
 		amps[1:2] *= 180/pi # to degrees
 		amps[1] /= (Vamp) # normalize
 		amps[3] *= (1000/Vamp)
@@ -55,7 +55,7 @@ function openLoopPlot(m, opt, param0, Vamps; save=false, NLT1scales=nothing, rig
 		elseif nlt==2
 			param[POPTS.τinds[1]] *= T1scale # and don't change \tau2
 		end
-		ts = createInitialTraj(m, opt, 0, f, [1e3, 1e2], param, 0; uampl=uamp, trajstats=true, thcoeff=0.1)
+		ts = createInitialTraj(m, opt, 0, f, [1e3, 1e2], param, 0; uampl=uamp, trajstats=true, h3=0.1)
 		# println("act disp=",ts[end])
 		return ts
 	end
@@ -126,7 +126,7 @@ function readOLExpCSV(fname)
 	return Vs, [dat[dat[:,1] .== V,2:3] for V in Vs]
 end
 
-STROKE_ACT_COORDS = false # to respond to Rob question about what act disp was in these trials
+STROKE_ACT_COORDS = true # to respond to Rob question about what act disp was in these trials
 
 function toAct(stroke, τcoeffs)
 	param = copy(param0)
@@ -201,8 +201,9 @@ function statsFromAmplitudes(m, opt, param, Amp, Aw, Lw, freqHz, Fact)
 
 	# FD0 = maximum(filter(!isnan, trajAero(m, opt, traj, param1, :drag)))
 	# Approximate power with least dependence on dynamical parameters. If this and force were in-phase and sinusoidal, then
-	# Pmech ~ Fact*Lw*Phi*f/pi (1/pi = integral of sin^2 x)
-	return [avgLift(m, opt, traj, param1); Fact*Amp[1]*(freqHz*1e-3)]
+	# Pmech ~ Fact/T*Lw*Phi*f/pi (1/pi = integral of sin^2 x)
+	Fwing = Fact/param1[2]
+	return [avgLift(m, opt, traj, param1); Fwing*Amp[1]*(freqHz*1e-3)]
 end
 
 "Estimate lift, power for given stroke/hinge"
@@ -218,6 +219,7 @@ function calculateStats(mop, fname, Aw, Lw, spar10, spar20; kVF=75/180)
 	volts = dat[recordedpts,1]
 	freqs = dat[recordedpts,2]
 	strokes = dat[recordedpts,3]
+	# Here Amps = [stroke amplitude rad,  2 * pitch amplitude rad] (stacked column)
 	Amps = deg2rad.(hcat(strokes, 2*pitches))
 
 	stats = vcat([
@@ -225,7 +227,7 @@ function calculateStats(mop, fname, Aw, Lw, spar10, spar20; kVF=75/180)
 		for i = 1:length(freqs)]...)
 	
 	println(fname, round.(pitches, digits=1), round.(stats[:,3], digits=1), round.(stats[:,4], digits=1))
-	return stats
+	return stats, volts
 end
 
 "Tuples of Aw, Lw, spar1, spar2 from https://github.com/avikde/robobee3d/issues/145. Measured by roughly using area tool in Autocad, and measuring the longest membrane length"
@@ -247,33 +249,47 @@ wingDims = Dict{String,Tuple{Float64,Float64,Float64,Float64}}(
 τCOEFFS_SDAB = (2.6666, 0)
 τCOEFFS_BB = (3.28, 0)
 
-function liftPowerPlot(mop)
+function liftPowerPlot(mop; includeBigbee=false)
 	p1 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="SDAB actuator")
-	p2 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="BigBee actuator")
 	p3 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow (S*V*f)", legend=false)
-	p4 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow (S*V*f)", legend=false)
 
 	function addToPlot!(p, pn, lbl, args...; kwargs...)
-		s = calculateStats(args...)
-		scatter!(p, s[:,3], s[:,4], label=lbl; ms=6, kwargs...)
-		scatter!(pn, 1000*s[:,3]./s[:,1].^2, s[:,4], label=lbl; ms=6, kwargs...)
+		s, Vs = calculateStats(args...)
+		# # Old: plot all voltages together
+		# scatter!(p, s[:,3], s[:,4], label=lbl; ms=6, kwargs...)
+		# scatter!(pn, 1000*s[:,3]./s[:,1].^2, s[:,4], label=lbl; ms=6, kwargs...)
+		# New: group by voltage
+		uVs = unique(Vs)
+		for uV in uVs
+			lbl2 = string(lbl, " ", convert(Int,uV),"V")
+			inds = Vs .== uV
+			scatter!(p, s[inds,3], s[inds,4], label=lbl2; ms=6, kwargs...)
+			scatter!(pn, 1000*s[inds,3]./s[inds,1].^2, s[inds,4], label=lbl2; ms=6, kwargs...)
+		end
 	end
 	# addToPlot!(p1, p3, "hb 1a1", mop, "data/normstroke/Param opt manuf 2 - halfbee1 a1.csv", wingDims["1a"]...)
-	addToPlot!(p1, p3, "sdab1", mop, "data/normstroke/Param opt manuf 2 - sdab1.csv", wingDims["1a"]...; markershape=:circle)
+	addToPlot!(p1, p3, "orig", mop, "data/normstroke/Param opt manuf 2 - sdab1.csv", wingDims["1a"]...; markershape=:circle)
 	# addToPlot!(p1, p3, "sdab1", mop, "data/normstroke/Param opt manuf 2 - beckysdab.csv", wingDims["1a"]...; markershape=:circle)
-	addToPlot!(p1, p3, "mod1 1a1", mop, "data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv", wingDims["1a"]...; markershape=:rect)
+	# addToPlot!(p1, p3, "modreg", mop, "data/normstroke/Param opt manuf 2 - mod1 a1 redo.csv", wingDims["1a"]...; markershape=:rect)
+	# ^ was originally included
 	# addToPlot!(p1, p3, "mod1 4b1", mop,  "data/normstroke/Param opt manuf 2 - mod4 b h1.csv", wingDims["4b"]...; markershape=:dtriangle)
-	addToPlot!(p1, p3, "mod1 4b2", mop,  "data/normstroke/Param opt manuf 2 - mod4 b h2.csv", wingDims["4b"]...; markershape=:utriangle)
-	addToPlot!(p2, p4, "bigbee orig", mop, "data/normstroke/Param opt manuf 2 - bigbee orig.csv", wingDims["bigbee"]...)
-	addToPlot!(p2, p4, "bigbee 1b", mop,  "data/normstroke/Param opt manuf 2 - bigbee b1.csv", wingDims["1b"]...; markershape=:rect)
-	addToPlot!(p2, p4, "bigbee 4l", mop, "data/normstroke/Param opt manuf 2 - bigbee 4l3.csv", wingDims["4l"]...; markershape=:utriangle)
-	# addToPlot!(p2, p4, "bbx 1al", mop, "data/normstroke/Param opt manuf 2 - bbx 1alx2.csv", wingDims["1alx2"]...; markershape=:star5)
-	# addToPlot!(p2, p4, "bbx o", mop,  "data/normstroke/Param opt manuf 2 - bbx bborig.csv", wingDims["bigbee"]...; markershape=:dtriangle)
-	# addToPlot!(p2, p4, "bbx 4l", mop, "data/normstroke/Param opt manuf 2 - bbx 4l3.csv", wingDims["4l"]...; markershape=:dtriangle)
-	addToPlot!(p2, p4, "bigbee oA", mop,  "data/normstroke/Param opt manuf 2 - bigbee originalA.csv", wingDims["bigbee"]...; markershape=:dtriangle)
-	# addToPlot!(p2, p4, "bigbee 1al", mop,  "data/normstroke/Param opt manuf 2 - bigbee 1al.csv", wingDims["1al"]...; markershape=:dtriangle)
+	addToPlot!(p1, p3, "modhAR", mop,  "data/normstroke/Param opt manuf 2 - mod4 b h2.csv", wingDims["4b"]...; markershape=:utriangle)
 
-	plot(p1, p3, p2, p4, size=(800,500))
+	if includeBigbee
+		p2 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="BigBee actuator")
+		p4 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow (S*V*f)", legend=false)
+		addToPlot!(p2, p4, "bigbee orig", mop, "data/normstroke/Param opt manuf 2 - bigbee orig.csv", wingDims["bigbee"]...)
+		addToPlot!(p2, p4, "bigbee 1b", mop,  "data/normstroke/Param opt manuf 2 - bigbee b1.csv", wingDims["1b"]...; markershape=:rect)
+		addToPlot!(p2, p4, "bigbee 4l", mop, "data/normstroke/Param opt manuf 2 - bigbee 4l3.csv", wingDims["4l"]...; markershape=:utriangle)
+		# addToPlot!(p2, p4, "bbx 1al", mop, "data/normstroke/Param opt manuf 2 - bbx 1alx2.csv", wingDims["1alx2"]...; markershape=:star5)
+		# addToPlot!(p2, p4, "bbx o", mop,  "data/normstroke/Param opt manuf 2 - bbx bborig.csv", wingDims["bigbee"]...; markershape=:dtriangle)
+		# addToPlot!(p2, p4, "bbx 4l", mop, "data/normstroke/Param opt manuf 2 - bbx 4l3.csv", wingDims["4l"]...; markershape=:dtriangle)
+		addToPlot!(p2, p4, "bigbee oA", mop,  "data/normstroke/Param opt manuf 2 - bigbee originalA.csv", wingDims["bigbee"]...; markershape=:dtriangle)
+		# addToPlot!(p2, p4, "bigbee 1al", mop,  "data/normstroke/Param opt manuf 2 - bigbee 1al.csv", wingDims["1al"]...; markershape=:dtriangle)
+		plot(p1, p3, p2, p4, size=(800,500))
+	else
+		plot(p1, p3, size=(800,250))
+	end
 end
 
 normStrokeSDAB(mop) = plot(
@@ -283,7 +299,7 @@ normStrokeSDAB(mop) = plot(
 		# (readOLExpCSV("data/normstroke/Param opt manuf 2 - beckysdab.csv")..., [], :circle); 
 		title="Wing 1A1"), 
 	olExpPlot2(mop, 
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h2.csv")..., wingDims["4b2"], [120,150,200], :utriangle, τCOEFFS_MOD1),
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h2.csv")..., wingDims["4b2"], [120,150,190], :utriangle, τCOEFFS_MOD1),
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 4b1.csv")..., wingDims["4b"], [120,150,190], :+, τCOEFFS_SDAB),
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h1.csv")..., wingDims["4b"], [120,140,160], :dtriangle, τCOEFFS_MOD1);
 		title="Wing 4B1"),
@@ -299,15 +315,105 @@ normStrokeBigBee(mop) = plot(
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - bigbee originalA.csv")..., wingDims["bigbee"], [], :star5, τCOEFFS_BB); 
 		title="BigBee", ulim=0.75), 
 	size=(600,400))
+##
 
+"""Use an open-loop sim to test for the nonlin transmission by producing normalized stroke, act disp, as well as lift/power dots.
+WARNING: this overwrites POPTS"""
+function openLoopTestTransmission(m, opt, param0)
+
+	# # limit different params for component-wise optimization debugging
+	# POPTS.plimsL .= copy(param0)
+	# POPTS.plimsU .= copy(param0)
+	# # Allow change in T1, Aw, mw
+	# POPTS.plimsL[]
+
+	"Returns strokeAmp, pitchAmp, actDisp, lift, power, "
+	function getResp(f, uamp, nlt, lin)
+		param = copy(param0)
+		if nlt==1
+			# this results in uinf = 73 but has nonlin transmission
+			# ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 150; Φ=90, Qdt=3e4)
+			param = [17.117, 2.469, 0.637, 4.477, 4.929, 70.894, 0.07] # 130, phi75
+		elseif nlt==2
+			param = [13.881, 2.469, 0.706, 2.867, 4.939, 78.581, 0.089] #1e3
+		elseif nlt==3
+			param = [12.637, 2.469, 0.632, 3.518, 4.939, 57.611, 0.068]
+		elseif nlt==4
+			param = [11.599, 2.469, 0.627, 3.348, 4.937, 54.311, 0.066]
+			# param[3] = 0.75 # mw
+			# param[2] *= 0.9
+			# param[5] = 2*param[2]
+		end
+		if lin
+			param[5] = 0
+		end
+		# println(param0, " ", param)
+		ts = createInitialTraj(m, opt, 80, f, [1e3, 1e2], param, 212; uampl=uamp, trajstats2=true, h3=0.1)
+		# To test, also use the amplitudes (same process as the lift/power estimates from data)
+		Aw = param[6]
+		cbar2 = param[1]
+		Lw = Aw / sqrt(cbar2)
+		return [ts; statsFromAmplitudes(m, opt, param, rad2deg.(ts[1:2]), param[6], Lw, f*1e3, uamp)]
+	end
+	fs = 0.03:0.01:0.22
+	mN_PER_V = 75/180
+	rightplot = false
+
+	p1 = plot(ylabel=rightplot ? "" : "Norm. stroke ampl [deg/V]", ylims=(0.3,0.8), legend=:topleft)
+	p2 = plot(xlabel="Freq [kHz]", ylabel="Pitch ampl [deg]", legend=false, ylims=(0,80))
+	p3 = plot(ylabel=rightplot ? "" : "Act. disp [mm]", legend=false, xlabel="Freq [kHz]")
+	# if rightplot
+	# 	yaxis!(p1, false)
+	# 	yaxis!(p3, false)
+	# end
+	p4 = plot(xlabel="Lift [mg]", ylabel="Power [mW]", legend=false)
+	p5 = plot(xlabel="lift est", ylabel="power est")
+	mss = [:circle, :utriangle, :dtriangle, :star, :rect]
+
+	function plotForTrans(nlt, Vamp, lin=false)
+		nltstr = nlt == 0 ? "Orig" : string(nlt, lin ? "L" : "N")
+		actdisps = Dict{Float64, Float64}()
+		ms = mss[nlt+1]
+		lbl = string(nltstr, " ", Vamp,"V")
+		
+		println("Openloop @ ", Vamp, "V ", nltstr)
+		uamp = Vamp*mN_PER_V
+		amps = hcat(getResp.(fs, uamp, nlt, lin)...)
+		amps[1:2,:] *= 180/pi # to degrees
+		amps[1,:] /= (Vamp) # normalize
+		amps[2,:] /= 2.0 # hinge ampl one direction
+		# println(amps)
+		plot!(p1, fs, amps[1,:], lw=2, label=lbl, markershape=ms)
+		plot!(p2, fs, amps[2,:], lw=2, label=lbl, markershape=ms)
+		plot!(p3, fs, amps[3,:], lw=2, label=lbl, markershape=ms)
+		# pick the one that produced the max lift
+		imax = argmax(amps[4,:])
+		scatter!(p4, [amps[4,imax]], [amps[5,imax]], label=lbl, markershape=ms, markersize=(nlt==0 || lin) ? 4 : 8)
+		# scatter!(p5, [amps[6,imax]], [amps[7,imax]], label=lbl, markershape=ms)
+	end
+
+	plotForTrans(0, 178)
+	plotForTrans(1, 230)
+	# plotForTrans(2, 215)
+	plotForTrans(3, 190)
+	plotForTrans(4, 183)
+	plotForTrans(1, 215, true)
+	# plotForTrans(2, 200, true)
+	plotForTrans(3, 180, true)
+	plotForTrans(4, 172, true)
+
+	return plot(p1, p2, p3, p4, size=(600,500))
+end
 # --------------------------------------------------------
 mop = (m, opt, param0)
 
 # liftPowerPlot(mop)
 
-normStrokeSDAB(mop)
+# normStrokeSDAB(mop)
 # normStrokeBigBee(mop)
 
 # openLoopPlotFinal(mop...)
 
-gui()
+openLoopTestTransmission(mop...)
+
+# gui()

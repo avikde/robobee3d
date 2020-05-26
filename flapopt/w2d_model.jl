@@ -167,7 +167,7 @@ end
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, h3=0.0, h2=0.0, posctrl=false, makeplot=false, trajstats=false, simdt=0.02, verbose=true, rawtraj=false, phaseoffs=0, dcoffs=0)
+function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, h3=0.0, h2=0.0, posctrl=false, makeplot=false, trajstats=false, trajstats2=false, simdt=0.02, verbose=true, rawtraj=false, phaseoffs=0, dcoffs=0)
     # Create a traj
     φampl = 0.6 # output, only used if posctrl=true
     tend = 100.0 # [ms]
@@ -198,7 +198,7 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     #     drawFrame(m, yk, uk, params)
     # end
     #
-    if trajstats
+    function calcTrajAmplitudes()
         # don't return dirtran traj; only traj stats
         Nend = 1000
         solend = hcat(sol.u[end-Nend+1:end]...) # (ny,N) shaped
@@ -206,6 +206,9 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
         campl = k -> vecrange(solend[k,:])
         σa = [cu.transmission(m, solend[:,k], params; o2a=true)[1][1] for k=1:Nend]
         return [campl(1), campl(3), vecrange(σa)/2] # stroke, hinge ampl, act disp ampl
+    end
+    if trajstats
+        return calcTrajAmplitudes()
     end
     if makeplot
         # Plot
@@ -229,6 +232,10 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     olTrajaa = hcat([spl[i](trajt) for i=1:ny]...) # ny arrays of size N each -> (N,ny)
     olTraju = [controller(olTrajaa[k,:], trajt[k]) for k in 1:N] # get u1,...,uN
     traj0 = [olTrajaa'[:]; olTraju] # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
+
+    if trajstats2
+        return [calcTrajAmplitudes(); avgLift(m, opt, traj0, params); trajMechPow(m, opt, traj0, params)]
+    end
 
     # Some printing
     δt = trajt[2] - trajt[1]
