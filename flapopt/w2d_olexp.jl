@@ -333,7 +333,7 @@ function openLoopTestTransmission(m, opt, param0)
 		if nlt==1
 			# this results in uinf = 73 but has nonlin transmission
 			# ret2 = @time opt1(m, ret1["traj"], ret1["param"], 1, 150; Φ=90, Qdt=3e4)
-			param = [12.439, 2.469, 0.617, 2.833, 4.939, 64.659, 0.073]
+			param = [17.117, 2.469, 0.637, 4.477, 4.929, 70.894, 0.07] # 130, phi75
 		elseif nlt==2
 			param = [13.881, 2.469, 0.706, 2.867, 4.939, 78.581, 0.089] #1e3
 		elseif nlt==3
@@ -390,7 +390,7 @@ function openLoopTestTransmission(m, opt, param0)
 	end
 
 	plotForTrans(0, 178)
-	plotForTrans(1, 190)
+	plotForTrans(1, 230)
 	plotForTrans(2, 215)
 	plotForTrans(3, 190)
 	plotForTrans(4, 183)
