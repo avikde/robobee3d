@@ -328,7 +328,7 @@ function openLoopTestTransmission(m, opt, param0)
 	# POPTS.plimsL[]
 
 	"Returns strokeAmp, pitchAmp, actDisp, lift, power, "
-	function getResp(f, uamp, nlt)
+	function getResp(f, uamp, nlt, lin)
 		param = copy(param0)
 		if nlt==1
 			# this results in uinf = 73 but has nonlin transmission
@@ -344,6 +344,9 @@ function openLoopTestTransmission(m, opt, param0)
 			# param[2] *= 0.9
 			# param[5] = 2*param[2]
 		end
+		if lin
+			param[5] = 0
+		end
 		# println(param0, " ", param)
 		ts = createInitialTraj(m, opt, 80, f, [1e3, 1e2], param, 212; uampl=uamp, trajstats2=true, h3=0.1)
 		# To test, also use the amplitudes (same process as the lift/power estimates from data)
@@ -352,30 +355,30 @@ function openLoopTestTransmission(m, opt, param0)
 		Lw = Aw / sqrt(cbar2)
 		return [ts; statsFromAmplitudes(m, opt, param, rad2deg.(ts[1:2]), param[6], Lw, f*1e3, uamp)]
 	end
-	fs = 0.05:0.01:0.22
+	fs = 0.03:0.01:0.22
 	mN_PER_V = 75/180
 	rightplot = false
 
-	p1 = plot(ylabel=rightplot ? "" : "Norm. stroke ampl [deg/V]", ylims=(0.3,0.8), legend=false, title=rightplot ? "High inertia" : "Low inertia")
-	p2 = plot(xlabel="Freq [kHz]", ylabel="Hinge ampl [deg]", legend=false, ylims=(0,100))
-	p3 = plot(ylabel=rightplot ? "" : "Act. disp [um]", legend=rightplot ? false : :topleft, xlabel="Freq [kHz]")
+	p1 = plot(ylabel=rightplot ? "" : "Norm. stroke ampl [deg/V]", ylims=(0.3,0.8), legend=:topleft)
+	p2 = plot(xlabel="Freq [kHz]", ylabel="Pitch ampl [deg]", legend=false, ylims=(0,80))
+	p3 = plot(ylabel=rightplot ? "" : "Act. disp [mm]", legend=false, xlabel="Freq [kHz]")
 	# if rightplot
 	# 	yaxis!(p1, false)
 	# 	yaxis!(p3, false)
 	# end
-	p4 = plot(xlabel="lift", ylabel="power")
+	p4 = plot(xlabel="Lift [mg]", ylabel="Power [mW]", legend=false)
 	p5 = plot(xlabel="lift est", ylabel="power est")
 	mss = [:circle, :utriangle, :dtriangle, :star, :rect]
 
-	function plotForTrans(nlt, Vamp; T1scales=nothing)
-		nltstr = nlt == 0 ? "L" : string(nlt)
+	function plotForTrans(nlt, Vamp, lin=false)
+		nltstr = nlt == 0 ? "Orig" : string(nlt, lin ? "L" : "N")
 		actdisps = Dict{Float64, Float64}()
 		ms = mss[nlt+1]
 		lbl = string(nltstr, " ", Vamp,"V")
 		
 		println("Openloop @ ", Vamp, "V ", nltstr)
 		uamp = Vamp*mN_PER_V
-		amps = hcat(getResp.(fs, uamp, nlt)...)
+		amps = hcat(getResp.(fs, uamp, nlt, lin)...)
 		amps[1:2,:] *= 180/pi # to degrees
 		amps[1,:] /= (Vamp) # normalize
 		amps[2,:] /= 2.0 # hinge ampl one direction
@@ -385,17 +388,21 @@ function openLoopTestTransmission(m, opt, param0)
 		plot!(p3, fs, amps[3,:], lw=2, label=lbl, markershape=ms)
 		# pick the one that produced the max lift
 		imax = argmax(amps[4,:])
-		scatter!(p4, [amps[4,imax]], [amps[5,imax]], label=lbl, markershape=ms)
-		scatter!(p5, [amps[6,imax]], [amps[7,imax]], label=lbl, markershape=ms)
+		scatter!(p4, [amps[4,imax]], [amps[5,imax]], label=lbl, markershape=ms, markersize=(nlt==0 || lin) ? 4 : 8)
+		# scatter!(p5, [amps[6,imax]], [amps[7,imax]], label=lbl, markershape=ms)
 	end
 
 	plotForTrans(0, 178)
 	plotForTrans(1, 230)
-	plotForTrans(2, 215)
+	# plotForTrans(2, 215)
 	plotForTrans(3, 190)
 	plotForTrans(4, 183)
+	plotForTrans(1, 215, true)
+	# plotForTrans(2, 200, true)
+	plotForTrans(3, 180, true)
+	plotForTrans(4, 172, true)
 
-	return plot(p1, p2, p3, p4, p5, size=(1000,600))
+	return plot(p1, p2, p3, p4, size=(600,500))
 end
 # --------------------------------------------------------
 mop = (m, opt, param0)
