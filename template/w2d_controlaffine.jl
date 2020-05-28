@@ -59,7 +59,7 @@ function runSim(ca::ControlAffine, y0, tend, controller; simdt=0.1, udt=1)
 
 		if t > lastUUpdate + udt
 			append!(Uts, t)
-			push!(Us, controller(ca, t, udt, y))
+			push!(Us, controller(ca, t, udt, y, isempty(Us) ? zeros(2) : Us[end]))
 			lastUUpdate = t
 		end
 
@@ -148,7 +148,7 @@ model = qpSetupDense(1, 1)
 # 	return res.x
 # end
 "Wrench-tracking version"
-function cavController(ca, t, dt, y)
+function cavController(ca, t, dt, y, uprev)
 	wdes = [1.0*(10 - y[1]) - 20.0*y[2]] # Fz
 	wy = [1.]
 	ft = [0.]
@@ -324,7 +324,7 @@ model = qpSetupDense(2, 2)
 # 	return res.x
 # end
 "New wrench linearization generalized version"
-function capController(ca, t, dt, y)
+function capController(ca, t, dt, y, uprev)
 	# Task
 	Qd = [0.,1.,1.]
 	y1des = 10
@@ -349,8 +349,7 @@ function capController(ca, t, dt, y)
 	OSQP.update!(model, Px=P[triu!(trues(size(P)),0)], q=q, l=l, u=u)
 	res = OSQP.solve!(model)
 	du = res.x
-	u0 = zeros(2) # FIXME:
-	return u0 + du
+	return uprev + du
 end
 # # MPC N=1 --------------------------
 # # Increased size: now x=[uA0, uA1]
