@@ -328,7 +328,8 @@ function capController(ca, t, dt, y, uprev)
 	# Task
 	Qd = [0.,1.,1.]
 	y1des = 10
-	pdes = [0.0,100.,100.0*(y[1] - y1des)-1000.0*y[3]]
+	# pdes = [0.0,10.,10.0*(y[1] - y1des)-500.0*y[3]]
+	pdes = [0.0,1000.,-1000.0*y[3]]
 
 	# special case
 	M0, h0, B0 = dynamicsTerms(ca, y)
@@ -343,8 +344,8 @@ function capController(ca, t, dt, y, uprev)
 	# wdes = [1.0,0.0] # Fz,Rx
 	P = A1' * Diagonal(Qd) * A1
 	q = A1' * Diagonal(Qd) * (a0 - pdes)
-	u = [0.1,0.1]
-	l = -[0.1,0.1]
+	u = [100.,100.]
+	l = -[100.,100.]
 	# update OSQP
 	OSQP.update!(model, Px=P[triu!(trues(size(P)),0)], q=q, l=l, u=u)
 	res = OSQP.solve!(model)
