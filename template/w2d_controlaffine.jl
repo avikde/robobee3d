@@ -199,12 +199,7 @@ function aeroWrenchAffine(f)
 	return [Fz, ycp*Fz]
 end
 
-"Returns a0, a1, s.t. ddq = a0 + a1 * u. Here u = Φ^2"
-function caddq(m::CARollPlane, y)
-	# TODO: freq in input
-	fL = 0.15
-	fR = 0.15
-
+function dynamicsTerms(m::CARollPlane, y)
 	# dynamics
 	mb = 100 #[mg]
 	ib = 3333 #[mg-mm^2]
@@ -214,12 +209,22 @@ function caddq(m::CARollPlane, y)
 	Mb = Diagonal([mb, mb, ib])
 	h = [0; mb*g; 0]
 	rot(x) = [cos(x) -sin(x); sin(x) cos(x)]
+	# TODO: freq in input
+	fL = 0.15
+	fR = 0.15
 	# now should be multiplied by u = [ΦL^2; ΦR^2]
-	totalWrenchAffine = hcat(aeroWrenchAffine(fL), Diagonal([1,-1]) * aeroWrenchAffine(fR)) # 2x2 matrix
+	S = hcat(aeroWrenchAffine(fL), Diagonal([1,-1]) * aeroWrenchAffine(fR)) # 2x2 matrix
+	B = [rot(y[3])[:,2] zeros(2,1); 0 1] * S
 
+	return Mb, h, B
+end
+
+"Returns a0, a1, s.t. ddq = a0 + a1 * u. Here u = Φ^2"
+function caddq(m::CARollPlane, y)
+	Mb, h, B = dynamicsTerms(m, y)
 	a0 = -Mb \ h # 3x1
 	# println("HI ", y[3])
-	a1 = Mb \ ([rot(y[3])[:,2] zeros(2,1); 0 1] * totalWrenchAffine) # this is now 3x2, should be multiplied by u = [ΦL^2; ΦR^2]
+	a1 = Mb \ B # this is now 3x2, should be multiplied by u = [ΦL^2; ΦR^2]
 	# display(totalWrenchAffine)
 	# display([rot(y[3])[:,1] zeros(2,1); 0 1])
 	# display(a1)
@@ -296,27 +301,56 @@ model = qpSetupDense(2, 2)
 # 	res = OSQP.solve!(model)
 # 	return res.x
 # end
-"Wrench-tracking version"
-function capController(ca, t, dt, y)
-	# TODO: freq in input
-	fL = 0.15
-	fR = 0.15
-	# now should be multiplied by u = [ΦL^2; ΦR^2]
-	W = hcat(aeroWrenchAffine(fL), Diagonal([1,-1]) * aeroWrenchAffine(fR)) # 2x2 matrix
+# "Wrench-tracking version"
+# function capController(ca, t, dt, y)
+# 	# TODO: freq in input
+# 	fL = 0.15
+# 	fR = 0.15
+# 	# now should be multiplied by u = [ΦL^2; ΦR^2]
+# 	W = hcat(aeroWrenchAffine(fL), Diagonal([1,-1]) * aeroWrenchAffine(fR)) # 2x2 matrix
 
+# 	# Task
+# 	y1des = 10
+# 	wdes = [1.0*(10 - y[2]) - 20.0*y[5], 0.1*(y[1] - y1des)-10.0*y[3] - 10*y[6]] # Fz,Rx
+# 	# wdes = [1.0,0.0] # Fz,Rx
+# 	wy = [1.,1.]
+# 	P = W' * Diagonal(wy) * W
+# 	q = W' * Diagonal(wy) * (-wdes)
+# 	l = zeros(2)
+# 	u = [200.0,200.0]
+# 	# update OSQP
+# 	OSQP.update!(model, Px=P[triu!(trues(size(P)),0)], q=q, l=l, u=u)
+# 	res = OSQP.solve!(model)
+# 	return res.x
+# end
+"New wrench linearization generalized version"
+function capController(ca, t, dt, y)
 	# Task
+	Qd = [0.,1.,1.]
 	y1des = 10
-	wdes = [1.0*(10 - y[2]) - 20.0*y[5], 0.1*(y[1] - y1des)-10.0*y[3] - 10*y[6]] # Fz,Rx
+	pdes = [0.0,100.,100.0*(y[1] - y1des)-1000.0*y[3]]
+
+	# special case
+	M0, h0, B0 = dynamicsTerms(ca, y)
+	p0 = M0 * y[4:6]
+	dw_du0 = I
+	w0 = y[7:end]
+
+	# general form TODO: move to a separate common function
+	a0 = p0 - dt * h0 + dt * B0 * w0
+	A1 = dt * B0 * dw_du0
+
 	# wdes = [1.0,0.0] # Fz,Rx
-	wy = [1.,1.]
-	P = W' * Diagonal(wy) * W
-	q = W' * Diagonal(wy) * (-wdes)
-	l = zeros(2)
-	u = [200.0,200.0]
+	P = A1' * Diagonal(Qd) * A1
+	q = A1' * Diagonal(Qd) * (a0 - pdes)
+	u = [0.1,0.1]
+	l = -[0.1,0.1]
 	# update OSQP
 	OSQP.update!(model, Px=P[triu!(trues(size(P)),0)], q=q, l=l, u=u)
 	res = OSQP.solve!(model)
-	return res.x
+	du = res.x
+	u0 = zeros(2) # FIXME:
+	return u0 + du
 end
 # # MPC N=1 --------------------------
 # # Increased size: now x=[uA0, uA1]
