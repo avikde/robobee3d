@@ -328,8 +328,7 @@ function capController(ca, t, dt, y, uprev)
 	# Task
 	Qd = [0.,1.,1.]
 	y1des = 10
-	# pdes = [0.0,10.,10.0*(y[1] - y1des)-500.0*y[3]]
-	pdes = [0.0,1000.,-1000.0*y[3]]
+	pdes = [0.0,10.0 * (10.0 - y[2]),20.0*(y[1] - y1des)-1000.0*y[3]]
 
 	# special case
 	M0, h0, B0 = dynamicsTerms(ca, y)
@@ -385,7 +384,7 @@ end
 # 	return res.x[1:2]
 # end
 
-tt, yy, tu, uu = runSim(cap, y0, 200, capController; udt=2)
+tt, yy, tu, uu = runSim(cap, y0, 500, capController; udt=2)
 # vf(y0, [], 0)
 
 # Plot
