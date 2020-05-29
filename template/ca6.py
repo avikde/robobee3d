@@ -10,6 +10,7 @@ import pybullet_data
 # Usage params
 TIMESTEP = 1
 SLOWDOWN = 0.01
+FAERO_DRAW_SCALE = 1.0
 # model params
 ycp = 10 # mm
 
@@ -35,17 +36,24 @@ bid = p.loadURDF("../urdf/sdabNW.urdf", startPos, startOrientation.as_quat(), us
 p.resetDebugVisualizerCamera(100, 45, -30, [0,0,0])#q[4:7])
 
 simt = 0
-tLastPrint = 0
+tLastDraw1 = 0
 
 def ca6ApplyInput(u):
     """Input vector https://github.com/avikde/robobee3d/pull/154"""
     u1L, u2L, u3L, u1R, u2R, u3R = u # unpack
-    p.applyExternalForce(bid, -1, [u3L,0,u1L], [u2L,ycp,0], p.LINK_FRAME)
-    p.applyExternalForce(bid, -1, [u3R,0,u1R], [u2R,-ycp,0], p.LINK_FRAME)
+    FL, pL = [u3L,0,u1L], [u2L,ycp,0]
+    FR, pR = [u3R,0,u1R], [u2R,-ycp,0]
+    p.applyExternalForce(bid, -1, FL, pL, p.LINK_FRAME)
+    p.applyExternalForce(bid, -1, FR, pR, p.LINK_FRAME)
+    return FL, pL, FR, pR
+
+def ca6DrawInput(FL, pL, FR, pR):
+    p.addUserDebugLine(pL, np.array(pL) + FAERO_DRAW_SCALE * np.array(FL), lineColorRGB=[1,1,0], lifeTime=TIMESTEP)
+    p.addUserDebugLine(pR, np.array(pR) + FAERO_DRAW_SCALE * np.array(FR), lineColorRGB=[1,0,1], lifeTime=TIMESTEP)
 
 while True:
     try:
-        ca6ApplyInput([10,0,0,10,0,0])
+        wrenches = ca6ApplyInput([10,0,0,10,0,0])
         # Bullet update
         p.stepSimulation()
         # if simt < 1 or _camLock:
@@ -54,13 +62,10 @@ while True:
 
         simt += TIMESTEP
 
-        # # Drawing stuff
-        # if simt - tLastDraw > 2 * self.TIMESTEP:
-        #     # draw debug
-        #     cols = [[1,1,0], [1,0,1]]
-        #     for i in range(2):
-        #         p.addUserDebugLine(pcops[i], pcops[i] + self.FAERO_DRAW_SCALE * Faeros[i], lineColorRGB=cols[i], lifeTime=3 * self._slowDown * self.TIMESTEP)
-        #     self.tLastDraw = self.simt
+        # Drawing stuff
+        if simt - tLastDraw1 > 2 * TIMESTEP:
+            ca6DrawInput(*wrenches)
+            tLastDraw = simt
         
         # if self.simt - self.tLastPrint > 0.01:
         #     # draw trail
@@ -70,9 +75,9 @@ while True:
             
         time.sleep(SLOWDOWN * TIMESTEP)
     
-        if simt - tLastPrint > 10:
-            # print(sim.simt, posErr)
-            tLastPrint = simt
+        # if simt - tLastPrint > 10:
+        #     # print(sim.simt, posErr)
+        #     tLastPrint = simt
     
     except KeyboardInterrupt:
         break
