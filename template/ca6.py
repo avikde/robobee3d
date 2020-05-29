@@ -85,6 +85,9 @@ def appendLog(t, pw, Rb, u):
     data['u'].append(u)
 
 def saveLog(f1):
+    for k in data.keys():
+        data[k] = np.array(data[k])
+
     t = time.localtime()
     timestamp = time.strftime('%Y%m%d%H%M%S', t)
     fname = f1 + 'ca6_' + timestamp + '.pkz'
@@ -98,6 +101,7 @@ while True:
     try:
         ss = getState()
         u = testControl(*ss)
+        appendLog(simt, *ss, u)
         wrenchesB = ca6ApplyInput(u)
         # Bullet update
         p.stepSimulation()
