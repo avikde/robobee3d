@@ -66,15 +66,24 @@ def transformWrenches(pw, Rb, FL, pL, FR, pR):
     # join tuples with +
     return wTb(pw, Rb, FL, pL) + wTb(pw, Rb, FR, pR)
 
+def testControl(pw, Rb):
+    # u = [1,0,0,1,0,0]
+    mm = 1.0
+    ezb = Rb.apply([0,0,1])
+    dd = ezb[1] * (1.0)
+    u = [mm + dd,0,0,mm-dd,0,0]
+    return u
+
 while True:
     try:
-        wrenchesB = ca6ApplyInput([1,0,0,1,0,0])
+        ss = getState()
+        u = testControl(*ss)
+        wrenchesB = ca6ApplyInput(u)
         # Bullet update
         p.stepSimulation()
         simt += TIMESTEP
         
         # Other updates
-        ss = getState()
         wrenchesW = transformWrenches(*ss, *wrenchesB)
 
         if True:#simt < 1 or _camLock:
