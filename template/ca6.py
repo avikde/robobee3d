@@ -1,4 +1,5 @@
 import time
+import gzip, pickle
 import numpy as np
 import sys
 from scipy.spatial.transform import Rotation
@@ -36,6 +37,8 @@ bid = p.loadURDF("../urdf/sdabNW.urdf", startPos, startOrientation.as_quat(), us
 
 simt = 0
 tLastDraw1 = 0
+# for logging
+data = {'t': [], 'q': [], 'u': []}
 
 def ca6ApplyInput(u):
     """Input vector https://github.com/avikde/robobee3d/pull/154"""
@@ -76,6 +79,21 @@ def testControl(pw, Rb):
     u = [mm + dd, pitchCtrl,0.0,mm-dd,pitchCtrl,-0.0]
     return u
 
+def appendLog(t, pw, Rb, u):
+    data['t'].append(t)
+    data['q'].append(np.hstack((pw, Rb.as_euler('xyz'))))
+    data['u'].append(u)
+
+def saveLog(f1):
+    t = time.localtime()
+    timestamp = time.strftime('%Y%m%d%H%M%S', t)
+    fname = f1 + 'ca6_' + timestamp + '.pkz'
+    zfile = gzip.GzipFile(fname, 'wb')
+    pickle.dump(data, zfile)
+    zfile.close()
+    print('Saved log in', fname)
+
+
 while True:
     try:
         ss = getState()
@@ -109,7 +127,8 @@ while True:
         #     # print(sim.simt, posErr)
         #     tLastPrint = simt
     
-    except KeyboardInterrupt:
+    except:
         break
     
+saveLog('../logs/')
 p.disconnect()

@@ -7,3 +7,4 @@ __pycache__/
 *.png
 h7bee/build
 g4bee/build
+logs/**
