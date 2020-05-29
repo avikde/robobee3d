@@ -31,7 +31,7 @@ planeId = p.loadURDF("plane.urdf", globalScaling=100.0)
 
 # load robot
 startPos = [0,0,20]
-startOrientation = Rotation.from_euler('x', 0.5)
+startOrientation = Rotation.from_euler('xy', [0.5,0.5])
 bid = p.loadURDF("../urdf/sdabNW.urdf", startPos, startOrientation.as_quat(), useFixedBase=False)
 
 simt = 0
@@ -71,7 +71,8 @@ def testControl(pw, Rb):
     mm = 1.0
     ezb = Rb.apply([0,0,1])
     dd = ezb[1] * (1.0)
-    u = [mm + dd,0,0,mm-dd,0,0]
+    pitchCtrl = ezb[0]
+    u = [mm + dd, pitchCtrl,0.0,mm-dd,pitchCtrl,-0.0]
     return u
 
 while True:
