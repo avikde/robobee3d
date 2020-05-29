@@ -48,23 +48,42 @@ def ca6ApplyInput(u):
     return FL, pL, FR, pR
 
 def ca6DrawInput(FL, pL, FR, pR):
-    p.addUserDebugLine(pL, np.array(pL) + FAERO_DRAW_SCALE * np.array(FL), lineColorRGB=[1,1,0], lifeTime=TIMESTEP)
-    p.addUserDebugLine(pR, np.array(pR) + FAERO_DRAW_SCALE * np.array(FR), lineColorRGB=[1,0,1], lifeTime=TIMESTEP)
+    lt = TIMESTEP * 0.04
+    p.addUserDebugLine(pL, np.array(pL) + FAERO_DRAW_SCALE * np.array(FL), lineColorRGB=[0,1,1], lifeTime=lt)
+    p.addUserDebugLine(pR, np.array(pR) + FAERO_DRAW_SCALE * np.array(FR), lineColorRGB=[1,0,1], lifeTime=lt)
+
+def getState():
+    # quat is in xyzw order (same as scipy.Rotation)
+    pcom, qorn = p.getBasePositionAndOrientation(bid)[0:2]
+    # self.dq[4:7], self.dq[7:10] = p.getBaseVelocity(bid)[0:2]
+    Rb = Rotation.from_quat(qorn)
+    return pcom, Rb
+
+def wTb(pw, Rb, Fb, pb):
+    "Transform wrench to world frame"
+    return Rb.apply(Fb), pw + Rb.apply(pb)
+
+def transformWrenches(pw, Rb, FL, pL, FR, pR):
+    # join tuples with +
+    return wTb(pw, Rb, FL, pL) + wTb(pw, Rb, FR, pR)
 
 while True:
     try:
-        wrenches = ca6ApplyInput([10,0,0,10,0,0])
+        wrenchesB = ca6ApplyInput([10,0,0,10,0,0])
         # Bullet update
         p.stepSimulation()
         # if simt < 1 or _camLock:
         #     # Reset camera to be at the correct distance (only first time)
         #     
-
         simt += TIMESTEP
+        
+        # Other updates
+        ss = getState()
+        wrenchesW = transformWrenches(*ss, *wrenchesB)
 
         # Drawing stuff
         if simt - tLastDraw1 > 2 * TIMESTEP:
-            ca6DrawInput(*wrenches)
+            ca6DrawInput(*wrenchesW)
             tLastDraw = simt
         
         # if self.simt - self.tLastPrint > 0.01:
