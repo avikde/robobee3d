@@ -10,7 +10,7 @@ import pybullet_data
 # Usage params
 TIMESTEP = 1
 SLOWDOWN = 0.01
-FAERO_DRAW_SCALE = 1.0
+FAERO_DRAW_SCALE = 10.0
 # model params
 ycp = 10 # mm
 
@@ -33,7 +33,6 @@ planeId = p.loadURDF("plane.urdf", globalScaling=100.0)
 startPos = [0,0,20]
 startOrientation = Rotation.from_euler('x', 0.5)
 bid = p.loadURDF("../urdf/sdabNW.urdf", startPos, startOrientation.as_quat(), useFixedBase=False)
-p.resetDebugVisualizerCamera(100, 45, -30, [0,0,0])#q[4:7])
 
 simt = 0
 tLastDraw1 = 0
@@ -69,17 +68,18 @@ def transformWrenches(pw, Rb, FL, pL, FR, pR):
 
 while True:
     try:
-        wrenchesB = ca6ApplyInput([10,0,0,10,0,0])
+        wrenchesB = ca6ApplyInput([1,0,0,1,0,0])
         # Bullet update
         p.stepSimulation()
-        # if simt < 1 or _camLock:
-        #     # Reset camera to be at the correct distance (only first time)
-        #     
         simt += TIMESTEP
         
         # Other updates
         ss = getState()
         wrenchesW = transformWrenches(*ss, *wrenchesB)
+
+        if True:#simt < 1 or _camLock:
+            # Reset camera to be at the correct distance (only first time)
+            p.resetDebugVisualizerCamera(100, 45, -30, ss[0])
 
         # Drawing stuff
         if simt - tLastDraw1 > 2 * TIMESTEP:
