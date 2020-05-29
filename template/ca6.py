@@ -5,6 +5,7 @@ import sys
 from scipy.spatial.transform import Rotation
 import pybullet as p
 import pybullet_data
+import viewlog
 # import SimInterface
 # import FlappingModels3D
 
@@ -37,8 +38,7 @@ bid = p.loadURDF("../urdf/sdabNW.urdf", startPos, startOrientation.as_quat(), us
 
 simt = 0
 tLastDraw1 = 0
-# for logging
-data = {'t': [], 'q': [], 'u': []}
+data = viewlog.initLog()
 
 def ca6ApplyInput(u):
     """Input vector https://github.com/avikde/robobee3d/pull/154"""
@@ -79,29 +79,11 @@ def testControl(pw, Rb):
     u = [mm + dd, pitchCtrl,0.0,mm-dd,pitchCtrl,-0.0]
     return u
 
-def appendLog(t, pw, Rb, u):
-    data['t'].append(t)
-    data['q'].append(np.hstack((pw, Rb.as_euler('xyz'))))
-    data['u'].append(u)
-
-def saveLog(f1):
-    for k in data.keys():
-        data[k] = np.array(data[k])
-
-    t = time.localtime()
-    timestamp = time.strftime('%Y%m%d%H%M%S', t)
-    fname = f1 + 'ca6_' + timestamp + '.pkz'
-    zfile = gzip.GzipFile(fname, 'wb')
-    pickle.dump(data, zfile)
-    zfile.close()
-    print('Saved log in', fname)
-
-
 while True:
     try:
         ss = getState()
         u = testControl(*ss)
-        appendLog(simt, *ss, u)
+        data = viewlog.appendLog(data, simt, *ss, u)
         wrenchesB = ca6ApplyInput(u)
         # Bullet update
         p.stepSimulation()
@@ -134,5 +116,5 @@ while True:
     except:
         break
     
-saveLog('../logs/')
-p.disconnect()
+viewlog.saveLog('../logs/', data)
+# p.disconnect()
