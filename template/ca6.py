@@ -48,8 +48,9 @@ def ca6ApplyInput(u):
 
 def ca6DrawInput(FL, pL, FR, pR):
     lt = TIMESTEP * 0.04
-    p.addUserDebugLine(pL, np.array(pL) + FAERO_DRAW_SCALE * np.array(FL), lineColorRGB=[0,1,1], lifeTime=lt)
-    p.addUserDebugLine(pR, np.array(pR) + FAERO_DRAW_SCALE * np.array(FR), lineColorRGB=[1,0,1], lifeTime=lt)
+    lw = 2
+    p.addUserDebugLine(pL, np.array(pL) + FAERO_DRAW_SCALE * np.array(FL), lineColorRGB=[1,0,1], lifeTime=lt, lineWidth=lw)
+    p.addUserDebugLine(pR, np.array(pR) + FAERO_DRAW_SCALE * np.array(FR), lineColorRGB=[1,0,0], lifeTime=lt, lineWidth=lw)
 
 def getState():
     # quat is in xyzw order (same as scipy.Rotation)
