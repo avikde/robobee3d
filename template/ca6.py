@@ -8,8 +8,10 @@ import pybullet_data
 # import FlappingModels3D
 
 # Usage params
-TIMESTEP = 0.1
+TIMESTEP = 1
 SLOWDOWN = 0.01
+# model params
+ycp = 10 # mm
 
 # Init sim
 physicsClient = p.connect(p.GUI)#or p.DIRECT for non-graphical version
@@ -35,8 +37,15 @@ p.resetDebugVisualizerCamera(100, 45, -30, [0,0,0])#q[4:7])
 simt = 0
 tLastPrint = 0
 
+def ca6ApplyInput(u):
+    """Input vector https://github.com/avikde/robobee3d/pull/154"""
+    u1L, u2L, u3L, u1R, u2R, u3R = u # unpack
+    p.applyExternalForce(bid, -1, [u3L,0,u1L], [u2L,ycp,0], p.LINK_FRAME)
+    p.applyExternalForce(bid, -1, [u3R,0,u1R], [u2R,-ycp,0], p.LINK_FRAME)
+
 while True:
     try:
+        ca6ApplyInput([10,0,0,10,0,0])
         # Bullet update
         p.stepSimulation()
         # if simt < 1 or _camLock:
