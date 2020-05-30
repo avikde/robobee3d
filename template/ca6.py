@@ -6,8 +6,7 @@ from scipy.spatial.transform import Rotation
 import pybullet as p
 import pybullet_data
 import viewlog
-# import SimInterface
-# import FlappingModels3D
+from wrenchlinQP import WrenchLinQP
 
 # Usage params
 TIMESTEP = 1
@@ -39,6 +38,29 @@ bid = p.loadURDF("../urdf/sdabNW.urdf", startPos, startOrientation.as_quat(), us
 simt = 0
 tLastDraw1 = 0
 data = viewlog.initLog()
+
+def dynamicsTerms(p, Rb, dq):
+    mb = 100
+    ixx = iyy = 3333
+    izz = 1000
+    g = 9.81e-3
+    M = np.diag([mb, mb, mb, ixx, iyy, izz])
+    h = np.hstack((Rb.inv().apply([0, 0, -mb * g]), np.zeros(3)))
+    B = np.eye(6)
+    return M, h, B
+
+# controller
+wlqp = WrenchLinQP(6,6)
+
+dq = np.zeros(6)
+M0, h0, B0 = dynamicsTerms(np.zeros(3), Rotation.from_euler('x', 0), dq)
+p0 = M0 @ dq
+dw_du0 = np.eye(6)
+dt = 2
+Qd = 0.1 * np.ones(6)
+pdes = np.array([0,0,10,0,0,0])
+w0 = np.zeros(6)
+print(wlqp.update(p0, h0, B0, w0, dw_du0, dt, Qd, pdes))
 
 def ca6ApplyInput(u):
     """Input vector https://github.com/avikde/robobee3d/pull/154"""
