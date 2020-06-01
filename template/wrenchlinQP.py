@@ -1,6 +1,9 @@
 import osqp
 import numpy as np
 import scipy.sparse as sp
+from scipy.spatial.transform import Rotation
+# TODO: this can be factorized
+from ca6dynamics import dynamicsTerms
 
 def qpSetupDense(n, m):
     "Helper to set up a dense QP"
@@ -34,4 +37,15 @@ class WrenchLinQP(object):
         self.model.update(Px=Px, q=q, l=l, u=u, Ax=np.ravel(A))
         res = self.model.solve()
         return res.x
+
+    def test(self):
+        dq = np.zeros(6)
+        M0, h0, B0 = dynamicsTerms(np.zeros(3), Rotation.from_euler('x', 0), dq)
+        p0 = M0 @ dq
+        dw_du0 = np.eye(6)
+        dt = 2
+        Qd = 0.1 * np.ones(6)
+        pdes = np.array([0,0,10,0,0,0])
+        w0 = np.zeros(6)
+        print(self.update(p0, h0, B0, w0, dw_du0, dt, Qd, pdes))
         
