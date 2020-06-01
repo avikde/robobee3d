@@ -7,13 +7,12 @@ import pybullet as p
 import pybullet_data
 import viewlog
 from wrenchlinQP import WrenchLinQP
+from ca6dynamics import ycp
 
 # Usage params
 TIMESTEP = 1
 SLOWDOWN = 0.01
 FAERO_DRAW_SCALE = 10.0
-# model params
-ycp = 10 # mm
 
 # Init sim
 physicsClient = p.connect(p.GUI)#or p.DIRECT for non-graphical version

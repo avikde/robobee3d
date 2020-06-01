@@ -1,4 +1,7 @@
-import numpy as np
+import autograd.numpy as np
+
+# model params
+ycp = 10 # mm
 
 # function aeroWrenchAffine(f)
 # 	# params?
@@ -23,6 +26,10 @@ import numpy as np
 # 	return [Fz, ycp*Fz]
 # end
 
+def wrenchMap(u):
+    u1L, u2L, u3L, u1R, u2R, u3R = u # unpack
+    return np.array([u3L + u3R, 0.0, u1L + u1R, 
+        (u1L - u1R) * ycp, -u1L*u2L - u1R*u2R, (-u3L + u3R)*ycp])
 
 def dynamicsTerms(p, Rb, dq):
     mb = 100
@@ -32,7 +39,7 @@ def dynamicsTerms(p, Rb, dq):
     M = np.diag([mb, mb, mb, ixx, iyy, izz])
     h = np.hstack((Rb.inv().apply([0, 0, -mb * g]), np.zeros(3)))
     B = np.eye(6)
-    # TODO: fixB
+    # FIXME: don't actually need B, since wrenchMap(u) is sort of like B??
 	# rot(x) = [cos(x) -sin(x); sin(x) cos(x)]
 	# fL = 0.15
 	# fR = 0.15
