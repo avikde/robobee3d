@@ -368,6 +368,8 @@ function openLoopTestTransmission(m, opt, param0)
 	# end
 	p4 = plot(xlabel="Lift [mg]", ylabel="Power [mW]", legend=false)
 	p5 = plot(xlabel="lift est", ylabel="power est")
+	p6 = plot(xlabel="Freq [kHz]", ylabel="Lift [mg]", legend=false)
+	p7 = plot(xlabel="Freq [kHz]", ylabel="Power [mW]", legend=false)
 	mss = [:circle, :utriangle, :dtriangle, :star, :rect]
 
 	function plotForTrans(nlt, Vamp, lin=false; powplot=false)
@@ -386,10 +388,12 @@ function openLoopTestTransmission(m, opt, param0)
 		plot!(p1, fs, amps[1,:], lw=2, label=lbl, markershape=ms)
 		plot!(p2, fs, amps[2,:], lw=2, label=lbl, markershape=ms)
 		plot!(p3, fs, amps[3,:], lw=2, label=lbl, markershape=ms)
+		plot!(p6, fs, amps[4,:], lw=2, label=lbl, markershape=ms)
+		plot!(p7, fs, amps[5,:], lw=2, label=lbl, markershape=ms)
 		# pick the one that produced the max lift
 		imax = argmax(amps[4,:])
 		scatter!(p4, [amps[4,imax]], [amps[5,imax]], label=lbl, markershape=ms, markersize=(nlt==0 || lin) ? 4 : 8)
-		println(nlt, " max at ", amps[:,imax])
+		# println(nlt, " max at f=", fs[imax], ", Vamp=", Vamp, " ", imax, " ", amps[4,:])
 		# scatter!(p5, [amps[6,imax]], [amps[7,imax]], label=lbl, markershape=ms)
 	end
 
@@ -403,7 +407,8 @@ function openLoopTestTransmission(m, opt, param0)
 	plotForTrans(3, 180, true)
 	plotForTrans(4, 172, true)
 
-	return plot(p1, p2, p3, p4, size=(600,500))
+	# return plot(p1, p2, p3, p4, size=(600,500))
+	return plot(p1, p2, p3, p4, p6,p7, size=(600,500))
 end
 # --------------------------------------------------------
 mop = (m, opt, param0)
