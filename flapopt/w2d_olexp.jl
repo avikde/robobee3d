@@ -328,7 +328,7 @@ function openLoopTestTransmission(m, opt, param0)
 	# POPTS.plimsL[]
 
 	"Returns strokeAmp, pitchAmp, actDisp, lift, power, "
-	function getResp(f, uamp, nlt, lin)
+	function getResp(f, uamp, nlt, lin, powplot=false)
 		param = copy(param0)
 		if nlt==1
 			# this results in uinf = 73 but has nonlin transmission
@@ -348,7 +348,7 @@ function openLoopTestTransmission(m, opt, param0)
 			param[5] = 0
 		end
 		# println(param0, " ", param)
-		ts = createInitialTraj(m, opt, 80, f, [1e3, 1e2], param, 212; uampl=uamp, trajstats2=true, h3=0.1)
+		ts = createInitialTraj(m, opt, 80, f, [1e3, 1e2], param, 212; uampl=uamp, trajstats2=true, h3=0.1, powplot=powplot)
 		# To test, also use the amplitudes (same process as the lift/power estimates from data)
 		Aw = param[6]
 		cbar2 = param[1]
@@ -370,7 +370,7 @@ function openLoopTestTransmission(m, opt, param0)
 	p5 = plot(xlabel="lift est", ylabel="power est")
 	mss = [:circle, :utriangle, :dtriangle, :star, :rect]
 
-	function plotForTrans(nlt, Vamp, lin=false)
+	function plotForTrans(nlt, Vamp, lin=false; powplot=false)
 		nltstr = nlt == 0 ? "Orig" : string(nlt, lin ? "L" : "N")
 		actdisps = Dict{Float64, Float64}()
 		ms = mss[nlt+1]
@@ -378,7 +378,7 @@ function openLoopTestTransmission(m, opt, param0)
 		
 		println("Openloop @ ", Vamp, "V ", nltstr)
 		uamp = Vamp*mN_PER_V
-		amps = hcat(getResp.(fs, uamp, nlt, lin)...)
+		amps = hcat(getResp.(fs, uamp, nlt, lin, powplot)...)
 		amps[1:2,:] *= 180/pi # to degrees
 		amps[1,:] /= (Vamp) # normalize
 		amps[2,:] /= 2.0 # hinge ampl one direction
@@ -389,6 +389,7 @@ function openLoopTestTransmission(m, opt, param0)
 		# pick the one that produced the max lift
 		imax = argmax(amps[4,:])
 		scatter!(p4, [amps[4,imax]], [amps[5,imax]], label=lbl, markershape=ms, markersize=(nlt==0 || lin) ? 4 : 8)
+		println(nlt, " max at ", amps[:,imax])
 		# scatter!(p5, [amps[6,imax]], [amps[7,imax]], label=lbl, markershape=ms)
 	end
 

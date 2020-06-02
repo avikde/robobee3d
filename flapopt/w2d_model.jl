@@ -167,7 +167,7 @@ end
 freq [kHz]; posGains [mN/mm, mN/(mm-ms)]; [mm, 1]
 Example: trajt, traj0 = Wing2DOF.createInitialTraj(0.15, [1e3, 1e2], params0)
 """
-function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, h3=0.0, h2=0.0, posctrl=false, makeplot=false, trajstats=false, trajstats2=false, simdt=0.02, verbose=true, rawtraj=false, phaseoffs=0, dcoffs=0)
+function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::Real, posGains::Vector, params::Vector, starti; uampl=65, h3=0.0, h2=0.0, posctrl=false, makeplot=false, trajstats=false, trajstats2=false, simdt=0.02, verbose=true, rawtraj=false, phaseoffs=0, dcoffs=0, powplot=false)
     # Create a traj
     φampl = 0.6 # output, only used if posctrl=true
     tend = 100.0 # [ms]
@@ -234,6 +234,18 @@ function createInitialTraj(m::Wing2DOFModel, opt::cu.OptOptions, N::Int, freq::R
     traj0 = [olTrajaa'[:]; olTraju] # dirtran form {x1,..,x(N+1),u1,...,u(N),δt}
 
     if trajstats2
+        if powplot
+	        ny, nu, N, δt, liy, liu = cu.modelInfo(m, opt, traj0)
+            actvel = zeros(N)
+            actu = zeros(N)
+            for k=1:N
+                T = cu.transmission(m, traj0[liy[:,k]], params; o2a=true)[2]
+                actvel[k] = traj0[liy[3,k]]/T * actu[liu[1,k]]
+            end
+            pl = plot(trajt, actvel, label="actvel")
+            plot!(pl, trajt, actu, label="actu")
+            return pl
+        end
         return [calcTrajAmplitudes(); avgLift(m, opt, traj0, params); trajMechPow(m, opt, traj0, params)]
     end
 
