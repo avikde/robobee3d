@@ -118,17 +118,26 @@ function Tdebug(ret1, minal, Φ, Qdt)
 	mp(ret) = mean(cu.ramp.(ret["mechPow"]))
 	mact(ret) = ret["u∞"] * ret["δact"]
 
-	return [retNL["al"]  retL["al"]; 
-		mp(retNL)  mp(retL)] * Diagonal([1/mact(retNL), 1/mact(retL)])
+	return [Qdt, retNL["al"]/mact(retNL),  retL["al"]/mact(retL), mp(retNL),  mp(retL)]
 end
 
-function TdebugPlot!(pl, R)
-	scatter!(pl, [R[1,1]], [R[2,1]], label="NL")
-	scatter!(pl, [R[1,2]], [R[2,2]], label="L")
-end
-#
-pl = scatter(xlabel="Lift/mact", ylabel="Pow/mact")
-TdebugPlot!(pl, Tdebug(ret1, 130, 75, 3e4))
+res = hcat([Tdebug(ret1, 130, nothing, Qdt) for Qdt in range(1e3,1e5,length=10)]...)
+## 
+
+p1 = plot(res[1,:], res[2,:], xlabel="Qdt", ylabel="sp lift", label="NL")
+plot!(p1, res[1,:], res[3,:], label="L")
+
+p2 = plot(res[1,:], res[4,:], xlabel="Qdt", ylabel="pow", label="NL")
+plot!(p2, res[1,:], res[5,:], label="L")
+plot(p1, p2, layout=(2,1))
+# function TdebugPlot!(pl, R)
+	
+# 	scatter!(pl, [R[1,1]], [R[2,1]], label="NL")
+# 	scatter!(pl, [R[1,2]], [R[2,2]], label="L")
+# end
+# #
+# pl = scatter(xlabel="Lift/mact", ylabel="Pow/mact")
+# TdebugPlot!(pl, Tdebug(ret1, 130, 75, 3e4))
 # pls = debugComponentsPlot(m, opt, POPTS, ret2)
 # plot(pls..., size=(800,600))
 # gui()
