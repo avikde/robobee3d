@@ -5,11 +5,12 @@ import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation
 
 def initLog():
-    return {'t': [], 'q': [], 'u': []}
+    return {'t': [], 'q': [], 'v': [], 'u': []}
 
-def appendLog(data, t, pw, Rb, u):
+def appendLog(data, t, pw, Rb, v, omega, u):
     data['t'].append(t)
     data['q'].append(np.hstack((pw, Rb.as_euler('xyz'))))
+    data['v'].append(np.hstack((v, omega)))
     data['u'].append(u)
     return data
 

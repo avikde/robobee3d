@@ -60,9 +60,13 @@ def ca6DrawInput(FL, pL, FR, pR):
 def getState():
     # quat is in xyzw order (same as scipy.Rotation)
     pcom, qorn = p.getBasePositionAndOrientation(bid)[0:2]
-    # self.dq[4:7], self.dq[7:10] = p.getBaseVelocity(bid)[0:2]
     Rb = Rotation.from_quat(qorn)
-    return pcom, Rb
+    # Get velocity
+    vW, omegaW = p.getBaseVelocity(bid)[0:2]
+    # convert to body frame
+    vB = Rb.inv().apply(vW)
+    omegaB = Rb.inv().apply(omegaW)
+    return pcom, Rb, vB, omegaB
 
 def wTb(pw, Rb, Fb, pb):
     "Transform wrench to world frame"
@@ -72,7 +76,7 @@ def transformWrenches(pw, Rb, FL, pL, FR, pR):
     # join tuples with +
     return wTb(pw, Rb, FL, pL) + wTb(pw, Rb, FR, pR)
 
-def testControl(pw, Rb):
+def testControl(pw, Rb, v, omega):
     # u = [1,0,0,1,0,0]
     mm = 1.0
     ezb = Rb.apply([0,0,1])
@@ -92,7 +96,7 @@ while True:
         simt += TIMESTEP
         
         # Other updates
-        wrenchesW = transformWrenches(*ss, *wrenchesB)
+        wrenchesW = transformWrenches(*(ss[:2]), *wrenchesB)
 
         if True:#simt < 1 or _camLock:
             # Reset camera to be at the correct distance (only first time)
@@ -116,6 +120,7 @@ while True:
         #     tLastPrint = simt
     
     except:
+        # raise
         break
     
 viewlog.saveLog('../logs/', data)
