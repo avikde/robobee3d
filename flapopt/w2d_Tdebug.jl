@@ -135,20 +135,18 @@ function Tdebug(ret1, minal, Φ, Qdt; fullDicts=false)
 	return vcat([Qdt, retNL["al"]/mact(retNL),  retL["al"]/mact(retL), mp(retNL),  mp(retL)])#, L2)
 end
 
-function TdebugTraj(retNL, retL)
-	pact = plot(ylabel="Act disp [mm]")
-	pforce = plot(xlabel="t [ms]", ylabel="Act force [mN]")
-	function addRet(ret, lbl)
-		actt = actAng(m, opt, ret["traj"], ret["param"])
-		dt = ret["param"][end]
-		t = 0:dt:(N)*dt
-		t2 = collect(0:(N-1))*dt
-		plot!(pact, t, actt, label=lbl, lw=2)
-		plot!(pforce, t2, ret["traj"][(N+1)*ny+1:end], label=lbl, lw=2)
-	end
-	addRet(retNL, "NL")
-	addRet(retL, "L")
-	return pact, pforce
+function TdebugTraj(pstroke, pact, pforce, ppow, plift, ret, lbl)
+	inertial, inertialc, coriolis, stiffdamp, stiffdampa, aero, mechpow = ret["comps"]
+	actt = actAng(m, opt, ret["traj"], ret["param"])
+	liftt = trajAero(m, opt, ret["traj"], ret["param"], :lift)
+	dt = ret["param"][end]
+	t = 0:dt:(N)*dt
+	t2 = collect(0:(N-1))*dt
+	plot!(pact, t, actt, label=lbl, lw=2)
+	plot!(pstroke, t, ret["traj"][1:ny:(N+1)*ny], label=lbl, lw=2)
+	plot!(pforce, t2, ret["traj"][(N+1)*ny+1:end], label=lbl, lw=2)
+	plot!(ppow, t2, ret["mechPow"], label=lbl, lw=2)
+	plot!(plift, t2, liftt, label=lbl, lw=2)
 end
 ##
 
@@ -163,12 +161,23 @@ plot!(p1, res[1,:], res[3,:], label="L", lw=2, markershape=:utriangle)
 p2 = plot(res[1,:], res[4,:], xaxis=:log, xlabel="Weighting on power", ylabel="pow", label="NL", lw=2, markershape=:circle)
 plot!(p2, res[1,:], res[5,:], label="L", lw=2, markershape=:utriangle)
 # plot!(p2, res[1,:], res[7,:], label="L2", lw=2, markershape=:dtriangle)
+##
+pstroke = plot(ylabel="Stroke [rad]", legend=:bottomright)
+pact = plot(ylabel="Act disp [mm]", legend=false)
+pforce = plot(xlabel="t [ms]", ylabel="Act force [mN]", legend=false)
+ppow = plot(xlabel="t [ms]", ylabel="Pow [mW]", legend=false)
+plift = plot(xlabel="t [ms]", ylabel="Lift [mg]", legend=false)
+TdebugTraj(pstroke, pact, pforce, ppow, plift, retNL, "NL1")
+TdebugTraj(pstroke, pact, pforce, ppow, plift, retL, "L1")
+TdebugTraj(pstroke, pact, pforce, ppow, plift, retNL2, "NL2")
+TdebugTraj(pstroke, pact, pforce, ppow, plift, retL2, "L2")
 
-pact, pforce = TdebugTraj(retNL, retL)
-
-plot(p1, pact, p2, pforce)
+plot(pstroke, pact, pforce, ppow, plift)
+# plot(p1, pact, p2, pforce)
 ##
 retNL, retL = Tdebug(ret1, 130, nothing, 1e4; fullDicts=true)
+##
+retNL2, retL2 = Tdebug(ret1, 130, nothing, 1e5; fullDicts=true)
 # pl1 = debugComponentsPlot(m, opt, POPTS, retNL)
 # plot(pl1..., size=(800,600))
 # pl = scatter(xlabel="Lift/mact", ylabel="Pow/mact")
