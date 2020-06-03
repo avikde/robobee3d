@@ -105,7 +105,7 @@ openLoopTestTransmission(mop...)
 # include("run_w2d.jl") # just once
 # includet("w2d_paramopt.jl")
 
-function Tdebug(ret1, minal, Φ, Qdt)
+function Tdebug(ret1, minal, Φ, Qdt; fullDicts=false)
 	"Sweep over freq and pick the one with the best lift"
 	function sweepFreqAndPickBestLift(param, uamp)
 		ts2arr = hcat([[f; createInitialTraj(m, opt, 80, f, [1e3, 1e2], param, 212; uampl=uamp, trajstats2=true, h3=0.1)] for f in range(0.15,0.2,step=0.1)]...)
@@ -120,16 +120,37 @@ function Tdebug(ret1, minal, Φ, Qdt)
 	retNL = @time opt1(m, ret1["traj"], ret1["param"], 1, minal, 2.0; Φ=Φ, Qdt=Qdt)
 	# (b) lin opt
 	retL = @time opt1(m, ret1["traj"], ret1["param"], 1, minal, 0; Φ=Φ, Qdt=Qdt)
-	# (c) lin at same params as (a)
-	paramL2 = copy(retNL["param"])
-	L2 = sweepFreqAndPickBestLift(paramL2, retNL["u∞"])
+	# # (c) lin at same params as (a)
+	# paramL2 = copy(retNL["param"])
+	# L2 = sweepFreqAndPickBestLift(paramL2, retNL["u∞"])
 	# println(retNL["param"]', retL["param"]')
+
+	if fullDicts
+		return retNL, retL
+	end
 
 	mp(ret) = mean(cu.ramp.(ret["mechPow"]))
 	mact(ret) = ret["u∞"] * ret["δact"]
 
-	return vcat([Qdt, retNL["al"]/mact(retNL),  retL["al"]/mact(retL), mp(retNL),  mp(retL)], L2)
+	return vcat([Qdt, retNL["al"]/mact(retNL),  retL["al"]/mact(retL), mp(retNL),  mp(retL)])#, L2)
 end
+
+function TdebugTraj(retNL, retL)
+	pact = plot(ylabel="Act disp [mm]")
+	pforce = plot(xlabel="t [ms]", ylabel="Act force [mN]")
+	function addRet(ret, lbl)
+		actt = actAng(m, opt, ret["traj"], ret["param"])
+		dt = ret["param"][end]
+		t = 0:dt:(N)*dt
+		t2 = collect(0:(N-1))*dt
+		plot!(pact, t, actt, label=lbl, lw=2)
+		plot!(pforce, t2, ret["traj"][(N+1)*ny+1:end], label=lbl, lw=2)
+	end
+	addRet(retNL, "NL")
+	addRet(retL, "L")
+	return pact, pforce
+end
+##
 
 res = hcat([Tdebug(ret1, 130, nothing, Qdt) for Qdt in range(1e4,1e5,length=8)]...)
 matwrite("Tdebug1.zip", Dict("results"=>res); compress=true)
@@ -137,18 +158,19 @@ matwrite("Tdebug1.zip", Dict("results"=>res); compress=true)
 
 p1 = plot(res[1,:], res[2,:], xaxis=:log, ylabel="sp lift", label="NL", lw=2, markershape=:circle)
 plot!(p1, res[1,:], res[3,:], label="L", lw=2, markershape=:utriangle)
-plot!(p1, res[1,:], res[6,:], label="L2", lw=2, markershape=:dtriangle)
+# plot!(p1, res[1,:], res[6,:], label="L2", lw=2, markershape=:dtriangle)
 
 p2 = plot(res[1,:], res[4,:], xaxis=:log, xlabel="Weighting on power", ylabel="pow", label="NL", lw=2, markershape=:circle)
 plot!(p2, res[1,:], res[5,:], label="L", lw=2, markershape=:utriangle)
-plot!(p2, res[1,:], res[7,:], label="L2", lw=2, markershape=:dtriangle)
-plot(p1, p2, layout=(2,1))
-# function TdebugPlot!(pl, R)
-	
-# 	scatter!(pl, [R[1,1]], [R[2,1]], label="NL")
-# 	scatter!(pl, [R[1,2]], [R[2,2]], label="L")
-# end
-# #
+# plot!(p2, res[1,:], res[7,:], label="L2", lw=2, markershape=:dtriangle)
+
+pact, pforce = TdebugTraj(retNL, retL)
+
+plot(p1, pact, p2, pforce)
+##
+retNL, retL = Tdebug(ret1, 130, nothing, 1e4; fullDicts=true)
+# pl1 = debugComponentsPlot(m, opt, POPTS, retNL)
+# plot(pl1..., size=(800,600))
 # pl = scatter(xlabel="Lift/mact", ylabel="Pow/mact")
 # TdebugPlot!(pl, Tdebug(ret1, 130, 75, 3e4))
 # pls = debugComponentsPlot(m, opt, POPTS, ret2)
