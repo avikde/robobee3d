@@ -1,3 +1,4 @@
+using MAT
 
 """Use an open-loop sim to test for the nonlin transmission by producing normalized stroke, act disp, as well as lift/power dots.
 WARNING: this overwrites POPTS"""
@@ -105,30 +106,42 @@ openLoopTestTransmission(mop...)
 # includet("w2d_paramopt.jl")
 
 function Tdebug(ret1, minal, Φ, Qdt)
+	"Sweep over freq and pick the one with the best lift"
+	function sweepFreqAndPickBestLift(param, uamp)
+		ts2arr = hcat([[f; createInitialTraj(m, opt, 80, f, [1e3, 1e2], param, 212; uampl=uamp, trajstats2=true, h3=0.1)] for f in range(0.15,0.2,step=0.1)]...)
+		# ^ rows of returned mat are [freq; stroke ampl; pitch ampl; act disp; avglift; pow]
+		# change row 5 into sp. lift
+		ts2arr[5,:] ./= (ts2arr[4,:] * uamp)
+		imax = argmax(ts2arr[5,:])
+		println("Linear best was at ", round.(ts2arr[:,imax]', digits=2))
+		return ts2arr[5:6,imax] # sp. lift, pow
+	end
 	# (a) nonlin
 	retNL = @time opt1(m, ret1["traj"], ret1["param"], 1, minal, 2.0; Φ=Φ, Qdt=Qdt)
 	# (b) lin opt
 	retL = @time opt1(m, ret1["traj"], ret1["param"], 1, minal, 0; Φ=Φ, Qdt=Qdt)
 	# (c) lin at same params as (a)
 	paramL2 = copy(retNL["param"])
-	# TODO: need to sweep over freq
-	# ts = createInitialTraj(m, opt, 80, f, [1e3, 1e2], param, 212; uampl=retNL["u∞"], trajstats2=true, h3=0.1)
+	L2 = sweepFreqAndPickBestLift(paramL2, retNL["u∞"])
 	# println(retNL["param"]', retL["param"]')
 
 	mp(ret) = mean(cu.ramp.(ret["mechPow"]))
 	mact(ret) = ret["u∞"] * ret["δact"]
 
-	return [Qdt, retNL["al"]/mact(retNL),  retL["al"]/mact(retL), mp(retNL),  mp(retL)]
+	return vcat([Qdt, retNL["al"]/mact(retNL),  retL["al"]/mact(retL), mp(retNL),  mp(retL)], L2)
 end
 
-res = hcat([Tdebug(ret1, 130, nothing, Qdt) for Qdt in range(1e3,1e5,length=10)]...)
+res = hcat([Tdebug(ret1, 130, nothing, Qdt) for Qdt in range(1e4,1e5,length=8)]...)
+matwrite("Tdebug1.zip", Dict("results"=>res); compress=true)
 ## 
 
-p1 = plot(res[1,:], res[2,:], xlabel="Qdt", ylabel="sp lift", label="NL")
-plot!(p1, res[1,:], res[3,:], label="L")
+p1 = plot(res[1,:], res[2,:], xaxis=:log, ylabel="sp lift", label="NL", lw=2, markershape=:circle)
+plot!(p1, res[1,:], res[3,:], label="L", lw=2, markershape=:utriangle)
+plot!(p1, res[1,:], res[6,:], label="L2", lw=2, markershape=:dtriangle)
 
-p2 = plot(res[1,:], res[4,:], xlabel="Qdt", ylabel="pow", label="NL")
-plot!(p2, res[1,:], res[5,:], label="L")
+p2 = plot(res[1,:], res[4,:], xaxis=:log, xlabel="Weighting on power", ylabel="pow", label="NL", lw=2, markershape=:circle)
+plot!(p2, res[1,:], res[5,:], label="L", lw=2, markershape=:utriangle)
+plot!(p2, res[1,:], res[7,:], label="L2", lw=2, markershape=:dtriangle)
 plot(p1, p2, layout=(2,1))
 # function TdebugPlot!(pl, R)
 	
