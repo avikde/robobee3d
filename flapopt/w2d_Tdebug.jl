@@ -101,4 +101,34 @@ openLoopTestTransmission(mop...)
 # (c) same params as (a) but do a sweep with the same peak
 # voltage to obtain the best results with linear transmission
 
+# include("run_w2d.jl") # just once
+# includet("w2d_paramopt.jl")
 
+function Tdebug(ret1, minal, Φ, Qdt)
+	# (a) nonlin
+	retNL = @time opt1(m, ret1["traj"], ret1["param"], 1, minal, 2.0; Φ=Φ, Qdt=Qdt)
+	# (b) lin opt
+	retL = @time opt1(m, ret1["traj"], ret1["param"], 1, minal, 0; Φ=Φ, Qdt=Qdt)
+	# (c) lin at same params as (a)
+	paramL2 = copy(retNL["param"])
+	# TODO: need to sweep over freq
+	# ts = createInitialTraj(m, opt, 80, f, [1e3, 1e2], param, 212; uampl=retNL["u∞"], trajstats2=true, h3=0.1)
+	# println(retNL["param"]', retL["param"]')
+
+	mp(ret) = mean(cu.ramp.(ret["mechPow"]))
+	mact(ret) = ret["u∞"] * ret["δact"]
+
+	return [retNL["al"]  retL["al"]; 
+		mp(retNL)  mp(retL)] * Diagonal([1/mact(retNL), 1/mact(retL)])
+end
+
+function TdebugPlot!(pl, R)
+	scatter!(pl, [R[1,1]], [R[2,1]], label="NL")
+	scatter!(pl, [R[1,2]], [R[2,2]], label="L")
+end
+#
+pl = scatter(xlabel="Lift/mact", ylabel="Pow/mact")
+TdebugPlot!(pl, Tdebug(ret1, 130, 75, 3e4))
+# pls = debugComponentsPlot(m, opt, POPTS, ret2)
+# plot(pls..., size=(800,600))
+# gui()
