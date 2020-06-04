@@ -22,7 +22,7 @@ def saveLog(f1, data):
 
     t = time.localtime()
     timestamp = time.strftime('%Y%m%d%H%M%S', t)
-    fname = f1 + 'ca6_' + timestamp + '.pkz'
+    fname = f1 + 'ca6_' + timestamp + '.zip'
     zfile = gzip.GzipFile(fname, 'wb')
     pickle.dump(data, zfile)
     zfile.close()
@@ -46,7 +46,7 @@ def getData(fname):
     return readFile(fname)
 
 def defaultPlots(data):
-    fig, ax = plt.subplots(4)
+    fig, ax = plt.subplots(6)
     ax[0].plot(data['t'], data['q'][:,:3])
     ax[0].set_ylabel('pos [mm]')
 
@@ -67,6 +67,11 @@ def defaultPlots(data):
     ax[3].plot(data['t'], actMom[:,2], label='act')
     ax[3].set_ylabel('Momentum')
     ax[3].legend()
+
+    ax[4].plot(data['t'], data['u'][:,[1,4]])
+    ax[4].set_ylabel('u2')
+    ax[5].plot(data['t'], data['u'][:,[2,5]])
+    ax[5].set_ylabel('u3')
 
     ax[-1].set_xlabel('Time [ms]')
 

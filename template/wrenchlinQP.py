@@ -34,7 +34,7 @@ class WrenchLinQP(object):
 
         P = A1.T @ np.diag(Qd) @ A1
         q = A1.T @ np.diag(Qd) @ (a0 - pdes)
-        u = 1e-3 * np.ones(self.n)
+        u = np.array([1e-3,1e-3,1e-3,1e-3,1e-3,1e-3])
         l = -u
         # update OSQP
         Px = P[np.tril_indices(P.shape[0])] # need in col order
@@ -47,7 +47,7 @@ class WrenchLinQP(object):
         M0, h0, B0 = dynamicsTerms(Rb, dq)
         p0 = M0 @ dq
         dt = 2
-        Qd = 0.1 * np.ones(6)
+        Qd = np.array([0.1,0.1,0.1,100,100,100])
         w0 = np.zeros(6)
         return self.update(p0, h0, B0, w0, dt, Qd, pdes)
 

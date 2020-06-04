@@ -31,7 +31,7 @@ planeId = p.loadURDF("plane.urdf", globalScaling=100.0)
 
 # load robot
 startPos = [0,0,20]
-startOrientation = Rotation.from_euler('xy', [0,0])#[0.5,0.5])
+startOrientation = Rotation.from_euler('xy', [0.5,0.5])
 bid = p.loadURDF("../urdf/sdabNW.urdf", startPos, startOrientation.as_quat(), useFixedBase=False)
 
 simt = 0
