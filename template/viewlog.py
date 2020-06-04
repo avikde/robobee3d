@@ -7,10 +7,10 @@ from scipy.spatial.transform import Rotation
 def initLog():
     return {'t': [], 'q': [], 'v': [], 'u': []}
 
-def appendLog(data, t, pw, Rb, v, omega, u):
+def appendLog(data, t, pw, Rb, dq, u):
     data['t'].append(t)
     data['q'].append(np.hstack((pw, Rb.as_euler('xyz'))))
-    data['v'].append(np.hstack((v, omega)))
+    data['v'].append(dq)
     data['u'].append(u)
     return data
 

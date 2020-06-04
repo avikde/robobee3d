@@ -31,7 +31,7 @@ def wrenchMap(u):
     return np.array([u3L + u3R, 0.0, u1L + u1R, 
         (u1L - u1R) * ycp, -u1L*u2L - u1R*u2R, (-u3L + u3R)*ycp])
 
-def dynamicsTerms(p, Rb, dq):
+def dynamicsTerms(Rb, dq):
     mb = 100
     ixx = iyy = 3333
     izz = 1000

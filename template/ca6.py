@@ -66,7 +66,7 @@ def getState():
     # convert to body frame
     vB = Rb.inv().apply(vW)
     omegaB = Rb.inv().apply(omegaW)
-    return pcom, Rb, vB, omegaB
+    return pcom, Rb, np.hstack((vB, omegaB))
 
 def wTb(pw, Rb, Fb, pb):
     "Transform wrench to world frame"
@@ -76,13 +76,18 @@ def transformWrenches(pw, Rb, FL, pL, FR, pR):
     # join tuples with +
     return wTb(pw, Rb, FL, pL) + wTb(pw, Rb, FR, pR)
 
-def testControl(pw, Rb, v, omega):
+def testControl(pw, Rb, dq):
     # u = [1,0,0,1,0,0]
-    mm = 1.0
-    ezb = Rb.apply([0,0,1])
-    dd = ezb[1] * (1.0)
-    pitchCtrl = ezb[0]
-    u = [mm + dd, pitchCtrl,0.0,mm-dd,pitchCtrl,-0.0]
+
+    # mm = 1.0
+    # ezb = Rb.apply([0,0,1])
+    # dd = ezb[1] * (1.0)
+    # pitchCtrl = ezb[0]
+    # u = [mm + dd, pitchCtrl,0.0,mm-dd,pitchCtrl,-0.0]
+
+    pdes = np.array([0,0,10,0,0,0])
+    u = wlqp.updateFromState(Rb, dq, pdes)
+
     return u
 
 while True:

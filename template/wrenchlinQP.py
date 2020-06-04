@@ -24,6 +24,7 @@ class WrenchLinQP(object):
         self.model = qpSetupDense(n, m)
         self.n = n
         self.m = m
+        self.uprev = np.zeros(n)
     
     def update(self, p0, h0, B0, w0, u0, dt, Qd, pdes):
         A = np.eye(self.n)
@@ -39,16 +40,21 @@ class WrenchLinQP(object):
         Px = P[np.tril_indices(P.shape[0])] # need in col order
         self.model.update(Px=Px, q=q, l=l, u=u, Ax=np.ravel(A))
         res = self.model.solve()
-        return res.x + u0
-
-    def test(self):
-        dq = np.zeros(6)
-        M0, h0, B0 = dynamicsTerms(np.zeros(3), Rotation.from_euler('x', 0), dq)
+        self.uprev = res.x + self.uprev
+        return self.uprev
+    
+    def updateFromState(self, Rb, dq, pdes):
+        M0, h0, B0 = dynamicsTerms(Rb, dq)
         p0 = M0 @ dq
-        u0 = np.array([1.0,0.0,0.0,1.0,0.0,0.0])
         dt = 2
         Qd = 0.1 * np.ones(6)
-        pdes = np.array([0,0,10,0,0,0])
         w0 = np.zeros(6)
-        print(self.update(p0, h0, B0, w0, u0, dt, Qd, pdes))
+        return self.update(p0, h0, B0, w0, self.uprev, dt, Qd, pdes)
+
+    def test(self):
+        Rb = Rotation.from_euler('x', 0)
+        dq = np.zeros(6)
+        self.uprev = np.array([1.0,0.0,0.0,1.0,0.0,0.0])
+        pdes = np.array([0,0,10,0,0,0])
+        print(self.updateFromState(Rb, dq, pdes))
         
