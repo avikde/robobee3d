@@ -2,6 +2,11 @@ import autograd.numpy as np
 
 # model params
 ycp = 10 # mm
+mb = 100
+ixx = iyy = 3333
+izz = 1000
+g = 9.81e-3
+M = np.diag([mb, mb, mb, ixx, iyy, izz])
 
 # function aeroWrenchAffine(f)
 # 	# params?
@@ -32,11 +37,6 @@ def wrenchMap(u):
         (u1L - u1R) * ycp, -u1L*u2L - u1R*u2R, (-u3L + u3R)*ycp])
 
 def dynamicsTerms(Rb, dq):
-    mb = 100
-    ixx = iyy = 3333
-    izz = 1000
-    g = 9.81e-3
-    M = np.diag([mb, mb, mb, ixx, iyy, izz])
     h = np.hstack((Rb.inv().apply([0, 0, -mb * g]), np.zeros(3)))
     B = np.eye(6)
     # FIXME: don't actually need B, since wrenchMap(u) is sort of like B??

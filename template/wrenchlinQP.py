@@ -34,8 +34,8 @@ class WrenchLinQP(object):
 
         P = A1.T @ np.diag(Qd) @ A1
         q = A1.T @ np.diag(Qd) @ (a0 - pdes)
-        u = 100 * np.ones(self.n)
-        l = -100 * np.ones(self.n)
+        u = 1e-3 * np.ones(self.n)
+        l = -u
         # update OSQP
         Px = P[np.tril_indices(P.shape[0])] # need in col order
         self.model.update(Px=Px, q=q, l=l, u=u, Ax=np.ravel(A))

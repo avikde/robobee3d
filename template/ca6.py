@@ -31,7 +31,7 @@ planeId = p.loadURDF("plane.urdf", globalScaling=100.0)
 
 # load robot
 startPos = [0,0,20]
-startOrientation = Rotation.from_euler('xy', [0.5,0.5])
+startOrientation = Rotation.from_euler('xy', [0,0])#[0.5,0.5])
 bid = p.loadURDF("../urdf/sdabNW.urdf", startPos, startOrientation.as_quat(), useFixedBase=False)
 
 simt = 0
@@ -76,7 +76,7 @@ def transformWrenches(pw, Rb, FL, pL, FR, pR):
     # join tuples with +
     return wTb(pw, Rb, FL, pL) + wTb(pw, Rb, FR, pR)
 
-def testControl(pw, Rb, dq):
+def testControl(pw, Rb, dq, pdes):
     # u = [1,0,0,1,0,0]
 
     # mm = 1.0
@@ -85,7 +85,6 @@ def testControl(pw, Rb, dq):
     # pitchCtrl = ezb[0]
     # u = [mm + dd, pitchCtrl,0.0,mm-dd,pitchCtrl,-0.0]
 
-    pdes = np.array([0,0,10,0,0,0])
     u = wlqp.updateFromState(Rb, dq, pdes)
 
     return u
@@ -93,8 +92,9 @@ def testControl(pw, Rb, dq):
 while True:
     try:
         ss = getState()
-        u = testControl(*ss)
-        data = viewlog.appendLog(data, simt, *ss, u)
+        pdes = np.array([0,0,10,0,0,0])
+        u = testControl(*ss, pdes)
+        data = viewlog.appendLog(data, simt, *ss, u, pdes)
         wrenchesB = ca6ApplyInput(u)
         # Bullet update
         p.stepSimulation()
