@@ -26,11 +26,11 @@ class WrenchLinQP(object):
         self.m = m
         self.uprev = np.zeros(n)
     
-    def update(self, p0, h0, B0, w0, u0, dt, Qd, pdes):
+    def update(self, p0, h0, B0, w0, dt, Qd, pdes):
         A = np.eye(self.n)
         # general form
         a0 = p0 - dt * h0 + dt * B0 @ w0
-        A1 = dt * B0 @ dw_du(u0)
+        A1 = dt * B0 @ dw_du(self.uprev)
 
         P = A1.T @ np.diag(Qd) @ A1
         q = A1.T @ np.diag(Qd) @ (a0 - pdes)
@@ -49,7 +49,7 @@ class WrenchLinQP(object):
         dt = 2
         Qd = 0.1 * np.ones(6)
         w0 = np.zeros(6)
-        return self.update(p0, h0, B0, w0, self.uprev, dt, Qd, pdes)
+        return self.update(p0, h0, B0, w0, dt, Qd, pdes)
 
     def test(self):
         Rb = Rotation.from_euler('x', 0)
