@@ -16,7 +16,7 @@ def qpSetupDense(n, m):
     l = -np.inf * np.ones(m)
     u = np.inf * np.ones(m)
     A = sp.csc_matrix(np.ones((m,n)))
-    model.setup(P=P, q=q, A=A, l=l, u=u, eps_rel=1e-2, eps_abs=1e-2, verbose=False)
+    model.setup(P=P, q=q, A=A, l=l, u=u, eps_rel=1e-4, eps_abs=1e-4, verbose=False)
     return model
 
 class WrenchLinQP(object):
@@ -30,11 +30,13 @@ class WrenchLinQP(object):
         A = np.eye(self.n)
         # general form
         a0 = p0 - dt * h0 + dt * B0 @ w0
-        A1 = dt * B0 @ dw_du(self.uprev)
+        curDwDu = dw_du(self.uprev)
+        # print(curDwDu)
+        A1 = dt * B0 @ curDwDu
 
         P = A1.T @ np.diag(Qd) @ A1
         q = A1.T @ np.diag(Qd) @ (a0 - pdes)
-        u = np.array([1e-3,1e-3,1e-3,1e-3,1e-3,1e-3])
+        u = np.array([1e-2,1e-2,1e-2,1e-2,1e-2,1e-2])
         l = -u
         # update OSQP
         Px = P[np.tril_indices(P.shape[0])] # need in col order

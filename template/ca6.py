@@ -8,6 +8,7 @@ import pybullet_data
 import viewlog
 from wrenchlinQP import WrenchLinQP
 from ca6dynamics import ycp
+np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
 # Usage params
 TIMESTEP = 1
@@ -30,7 +31,7 @@ p.setAdditionalSearchPath(pybullet_data.getDataPath()) #optionally
 planeId = p.loadURDF("plane.urdf", globalScaling=100.0)
 
 # load robot
-startPos = [0,0,20]
+startPos = [0,0,100]
 startOrientation = Rotation.from_euler('xy', [0.5,0.5])
 bid = p.loadURDF("../urdf/sdabNW.urdf", startPos, startOrientation.as_quat(), useFixedBase=False)
 
@@ -40,7 +41,7 @@ data = viewlog.initLog()
 
 # controller
 wlqp = WrenchLinQP(6,6)
-wlqp.test()
+# wlqp.test()
 
 def ca6ApplyInput(u):
     """Input vector https://github.com/avikde/robobee3d/pull/154"""
@@ -93,6 +94,11 @@ while True:
     try:
         ss = getState()
         pdes = np.array([0,0,10,0,0,0])
+        # Rdes = Rotation.identity()
+        # FIXME: do this in a group way
+        eul = ss[1].as_euler('xyz')
+        Iomegades = -10.0*eul
+        pdes[3:] = Iomegades
         u = testControl(*ss, pdes)
         data = viewlog.appendLog(data, simt, *ss, u, pdes)
         wrenchesB = ca6ApplyInput(u)
