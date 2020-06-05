@@ -92,10 +92,12 @@ def testControl(pw, Rb, dq, pdes):
     return u
 
 def ornVF(Rb, omega):
-    # return last elements of pdes
-    # FIXME: do this in a group way
-    eul = ss[1].as_euler('xyz')
-    Iomegades = -100.0*eul
+    """return last elements of pdes"""
+    hat = lambda M : np.array([M[2,1], M[0,2], M[1,0]])
+    Rdes = np.eye(3)#Rotation.from_euler('x', 0)
+    Rm = Rb.as_dcm()
+    ornError = hat(Rdes.T @ Rm - Rm.T @ Rdes)
+    Iomegades = -20.0*ornError - 1.0*omega
     return Iomegades
 
 while True:
