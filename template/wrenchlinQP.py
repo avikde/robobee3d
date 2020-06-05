@@ -24,13 +24,14 @@ class WrenchLinQP(object):
         self.model = qpSetupDense(n, m)
         self.n = n
         self.m = m
-        self.uprev = np.zeros(n)
+        self.u0 = np.zeros(n)
+        self.w0 = np.zeros(n)
     
-    def update(self, p0, h0, B0, w0, dt, Qd, pdes):
+    def update(self, p0, h0, B0, dt, Qd, pdes):
         if self.n == 6:
             # assume ca6 model
             u = np.array([1e-2,1e-2,1e-2,1e-2,1e-2,1e-2])
-            curDwDu = dw_du(self.uprev)
+            curDwDu = dw_du(self.u0)
         else:
             # For testing other models (assume w=u if n != 6)
             u = np.ones(self.n) * 1e-1
@@ -39,25 +40,25 @@ class WrenchLinQP(object):
 
         # general form
         A = np.eye(self.n)
-        a0 = p0 - dt * h0 + dt * B0 @ w0
+        a0 = p0 - dt * h0 + dt * B0 @ self.w0
         # print(curDwDu)
-        # print("hi", B0.shape, curDwDu.shape)
         A1 = dt * B0 @ curDwDu
         P = A1.T @ np.diag(Qd) @ A1
-        # print("HI", A1.shape, Qd.shape, h0.shape, pdes.shape)
         q = A1.T @ np.diag(Qd) @ (a0 - pdes)
         l = -u
         # update OSQP
         Px = P[np.tril_indices(P.shape[0])] # need in col order
         self.model.update(Px=Px, q=q, l=l, u=u, Ax=np.ravel(A))
         res = self.model.solve()
-        self.uprev = res.x + self.uprev
+        self.u0 = res.x + self.u0
 
         if self.n == 6:
-            return self.uprev
+            self.w0 = wrenchMap(self.u0)
+            return self.u0
         else:
+            self.w0 = self.u0
             r = np.zeros(6)
-            r[0] = r[3] = self.uprev[0]
+            r[0] = r[3] = self.u0[0]
             return r
     
     def updateFromState(self, Rb, dq, pdes):
@@ -73,8 +74,7 @@ class WrenchLinQP(object):
             B0 = np.eye(1)
             h0 = np.zeros(1)
 
-        w0 = np.zeros(self.n) # FIXME: what should this be
-        return self.update(p0, h0, B0, w0, dt, Qd, pdes)
+        return self.update(p0, h0, B0, dt, Qd, pdes)
 
     def test(self):
         Rb = Rotation.from_euler('x', 0)
