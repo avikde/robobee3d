@@ -65,7 +65,7 @@ class WrenchLinQP(object):
         M0, h0, B0 = dynamicsTerms(Rb, dq)
         p0 = M0 @ dq
         dt = 2
-        Qd = 0.1 * ones(self.n)
+        Qd = np.hstack((1.0*np.ones(3), 0.1*np.ones(3)))
 
         if self.n != 6:
             # For testing other models (assume w=u if n != 6)
