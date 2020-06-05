@@ -30,7 +30,7 @@ class WrenchLinQP(object):
     def update(self, p0, h0, B0, dt, Qd, pdes):
         if self.n == 6:
             # assume ca6 model
-            u = np.array([1e-2,1e-2,1e-2,1e-2,1e-2,1e-2])
+            u = 1e-2 * np.ones(self.n)
             curDwDu = dw_du(self.u0)
         else:
             # For testing other models (assume w=u if n != 6)
@@ -65,7 +65,7 @@ class WrenchLinQP(object):
         M0, h0, B0 = dynamicsTerms(Rb, dq)
         p0 = M0 @ dq
         dt = 2
-        Qd = np.array([0.1,0.1,0.1,100,100,100])
+        Qd = 0.1 * ones(self.n)
 
         if self.n != 6:
             # For testing other models (assume w=u if n != 6)
