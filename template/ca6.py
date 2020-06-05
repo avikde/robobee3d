@@ -96,7 +96,9 @@ def ornVF(Rb, omega):
     hat = lambda M : np.array([M[2,1], M[0,2], M[1,0]])
     Rdes = np.eye(3)#Rotation.from_euler('x', 0)
     Rm = Rb.as_dcm()
-    ornError = hat(Rdes.T @ Rm - Rm.T @ Rdes)
+    # ornError = hat(Rdes.T @ Rm - Rm.T @ Rdes)
+    ornError = -np.cross([0,0,1], Rb.inv().apply([0,0,1]))
+    # print(ornError, test)
     Iomegades = -20.0*ornError - 1.0*omega
     return Iomegades
 
