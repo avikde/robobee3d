@@ -91,13 +91,14 @@ def testControl(pw, Rb, dq, pdes):
 
     return u
 
-def ornVF(Rb, omega):
+def ornVF(Rb, omega, posErr):
     """return last elements of pdes"""
     hat = lambda M : np.array([M[2,1], M[0,2], M[1,0]])
     Rdes = np.eye(3)#Rotation.from_euler('x', 0)
     Rm = Rb.as_dcm()
     # ornError = hat(Rdes.T @ Rm - Rm.T @ Rdes)
-    ornError = -np.cross([0,0,1], Rb.inv().apply([0,0,1]))
+    ornError = -np.cross([0,0,1], Rb.inv().apply(0.0*posErr + [0,0,1]))
+    # ornError = ornError / np.linalg.norm(ornError)
     # print(ornError, test)
     Iomegades = -20.0*ornError - 1.0*omega
     return Iomegades
@@ -105,7 +106,8 @@ def ornVF(Rb, omega):
 while True:
     try:
         ss = getState()
-        pdes = np.hstack(([0,0,10], ornVF(ss[1], ss[2][3:])))
+        posErr = np.array([10,0,200]) - ss[0]
+        pdes = np.hstack(([0,0,10], ornVF(ss[1], ss[2][3:], posErr)))
         u = testControl(*ss, pdes)
         data = viewlog.appendLog(data, simt, *ss, u, pdes)
         wrenchesB = ca6ApplyInput(u)
