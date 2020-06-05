@@ -32,7 +32,7 @@ planeId = p.loadURDF("plane.urdf", globalScaling=100.0)
 
 # load robot
 startPos = [0,0,100]
-startOrientation = Rotation.from_euler('xy', [0.5,0.5])
+startOrientation = Rotation.from_euler('xy', [0,0])# [0.5,0.5])
 bid = p.loadURDF("../urdf/sdabNW.urdf", startPos, startOrientation.as_quat(), useFixedBase=False)
 
 simt = 0
@@ -40,7 +40,8 @@ tLastDraw1 = 0
 data = viewlog.initLog()
 
 # controller
-wlqp = WrenchLinQP(6,6)
+# wlqp = WrenchLinQP(6,6)
+wlqp = WrenchLinQP(1,1)
 # wlqp.test()
 
 def ca6ApplyInput(u):
@@ -131,8 +132,7 @@ while True:
         #     tLastPrint = simt
     
     except:
-        # raise
-        break
+        viewlog.saveLog('../logs/', data)
+        raise
     
-viewlog.saveLog('../logs/', data)
 # p.disconnect()
