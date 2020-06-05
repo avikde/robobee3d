@@ -91,15 +91,17 @@ def testControl(pw, Rb, dq, pdes):
 
     return u
 
+def ornVF(Rb, omega):
+    # return last elements of pdes
+    # FIXME: do this in a group way
+    eul = ss[1].as_euler('xyz')
+    Iomegades = -100.0*eul
+    return Iomegades
+
 while True:
     try:
         ss = getState()
-        pdes = np.array([0,0,10,0,0,0])
-        # Rdes = Rotation.identity()
-        # FIXME: do this in a group way
-        eul = ss[1].as_euler('xyz')
-        Iomegades = -100.0*eul
-        pdes[3:] = Iomegades
+        pdes = np.hstack(([0,0,10], ornVF(ss[1], ss[2][3:])))
         u = testControl(*ss, pdes)
         data = viewlog.appendLog(data, simt, *ss, u, pdes)
         wrenchesB = ca6ApplyInput(u)
