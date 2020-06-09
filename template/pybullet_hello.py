@@ -14,7 +14,7 @@ sim = SimInterface.PyBullet(slowDown=False, camLock=True)
 # load robot
 startPos = [0,0,1]
 startOrientation = Rotation.from_euler('x', 0)
-bid = sim.loadURDF("urdf/sdab.xacro.urdf", startPos, startOrientation.as_quat(), useFixedBase=False)
+bid = sim.loadURDF("../urdf/sdab.xacro.urdf", startPos, startOrientation.as_quat(), useFixedBase=False)
 jointId, urdfParams = sim.getInfoFromURDF(bid)
 print(jointId, urdfParams)
 # Our model for control

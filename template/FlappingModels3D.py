@@ -1,6 +1,8 @@
 import autograd.numpy as np
+import sys
 # trying to not rely on pybullet
 from scipy.spatial.transform import Rotation
+sys.path.append('..')
 from controlutils.py.model import Model
 import controlutils.py.kinematics as kinematics
 

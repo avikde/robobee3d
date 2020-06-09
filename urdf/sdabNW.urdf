@@ -1,0 +1,31 @@
+<?xml version="1.0" ?>
+<!-- 
+Units: mm, mg
+Author: Avik De 
+-->
+<robot name="sdabNW" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <material name="Blue1">
+    <color rgba="0 0 1 1.0"/>
+  </material>
+  <!-- Body -->
+  <link name="body">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0.0"/>
+      <geometry>
+        <box size="3 3 12"/>
+      </geometry>
+      <material name="Blue1"/>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0.0"/>
+      <geometry>
+        <box size="3 3 12"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="100"/>
+      <inertia ixx="3333" ixy="0.0" ixz="0.0" iyy="3333" iyz="0.0" izz="1000"/>
+    </inertial>
+  </link>
+</robot>
+
