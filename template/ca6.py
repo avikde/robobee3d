@@ -96,8 +96,10 @@ def ornVF(Rb, omega, posErr):
     hat = lambda M : np.array([M[2,1], M[0,2], M[1,0]])
     Rdes = np.eye(3)#Rotation.from_euler('x', 0)
     Rm = Rb.as_dcm()
+    zdes = np.array([0,0,1]) # desired z vector
     # ornError = hat(Rdes.T @ Rm - Rm.T @ Rdes)
-    ornError = -np.cross([0,0,1], Rb.inv().apply(0.0*posErr + [0,0,1]))
+    # ornError = -np.cross([0,0,1], Rb.inv().apply(zdes))
+    ornError = np.array([[Rm[0,1], Rm[1,1], Rm[2,1]], [-Rm[0,0], -Rm[1,0], -Rm[2,0]], [0,0,0]]) @ zdes # Pakpong (2013) (6)
     # ornError = ornError / np.linalg.norm(ornError)
     # print(ornError, test)
     Iomegades = -20.0*ornError - 1.0*omega
