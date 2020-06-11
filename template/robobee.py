@@ -195,6 +195,9 @@ class RobobeeSim():
             p.setJointMotorControlArray(self.bid, [0,2], p.TORQUE_CONTROL, forces=u)
         else:
             p.setJointMotorControlArray(self.bid, [0,2], p.POSITION_CONTROL, targetPositions=u, positionGains=[1,1], velocityGains=[1,1], forces=np.full(2, 1000000))
+        # qp, dqp = self.q[[1,3]], self.dq[[1,3]]
+        # taup = -self.urdfParams['khinge'] * qp - self.urdfParams['bhinge'] * dqp
+        # p.setJointMotorControlArray(self.bid, [1,3], p.TORQUE_CONTROL, forces=taup)
 
         # print(self.q[0:4], self.dq[:4])
         aero1 = self.wTb(*aerodynamics(self.q[0:2], self.dq[0:2], -1, self.urdfParams))
