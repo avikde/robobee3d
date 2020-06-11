@@ -91,11 +91,10 @@ class PyBullet():
             dinfo = p.getDynamicsInfo(bid, j)
             stiffness, damping = dinfo[9], dinfo[8]
             if j == jointId[b'lwing_hinge']:
-                urdfParams['stiffnessHinge'] = stiffness
-                urdfParams['dampingHinge'] = damping
+                urdfParams['khinge'] = stiffness
+                urdfParams['bhinge'] = damping
             elif j == jointId[b'lwing_stroke']:
-                urdfParams['stiffnessStroke'] = stiffness
-                urdfParams['dampingStroke'] = damping
+                urdfParams['kstroke'] = stiffness
 
         return jointId, urdfParams
 
@@ -128,17 +127,19 @@ class PyBullet():
         p.addUserDebugLine(*args, **kwargs)
 
     def update(self, bid, jointIndices, pcops, Faeros, Taeros, worldFrame=True):
-        # for i in range(2):
-        #     if worldFrame:
-        #         p.applyExternalForce(bid, jointIndices[i], Faeros[i], pcops[i], p.WORLD_FRAME)
-        #     else:
-        #         # Need to convert to body frame (link -1)
-        #         # p.applyExternalForce(bid, -1, Faeros[i], [0,0,0], p.LINK_FRAME)
-        #         raise 'Not implemented'
+        for i in range(2):
+            if worldFrame:
+                # pass
+                # print(Faeros[0])
+                p.applyExternalForce(bid, jointIndices[i], Faeros[i], pcops[i], p.WORLD_FRAME)
+            else:
+                # Need to convert to body frame (link -1)
+                # p.applyExternalForce(bid, -1, Faeros[i], [0,0,0], p.LINK_FRAME)
+                raise 'Not implemented'
 
         # Bullet update
         p.stepSimulation()
-        if True:##self.simt < 1e-10 or self._camLock:
+        if self.simt < 1e-10 or self._camLock:
             # Reset camera to be at the correct distance (only first time)
             p.resetDebugVisualizerCamera(100, 45, -30, self.q[4:7])
 
@@ -158,12 +159,12 @@ class PyBullet():
             self.pcomLastDraw = self.q[4:7].copy()
             self.tLastPrint = self.simt
         
-        # # Keyboard control options
-        # keys = p.getKeyboardEvents()
+        # Keyboard control options
+        keys = p.getKeyboardEvents()
         # if ord('z') in keys and keys[ord('z')] & p.KEY_WAS_TRIGGERED:
         #     if self._slowDown == self.SLOWDOWN_FAST:
         #         self._slowDown = self.SLOWDOWN_SLOW
         #     else:
         #         self._slowDown = self.SLOWDOWN_FAST
-        # if ord('c') in keys and keys[ord('c')] & p.KEY_WAS_TRIGGERED:
-        #     self._camLock = not self._camLock
+        if ord('c') in keys and keys[ord('c')] & p.KEY_WAS_TRIGGERED:
+            self._camLock = not self._camLock
