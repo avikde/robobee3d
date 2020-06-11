@@ -22,8 +22,8 @@ Author: Avik De
 	<xacro:property name="d" value="2"/>
 	<!-- inertial properties -->
 	<xacro:property name="mb" value="80"/>
-	<xacro:property name="mspar" value="0.1"/>
-	<xacro:property name="mwing" value="0.55"/>
+	<xacro:property name="mspar" value="1"/>
+	<xacro:property name="mwing" value="1"/>
 	<!-- Stiffness and damping properties -->
 	<xacro:property name="whinge" value="2.5"/>
 	<xacro:property name="kstroke" value="65"/> <!-- total act = 240/T^2 + 30 -->
