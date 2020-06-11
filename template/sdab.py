@@ -10,7 +10,7 @@ STROKE_FORCE_CONTROL = False # if false, use position control on the stroke
 T_END = 1000
 AERO_WORLD_FRAME = True
 
-sim = SimInterface.PyBullet(slowDown=0.1, camLock=True)
+sim = SimInterface.PyBullet(slowDown=0.1, camLock=True, timestep=0.1)
 # load robot
 startPos = [0,0,10]
 startOrientation = Rotation.from_euler('x', 0)

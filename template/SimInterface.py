@@ -12,7 +12,6 @@ import pybullet_data
 
 class PyBullet():
     # Parameters
-    TIMESTEP = 1
     FAERO_DRAW_SCALE = 10.0
     simt = 0
     tLastDraw = 0
@@ -26,9 +25,10 @@ class PyBullet():
     POSITION_CONTROL = p.POSITION_CONTROL
     TORQUE_CONTROL = p.TORQUE_CONTROL
 
-    def __init__(self, camLock=True, slowDown=True):
+    def __init__(self, camLock=True, slowDown=True, timestep=1.0):
         self._camLock = camLock
         self._slowDown = slowDown
+        self.TIMESTEP = timestep
         # Init sim
         physicsClient = p.connect(p.GUI)#or p.DIRECT for non-graphical version
         # Set up the visualizer
