@@ -25,7 +25,7 @@ Author: Avik De
 	<xacro:property name="ixx" value="3333"/>
 	<xacro:property name="iyy" value="3333"/>
 	<xacro:property name="izz" value="1000"/>
-	<xacro:property name="mwing" value="1"/>
+	<xacro:property name="mwing" value="0.55"/>
 	<!-- Stiffness and damping properties -->
 	<xacro:property name="whinge" value="2.5"/>
 	<xacro:property name="kstroke" value="65"/> <!-- total act = 240/T^2 + 30 -->

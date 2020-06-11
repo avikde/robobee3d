@@ -124,9 +124,9 @@ class RobobeeSim():
         # Get the joints to reasonable positions
         self.resetJoints(self.bid, range(4), np.zeros(4), np.zeros(4))
         
-        # Passive hinge dynamics implemented as position control rather than joint dynamics
+        # Passive hinge dynamics implemented as position control rather than joint dynamics FIXME:
         p.setJointMotorControlArray(self.bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=[0.02,0.02], velocityGains=[0.005,0.005])
-        # p.setJointMotorControlArray(self.bid, [1,3], p.PD_CONTROL, targetPositions=[0,0], positionGains=self.urdfParams['khinge']*np.ones(2), velocityGains=self.urdfParams['bhinge']*np.ones(2))
+        # p.setJointMotorControlArray(self.bid, [1,3], p.PD_CONTROL, targetPositions=[0,0], positionGains=0.1*self.urdfParams['khinge']*np.ones(2), velocityGains=0.1*self.urdfParams['bhinge']*np.ones(2))
 
         return self.bid
 
@@ -186,7 +186,16 @@ class RobobeeSim():
             p.setJointMotorControl2(bid, j, controlMode=p.VELOCITY_CONTROL, targetVelocity=0, force=0)
             p.setJointMotorControl2(bid, j, controlMode=p.TORQUE_CONTROL, force=0)
 
-    def update(self):
+    def update(self, u, forceControl=False):
+        if forceControl:
+            # stroke stiffness
+            u[0] -= self.urdfParams['kstroke'] * self.q[0]
+            u[1] -= self.urdfParams['kstroke'] * self.q[2]
+            # tau = [0,0]
+            p.setJointMotorControlArray(self.bid, [0,2], p.TORQUE_CONTROL, forces=u)
+        else:
+            p.setJointMotorControlArray(self.bid, [0,2], p.POSITION_CONTROL, targetPositions=u, positionGains=[1,1], velocityGains=[1,1], forces=np.full(2, 1000000))
+
         # print(self.q[0:4], self.dq[:4])
         aero1 = self.wTb(*aerodynamics(self.q[0:2], self.dq[0:2], -1, self.urdfParams))
         aero2 = self.wTb(*aerodynamics(-self.q[2:4], -self.dq[2:4], 1, self.urdfParams))
