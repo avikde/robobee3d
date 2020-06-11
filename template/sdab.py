@@ -7,7 +7,7 @@ np.set_printoptions(precision=2, suppress=True, linewidth=200)
 # Usage params
 STROKE_FORCE_CONTROL = False # if false, use position control on the stroke
 
-bee = RobobeeSim(slowDown=0.01, camLock=True, timestep=0.1)
+bee = RobobeeSim(slowDown=0.1, camLock=True, timestep=0.1)
 # load robot
 startPos = [0,0,10]
 startOrientation = p.getQuaternionFromEuler(np.zeros(3))
@@ -19,6 +19,7 @@ def traj(t):
 	return startPos + np.array([30 * np.sin(0.002*np.pi*t), 0, 0.5 * t])
 
 # draw traj
+T_END=1000
 tdraw = np.linspace(0, T_END, 20)
 for ti in range(1, len(tdraw)):
 	p.addUserDebugLine(traj(tdraw[ti-1]), traj(tdraw[ti]), lineColorRGB=[0,0,0], lifeTime=0)

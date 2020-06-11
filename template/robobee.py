@@ -126,7 +126,7 @@ class RobobeeSim():
         
         # Passive hinge dynamics implemented as position control rather than joint dynamics
         p.setJointMotorControlArray(self.bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=[0.02,0.02], velocityGains=[0.005,0.005])
-        # p.setJointMotorControlArray(self.bid, [1,3], p.PD_CONTROL, targetPositions=[0,0], positionGains=urdfParams['khinge']*np.ones(2), velocityGains=urdfParams['bhinge']*np.ones(2))
+        # p.setJointMotorControlArray(self.bid, [1,3], p.PD_CONTROL, targetPositions=[0,0], positionGains=self.urdfParams['khinge']*np.ones(2), velocityGains=self.urdfParams['bhinge']*np.ones(2))
 
         return self.bid
 

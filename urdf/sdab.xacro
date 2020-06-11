@@ -21,8 +21,10 @@ Author: Avik De
 	<!-- vertical offset of wing attachment point from COM -->
 	<xacro:property name="d" value="2"/>
 	<!-- inertial properties -->
-	<xacro:property name="mb" value="80"/>
-	<xacro:property name="mspar" value="1"/>
+	<xacro:property name="mb" value="100"/>
+	<xacro:property name="ixx" value="3333"/>
+	<xacro:property name="iyy" value="3333"/>
+	<xacro:property name="izz" value="1000"/>
 	<xacro:property name="mwing" value="1"/>
 	<!-- Stiffness and damping properties -->
 	<xacro:property name="whinge" value="2.5"/>
@@ -53,7 +55,7 @@ Author: Avik De
 		 </visual>
 		<inertial>
 			<mass value="${mb}"/>
-			<inertia ixx="${10.0*1.0/12.0 * mb * (lbody*lbody + wbody*wbody)}" ixy="0.0" ixz="0.0" iyy="${10.0*1.0/12.0 * mb * (lbody*lbody + wbody*wbody)}" iyz="0.0" izz="${10.0*1.0/12.0 * mb * (wbody*wbody + wbody*wbody)}"/>
+			<inertia ixx="${ixx}" ixy="0.0" ixz="0.0" iyy="${iyy}" iyz="0.0" izz="${izz}"/>
 		</inertial>
 	</link>
 
@@ -69,8 +71,8 @@ Author: Avik De
 				<material name="${sparcol}"/>
 			</visual>
 		<inertial>
-			<mass value="${mspar}"/>
-			<inertia ixx="${1.0/12.0 * mspar * ((Rwing+RwingOffset)*(Rwing+RwingOffset) + dspar*dspar)}" ixy="0.0" ixz="0.0" iyy="${1.0/12.0 * mspar * (2 * (Rwing+RwingOffset)*(Rwing+RwingOffset))}" iyz="0.0" izz="${1.0/12.0 * mspar * ((Rwing+RwingOffset)*(Rwing+RwingOffset) + dspar*dspar)}"/>
+			<mass value="0"/>
+			<inertia ixx="0" ixy="0.0" ixz="0.0" iyy="0" iyz="0.0" izz="0"/>
 		</inertial>
 		<!-- pybullet does not expose spring_stiffness but does expose these so add them here too. We are not expecting contact -->
 		<contact>
