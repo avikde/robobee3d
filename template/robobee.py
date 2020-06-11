@@ -9,11 +9,52 @@ from scipy.spatial.transform import Rotation # TODO: eliminate
 CD0 = 0.4
 CDmax = 3.4
 CLmax = 1.8
+AERO_REGULARIZE_EPS = 1e-10 # stops undefined AoA when no wind
     
-def CF(a):
+def Caero(a):
     # in order lift,drag
     return np.array([CLmax * np.sin(2*a), (CDmax + CD0) / 2.0 - (CDmax - CD0) / 2.0 * np.cos(2*a)])
 
+def aerodynamics(theta, dtheta, lrSign, params):
+    # pass in current positions 11DOF: joints (4) + com (3 linear + 4 angular)
+
+    # vector from center to distance along spar
+
+    # These are all in the body frame
+    Rspar = Rotation.from_euler('z', theta[0])
+    Rhinge = Rotation.from_euler('y', -lrSign * theta[1])
+    # vector along wing
+    sparVecB = Rspar.apply(np.array([0, lrSign, 0]))
+    # wing chord unit vector
+    chordB = Rspar.apply(Rhinge.apply(np.array([0,0,-1])))
+    # TODO: add external wind vector
+    # NOTE: assuming spar velocity is dominant
+    wB = -np.cross(dtheta[0] * np.array([0,0,1]), params['rcp'] * sparVecB)
+    # print(dtheta[0] * np.array([0,0,1]), self.ycp * sparVecB)
+
+    # COP: half od cbar down
+    pcopB = np.array([0,0,params['d']]) + params['rcp'] * sparVecB + 0.5 * params['cbar'] * chordB
+
+    # Various directions in the notation of Osborne (1951)
+    # l = vector along wing
+    # w = relative wind vector
+    # c = chord
+    lwB = np.cross(sparVecB, wB)
+    lwpB = wB - wB.dot(sparVecB) * sparVecB
+    wnorm = np.sqrt(wB.dot(wB)) + AERO_REGULARIZE_EPS
+    lwnorm = np.sqrt(lwB.dot(lwB)) + AERO_REGULARIZE_EPS
+    lwpnorm = np.sqrt(lwpB.dot(lwpB)) + AERO_REGULARIZE_EPS
+
+    # Lift/drag directions
+    eD = lwpB / lwpnorm
+    eL = np.array([0,0,1])
+
+    # Calculate aero force
+    aoa = np.arccos(chordB.dot(wB) / wnorm)
+    Cf = Caero(aoa)
+    # Cf *= 0.5 * rho * beta
+    FaeroB = 0.5 * RHO * params['cbar'] * params['rcp'] * (Cf[0] * eL + Cf[1] * eD) * lwnorm**2
+    return FaeroB, pcopB
 # Modeling choices
 # gamma
 
@@ -24,7 +65,6 @@ class RobobeeSim():
     # Model with force control of the wing spar
     # Could make it modular so that lumped actuator models can be introduced as well
 
-    AERO_REGULARIZE_EPS = 1e-10 # stops undefined AoA when no wind
 
     # Parameters
     FAERO_DRAW_SCALE = 10.0
@@ -55,67 +95,16 @@ class RobobeeSim():
         # load background
         p.setAdditionalSearchPath(pybullet_data.getDataPath()) #optionally
         self.planeId = p.loadURDF("plane.urdf", globalScaling=100.0)
-    
-    def aerodynamics(self, q, dq, lrSign, worldFrame=True):
-        # pass in current positions 11DOF: joints (4) + com (3 linear + 4 angular)
 
-        # vector from center to distance along spar
-        # joint angles
-        if lrSign > 0:
-            theta = -q[2:4]
-            dtheta = -dq[2:4]
-        else:
-            theta = q[0:2]
-            dtheta = dq[0:2]
-
-        # These are all in the body frame
-        Rspar = Rotation.from_euler('z', theta[0])
-        Rhinge = Rotation.from_euler('y', -lrSign * theta[1])
-        # vector along wing
-        sparVecB = Rspar.apply(np.array([0, lrSign, 0]))
-        # wing chord unit vector
-        chordB = Rspar.apply(Rhinge.apply(np.array([0,0,-1])))
-        # TODO: add external wind vector
-        # NOTE: assuming spar velocity is dominant
-        wB = -np.cross(dtheta[0] * np.array([0,0,1]), self.ycp * sparVecB)
-        # print(dtheta[0] * np.array([0,0,1]), self.ycp * sparVecB)
-
-        # COP: half od cbar down
-        pcopB = np.array([0,0,self.d]) + self.ycp * sparVecB + 0.5 * self.cbar * chordB
-
-        # Various directions in the notation of Osborne (1951)
-        # l = vector along wing
-        # w = relative wind vector
-        # c = chord
-        lwB = np.cross(sparVecB, wB)
-        lwpB = wB - wB.dot(sparVecB) * sparVecB
-        wnorm = np.sqrt(wB.dot(wB)) + self.AERO_REGULARIZE_EPS
-        lwnorm = np.sqrt(lwB.dot(lwB)) + self.AERO_REGULARIZE_EPS
-        lwpnorm = np.sqrt(lwpB.dot(lwpB)) + self.AERO_REGULARIZE_EPS
-
-        # Lift/drag directions
-        eD = lwpB / lwpnorm
-        eL = np.array([0,0,1])
-
-        # Calculate aero force
-        aoa = np.arccos(chordB.dot(wB) / wnorm)
-        Cf = CF(aoa)
-        # Cf *= 0.5 * rho * beta
-        FaeroB = 0.5 * RHO * self.cbar * self.ycp * (Cf[0] * eL + Cf[1] * eD) * lwnorm**2
-
+    def wTb(self, FaeroB, pcopB):
         # Body to world frame --
-        pcom = q[4:7]
-        Rb = Rotation.from_quat(q[7:11]) # scalar-last format
-        if worldFrame:
-            pcopW = pcom + Rb.apply(pcopB)
-            FaeroW = Rb.apply(FaeroB)
-            # for external torque about wing hinge, use r X F
-            hingeTorque = np.cross(0.5 * self.cbar * Rb.apply(chordB), FaeroW)
-            return pcopW, FaeroW, hingeTorque
-        else:
-            # body frame
-            hingeTorque = np.cross(0.5 * self.cbar * chordB, FaeroB)
-            return pcopB, FaeroB, hingeTorque
+        pcom = self.q[4:7]
+        Rb = Rotation.from_quat(self.q[7:11]) # scalar-last format
+        pcopW = pcom + Rb.apply(pcopB)
+        FaeroW = Rb.apply(FaeroB)
+        # for external torque about wing hinge, use r X F
+        # hingeTorque = np.cross(0.5 * self.cbar * Rb.apply(chordB), FaeroW)
+        return FaeroW, pcopW#, hingeTorque
 
 
     def load(self, filename, basePosition, *args, **kwargs):
@@ -131,9 +120,6 @@ class RobobeeSim():
         self.pcomLastDraw = basePosition
         
         self.jointId, self.urdfParams = self.getInfoFromURDF()
-        self.d = self.urdfParams['d']
-        self.ycp = self.urdfParams['rcp']
-        self.cbar = self.urdfParams['cbar']
         
         # Get the joints to reasonable positions
         self.resetJoints(self.bid, range(4), np.zeros(4), np.zeros(4))
@@ -184,12 +170,12 @@ class RobobeeSim():
 
         return jointId, urdfParams
 
-    def sampleStates(self, bid):
+    def sampleStates(self):
         # get actual state
         for j in range(self.Nj):
-            self.q[j], self.dq[j] = p.getJointState(bid, j)[0:2]
-        self.q[4:7], self.q[7:11] = p.getBasePositionAndOrientation(bid)[0:2]
-        self.dq[4:7], self.dq[7:10] = p.getBaseVelocity(bid)[0:2]
+            self.q[j], self.dq[j] = p.getJointState(self.bid, j)[0:2]
+        self.q[4:7], self.q[7:11] = p.getBasePositionAndOrientation(self.bid)[0:2]
+        self.dq[4:7], self.dq[7:10] = p.getBaseVelocity(self.bid)[0:2]
         
     def resetJoints(self, bid, jarr, q, dq):
         '''Forcibly move joints to certain positions (q) and velocities (dq)'''
@@ -200,17 +186,19 @@ class RobobeeSim():
             p.setJointMotorControl2(bid, j, controlMode=p.VELOCITY_CONTROL, targetVelocity=0, force=0)
             p.setJointMotorControl2(bid, j, controlMode=p.TORQUE_CONTROL, force=0)
 
-    def update(self, bid, pcops, Faeros, Taeros, worldFrame=True):
-        jointIndices = [self.jointId[b'lwing_hinge'], self.jointId[b'rwing_hinge']]
-        for i in range(2):
-            if worldFrame:
-                # pass
-                # print(Faeros[0])
-                p.applyExternalForce(bid, jointIndices[i], Faeros[i], pcops[i], p.WORLD_FRAME)
-            else:
-                # Need to convert to body frame (link -1)
-                # p.applyExternalForce(bid, -1, Faeros[i], [0,0,0], p.LINK_FRAME)
-                raise 'Not implemented'
+    def update(self):
+        # print(self.q[0:4], self.dq[:4])
+        aero1 = self.wTb(*aerodynamics(self.q[0:2], self.dq[0:2], -1, self.urdfParams))
+        aero2 = self.wTb(*aerodynamics(-self.q[2:4], -self.dq[2:4], 1, self.urdfParams))
+
+        if True:
+            # pass
+            p.applyExternalForce(self.bid, self.jointId[b'lwing_hinge'], *aero1, p.WORLD_FRAME)
+            p.applyExternalForce(self.bid, self.jointId[b'rwing_hinge'], *aero2, p.WORLD_FRAME)
+        else:
+            # Need to convert to body frame (link -1)
+            # p.applyExternalForce(bid, -1, Faeros[i], [0,0,0], p.LINK_FRAME)
+            raise 'Not implemented'
 
         # Bullet update
         p.stepSimulation()
@@ -224,8 +212,8 @@ class RobobeeSim():
         if self.simt - self.tLastDraw > 2 * self.TIMESTEP:
             # draw debug
             cols = [[1,1,0], [1,0,1]]
-            for i in range(2):
-                p.addUserDebugLine(pcops[i], pcops[i] + self.FAERO_DRAW_SCALE * Faeros[i], lineColorRGB=cols[i], lifeTime=3 * self._slowDown * self.TIMESTEP)
+            p.addUserDebugLine(aero1[1], aero1[1] + self.FAERO_DRAW_SCALE * aero1[0], lineColorRGB=cols[0], lifeTime=3 * self._slowDown * self.TIMESTEP)
+            p.addUserDebugLine(aero2[1], aero2[1] + self.FAERO_DRAW_SCALE * aero2[0], lineColorRGB=cols[1], lifeTime=3 * self._slowDown * self.TIMESTEP)
             self.tLastDraw = self.simt
         
         if self.simt - self.tLastPrint > 0.01:
