@@ -1,18 +1,18 @@
 import time, subprocess
 import numpy as np
 import pybullet as p
-from robobee import RobobeeSim
+import robobee
 np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
 # Usage params
 STROKE_FORCE_CONTROL = True # if false, use position control on the stroke
 
-bee = RobobeeSim(slowDown=0.1, camLock=True, timestep=0.1)
+bee = robobee.RobobeeSim(slowDown=0.1, camLock=True, timestep=0.1)
 # load robot
 startPos = [0,0,10]
 startOrientation = p.getQuaternionFromEuler(np.zeros(3))
 subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.xacro.urdf"])
-bid = bee.load("../urdf/sdab.xacro.urdf", startPos, startOrientation, useFixedBase=False)
+bid = bee.load("../urdf/sdab.xacro.urdf", startPos, startOrientation, useFixedBase=True)
 # print(jointId, urdfParams)
 
 # Helper function: traj to track
@@ -29,14 +29,21 @@ for ti in range(1, len(tdraw)):
 
 
 # conventional controller params
-ctrl = {'thrust': 40, 'strokedev': 0, 'ampl': np.pi/4, 'freq': 0.17}
+ctrl = {'thrust': 40, 'strokedev': 0, 'ampl': np.pi/4, 'freq': 0.1}
 tLastPrint = 0
+
+idf = p.addUserDebugParameter("freq", 0, 0.3, 0.1)
+idkh = p.addUserDebugParameter("khinge", 0, 100, 10)
+idbh = p.addUserDebugParameter("bhinge", 0, 100, 10)
+idrc = p.addUserDebugParameter("rcopnondim", 0, 2, 0.5)
 
 while True:
     try:
         # actual sim
         bee.sampleStates()
-        
+        robobee.rcopnondim = p.readUserDebugParameter(idrc)
+        p.setJointMotorControlArray(bid, [1,3], p.PD_CONTROL, targetPositions=[0,0], positionGains=p.readUserDebugParameter(idkh)*np.ones(2), velocityGains=p.readUserDebugParameter(idbh)*np.ones(2))
+
         # # Conventional controller
         # # posErr = sim.q[4:7] - traj(sim.simt)
         # # FIXME: simple path
@@ -49,7 +56,7 @@ while True:
         # ctrl['strokedev'] = np.clip(pitchCtrl, -0.4, 0.4)
 
         # Stroke kinematics (not force controlled yet)
-        omega = 2 * np.pi * ctrl['freq']
+        omega = 2 * np.pi *p.readUserDebugParameter(idf) #ctrl['freq']
         ph = omega * bee.simt
         th0 = ctrl['ampl'] * (np.sin(ph) + ctrl['strokedev'])
         dth0 = omega * ctrl['ampl'] * np.cos(ph)
@@ -59,8 +66,8 @@ while True:
         tau = np.full(2, ctrl['thrust'] * (np.sin(ph) + ctrl['strokedev']))
 
         # pass tau or posdes
-        # bee.update(posdes, forceControl=False)
-        bee.update(tau, forceControl=True)
+        bee.update(posdes, forceControl=False)
+        # bee.update(tau, forceControl=True)
         time.sleep(bee._slowDown * bee.TIMESTEP)
     except:
         raise

@@ -12,6 +12,8 @@ AERO_REGULARIZE_EPS = 1e-10 # stops undefined AoA when no wind
 # True in Chen (2017) science robotics, but differently calculated in Osborne (1951)
 RHO = 1.225e-3 # density of air kg/m^3
 
+rcopnondim = 0.5
+
 def aerodynamics(theta, dtheta, lrSign, params):
     """Return aerodynamic force and instantaneous CoP in the body frame (both in R^3)"""
 
@@ -27,11 +29,11 @@ def aerodynamics(theta, dtheta, lrSign, params):
     chordB = Rspar.apply(Rhinge.apply(np.array([0,0,-1])))
     # TODO: add external wind vector
     # NOTE: assuming spar velocity is dominant
-    wB = -np.cross(dtheta[0] * np.array([0,0,1]), params['rcp'] * sparVecB)
+    wB = -np.cross(dtheta[0] * np.array([0,0,1]), params['ycp'] * sparVecB)
     # print(dtheta[0] * np.array([0,0,1]), self.ycp * sparVecB)
 
     # COP: half od cbar down
-    pcopB = np.array([0,0,params['d']]) + params['rcp'] * sparVecB + 0.5 * params['cbar'] * chordB
+    pcopB = np.array([0,0,params['d']]) + params['ycp'] * sparVecB + rcopnondim * params['cbar'] * chordB
 
     # Various directions in the notation of Osborne (1951)
     # l = vector along wing
@@ -51,7 +53,7 @@ def aerodynamics(theta, dtheta, lrSign, params):
     aoa = np.arccos(chordB.dot(wB) / wnorm)
     Cf = Caero(aoa)
     # Cf *= 0.5 * rho * beta
-    FaeroB = 0.5 * RHO * params['cbar'] * params['rcp'] * (Cf[0] * eL + Cf[1] * eD) * lwnorm**2
+    FaeroB = 0.5 * RHO * params['cbar'] * params['ycp'] * (Cf[0] * eL + Cf[1] * eD) * lwnorm**2
     return FaeroB, pcopB
 
 def actuatorModel(V, qact, dqact):
@@ -81,7 +83,7 @@ class RobobeeSim():
         # Set up the visualizer
         p.configureDebugVisualizer(p.COV_ENABLE_WIREFRAME, 0)
         p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0)
-        p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
+        # p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
         # p.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 0)
         p.setRealTimeSimulation(0)
         p.setTimeStep(self.TIMESTEP)
@@ -120,8 +122,8 @@ class RobobeeSim():
         self.resetJoints(self.bid, range(4), np.zeros(4), np.zeros(4))
         
         # Passive hinge dynamics implemented as position control rather than joint dynamics FIXME:
-        p.setJointMotorControlArray(self.bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=[0.02,0.02], velocityGains=[0.005,0.005])
-        # p.setJointMotorControlArray(self.bid, [1,3], p.PD_CONTROL, targetPositions=[0,0], positionGains=0.1*self.urdfParams['khinge']*np.ones(2), velocityGains=0.1*self.urdfParams['bhinge']*np.ones(2))
+        # p.setJointMotorControlArray(self.bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=[0.02,0.02], velocityGains=[0.05,0.05])
+        # p.setJointMotorControlArray(self.bid, [1,3], p.PD_CONTROL, targetPositions=[0,0], positionGains=self.urdfParams['khinge']*np.ones(2), velocityGains=self.urdfParams['bhinge']*np.ones(2))
 
         return self.bid
 
@@ -150,7 +152,7 @@ class RobobeeSim():
             # All the shapes are of type p.GEOM_BOX (shape[2])
             linkId, dimensions, pos, orn = shape[1], shape[3], shape[5], shape[6]
             if linkId == jointId[b'lwing_hinge']: # link 1 and 3 are the wing membranes
-                urdfParams['rcp'] = 0.5 * dimensions[1]
+                urdfParams['ycp'] = 0.5 * dimensions[0]
                 urdfParams['cbar'] = dimensions[2]
 
         # Stiffness etc. if needed
@@ -163,6 +165,7 @@ class RobobeeSim():
             elif j == jointId[b'lwing_stroke']:
                 urdfParams['kstroke'] = stiffness
 
+        print(urdfParams)
         return jointId, urdfParams
 
     def sampleStates(self):
@@ -177,7 +180,6 @@ class RobobeeSim():
         for j in jarr:
             p.resetJointState(bid, j, q[j], dq[j])
             # make it so it can be torque controlled
-            # NOTE: need to comment this out if trying to reset states in the loop
             p.setJointMotorControl2(bid, j, controlMode=p.VELOCITY_CONTROL, targetVelocity=0, force=0)
             p.setJointMotorControl2(bid, j, controlMode=p.TORQUE_CONTROL, force=0)
 
@@ -199,7 +201,7 @@ class RobobeeSim():
         aero2 = self.wTb(*aerodynamics(-self.q[2:4], -self.dq[2:4], 1, self.urdfParams))
 
         if True:
-            # pass
+            # linkID = jointID
             p.applyExternalForce(self.bid, self.jointId[b'lwing_hinge'], *aero1, p.WORLD_FRAME)
             p.applyExternalForce(self.bid, self.jointId[b'rwing_hinge'], *aero2, p.WORLD_FRAME)
         else:
@@ -211,7 +213,7 @@ class RobobeeSim():
         p.stepSimulation()
         if self.simt < 1e-10 or self._camLock:
             # Reset camera to be at the correct distance (only first time)
-            p.resetDebugVisualizerCamera(100, 45, -30, self.q[4:7])
+            p.resetDebugVisualizerCamera(60, 45, -30, self.q[4:7])
 
         self.simt += self.TIMESTEP
 
