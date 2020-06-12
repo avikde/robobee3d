@@ -1,5 +1,4 @@
-'''Interface to sim engine
-'''
+
 import numpy as np
 import pybullet as p
 import pybullet_data
@@ -10,15 +9,14 @@ CD0 = 0.4
 CDmax = 3.4
 CLmax = 1.8
 AERO_REGULARIZE_EPS = 1e-10 # stops undefined AoA when no wind
-    
-def Caero(a):
-    # in order lift,drag
-    return np.array([CLmax * np.sin(2*a), (CDmax + CD0) / 2.0 - (CDmax - CD0) / 2.0 * np.cos(2*a)])
+# True in Chen (2017) science robotics, but differently calculated in Osborne (1951)
+RHO = 1.225e-3 # density of air kg/m^3
 
 def aerodynamics(theta, dtheta, lrSign, params):
-    # pass in current positions 11DOF: joints (4) + com (3 linear + 4 angular)
+    """Return aerodynamic force and instantaneous CoP in the body frame (both in R^3)"""
 
-    # vector from center to distance along spar
+    # Helper from DIckinson model; in order lift, drag
+    Caero = lambda a : np.array([CLmax * np.sin(2*a), (CDmax + CD0) / 2.0 - (CDmax - CD0) / 2.0 * np.cos(2*a)])
 
     # These are all in the body frame
     Rspar = Rotation.from_euler('z', theta[0])
@@ -55,16 +53,13 @@ def aerodynamics(theta, dtheta, lrSign, params):
     # Cf *= 0.5 * rho * beta
     FaeroB = 0.5 * RHO * params['cbar'] * params['rcp'] * (Cf[0] * eL + Cf[1] * eD) * lwnorm**2
     return FaeroB, pcopB
-# Modeling choices
-# gamma
 
-# True in Chen (2017) science robotics, but differently calculated in Osborne (1951)
-RHO = 1.225e-3 # density of air kg/m^3
+def actuatorModel(V, qact, dqact):
+    """Return actuator force for applied voltage input and current actuator state"""
+    return V # TODO:
 
 class RobobeeSim():
-    # Model with force control of the wing spar
-    # Could make it modular so that lumped actuator models can be introduced as well
-
+    """Robobee simulator using pybullet"""
 
     # Parameters
     FAERO_DRAW_SCALE = 10.0
