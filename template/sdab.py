@@ -29,12 +29,12 @@ for ti in range(1, len(tdraw)):
 
 
 # conventional controller params
-ctrl = {'thrust': 40, 'strokedev': 0, 'ampl': np.pi/4, 'freq': 0.1}
+ctrl = {'thrust': 40, 'strokedev': 0, 'ampl': np.pi/4, 'freq': 0.175}
 tLastPrint = 0
 
 idf = p.addUserDebugParameter("freq", 0, 0.3, 0.1)
-idkh = p.addUserDebugParameter("khinge", 0, 100, 10)
-idbh = p.addUserDebugParameter("bhinge", 0, 100, 10)
+idkh = p.addUserDebugParameter("khinge", 0, 0.1, 0.02)
+idbh = p.addUserDebugParameter("bhinge", 0, 0.1, 0.02)
 idrc = p.addUserDebugParameter("rcopnondim", 0, 2, 0.5)
 
 while True:
@@ -42,7 +42,8 @@ while True:
         # actual sim
         bee.sampleStates()
         robobee.rcopnondim = p.readUserDebugParameter(idrc)
-        p.setJointMotorControlArray(bid, [1,3], p.PD_CONTROL, targetPositions=[0,0], positionGains=p.readUserDebugParameter(idkh)*np.ones(2), velocityGains=p.readUserDebugParameter(idbh)*np.ones(2))
+        # p.setJointMotorControlArray(bid, [1,3], p.PD_CONTROL, targetPositions=[0,0], positionGains=p.readUserDebugParameter(idkh)*np.ones(2), velocityGains=p.readUserDebugParameter(idbh)*np.ones(2))
+        p.setJointMotorControlArray(bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=p.readUserDebugParameter(idkh)*np.ones(2), velocityGains=p.readUserDebugParameter(idbh)*np.ones(2))
 
         # # Conventional controller
         # # posErr = sim.q[4:7] - traj(sim.simt)
@@ -56,7 +57,7 @@ while True:
         # ctrl['strokedev'] = np.clip(pitchCtrl, -0.4, 0.4)
 
         # Stroke kinematics (not force controlled yet)
-        omega = 2 * np.pi *p.readUserDebugParameter(idf) #ctrl['freq']
+        omega = 2 * np.pi * p.readUserDebugParameter(idf) #ctrl['freq'] #
         ph = omega * bee.simt
         th0 = ctrl['ampl'] * (np.sin(ph) + ctrl['strokedev'])
         dth0 = omega * ctrl['ampl'] * np.cos(ph)

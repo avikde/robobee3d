@@ -12,7 +12,7 @@ AERO_REGULARIZE_EPS = 1e-10 # stops undefined AoA when no wind
 # True in Chen (2017) science robotics, but differently calculated in Osborne (1951)
 RHO = 1.225e-3 # density of air kg/m^3
 
-rcopnondim = 0.5
+rcopnondim = 1.0 #0.5 # FIXME:
 
 def aerodynamics(theta, dtheta, lrSign, params):
     """Return aerodynamic force and instantaneous CoP in the body frame (both in R^3)"""
@@ -122,7 +122,7 @@ class RobobeeSim():
         self.resetJoints(self.bid, range(4), np.zeros(4), np.zeros(4))
         
         # Passive hinge dynamics implemented as position control rather than joint dynamics FIXME:
-        # p.setJointMotorControlArray(self.bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=[0.02,0.02], velocityGains=[0.05,0.05])
+        # p.setJointMotorControlArray(self.bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=[0.02,0.02], velocityGains=[0.02,0.02])
         # p.setJointMotorControlArray(self.bid, [1,3], p.PD_CONTROL, targetPositions=[0,0], positionGains=self.urdfParams['khinge']*np.ones(2), velocityGains=self.urdfParams['bhinge']*np.ones(2))
 
         return self.bid
@@ -162,6 +162,7 @@ class RobobeeSim():
             if j == jointId[b'lwing_hinge']:
                 urdfParams['khinge'] = stiffness
                 urdfParams['bhinge'] = damping
+                print(dinfo)
             elif j == jointId[b'lwing_stroke']:
                 urdfParams['kstroke'] = stiffness
 
@@ -197,12 +198,17 @@ class RobobeeSim():
         # p.setJointMotorControlArray(self.bid, [1,3], p.TORQUE_CONTROL, forces=taup)
 
         # print(self.q[0:4], self.dq[:4])
-        aero1 = self.wTb(*aerodynamics(self.q[0:2], self.dq[0:2], -1, self.urdfParams))
+        aero1B = aerodynamics(self.q[0:2], self.dq[0:2], -1, self.urdfParams)
+        aero1 = self.wTb(*aero1B)
         aero2 = self.wTb(*aerodynamics(-self.q[2:4], -self.dq[2:4], 1, self.urdfParams))
 
+        # aero1[0] = [1,0,0]
+
         if True:
+            pass
+            # print(self.jointId[b'lwing_hinge'])
             # linkID = jointID
-            p.applyExternalForce(self.bid, self.jointId[b'lwing_hinge'], *aero1, p.WORLD_FRAME)
+            p.applyExternalForce(self.bid, self.jointId[b'lwing_hinge'], aero1[0], aero1[1], p.WORLD_FRAME)
             p.applyExternalForce(self.bid, self.jointId[b'rwing_hinge'], *aero2, p.WORLD_FRAME)
         else:
             # Need to convert to body frame (link -1)
