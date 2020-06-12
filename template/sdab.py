@@ -1,4 +1,4 @@
-import time
+import time, subprocess
 import numpy as np
 import pybullet as p
 from robobee import RobobeeSim
@@ -11,6 +11,7 @@ bee = RobobeeSim(slowDown=0.1, camLock=True, timestep=0.1)
 # load robot
 startPos = [0,0,10]
 startOrientation = p.getQuaternionFromEuler(np.zeros(3))
+subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.xacro.urdf"])
 bid = bee.load("../urdf/sdab.xacro.urdf", startPos, startOrientation, useFixedBase=False)
 # print(jointId, urdfParams)
 
