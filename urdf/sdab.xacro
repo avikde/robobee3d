@@ -10,22 +10,29 @@ Author: Avik De
 	<xacro:property name="pi" value="3.14159265359"/>
 	<xacro:property name="wbody" value="3"/>
 	<xacro:property name="lbody" value="12"/>
-	<!-- radial distance from center to start of wing -->
-	<xacro:property name="RwingOffset" value="4"/>
-	<!-- diameter of spar -->
-	<xacro:property name="dspar" value="1"/>
-	<!-- radial wing length -->
-	<xacro:property name="Rwing" value="12"/>
-	<!-- mean chord length -->
-	<xacro:property name="cbar" value="5"/>
 	<!-- vertical offset of wing attachment point from COM -->
-	<xacro:property name="d" value="2"/>
+	<xacro:property name="d" value="4"/>
 	<!-- inertial properties -->
 	<xacro:property name="mb" value="100"/>
 	<xacro:property name="ixx" value="3333"/>
 	<xacro:property name="iyy" value="3333"/>
 	<xacro:property name="izz" value="1000"/>
-	<xacro:property name="mwing" value="0.55"/>
+	<!-- See the mathematica file for how these were tuned to approximately match Jafferis (2016) -->
+	<xacro:property name="cbar" value="3.2"/>
+	<xacro:property name="dspar" value="0.5"/>
+	<!-- radial wing length *without the wing root offset*. Lw=Rwing+Rwingoffset -->
+	<!-- radial distance from center to start of wing -->
+	<xacro:property name="RwingOffset" value="3"/>
+	<xacro:property name="Rwing" value="14"/>
+	<xacro:property name="tmem" value="0.0015"/>
+	<xacro:property name="sparInertial">
+		<mass value="0.7"/>
+		<inertia ixx="0.0291667" ixy="0.0"  ixz="0.0" iyy="11.4479" iyz="0.0" izz="11.4479" />
+	</xacro:property>
+	<xacro:property name="memInertial">
+		<mass value="0.07"/>
+		<inertia ixx="0.0597333" ixy="0.0" ixz="0.0" iyy="1.20307" iyz="0.0" izz="1.14334" />
+	</xacro:property>
 	<!-- Stiffness and damping properties -->
 	<xacro:property name="whinge" value="2.5"/>
 	<xacro:property name="kstroke" value="65"/> <!-- total act = 240/T^2 + 30 -->
@@ -61,18 +68,17 @@ Author: Avik De
 
 	<!-- Define our wing macro -->
 	<xacro:macro name="wing" params="sign prefix sparcol">
-
+		<!--In robobee literature, "Ixx" = spanwise inertia, "Izz" = chordwise inertia. So, the wing frame has x along spar, z up, y pointing out of the wing plane. The first rpy below orients the frame so it is as expected.-->
 		<link name="${prefix}wing_spar">
 			<visual>
-				<origin xyz="0 ${sign * 0.5 * (Rwing + RwingOffset)} 0.0" rpy="0 0 0"/>
+				<origin xyz="0 ${sign*(0.5*Rwing)} 0.0" rpy="0 0 ${sign*0.5*pi}"/>
 				<geometry>
-					<box size="${dspar} ${RwingOffset + Rwing} ${dspar}"/>
+					<box size="${Rwing} ${dspar} ${dspar}"/>
 				</geometry>
 				<material name="${sparcol}"/>
 			</visual>
 		<inertial>
-			<mass value="0"/>
-			<inertia ixx="0" ixy="0.0" ixz="0.0" iyy="0" iyz="0.0" izz="0"/>
+			<xacro:insert_block name="sparInertial" />
 		</inertial>
 		<!-- pybullet does not expose spring_stiffness but does expose these so add them here too. We are not expecting contact -->
 		<contact>
@@ -83,15 +89,14 @@ Author: Avik De
 
 		<link name="${prefix}wing_membrane">
 			<visual>
-				<origin xyz="0 ${sign * 0.5 * (Rwing + RwingOffset)} ${-0.5 * cbar}" rpy="0 0 0"/>
+				<origin xyz="0 ${sign*(0.5*Rwing)} ${-0.5 * cbar}" rpy="0 0 ${sign*0.5*pi}"/>
 				<geometry>
-					<box size="${dspar} ${Rwing} ${cbar}"/>
+					<box size="${Rwing} ${tmem} ${cbar}"/>
 				</geometry>
 				<material name="Gray1"/>
 			</visual>
 		<inertial>
-			<mass value="${mwing}"/>
-			<inertia ixx="${1.0/12.0 * mwing * (Rwing*Rwing + cbar*cbar)}" ixy="0.0" ixz="0.0" iyy="${1.0/12.0 * mwing * (dspar*dspar + cbar*cbar)}" iyz="0.0" izz="${1.0/12.0 * mwing * (dspar*dspar + Rwing*Rwing)}"/>
+			<xacro:insert_block name="memInertial" />
 		</inertial>
 		<!-- pybullet does not expose spring_stiffness but does expose these so add them here too. We are not expecting contact -->
 		<contact>
@@ -106,7 +111,7 @@ Author: Avik De
 			<parent link="body"/>
 			<child link="${prefix}wing_spar"/>
 			<axis xyz="0 0 ${-1 * sign}"/>
-			<origin xyz="0.0 0 ${d}" rpy="0 0 0"/>
+			<origin xyz="0.0 ${sign*RwingOffset} ${d}" rpy="0 0 0"/>
 			<!-- <dynamics damping="${dampingSpar}" friction="0.0" spring_stiffness="${stiffnessSpar}" spring_reference="0"/> -->
 		</joint>
 	
