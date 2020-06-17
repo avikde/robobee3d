@@ -33,15 +33,12 @@ ctrl = {'thrust': 40, 'strokedev': 0, 'ampl': np.pi/4, 'freq': 0.175}
 tLastPrint = 0
 
 idf = p.addUserDebugParameter("freq", 0, 0.3, 0.1)
-idkh = p.addUserDebugParameter("khinge", 0, 0.1, 0.01)
-idbh = p.addUserDebugParameter("bhinge", 0, 0.1, 0.05)
 
 while True:
     try:
         # actual sim
         bee.sampleStates()
-        # p.setJointMotorControlArray(bid, [1,3], p.PD_CONTROL, targetPositions=[0,0], positionGains=p.readUserDebugParameter(idkh)*np.ones(2), velocityGains=p.readUserDebugParameter(idbh)*np.ones(2))
-        p.setJointMotorControlArray(bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=p.readUserDebugParameter(idkh)*np.ones(2), velocityGains=p.readUserDebugParameter(idbh)*np.ones(2))
+        # p.setJointMotorControlArray(bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=p.readUserDebugParameter(idkh)*np.ones(2), velocityGains=p.readUserDebugParameter(idbh)*np.ones(2))
 
         # # Conventional controller
         # # posErr = sim.q[4:7] - traj(sim.simt)
