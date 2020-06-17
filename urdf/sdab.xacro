@@ -35,7 +35,7 @@ Author: Avik De
 	</xacro:property>
 	<!-- Stiffness and damping properties -->
 	<xacro:property name="khinge" value="3"/>
-	<xacro:property name="bhinge" value="2"/>
+	<xacro:property name="bhinge" value="4"/>
 	<xacro:property name="kstroke" value="65"/> <!-- total act = 240/T^2 + 30 -->
 	
 	<!-- Define materials -->

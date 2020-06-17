@@ -7,7 +7,7 @@ np.set_printoptions(precision=2, suppress=True, linewidth=200)
 # Usage params
 STROKE_FORCE_CONTROL = True # if false, use position control on the stroke
 
-bee = robobee.RobobeeSim(slowDown=0.1, camLock=True, timestep=0.1)
+bee = robobee.RobobeeSim(slowDown=100, camLock=True, timestep=0.1)
 # load robot
 startPos = [0,0,10]
 startOrientation = p.getQuaternionFromEuler(np.zeros(3))
@@ -29,16 +29,18 @@ for ti in range(1, len(tdraw)):
 
 
 # conventional controller params
-ctrl = {'thrust': 40, 'strokedev': 0, 'ampl': np.pi/4, 'freq': 0.175}
+# ctrl = {'thrust': 40, 'strokedev': 0, 'ampl': np.pi/4, 'freq': 0.175}
 tLastPrint = 0
 
-idf = p.addUserDebugParameter("freq", 0, 0.3, 0.1)
+idfreq = p.addUserDebugParameter("freq", 0, 0.3, 0.15)
+idmean = p.addUserDebugParameter("umean [mN]", 0, 100, 40)
+iddiff = p.addUserDebugParameter("udiff [ ]", -0.5, 0.5, 0)
+idoffs = p.addUserDebugParameter("uoffs [ ]", -0.5, 0.5, 0)
 
 while True:
     try:
         # actual sim
         bee.sampleStates()
-        # p.setJointMotorControlArray(bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=p.readUserDebugParameter(idkh)*np.ones(2), velocityGains=p.readUserDebugParameter(idbh)*np.ones(2))
 
         # # Conventional controller
         # # posErr = sim.q[4:7] - traj(sim.simt)
@@ -51,20 +53,25 @@ while True:
         # pitchCtrl = 2 * (curPitch - desPitch) + 0.1 * sim.dq[8]
         # ctrl['strokedev'] = np.clip(pitchCtrl, -0.4, 0.4)
 
-        # Stroke kinematics (not force controlled yet)
-        omega = 2 * np.pi * p.readUserDebugParameter(idf) #ctrl['freq'] #
+        # Stroke kinematics
+        omega = 2 * np.pi * p.readUserDebugParameter(idfreq) #ctrl['freq'] #
         ph = omega * bee.simt
-        th0 = ctrl['ampl'] * (np.sin(ph) + ctrl['strokedev'])
-        dth0 = omega * ctrl['ampl'] * np.cos(ph)
-        posdes = [th0,th0]
+        # th0 = ctrl['ampl'] * (np.sin(ph) + ctrl['strokedev'])
+        # dth0 = omega * ctrl['ampl'] * np.cos(ph)
+        # posdes = [th0,th0]
 
         # OR force control
-        tau = np.full(2, ctrl['thrust'] * (np.sin(ph) + ctrl['strokedev']))
+        umean = p.readUserDebugParameter(idmean)
+        udiff = p.readUserDebugParameter(iddiff)
+        uoffs = p.readUserDebugParameter(idoffs)
+        tau = np.array([1 + udiff, 1 - udiff]) * umean * (np.sin(ph) + uoffs)
+        # np.full(2, ctrl['thrust'] * (np.sin(ph) + ctrl['strokedev']))
 
         # pass tau or posdes
-        bee.update(posdes, forceControl=False)
-        # bee.update(tau, forceControl=True)
-        time.sleep(bee._slowDown * bee.TIMESTEP)
+        # bee.update(posdes, forceControl=False)
+        bee.update(tau, forceControl=True)
+
+        time.sleep(bee._slowDown * bee.TIMESTEP * 1e-3)
     except:
         raise
 

@@ -189,7 +189,7 @@ class RobobeeSim():
     
     def visAero(self, aeroB, col):
         aeroW = self.wTb(*aeroB)
-        p.addUserDebugLine(aeroW[1], aeroW[1] + self.FAERO_DRAW_SCALE * np.array(aeroW[0]), lineColorRGB=col, lifeTime=8 * self._slowDown * self.TIMESTEP)
+        p.addUserDebugLine(aeroW[1], aeroW[1] + self.FAERO_DRAW_SCALE * np.array(aeroW[0]), lineColorRGB=col, lifeTime=8 * self._slowDown * self.TIMESTEP * 1e-3)
 
     def update(self, u, testF=0, forceControl=False):
         if forceControl:
