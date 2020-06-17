@@ -14,14 +14,13 @@ RHO = 1.225e-3 # density of air kg/m^3
 
 rcopnondim = 1.0 #0.5 # FIXME:
 
-def aerodynamics(theta, dtheta, flip, params):
+def aerodynamics(theta, dtheta, lrSign, params):
     """Return aerodynamic force and instantaneous CoP in the body frame (both in R^3). If flip=False it will work for the left wing (along +y axis), and if flip=True it will """
-
     # Helper from DIckinson model; in order lift, drag
     Caero = lambda a : np.array([CLmax * np.sin(2*a), (CDmax + CD0) / 2.0 - (CDmax - CD0) / 2.0 * np.cos(2*a)])
 
     # These are all in the body frame
-    Rspar = Rotation.from_euler('z', theta[0])
+    Rspar = Rotation.from_euler('z', lrSign * theta[0])
     Rhinge = Rotation.from_euler('y', theta[1])
     # vector along wing
     sparVecB = Rspar.apply(np.array([0, 1, 0]))
@@ -29,7 +28,7 @@ def aerodynamics(theta, dtheta, flip, params):
     chordB = Rspar.apply(Rhinge.apply(np.array([0,0,-1])))
     # TODO: add external wind vector
     # NOTE: assuming spar velocity is dominant
-    wB = -np.cross(dtheta[0] * np.array([0,0,1]), params['ycp'] * sparVecB)
+    wB = -np.cross(lrSign * dtheta[0] * np.array([0,0,1]), params['ycp'] * sparVecB)
     # print(dtheta[0] * np.array([0,0,1]), self.ycp * sparVecB)
 
     # COP: half of cbar down
@@ -54,7 +53,7 @@ def aerodynamics(theta, dtheta, flip, params):
     Cf = Caero(aoa)
     # Cf *= 0.5 * rho * beta
     FaeroB = 0.5 * RHO * params['cbar'] * params['ycp'] * (Cf[0] * eL + Cf[1] * eD) * lwnorm**2
-    if flip:
+    if lrSign < 0:
         yflip = np.diag([1,-1,1])
         FaeroB = yflip @ FaeroB
         pcopB = yflip @ pcopB
@@ -203,9 +202,9 @@ class RobobeeSim():
         # p.setJointMotorControlArray(self.bid, [1,3], p.TORQUE_CONTROL, forces=taup)
 
         # print(self.q[0:4], self.dq[:4])
-        aero1B = aerodynamics(self.q[0:2], self.dq[0:2], False, self.urdfParams)
+        aero1B = aerodynamics(self.q[0:2], self.dq[0:2], 1, self.urdfParams)
         aero1 = self.wTb(*aero1B)
-        aero2 = self.wTb(*aerodynamics(-self.q[2:4], -self.dq[2:4], True, self.urdfParams))
+        aero2 = self.wTb(*aerodynamics(-self.q[2:4], -self.dq[2:4], -1, self.urdfParams))
 
         F1 = [testF[0],0,0]
         F2 = [testF[1],0,0]
