@@ -14,17 +14,17 @@ RHO = 1.225e-3 # density of air kg/m^3
 
 rcopnondim = 1.0 #0.5 # FIXME:
 
-def aerodynamics(theta, dtheta, lrSign, params):
-    """Return aerodynamic force and instantaneous CoP in the body frame (both in R^3)"""
+def aerodynamics(theta, dtheta, flip, params):
+    """Return aerodynamic force and instantaneous CoP in the body frame (both in R^3). If flip=False it will work for the left wing (along +y axis), and if flip=True it will """
 
     # Helper from DIckinson model; in order lift, drag
     Caero = lambda a : np.array([CLmax * np.sin(2*a), (CDmax + CD0) / 2.0 - (CDmax - CD0) / 2.0 * np.cos(2*a)])
 
     # These are all in the body frame
     Rspar = Rotation.from_euler('z', theta[0])
-    Rhinge = Rotation.from_euler('y', -lrSign * theta[1])
+    Rhinge = Rotation.from_euler('y', theta[1])
     # vector along wing
-    sparVecB = Rspar.apply(np.array([0, lrSign, 0]))
+    sparVecB = Rspar.apply(np.array([0, 1, 0]))
     # wing chord unit vector
     chordB = Rspar.apply(Rhinge.apply(np.array([0,0,-1])))
     # TODO: add external wind vector
@@ -32,8 +32,8 @@ def aerodynamics(theta, dtheta, lrSign, params):
     wB = -np.cross(dtheta[0] * np.array([0,0,1]), params['ycp'] * sparVecB)
     # print(dtheta[0] * np.array([0,0,1]), self.ycp * sparVecB)
 
-    # COP: half od cbar down
-    pcopB = np.array([0,0,params['d']]) + params['ycp'] * sparVecB + rcopnondim * params['cbar'] * chordB
+    # COP: half of cbar down
+    pcopB = np.array([0,params['Roffs'],params['d']]) + params['ycp'] * sparVecB + rcopnondim * params['cbar'] * chordB
 
     # Various directions in the notation of Osborne (1951)
     # l = vector along wing
@@ -54,6 +54,10 @@ def aerodynamics(theta, dtheta, lrSign, params):
     Cf = Caero(aoa)
     # Cf *= 0.5 * rho * beta
     FaeroB = 0.5 * RHO * params['cbar'] * params['ycp'] * (Cf[0] * eL + Cf[1] * eD) * lwnorm**2
+    if flip:
+        yflip = np.diag([1,-1,1])
+        FaeroB = yflip @ FaeroB
+        pcopB = yflip @ pcopB
     return FaeroB, pcopB
 
 def actuatorModel(V, qact, dqact):
@@ -146,6 +150,7 @@ class RobobeeSim():
             # Get the 'd' parameter
             if jointName == b'lwing_stroke':
                 urdfParams['d'] = parentFramePos[2]
+                urdfParams['Roffs'] = parentFramePos[1]
 
         # Geometry info
         for shape in p.getVisualShapeData(self.bid):
@@ -184,7 +189,7 @@ class RobobeeSim():
             p.setJointMotorControl2(bid, j, controlMode=p.VELOCITY_CONTROL, targetVelocity=0, force=0)
             p.setJointMotorControl2(bid, j, controlMode=p.TORQUE_CONTROL, force=0)
 
-    def update(self, u, forceControl=False):
+    def update(self, u, testF=0, forceControl=False):
         if forceControl:
             # stroke stiffness
             u[0] -= self.urdfParams['kstroke'] * self.q[0]
@@ -198,18 +203,19 @@ class RobobeeSim():
         # p.setJointMotorControlArray(self.bid, [1,3], p.TORQUE_CONTROL, forces=taup)
 
         # print(self.q[0:4], self.dq[:4])
-        aero1B = aerodynamics(self.q[0:2], self.dq[0:2], -1, self.urdfParams)
+        aero1B = aerodynamics(self.q[0:2], self.dq[0:2], False, self.urdfParams)
         aero1 = self.wTb(*aero1B)
-        aero2 = self.wTb(*aerodynamics(-self.q[2:4], -self.dq[2:4], 1, self.urdfParams))
+        aero2 = self.wTb(*aerodynamics(-self.q[2:4], -self.dq[2:4], True, self.urdfParams))
 
-        # aero1[0] = [1,0,0]
+        F1 = [testF[0],0,0]
+        F2 = [testF[1],0,0]
 
         if True:
-            pass
+            # pass
             # print(self.jointId[b'lwing_hinge'])
             # linkID = jointID
-            p.applyExternalForce(self.bid, self.jointId[b'lwing_hinge'], aero1[0], aero1[1], p.WORLD_FRAME)
-            p.applyExternalForce(self.bid, self.jointId[b'rwing_hinge'], *aero2, p.WORLD_FRAME)
+            p.applyExternalForce(self.bid, self.jointId[b'lwing_hinge'], F1, aero1[1], p.WORLD_FRAME)
+            p.applyExternalForce(self.bid, self.jointId[b'rwing_hinge'], F2, aero2[1], p.WORLD_FRAME)
         else:
             # Need to convert to body frame (link -1)
             # p.applyExternalForce(bid, -1, Faeros[i], [0,0,0], p.LINK_FRAME)
@@ -227,8 +233,8 @@ class RobobeeSim():
         if self.simt - self.tLastDraw > 2 * self.TIMESTEP:
             # draw debug
             cols = [[1,1,0], [1,0,1]]
-            p.addUserDebugLine(aero1[1], aero1[1] + self.FAERO_DRAW_SCALE * aero1[0], lineColorRGB=cols[0], lifeTime=3 * self._slowDown * self.TIMESTEP)
-            p.addUserDebugLine(aero2[1], aero2[1] + self.FAERO_DRAW_SCALE * aero2[0], lineColorRGB=cols[1], lifeTime=3 * self._slowDown * self.TIMESTEP)
+            p.addUserDebugLine(aero1[1], aero1[1] + self.FAERO_DRAW_SCALE * np.array(F1), lineColorRGB=cols[0], lifeTime=10 * self._slowDown * self.TIMESTEP)
+            p.addUserDebugLine(aero2[1], aero2[1] + self.FAERO_DRAW_SCALE * np.array(F2), lineColorRGB=cols[1], lifeTime=10 * self._slowDown * self.TIMESTEP)
             self.tLastDraw = self.simt
         
         if self.simt - self.tLastPrint > 0.01:

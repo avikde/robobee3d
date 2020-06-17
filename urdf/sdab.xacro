@@ -111,7 +111,7 @@ Author: Avik De
 		<joint name="${prefix}wing_stroke" type="continuous">
 			<parent link="body"/>
 			<child link="${prefix}wing_spar"/>
-			<axis xyz="0 0 ${-1 * sign}"/>
+			<axis xyz="0 0 ${sign}"/>
 			<origin xyz="0.0 ${sign*RwingOffset} ${d}" rpy="0 0 0"/>
 			<!-- <dynamics damping="${dampingSpar}" friction="0.0" spring_stiffness="${stiffnessSpar}" spring_reference="0"/> -->
 		</joint>
@@ -119,7 +119,7 @@ Author: Avik De
 		<joint name="${prefix}wing_hinge" type="continuous">
 			<parent link="${prefix}wing_spar"/>
 			<child link="${prefix}wing_membrane"/>
-			<axis xyz="0 1 0"/>
+			<axis xyz="0 ${sign} 0"/>
 			<origin xyz="0.0 0 0.0" rpy="0 0 0"/>
 			<!-- <dynamics damping="${dampingHinge}" friction="0.0" spring_stiffness="${stiffnessHinge}" spring_reference="0"/> -->
 		</joint>
@@ -127,6 +127,6 @@ Author: Avik De
 	</xacro:macro>
 
 	<!-- Two wings -->
-	<xacro:wing sign="-1" prefix="l" sparcol="Black1"/>
-	<xacro:wing sign="1" prefix="r" sparcol="Red1"/>
+	<xacro:wing sign="1" prefix="l" sparcol="Black1"/>
+	<xacro:wing sign="-1" prefix="r" sparcol="Red1"/>
 </robot>

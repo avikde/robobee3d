@@ -11,8 +11,8 @@ bee = robobee.RobobeeSim(slowDown=0.1, camLock=True, timestep=0.1)
 # load robot
 startPos = [0,0,10]
 startOrientation = p.getQuaternionFromEuler(np.zeros(3))
-subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.xacro.urdf"])
-bid = bee.load("../urdf/sdab.xacro.urdf", startPos, startOrientation, useFixedBase=True)
+subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.urdf"])
+bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=True)
 # print(jointId, urdfParams)
 
 # Helper function: traj to track
@@ -33,9 +33,11 @@ ctrl = {'thrust': 40, 'strokedev': 0, 'ampl': np.pi/4, 'freq': 0.175}
 tLastPrint = 0
 
 idf = p.addUserDebugParameter("freq", 0, 0.3, 0.1)
-idkh = p.addUserDebugParameter("khinge", 0, 0.1, 0.02)
+idkh = p.addUserDebugParameter("khinge", 0, 0.1, 0.01)
 idbh = p.addUserDebugParameter("bhinge", 0, 0.1, 0.02)
 idrc = p.addUserDebugParameter("rcopnondim", 0, 2, 0.5)
+idff = p.addUserDebugParameter("ff", -1, 1, 0)
+idff2 = p.addUserDebugParameter("ff2", -1, 1, 0)
 
 while True:
     try:
@@ -61,13 +63,13 @@ while True:
         ph = omega * bee.simt
         th0 = ctrl['ampl'] * (np.sin(ph) + ctrl['strokedev'])
         dth0 = omega * ctrl['ampl'] * np.cos(ph)
-        posdes = [th0,th0]
+        posdes = [0.3,0.3]#[th0,th0]
 
         # OR force control
         tau = np.full(2, ctrl['thrust'] * (np.sin(ph) + ctrl['strokedev']))
 
         # pass tau or posdes
-        bee.update(posdes, forceControl=False)
+        bee.update(posdes, testF=[p.readUserDebugParameter(idff), p.readUserDebugParameter(idff2)], forceControl=False)
         # bee.update(tau, forceControl=True)
         time.sleep(bee._slowDown * bee.TIMESTEP)
     except:
