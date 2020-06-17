@@ -35,15 +35,11 @@ tLastPrint = 0
 idf = p.addUserDebugParameter("freq", 0, 0.3, 0.1)
 idkh = p.addUserDebugParameter("khinge", 0, 0.1, 0.01)
 idbh = p.addUserDebugParameter("bhinge", 0, 0.1, 0.05)
-idrc = p.addUserDebugParameter("rcopnondim", 0, 2, 0.5)
-idff = p.addUserDebugParameter("ff", -1, 1, 0)
-idff2 = p.addUserDebugParameter("ff2", -1, 1, 0)
 
 while True:
     try:
         # actual sim
         bee.sampleStates()
-        robobee.rcopnondim = p.readUserDebugParameter(idrc)
         # p.setJointMotorControlArray(bid, [1,3], p.PD_CONTROL, targetPositions=[0,0], positionGains=p.readUserDebugParameter(idkh)*np.ones(2), velocityGains=p.readUserDebugParameter(idbh)*np.ones(2))
         p.setJointMotorControlArray(bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=p.readUserDebugParameter(idkh)*np.ones(2), velocityGains=p.readUserDebugParameter(idbh)*np.ones(2))
 
@@ -63,13 +59,13 @@ while True:
         ph = omega * bee.simt
         th0 = ctrl['ampl'] * (np.sin(ph) + ctrl['strokedev'])
         dth0 = omega * ctrl['ampl'] * np.cos(ph)
-        posdes = [0.,0.]#[th0,th0]
+        posdes = [th0,th0]
 
         # OR force control
         tau = np.full(2, ctrl['thrust'] * (np.sin(ph) + ctrl['strokedev']))
 
         # pass tau or posdes
-        bee.update(posdes, testF=[p.readUserDebugParameter(idff), p.readUserDebugParameter(idff2)], forceControl=False)
+        bee.update(posdes, forceControl=False)
         # bee.update(tau, forceControl=True)
         time.sleep(bee._slowDown * bee.TIMESTEP)
     except:

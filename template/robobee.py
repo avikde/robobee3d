@@ -12,7 +12,7 @@ AERO_REGULARIZE_EPS = 1e-10 # stops undefined AoA when no wind
 # True in Chen (2017) science robotics, but differently calculated in Osborne (1951)
 RHO = 1.225e-3 # density of air kg/m^3
 
-rcopnondim = 1.0 #0.5 # FIXME:
+rcopnondim = 0.5
 
 def aerodynamics(theta, dtheta, lrSign, params):
     """Return aerodynamic force and instantaneous CoP in the body frame (both in R^3). If flip=False it will work for the left wing (along +y axis), and if flip=True it will """
@@ -190,7 +190,7 @@ class RobobeeSim():
     
     def visAero(self, aeroB, col):
         aeroW = self.wTb(*aeroB)
-        p.addUserDebugLine(aeroW[1], aeroW[1] + self.FAERO_DRAW_SCALE * np.array(aeroW[0]), lineColorRGB=col, lifeTime=10 * self._slowDown * self.TIMESTEP)
+        p.addUserDebugLine(aeroW[1], aeroW[1] + self.FAERO_DRAW_SCALE * np.array(aeroW[0]), lineColorRGB=col, lifeTime=8 * self._slowDown * self.TIMESTEP)
 
     def update(self, u, testF=0, forceControl=False):
         if forceControl:
@@ -200,8 +200,8 @@ class RobobeeSim():
             # tau = [0,0]
             p.setJointMotorControlArray(self.bid, [0,2], p.TORQUE_CONTROL, forces=u)
         else:
-            # p.setJointMotorControlArray(self.bid, [0,2], p.POSITION_CONTROL, targetPositions=u, positionGains=[1,1], velocityGains=[1,1], forces=np.full(2, 1000000))
-            p.setJointMotorControlArray(self.bid, [0,2], p.POSITION_CONTROL, targetPositions=u, positionGains=[0.01,0.01], velocityGains=[0.1,0.1], forces=np.full(2, 1000000))
+            p.setJointMotorControlArray(self.bid, [0,2], p.POSITION_CONTROL, targetPositions=u, positionGains=[1,1], velocityGains=[1,1], forces=np.full(2, 1000000))
+            # p.setJointMotorControlArray(self.bid, [0,2], p.POSITION_CONTROL, targetPositions=u, positionGains=[0.01,0.01], velocityGains=[0.1,0.1], forces=np.full(2, 1000000))
         # qp, dqp = self.q[[1,3]], self.dq[[1,3]]
         # taup = -self.urdfParams['khinge'] * qp - self.urdfParams['bhinge'] * dqp
         # p.setJointMotorControlArray(self.bid, [1,3], p.TORQUE_CONTROL, forces=taup)
@@ -210,14 +210,11 @@ class RobobeeSim():
         aero1B = aerodynamics(self.q[0:2], self.dq[0:2], 1, self.urdfParams)
         aero2B = aerodynamics(-self.q[2:4], -self.dq[2:4], -1, self.urdfParams)
 
-        F1 = [testF[0],0,0]
-        F2 = [testF[1],0,0]
-
         if True:
             # linkID = jointID
             # FIXME: transformations https://github.com/avikde/robobee3d/pull/158
-            p.applyExternalForce(self.bid, self.jointId[b'lwing_hinge'], np.diag([-1,-1,1])@F1, np.diag([-1,-1,1])@aero1B[1], p.LINK_FRAME)
-            p.applyExternalForce(self.bid, self.jointId[b'rwing_hinge'], np.diag([-1,-1,1])@F2, np.diag([-1,-1,1])@aero2B[1], p.LINK_FRAME)
+            p.applyExternalForce(self.bid, self.jointId[b'lwing_hinge'], np.diag([-1,-1,1])@aero1B[0], np.diag([-1,-1,1])@aero1B[1], p.LINK_FRAME)
+            p.applyExternalForce(self.bid, self.jointId[b'rwing_hinge'], np.diag([-1,-1,1])@aero2B[0], np.diag([-1,-1,1])@aero2B[1], p.LINK_FRAME)
         else:
             # Need to convert to body frame (link -1)
             # p.applyExternalForce(bid, -1, Faeros[i], [0,0,0], p.LINK_FRAME)
@@ -234,8 +231,8 @@ class RobobeeSim():
         # Drawing stuff
         if self.simt - self.tLastDraw > 2 * self.TIMESTEP:
             # draw debug
-            self.visAero((F1, aero1B[1]), [1,1,0])
-            self.visAero((F2, aero2B[1]), [1,0,1])
+            self.visAero(aero1B, [1,1,0])
+            self.visAero(aero2B, [1,0,1])
             self.tLastDraw = self.simt
         
         if self.simt - self.tLastPrint > 0.01:
