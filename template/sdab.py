@@ -34,7 +34,7 @@ tLastPrint = 0
 
 idf = p.addUserDebugParameter("freq", 0, 0.3, 0.1)
 idkh = p.addUserDebugParameter("khinge", 0, 0.1, 0.01)
-idbh = p.addUserDebugParameter("bhinge", 0, 0.1, 0.02)
+idbh = p.addUserDebugParameter("bhinge", 0, 0.1, 0.05)
 idrc = p.addUserDebugParameter("rcopnondim", 0, 2, 0.5)
 idff = p.addUserDebugParameter("ff", -1, 1, 0)
 idff2 = p.addUserDebugParameter("ff2", -1, 1, 0)
@@ -63,7 +63,7 @@ while True:
         ph = omega * bee.simt
         th0 = ctrl['ampl'] * (np.sin(ph) + ctrl['strokedev'])
         dth0 = omega * ctrl['ampl'] * np.cos(ph)
-        posdes = [0.3,0.3]#[th0,th0]
+        posdes = [0.,0.]#[th0,th0]
 
         # OR force control
         tau = np.full(2, ctrl['thrust'] * (np.sin(ph) + ctrl['strokedev']))

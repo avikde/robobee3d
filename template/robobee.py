@@ -187,6 +187,10 @@ class RobobeeSim():
             # make it so it can be torque controlled
             p.setJointMotorControl2(bid, j, controlMode=p.VELOCITY_CONTROL, targetVelocity=0, force=0)
             p.setJointMotorControl2(bid, j, controlMode=p.TORQUE_CONTROL, force=0)
+    
+    def visAero(self, aeroB, col):
+        aeroW = self.wTb(*aeroB)
+        p.addUserDebugLine(aeroW[1], aeroW[1] + self.FAERO_DRAW_SCALE * np.array(aeroW[0]), lineColorRGB=col, lifeTime=10 * self._slowDown * self.TIMESTEP)
 
     def update(self, u, testF=0, forceControl=False):
         if forceControl:
@@ -196,25 +200,24 @@ class RobobeeSim():
             # tau = [0,0]
             p.setJointMotorControlArray(self.bid, [0,2], p.TORQUE_CONTROL, forces=u)
         else:
-            p.setJointMotorControlArray(self.bid, [0,2], p.POSITION_CONTROL, targetPositions=u, positionGains=[1,1], velocityGains=[1,1], forces=np.full(2, 1000000))
+            # p.setJointMotorControlArray(self.bid, [0,2], p.POSITION_CONTROL, targetPositions=u, positionGains=[1,1], velocityGains=[1,1], forces=np.full(2, 1000000))
+            p.setJointMotorControlArray(self.bid, [0,2], p.POSITION_CONTROL, targetPositions=u, positionGains=[0.01,0.01], velocityGains=[0.1,0.1], forces=np.full(2, 1000000))
         # qp, dqp = self.q[[1,3]], self.dq[[1,3]]
         # taup = -self.urdfParams['khinge'] * qp - self.urdfParams['bhinge'] * dqp
         # p.setJointMotorControlArray(self.bid, [1,3], p.TORQUE_CONTROL, forces=taup)
 
         # print(self.q[0:4], self.dq[:4])
         aero1B = aerodynamics(self.q[0:2], self.dq[0:2], 1, self.urdfParams)
-        aero1 = self.wTb(*aero1B)
-        aero2 = self.wTb(*aerodynamics(-self.q[2:4], -self.dq[2:4], -1, self.urdfParams))
+        aero2B = aerodynamics(-self.q[2:4], -self.dq[2:4], -1, self.urdfParams)
 
         F1 = [testF[0],0,0]
         F2 = [testF[1],0,0]
 
         if True:
-            # pass
-            # print(self.jointId[b'lwing_hinge'])
             # linkID = jointID
-            p.applyExternalForce(self.bid, self.jointId[b'lwing_hinge'], F1, aero1[1], p.WORLD_FRAME)
-            p.applyExternalForce(self.bid, self.jointId[b'rwing_hinge'], F2, aero2[1], p.WORLD_FRAME)
+            # FIXME: transformations https://github.com/avikde/robobee3d/pull/158
+            p.applyExternalForce(self.bid, self.jointId[b'lwing_hinge'], np.diag([-1,-1,1])@F1, np.diag([-1,-1,1])@aero1B[1], p.LINK_FRAME)
+            p.applyExternalForce(self.bid, self.jointId[b'rwing_hinge'], np.diag([-1,-1,1])@F2, np.diag([-1,-1,1])@aero2B[1], p.LINK_FRAME)
         else:
             # Need to convert to body frame (link -1)
             # p.applyExternalForce(bid, -1, Faeros[i], [0,0,0], p.LINK_FRAME)
@@ -231,9 +234,8 @@ class RobobeeSim():
         # Drawing stuff
         if self.simt - self.tLastDraw > 2 * self.TIMESTEP:
             # draw debug
-            cols = [[1,1,0], [1,0,1]]
-            p.addUserDebugLine(aero1[1], aero1[1] + self.FAERO_DRAW_SCALE * np.array(F1), lineColorRGB=cols[0], lifeTime=10 * self._slowDown * self.TIMESTEP)
-            p.addUserDebugLine(aero2[1], aero2[1] + self.FAERO_DRAW_SCALE * np.array(F2), lineColorRGB=cols[1], lifeTime=10 * self._slowDown * self.TIMESTEP)
+            self.visAero((F1, aero1B[1]), [1,1,0])
+            self.visAero((F2, aero2B[1]), [1,0,1])
             self.tLastDraw = self.simt
         
         if self.simt - self.tLastPrint > 0.01:
