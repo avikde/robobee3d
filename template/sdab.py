@@ -7,7 +7,7 @@ np.set_printoptions(precision=2, suppress=True, linewidth=200)
 # Usage params
 STROKE_FORCE_CONTROL = True # if false, use position control on the stroke
 
-bee = robobee.RobobeeSim(slowDown=100, camLock=True, timestep=0.1)
+bee = robobee.RobobeeSim(slowDown=10, camLock=True, timestep=0.1)
 # load robot
 startPos = [0,0,10]
 startOrientation = p.getQuaternionFromEuler(np.zeros(3))

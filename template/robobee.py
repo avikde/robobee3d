@@ -218,8 +218,10 @@ class RobobeeSim():
 
         # linkID = jointID
         # FIXME: transformations https://github.com/avikde/robobee3d/pull/158
-        p.applyExternalForce(self.bid, self.jointId[b'lwing_hinge'], np.diag([-1,-1,1])@aero1B[0], np.diag([-1,-1,1])@aero1B[1], p.LINK_FRAME)
-        p.applyExternalForce(self.bid, self.jointId[b'rwing_hinge'], np.diag([-1,-1,1])@aero2B[0], np.diag([-1,-1,1])@aero2B[1], p.LINK_FRAME)
+        T = Rotation.from_euler('z', np.pi).as_dcm()
+        # T = np.diag([-1,-1,1])
+        p.applyExternalForce(self.bid, self.jointId[b'lwing_hinge'], T@aero1B[0], T@aero1B[1], p.LINK_FRAME)
+        p.applyExternalForce(self.bid, self.jointId[b'rwing_hinge'], T@aero2B[0], T@aero2B[1], p.LINK_FRAME)
 
         # Bullet update
         p.stepSimulation()
