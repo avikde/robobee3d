@@ -12,7 +12,7 @@ AERO_REGULARIZE_EPS = 1e-10 # stops undefined AoA when no wind
 # True in Chen (2017) science robotics, but differently calculated in Osborne (1951)
 RHO = 1.225e-3 # density of air kg/m^3
 
-rcopnondim = 0.5
+rcopnondim = 1.5
 
 def aerodynamics(theta, dtheta, lrSign, params):
     """Return aerodynamic force and instantaneous CoP in the body frame (both in R^3). If flip=False it will work for the left wing (along +y axis), and if flip=True it will """
@@ -217,11 +217,8 @@ class RobobeeSim():
             aero2B = ([testF[1],0,0], aero2B[1])
 
         # linkID = jointID
-        # FIXME: transformations https://github.com/avikde/robobee3d/pull/158
-        T = Rotation.from_euler('z', np.pi).as_dcm()
-        # T = np.diag([-1,-1,1])
-        p.applyExternalForce(self.bid, self.jointId[b'lwing_hinge'], T@aero1B[0], T@aero1B[1], p.LINK_FRAME)
-        p.applyExternalForce(self.bid, self.jointId[b'rwing_hinge'], T@aero2B[0], T@aero2B[1], p.LINK_FRAME)
+        p.applyExternalForce(self.bid, self.jointId[b'lwing_hinge'], aero1B[0], aero1B[1], p.LINK_FRAME)
+        p.applyExternalForce(self.bid, self.jointId[b'rwing_hinge'], aero2B[0], aero2B[1], p.LINK_FRAME)
 
         # Bullet update
         p.stepSimulation()
