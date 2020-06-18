@@ -35,7 +35,9 @@ tLastPrint = 0
 idfreq = p.addUserDebugParameter("freq", 0, 0.3, 0.15)
 idmean = p.addUserDebugParameter("umean [mN]", 0, 100, 40)
 iddiff = p.addUserDebugParameter("udiff [ ]", -0.5, 0.5, 0)
-idoffs = p.addUserDebugParameter("uoffs [ ]", -0.5, 0.5, 0)
+idoffs = p.addUserDebugParameter("uoffs [ ]", -0.5, 0.5, 0)	
+idff1 = p.addUserDebugParameter("testFL", -1, 1, 0)	
+idff2 = p.addUserDebugParameter("testFR", -1, 1, 0)
 
 while True:
     try:
@@ -69,7 +71,7 @@ while True:
 
         # pass tau or posdes
         # bee.update(posdes, forceControl=False)
-        bee.update(tau, forceControl=True)
+        bee.update(tau, forceControl=True, testF=[p.readUserDebugParameter(idff1), p.readUserDebugParameter(idff2)])
 
         time.sleep(bee._slowDown * bee.TIMESTEP * 1e-3)
     except:

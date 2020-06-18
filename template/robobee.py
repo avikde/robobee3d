@@ -191,15 +191,19 @@ class RobobeeSim():
         aeroW = self.wTb(*aeroB)
         p.addUserDebugLine(aeroW[1], aeroW[1] + self.FAERO_DRAW_SCALE * np.array(aeroW[0]), lineColorRGB=col, lifeTime=8 * self._slowDown * self.TIMESTEP * 1e-3)
 
-    def update(self, u, testF=0, forceControl=False):
-        if forceControl:
-            # stroke stiffness
-            u[0] -= self.urdfParams['kstroke'] * self.q[0]
-            u[1] -= self.urdfParams['kstroke'] * self.q[2]
-            # tau = [0,0]
-            p.setJointMotorControlArray(self.bid, [0,2], p.TORQUE_CONTROL, forces=u)
+    def update(self, u, testF=None, forceControl=False):
+        if testF is not None:
+            p.setJointMotorControlArray(self.bid, [0,2], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=[0.01,0.01], velocityGains=[0.1,0.1], forces=np.full(2, 1000000))
         else:
-            p.setJointMotorControlArray(self.bid, [0,2], p.POSITION_CONTROL, targetPositions=u, positionGains=[1,1], velocityGains=[1,1], forces=np.full(2, 1000000))
+            if forceControl:
+                # stroke stiffness
+                u[0] -= self.urdfParams['kstroke'] * self.q[0]
+                u[1] -= self.urdfParams['kstroke'] * self.q[2]
+                # tau = [0,0]
+                p.setJointMotorControlArray(self.bid, [0,2], p.TORQUE_CONTROL, forces=u)
+            else:
+                p.setJointMotorControlArray(self.bid, [0,2], p.POSITION_CONTROL, targetPositions=u, positionGains=[1,1], velocityGains=[1,1], forces=np.full(2, 1000000))
+
         # qp, dqp = self.q[[1,3]], self.dq[[1,3]]
         # taup = -self.urdfParams['khinge'] * qp - self.urdfParams['bhinge'] * dqp
         # p.setJointMotorControlArray(self.bid, [1,3], p.TORQUE_CONTROL, forces=taup)
@@ -208,15 +212,14 @@ class RobobeeSim():
         aero1B = aerodynamics(self.q[0:2], self.dq[0:2], 1, self.urdfParams)
         aero2B = aerodynamics(-self.q[2:4], -self.dq[2:4], -1, self.urdfParams)
 
-        if True:
-            # linkID = jointID
-            # FIXME: transformations https://github.com/avikde/robobee3d/pull/158
-            p.applyExternalForce(self.bid, self.jointId[b'lwing_hinge'], np.diag([-1,-1,1])@aero1B[0], np.diag([-1,-1,1])@aero1B[1], p.LINK_FRAME)
-            p.applyExternalForce(self.bid, self.jointId[b'rwing_hinge'], np.diag([-1,-1,1])@aero2B[0], np.diag([-1,-1,1])@aero2B[1], p.LINK_FRAME)
-        else:
-            # Need to convert to body frame (link -1)
-            # p.applyExternalForce(bid, -1, Faeros[i], [0,0,0], p.LINK_FRAME)
-            raise 'Not implemented'
+        if testF is not None:
+            aero1B = ([testF[0],0,0], aero1B[1])
+            aero2B = ([testF[1],0,0], aero2B[1])
+
+        # linkID = jointID
+        # FIXME: transformations https://github.com/avikde/robobee3d/pull/158
+        p.applyExternalForce(self.bid, self.jointId[b'lwing_hinge'], np.diag([-1,-1,1])@aero1B[0], np.diag([-1,-1,1])@aero1B[1], p.LINK_FRAME)
+        p.applyExternalForce(self.bid, self.jointId[b'rwing_hinge'], np.diag([-1,-1,1])@aero2B[0], np.diag([-1,-1,1])@aero2B[1], p.LINK_FRAME)
 
         # Bullet update
         p.stepSimulation()
