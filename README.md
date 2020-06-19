@@ -7,7 +7,7 @@ Robobee 3D sim (and maybe files for planar ones as well)
 Common: https://github.com/avikde/controlutils
 
 Pybullet 3D sim:
-- `pip install pybullet`: need version 2.4.8 or above (see https://github.com/bulletphysics/bullet3/issues/2152). It may need some VS stuff on windows and takes a while to build, but works fine.
+- `pip install pybullet`: need version 2.8.2 or above (see https://github.com/bulletphysics/bullet3/issues/2152 and https://pybullet.org/Bullet/phpBB3/viewtopic.php?f=9&t=12998). It may need some VS stuff on windows and takes a while to build, but works fine.
 
 ## Running
 
