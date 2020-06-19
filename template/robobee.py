@@ -77,7 +77,7 @@ class RobobeeSim():
     q = np.zeros(11)
     dq = np.zeros(10)
 
-    def __init__(self, camLock=True, slowDown=True, timestep=1.0):
+    def __init__(self, camLock=True, slowDown=True, timestep=1.0, gui=0):
         self._camLock = camLock
         self._slowDown = slowDown
         self.TIMESTEP = timestep
@@ -86,7 +86,7 @@ class RobobeeSim():
         # Set up the visualizer
         p.configureDebugVisualizer(p.COV_ENABLE_WIREFRAME, 0)
         p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0)
-        # p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
+        p.configureDebugVisualizer(p.COV_ENABLE_GUI, gui)
         # p.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 0)
         p.setRealTimeSimulation(0)
         p.setTimeStep(self.TIMESTEP)
