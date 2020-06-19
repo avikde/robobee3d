@@ -12,7 +12,7 @@ AERO_REGULARIZE_EPS = 1e-10 # stops undefined AoA when no wind
 # True in Chen (2017) science robotics, but differently calculated in Osborne (1951)
 RHO = 1.225e-3 # density of air kg/m^3
 
-rcopnondim = 1.5
+rcopnondim = 1
 
 def aerodynamics(theta, dtheta, lrSign, params):
     """Return aerodynamic force and instantaneous CoP in the body frame (both in R^3). If flip=False it will work for the left wing (along +y axis), and if flip=True it will """
@@ -126,6 +126,7 @@ class RobobeeSim():
         
         # Passive hinge dynamics implemented as position control rather than joint dynamics
         p.setJointMotorControlArray(self.bid, [1,3], p.PD_CONTROL, targetPositions=[0,0], positionGains=self.urdfParams['khinge']*np.ones(2), velocityGains=self.urdfParams['bhinge']*np.ones(2))
+        # p.setJointMotorControlArray(self.bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=[0.01,0.01], velocityGains=[0.1,0.1])
 
         return self.bid
 
@@ -187,8 +188,7 @@ class RobobeeSim():
             p.setJointMotorControl2(bid, j, controlMode=p.VELOCITY_CONTROL, targetVelocity=0, force=0)
             p.setJointMotorControl2(bid, j, controlMode=p.TORQUE_CONTROL, force=0)
     
-    def visAero(self, aeroB, col):
-        aeroW = self.wTb(*aeroB)
+    def visAero(self, aeroW, col):
         p.addUserDebugLine(aeroW[1], aeroW[1] + self.FAERO_DRAW_SCALE * np.array(aeroW[0]), lineColorRGB=col, lifeTime=8 * self._slowDown * self.TIMESTEP * 1e-3)
 
     def update(self, u, testF=None, forceControl=False):
@@ -215,10 +215,12 @@ class RobobeeSim():
         if testF is not None:
             aero1B = ([testF[0],0,0], aero1B[1])
             aero2B = ([testF[1],0,0], aero2B[1])
+        aero1W = self.wTb(*aero1B)
+        aero2W = self.wTb(*aero2B)
 
         # linkID = jointID
-        p.applyExternalForce(self.bid, self.jointId[b'lwing_hinge'], aero1B[0], aero1B[1], p.LINK_FRAME)
-        p.applyExternalForce(self.bid, self.jointId[b'rwing_hinge'], aero2B[0], aero2B[1], p.LINK_FRAME)
+        p.applyExternalForce(self.bid, self.jointId[b'lwing_hinge'], *aero1W, p.WORLD_FRAME)
+        p.applyExternalForce(self.bid, self.jointId[b'rwing_hinge'], *aero2W, p.WORLD_FRAME)
 
         # Bullet update
         p.stepSimulation()
@@ -231,8 +233,8 @@ class RobobeeSim():
         # Drawing stuff
         if self.simt - self.tLastDraw > 2 * self.TIMESTEP:
             # draw debug
-            self.visAero(aero1B, [1,1,0])
-            self.visAero(aero2B, [1,0,1])
+            self.visAero(aero1W, [1,1,0])
+            self.visAero(aero2W, [1,0,1])
             self.tLastDraw = self.simt
         
         if self.simt - self.tLastPrint > 0.01:

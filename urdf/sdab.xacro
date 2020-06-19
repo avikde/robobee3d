@@ -35,7 +35,7 @@ Author: Avik De
 	</xacro:property>
 	<!-- Stiffness and damping properties -->
 	<xacro:property name="khinge" value="3"/>
-	<xacro:property name="bhinge" value="4"/>
+	<xacro:property name="bhinge" value="2"/>
 	<xacro:property name="kstroke" value="65"/> <!-- total act = 240/T^2 + 30 -->
 	
 	<!-- Define materials -->
@@ -79,6 +79,7 @@ Author: Avik De
 				<material name="${sparcol}"/>
 			</visual>
 		<inertial>
+			<origin xyz="0 ${sign*(0.5*Rwing)} 0.0" rpy="0 0 ${sign*0.5*pi}"/>
 			<xacro:insert_block name="sparInertial" />
 		</inertial>
 		<!-- pybullet does not expose spring_stiffness but does expose these so add them here too. We are not expecting contact -->
@@ -97,6 +98,7 @@ Author: Avik De
 				<material name="Gray1"/>
 			</visual>
 		<inertial>
+			<origin xyz="0 ${sign*(0.5*Rwing)} ${-0.5 * cbar}" rpy="0 0 ${sign*0.5*pi}"/>
 			<xacro:insert_block name="memInertial" />
 		</inertial>
 		<!-- pybullet does not expose spring_stiffness but does expose these so add them here too. We are not expecting contact -->

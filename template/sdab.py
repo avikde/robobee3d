@@ -36,8 +36,8 @@ idfreq = p.addUserDebugParameter("freq", 0, 0.3, 0.15)
 idmean = p.addUserDebugParameter("umean [mN]", 0, 100, 40)
 iddiff = p.addUserDebugParameter("udiff [ ]", -0.5, 0.5, 0)
 idoffs = p.addUserDebugParameter("uoffs [ ]", -0.5, 0.5, 0)	
-idff1 = p.addUserDebugParameter("testFL", -1, 1, 0)	
-idff2 = p.addUserDebugParameter("testFR", -1, 1, 0)
+idff1 = p.addUserDebugParameter("testFL", -10, 10, 0)	
+idff2 = p.addUserDebugParameter("testFR", -10, 10, 0)
 
 while True:
     try:
