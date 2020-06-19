@@ -90,7 +90,7 @@ class RobobeeSim():
         # p.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 0)
         p.setRealTimeSimulation(0)
         p.setTimeStep(self.TIMESTEP)
-        p.setGravity(0,0,0)#-9.81e-3)
+        p.setGravity(0,0,-9.81e-3)
         
         # load background
         p.setAdditionalSearchPath(pybullet_data.getDataPath()) #optionally
