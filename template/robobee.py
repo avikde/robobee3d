@@ -179,6 +179,7 @@ class RobobeeSim():
             self.q[j], self.dq[j] = p.getJointState(self.bid, j)[0:2]
         self.q[4:7], self.q[7:11] = p.getBasePositionAndOrientation(self.bid)[0:2]
         self.dq[4:7], self.dq[7:10] = p.getBaseVelocity(self.bid)[0:2]
+        return self.simt, self.q, self.dq
         
     def resetJoints(self, bid, jarr, q, dq):
         '''Forcibly move joints to certain positions (q) and velocities (dq)'''
