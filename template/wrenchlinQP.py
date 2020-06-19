@@ -61,8 +61,8 @@ class WrenchLinQP(object):
             r[0] = r[3] = self.u0[0]
             return r
     
-    def updateFromState(self, Rb, dq, pdes):
-        M0, h0, B0 = dynamicsTerms(Rb, dq)
+    def updateFromState(self, q, dq, pdes):
+        M0, h0, B0 = dynamicsTerms(q, dq)
         p0 = M0 @ dq
         dt = 2
         Qd = np.hstack((1.0*np.ones(3), 0.1*np.ones(3)))
@@ -77,9 +77,9 @@ class WrenchLinQP(object):
         return self.update(p0, h0, B0, dt, Qd, pdes)
 
     def test(self):
-        Rb = Rotation.from_euler('x', 0)
+        q = [0.,0,0,0,0,0,1]
         dq = np.zeros(6)
         self.uprev = np.array([1.0,0.0,0.0,1.0,0.0,0.0])
         pdes = np.array([0,0,10,0,0,0])
-        print(self.updateFromState(Rb, dq, pdes))
+        print(self.updateFromState(q, dq, pdes))
         

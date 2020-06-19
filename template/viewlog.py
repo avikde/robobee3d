@@ -8,9 +8,10 @@ from ca6dynamics import M
 def initLog():
     return {'t': [], 'q': [], 'dq': [], 'u': [], 'pdes': []}
 
-def appendLog(data, t, pw, Rb, dq, u, pdes):
+def appendLog(data, t, q, dq, u, pdes):
+    """rot can be any scipy rotation type"""
     data['t'].append(t)
-    data['q'].append(np.hstack((pw, Rb.as_euler('xyz'))))
+    data['q'].append(q)
     data['dq'].append(dq)
     data['u'].append(u)
     data['pdes'].append(pdes)
@@ -22,7 +23,7 @@ def saveLog(f1, data):
 
     t = time.localtime()
     timestamp = time.strftime('%Y%m%d%H%M%S', t)
-    fname = f1 + 'ca6_' + timestamp + '.zip'
+    fname = f1 + '_' + timestamp + '.zip'
     zfile = gzip.GzipFile(fname, 'wb')
     pickle.dump(data, zfile)
     zfile.close()

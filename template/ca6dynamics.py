@@ -1,4 +1,5 @@
 import autograd.numpy as np
+from scipy.spatial.transform import Rotation
 
 # model params
 ycp = 10 # mm
@@ -36,7 +37,8 @@ def wrenchMap(u):
     return np.array([u3L + u3R, 0.0, u1L + u1R, 
         (u1L - u1R) * ycp, -u1L*u2L - u1R*u2R, (-u3L + u3R)*ycp])
 
-def dynamicsTerms(Rb, dq):
+def dynamicsTerms(q, dq):
+    Rb = Rotation.from_quat(q[3:7])
     h = np.hstack((Rb.inv().apply([0, 0, -mb * g]), np.zeros(3)))
     B = np.eye(6)
     # FIXME: don't actually need B, since wrenchMap(u) is sort of like B??

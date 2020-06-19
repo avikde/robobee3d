@@ -68,17 +68,18 @@ def getState():
     # convert to body frame
     vB = Rb.inv().apply(vW)
     omegaB = Rb.inv().apply(omegaW)
-    return pcom, Rb, np.hstack((vB, omegaB))
+    return np.hstack((pcom, qorn)), np.hstack((vB, omegaB))
 
-def wTb(pw, Rb, Fb, pb):
+def wTb(q, Fb, pb):
     "Transform wrench to world frame"
+    pw, Rb = q[:3], Rotation.from_quat(q[3:7])
     return Rb.apply(Fb), pw + Rb.apply(pb)
 
-def transformWrenches(pw, Rb, FL, pL, FR, pR):
+def transformWrenches(q, FL, pL, FR, pR):
     # join tuples with +
-    return wTb(pw, Rb, FL, pL) + wTb(pw, Rb, FR, pR)
+    return wTb(q, FL, pL) + wTb(q, FR, pR)
 
-def testControl(pw, Rb, dq, pdes):
+def testControl(q, dq, pdes):
     # u = [1,0,0,1,0,0]
 
     # mm = 1.0
@@ -87,13 +88,13 @@ def testControl(pw, Rb, dq, pdes):
     # pitchCtrl = ezb[0]
     # u = [mm + dd, pitchCtrl,0.0,mm-dd,pitchCtrl,-0.0]
 
-    u = wlqp.updateFromState(Rb, dq, pdes)
+    u = wlqp.updateFromState(q, dq, pdes)
 
     return u
 
 def ornVF(Rb, omega, posErr):
     """return last elements of pdes"""
-    hat = lambda M : np.array([M[2,1], M[0,2], M[1,0]])
+    # hat = lambda M : np.array([M[2,1], M[0,2], M[1,0]])
     Rdes = np.eye(3)#Rotation.from_euler('x', 0)
     Rm = Rb.as_dcm()
     zdes = np.array([0,0,1]) # desired z vector
@@ -107,22 +108,22 @@ def ornVF(Rb, omega, posErr):
 
 while True:
     try:
-        ss = getState()
-        posErr = np.array([10,0,200]) - ss[0]
-        pdes = np.hstack(([0,0,10], ornVF(ss[1], ss[2][3:], posErr)))
-        u = testControl(*ss, pdes)
-        data = viewlog.appendLog(data, simt, *ss, u, pdes)
+        q, dq = getState()
+        posErr = np.array([-20,20,0]) - q[:3]
+        pdes = np.hstack(([0,0,10], ornVF(Rotation.from_quat(q[3:7]), dq[3:], posErr)))
+        u = testControl(q, dq, pdes)
+        data = viewlog.appendLog(data, simt, q, dq, u, pdes)
         wrenchesB = ca6ApplyInput(u)
         # Bullet update
         p.stepSimulation()
         simt += TIMESTEP
         
         # Other updates
-        wrenchesW = transformWrenches(*(ss[:2]), *wrenchesB)
+        wrenchesW = transformWrenches(q, *wrenchesB)
 
         if True:#simt < 1 or _camLock:
             # Reset camera to be at the correct distance (only first time)
-            p.resetDebugVisualizerCamera(100, 45, -30, ss[0])
+            p.resetDebugVisualizerCamera(100, 45, -30, q[:3])
 
         # Drawing stuff
         if simt - tLastDraw1 > 2 * TIMESTEP:
@@ -142,7 +143,7 @@ while True:
         #     tLastPrint = simt
     
     except:
-        viewlog.saveLog('../logs/', data)
+        viewlog.saveLog('../logs/ca6', data)
         raise
     
 # p.disconnect()
