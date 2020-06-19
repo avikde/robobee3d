@@ -2,6 +2,7 @@
 import numpy as np
 import pybullet as p
 import pybullet_data
+from time import monotonic
 from scipy.spatial.transform import Rotation # TODO: eliminate
 
 # Good parameters
@@ -12,7 +13,7 @@ AERO_REGULARIZE_EPS = 1e-10 # stops undefined AoA when no wind
 # True in Chen (2017) science robotics, but differently calculated in Osborne (1951)
 RHO = 1.225e-3 # density of air kg/m^3
 
-rcopnondim = 1
+rcopnondim = 0.5
 
 def aerodynamics(theta, dtheta, lrSign, params):
     """Return aerodynamic force and instantaneous CoP in the body frame (both in R^3). If flip=False it will work for the left wing (along +y axis), and if flip=True it will """
@@ -70,7 +71,6 @@ class RobobeeSim():
     FAERO_DRAW_SCALE = 10.0
     simt = 0
     tLastDraw = 0
-    tLastDraw2 = 0
     pcomLastDraw = np.zeros(3)
     tLastPrint = 0
     # vectors for storing states
@@ -95,6 +95,7 @@ class RobobeeSim():
         # load background
         p.setAdditionalSearchPath(pybullet_data.getDataPath()) #optionally
         self.planeId = p.loadURDF("plane.urdf", globalScaling=100.0)
+        self.tWallLastDraw = monotonic()
 
     def wTb(self, FaeroB, pcopB):
         # Body to world frame --
@@ -126,7 +127,6 @@ class RobobeeSim():
         
         # Passive hinge dynamics implemented as position control rather than joint dynamics
         p.setJointMotorControlArray(self.bid, [1,3], p.PD_CONTROL, targetPositions=[0,0], positionGains=self.urdfParams['khinge']*np.ones(2), velocityGains=self.urdfParams['bhinge']*np.ones(2))
-        # p.setJointMotorControlArray(self.bid, [1,3], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=[0.01,0.01], velocityGains=[0.1,0.1])
 
         return self.bid
 
@@ -188,8 +188,8 @@ class RobobeeSim():
             p.setJointMotorControl2(bid, j, controlMode=p.VELOCITY_CONTROL, targetVelocity=0, force=0)
             p.setJointMotorControl2(bid, j, controlMode=p.TORQUE_CONTROL, force=0)
     
-    def visAero(self, aeroW, col):
-        p.addUserDebugLine(aeroW[1], aeroW[1] + self.FAERO_DRAW_SCALE * np.array(aeroW[0]), lineColorRGB=col, lifeTime=8 * self._slowDown * self.TIMESTEP * 1e-3)
+    def visAero(self, aeroW, col, lifeTime):
+        p.addUserDebugLine(aeroW[1], aeroW[1] + self.FAERO_DRAW_SCALE * np.array(aeroW[0]), lineColorRGB=col, lifeTime=lifeTime, lineWidth=2)
 
     def update(self, u, testF=None, forceControl=False):
         if testF is not None:
@@ -231,11 +231,13 @@ class RobobeeSim():
         self.simt += self.TIMESTEP
 
         # Drawing stuff
-        if self.simt - self.tLastDraw > 2 * self.TIMESTEP:
+        twall = monotonic()
+        drawInterval = 1/50.
+        if twall - self.tWallLastDraw > drawInterval:
             # draw debug
-            self.visAero(aero1W, [1,1,0])
-            self.visAero(aero2W, [1,0,1])
-            self.tLastDraw = self.simt
+            self.visAero(aero1W, [1,1,0], drawInterval)
+            self.visAero(aero2W, [1,0,1], drawInterval)
+            self.tWallLastDraw = monotonic()
         
         if self.simt - self.tLastPrint > 0.01:
             # draw trail

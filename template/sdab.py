@@ -7,12 +7,12 @@ np.set_printoptions(precision=2, suppress=True, linewidth=200)
 # Usage params
 STROKE_FORCE_CONTROL = True # if false, use position control on the stroke
 
-bee = robobee.RobobeeSim(slowDown=100, camLock=True, timestep=0.1)
+bee = robobee.RobobeeSim(slowDown=1, camLock=True, timestep=0.1)
 # load robot
 startPos = [0,0,10]
 startOrientation = p.getQuaternionFromEuler(np.zeros(3))
 subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.urdf"])
-bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=True)
+bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=False)
 # print(jointId, urdfParams)
 
 # Helper function: traj to track
@@ -33,7 +33,7 @@ for ti in range(1, len(tdraw)):
 tLastPrint = 0
 
 idfreq = p.addUserDebugParameter("freq", 0, 0.3, 0.15)
-idmean = p.addUserDebugParameter("umean [mN]", 0, 100, 40)
+idmean = p.addUserDebugParameter("umean [mN]", 0, 40, 20)
 iddiff = p.addUserDebugParameter("udiff [ ]", -0.5, 0.5, 0)
 idoffs = p.addUserDebugParameter("uoffs [ ]", -0.5, 0.5, 0)	
 idff1 = p.addUserDebugParameter("testFL", -10, 10, 0)	
@@ -71,7 +71,7 @@ while True:
 
         # pass tau or posdes
         # bee.update(posdes, forceControl=False)
-        bee.update(tau, forceControl=True, testF=[p.readUserDebugParameter(idff1), p.readUserDebugParameter(idff2)])
+        bee.update(tau, forceControl=True)#, testF=[p.readUserDebugParameter(idff1), p.readUserDebugParameter(idff2)])
 
         time.sleep(bee._slowDown * bee.TIMESTEP * 1e-3)
     except:
