@@ -25,7 +25,7 @@ for ti in range(1, len(tdraw)):
 # ---
 
 idfreq = p.addUserDebugParameter("freq", 0, 0.3, 0.15)
-idmean = p.addUserDebugParameter("umean [mN]", 0, 40, 20)
+idmean = p.addUserDebugParameter("umean [V]", 0, 100, 50)
 iddiff = p.addUserDebugParameter("udiff [ ]", -0.5, 0.5, 0)
 idoffs = p.addUserDebugParameter("uoffs [ ]", -0.5, 0.5, 0)	
 idff1 = p.addUserDebugParameter("testFL", -10, 10, 0)	

@@ -62,7 +62,7 @@ def aerodynamics(theta, dtheta, lrSign, params):
 
 def actuatorModel(V, qact, dqact):
     """Return actuator force for applied voltage input and current actuator state"""
-    return V # TODO:
+    return 75./180. * V # 75 mN/V proportional model
 
 class RobobeeSim():
     """Robobee simulator using pybullet"""
@@ -197,9 +197,9 @@ class RobobeeSim():
         else:
             if forceControl:
                 # stroke stiffness
-                u[0] -= self.urdfParams['kstroke'] * self.q[0]
-                u[1] -= self.urdfParams['kstroke'] * self.q[2]
-                # tau = [0,0]
+                for i in range(2):
+                    # force in mN from voltage; add on stroke stiffness
+                    u[i] = actuatorModel(u[i], self.q[2*i], self.dq[2*i]) - self.urdfParams['kstroke'] * self.q[2*i]
                 p.setJointMotorControlArray(self.bid, [0,2], p.TORQUE_CONTROL, forces=u)
             else:
                 p.setJointMotorControlArray(self.bid, [0,2], p.POSITION_CONTROL, targetPositions=u, positionGains=[1,1], velocityGains=[1,1], forces=np.full(2, 1000000))
