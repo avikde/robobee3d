@@ -77,12 +77,12 @@ class RobobeeSim():
     q = np.zeros(11)
     dq = np.zeros(10)
 
-    def __init__(self, camLock=True, slowDown=True, timestep=1.0, gui=0):
+    def __init__(self, connMode, camLock=True, slowDown=True, timestep=1.0, gui=0):
         self._camLock = camLock
         self._slowDown = slowDown
         self.TIMESTEP = timestep
         # Init sim
-        physicsClient = p.connect(p.GUI)#or p.DIRECT for non-graphical version
+        physicsClient = p.connect(connMode)
         # Set up the visualizer
         p.configureDebugVisualizer(p.COV_ENABLE_WIREFRAME, 0)
         p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0)
