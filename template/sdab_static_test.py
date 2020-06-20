@@ -14,7 +14,7 @@ subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../u
 bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=False)
 
 def olSweepAndResult(Vamp, f, tendMS=100, h2=0, h3=0):
-    print(Vamp, f)
+    print('Now testing:', np.array([Vamp, f]))
     qw = []
     omega = 2 * np.pi * f
 
@@ -34,19 +34,21 @@ def olSweepAndResult(Vamp, f, tendMS=100, h2=0, h3=0):
     amps[[0,2]] /= Vamp # voltage-normalized
     return amps
 
-fs = np.linspace(0.1, 0.2, num=15)
-res1 = np.array([olSweepAndResult(30, f) for f in fs])
-res2 = np.array([olSweepAndResult(40, f) for f in fs])
+Vamps = [120, 150, 180]
+fs = np.linspace(0.1, 0.2, num=25)
+res = [np.array([olSweepAndResult(V, f) for f in fs]) for V in Vamps]
 
 fig, ax = plt.subplots(2)
 
 fs *= 1e3 # to Hz
-ax[0].plot(fs, res1[:,0])
-ax[0].plot(fs, res2[:,0])
+for i in range(3):
+    ax[0].plot(fs, res[i][:,0], label=str(Vamps[i])+'V')
 ax[0].set_ylabel('Norm stroke [deg/V]')
-ax[1].plot(fs, res1[:,1])
-ax[1].plot(fs, res2[:,1])
+for i in range(3):
+    ax[1].plot(fs, res[i][:,1], label=str(Vamps[i])+'V')
 ax[1].set_ylabel('Pitch amplitude [deg]')
+
+ax[0].legend()
 ax[-1].set_xlabel('Freq [Hz]')
 
 plt.show()
