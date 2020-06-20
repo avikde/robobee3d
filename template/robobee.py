@@ -69,13 +69,7 @@ class RobobeeSim():
 
     # Parameters
     FAERO_DRAW_SCALE = 10.0
-    simt = 0
-    tLastDraw = 0
     pcomLastDraw = np.zeros(3)
-    tLastPrint = 0
-    # vectors for storing states
-    q = np.zeros(11)
-    dq = np.zeros(10)
 
     def __init__(self, connMode, camLock=True, slowDown=True, timestep=1.0, gui=0):
         self._camLock = camLock
@@ -95,6 +89,15 @@ class RobobeeSim():
         # load background
         p.setAdditionalSearchPath(pybullet_data.getDataPath()) #optionally
         self.planeId = p.loadURDF("plane.urdf", globalScaling=100.0)
+        self.reset()
+    
+    def reset(self):
+        """Reset states, to restart the sim, for instance"""
+        self.simt = 0
+        # vectors for storing states
+        self.q = np.zeros(11)
+        self.dq = np.zeros(10)
+        self.tLastPrint = 0
         self.tWallLastDraw = monotonic()
 
     def wTb(self, FaeroB, pcopB):
