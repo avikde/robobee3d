@@ -6,7 +6,7 @@ import robobee
 np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
 # p.DIRECT for non-graphical
-bee = robobee.RobobeeSim(p.DIRECT, slowDown=1, camLock=True, timestep=0.1, gui=1)
+bee = robobee.RobobeeSim(p.DIRECT, slowDown=1, camLock=True, timestep=0.1, gui=0)
 # load robot
 startPos = [0,0,10]
 startOrientation = p.getQuaternionFromEuler(np.zeros(3))
@@ -28,16 +28,25 @@ def olSweepAndResult(Vamp, f, tendMS=100, h2=0, h3=0):
     
     bee.reset()
     qw = np.array(qw)
-    return np.hstack((Vamp, f, np.ptp(qw, axis=0))) # get peak to peak
+    # scale
+    amps = np.rad2deg(np.ptp(qw, axis=0)) # get peak to peak
+    amps[[1,3]] *= 0.5 # for hinge only want amplitude
+    amps[[0,2]] /= Vamp # voltage-normalized
+    return amps
 
-
-
-res = np.array([olSweepAndResult(40, f) for f in np.linspace(0.03, 0.2, num=15)])
-
+fs = np.linspace(0.1, 0.2, num=15)
+res1 = np.array([olSweepAndResult(30, f) for f in fs])
+res2 = np.array([olSweepAndResult(40, f) for f in fs])
 
 fig, ax = plt.subplots(2)
 
-ax[0].plot(res[:,1], res[:,3])
-ax[1].plot(res[:,1], res[:,4])
+fs *= 1e3 # to Hz
+ax[0].plot(fs, res1[:,0])
+ax[0].plot(fs, res2[:,0])
+ax[0].set_ylabel('Norm stroke [deg/V]')
+ax[1].plot(fs, res1[:,1])
+ax[1].plot(fs, res2[:,1])
+ax[1].set_ylabel('Pitch amplitude [deg]')
+ax[-1].set_xlabel('Freq [Hz]')
 
 plt.show()
