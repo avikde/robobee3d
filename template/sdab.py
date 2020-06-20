@@ -27,7 +27,7 @@ data = viewlog.initLog()
 # ---
 
 # Params stored as (min, max, default) tuples
-params = {'freq': (0, 0.3, 0.15), 'umean': (0, 100, 50), 'udiff': (-0.5, 0.5, 0), 'uoffs': (-0.5, 0.5, 0), 'testFL': (-10,10,0), 'testFR': (-10,10,0)}
+params = {'freq': (0, 0.3, 0.16), 'umean': (0, 200, 150), 'udiff': (-0.5, 0.5, 0), 'uoffs': (-0.5, 0.5, 0), 'testFL': (-10,10,0), 'testFR': (-10,10,0)}
 # Params using pybullet GUI (sliders)
 dbgIDs = {k : p.addUserDebugParameter(k, *params[k]) for k in params.keys()}
 def P(k):

@@ -51,7 +51,7 @@ def aerodynamics(theta, dtheta, lrSign, params):
 def actuatorModel(V, qact, dqact):
     """Return actuator force for applied voltage input and current actuator state"""
     T = 2.6666
-    return 1 / T * (40./180. * V) # proportional model FIXME: why low
+    return 1 / T * (50./180. * V) # proportional model FIXME: why low
 
 class RobobeeSim():
     """Robobee simulator using pybullet"""
