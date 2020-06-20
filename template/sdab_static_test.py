@@ -35,7 +35,7 @@ def olSweepAndResult(Vamp, f, tendMS=100, h2=0, h3=0):
     return amps
 
 Vamps = [120, 150, 180]
-fs = np.linspace(0.1, 0.2, num=25)
+fs = np.linspace(0.1, 0.2, num=20)
 res = [np.array([olSweepAndResult(V, f) for f in fs]) for V in Vamps]
 
 fig, ax = plt.subplots(2)
