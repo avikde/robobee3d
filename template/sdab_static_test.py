@@ -60,7 +60,7 @@ for i in range(3):
 ax[1].set_ylabel('Pitch amplitude [deg]')
 for i in range(3):
     ax[2].plot(fs, 1000 / 9.81 * res[i][:,2])
-ax[2].set_ylabel('Avg lift [mg]')
+ax[2].set_ylabel('Avg lift/wing [mg]')
 
 ax[0].legend()
 ax[-1].set_xlabel('Freq [Hz]')
