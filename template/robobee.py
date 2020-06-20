@@ -11,49 +11,37 @@ CDmax = 3.4
 CLmax = 1.8
 AERO_REGULARIZE_EPS = 1e-10 # stops undefined AoA when no wind
 # True in Chen (2017) science robotics, but differently calculated in Osborne (1951)
-RHO = 1.225e-3 # density of air kg/m^3
+RHO = 1.225e-3 # [mg/(mm^3)]
 
 rcopnondim = 0.5
 
 def aerodynamics(theta, dtheta, lrSign, params):
     """Return aerodynamic force and instantaneous CoP in the body frame (both in R^3). If flip=False it will work for the left wing (along +y axis), and if flip=True it will """
-    # Helper from DIckinson model; in order lift, drag
-    Caero = lambda a : np.array([CLmax * np.sin(2*a), (CDmax + CD0) / 2.0 - (CDmax - CD0) / 2.0 * np.cos(2*a)])
+    theta[0] *= lrSign
+    dtheta[0] *= lrSign
 
-    # These are all in the body frame
-    Rspar = Rotation.from_euler('z', lrSign * theta[0])
-    Rhinge = Rotation.from_euler('y', theta[1])
-    # vector along wing
-    sparVecB = Rspar.apply(np.array([0, 1, 0]))
-    # wing chord unit vector
-    chordB = Rspar.apply(Rhinge.apply(np.array([0,0,-1])))
-    # TODO: add external wind vector
-    # NOTE: assuming spar velocity is dominant
-    wB = -np.cross(lrSign * dtheta[0] * np.array([0,0,1]), params['ycp'] * sparVecB)
-    # print(dtheta[0] * np.array([0,0,1]), self.ycp * sparVecB)
+    # Faero = 1/2 * ρ * dφ^2 * Aw^2 * AR * m.r2h^2 * (Caero[1]*eD + Caero[2]*eL*sign(-dφ)) # [mN]
+    Aw = 54.4
+    r1h = 0.49
+    r2h = 0.551
+    cbar = 3.2 #params['cbar']
+    rcnd = rcopnondim
 
-    # COP: half of cbar down
-    pcopB = np.array([0,params['Roffs'],params['d']]) + params['ycp'] * sparVecB + rcopnondim * params['cbar'] * chordB
+    cbar2 = cbar**2
+    AR = Aw / cbar2
+    Lw = Aw/cbar
+    ycp = params['ycp']#params['Rwing']*r1h #
 
-    # Various directions in the notation of Osborne (1951)
-    # l = vector along wing
-    # w = relative wind vector
-    # c = chord
-    lwB = np.cross(sparVecB, wB)
-    lwpB = wB - wB.dot(sparVecB) * sparVecB
-    wnorm = np.sqrt(wB.dot(wB)) + AERO_REGULARIZE_EPS
-    lwnorm = np.sqrt(lwB.dot(lwB)) + AERO_REGULARIZE_EPS
-    lwpnorm = np.sqrt(lwpB.dot(lwpB)) + AERO_REGULARIZE_EPS
-
-    # Lift/drag directions
-    eD = lwpB / lwpnorm
-    eL = np.array([0,0,1])
-
-    # Calculate aero force
-    aoa = np.arccos(chordB.dot(wB) / wnorm)
-    Cf = Caero(aoa)
-    # Cf *= 0.5 * rho * beta
-    FaeroB = 0.5 * RHO * params['cbar'] * params['ycp'] * (Cf[0] * eL + Cf[1] * eD) * lwnorm**2
+    s, c = np.sin(theta[0]), np.cos(theta[0])
+    sh, ch = np.sin(theta[1]), np.cos(theta[1])
+    pcopB = np.array([0,params['Roffs'],params['d']]) + \
+        np.array([-ycp*s - cbar*rcnd*c*sh, ycp*c - cbar*rcnd*s*sh, -cbar*rcnd*ch])
+    aoa = 0.5 * np.pi - theta[1]
+    eD = np.array([dtheta[0]*c, dtheta[0]*s, 0])/(np.abs(dtheta[0]) + 1e-4) # so it is well-defined
+    eL = np.array([0, 0, 1])
+    Caero = [((CDmax + CD0)/2 - (CDmax - CD0)/2 * np.cos(2*aoa)), CLmax * np.sin(2*aoa)]
+    FaeroB = 0.5 * RHO * dtheta[0]**2 * Aw**2 * AR * r2h**2 * (Caero[0]*eD + Caero[1]*eL*np.sign(-dtheta[0]))
+    
     if lrSign < 0:
         yflip = np.diag([1,-1,1])
         FaeroB = yflip @ FaeroB
@@ -62,31 +50,26 @@ def aerodynamics(theta, dtheta, lrSign, params):
 
 def actuatorModel(V, qact, dqact):
     """Return actuator force for applied voltage input and current actuator state"""
-    return V # TODO:
+    T = 2.6666
+    return 1 / T * (40./180. * V) # proportional model FIXME: why low
 
 class RobobeeSim():
     """Robobee simulator using pybullet"""
 
     # Parameters
-    FAERO_DRAW_SCALE = 10.0
-    simt = 0
-    tLastDraw = 0
+    FAERO_DRAW_SCALE = 2.0
     pcomLastDraw = np.zeros(3)
-    tLastPrint = 0
-    # vectors for storing states
-    q = np.zeros(11)
-    dq = np.zeros(10)
 
-    def __init__(self, camLock=True, slowDown=True, timestep=1.0):
+    def __init__(self, connMode, camLock=True, slowDown=True, timestep=1.0, gui=0):
         self._camLock = camLock
         self._slowDown = slowDown
         self.TIMESTEP = timestep
         # Init sim
-        physicsClient = p.connect(p.GUI)#or p.DIRECT for non-graphical version
+        physicsClient = p.connect(connMode)
         # Set up the visualizer
         p.configureDebugVisualizer(p.COV_ENABLE_WIREFRAME, 0)
         p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0)
-        # p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
+        p.configureDebugVisualizer(p.COV_ENABLE_GUI, gui)
         # p.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 0)
         p.setRealTimeSimulation(0)
         p.setTimeStep(self.TIMESTEP)
@@ -95,6 +78,15 @@ class RobobeeSim():
         # load background
         p.setAdditionalSearchPath(pybullet_data.getDataPath()) #optionally
         self.planeId = p.loadURDF("plane.urdf", globalScaling=100.0)
+        self.reset()
+    
+    def reset(self):
+        """Reset states, to restart the sim, for instance"""
+        self.simt = 0
+        # vectors for storing states
+        self.q = np.zeros(11)
+        self.dq = np.zeros(10)
+        self.tLastPrint = 0
         self.tWallLastDraw = monotonic()
 
     def wTb(self, FaeroB, pcopB):
@@ -179,6 +171,7 @@ class RobobeeSim():
             self.q[j], self.dq[j] = p.getJointState(self.bid, j)[0:2]
         self.q[4:7], self.q[7:11] = p.getBasePositionAndOrientation(self.bid)[0:2]
         self.dq[4:7], self.dq[7:10] = p.getBaseVelocity(self.bid)[0:2]
+        return self.simt, self.q, self.dq
         
     def resetJoints(self, bid, jarr, q, dq):
         '''Forcibly move joints to certain positions (q) and velocities (dq)'''
@@ -191,15 +184,15 @@ class RobobeeSim():
     def visAero(self, aeroW, col, lifeTime):
         p.addUserDebugLine(aeroW[1], aeroW[1] + self.FAERO_DRAW_SCALE * np.array(aeroW[0]), lineColorRGB=col, lifeTime=lifeTime, lineWidth=2)
 
-    def update(self, u, testF=None, forceControl=False):
+    def update(self, u, testF=None, forceControl=True):
         if testF is not None:
             p.setJointMotorControlArray(self.bid, [0,2], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=[0.01,0.01], velocityGains=[0.1,0.1], forces=np.full(2, 1000000))
         else:
             if forceControl:
                 # stroke stiffness
-                u[0] -= self.urdfParams['kstroke'] * self.q[0]
-                u[1] -= self.urdfParams['kstroke'] * self.q[2]
-                # tau = [0,0]
+                for i in range(2):
+                    # force in mN from voltage; add on stroke stiffness
+                    u[i] = actuatorModel(u[i], self.q[2*i], self.dq[2*i]) - self.urdfParams['kstroke'] * self.q[2*i]
                 p.setJointMotorControlArray(self.bid, [0,2], p.TORQUE_CONTROL, forces=u)
             else:
                 p.setJointMotorControlArray(self.bid, [0,2], p.POSITION_CONTROL, targetPositions=u, positionGains=[1,1], velocityGains=[1,1], forces=np.full(2, 1000000))
