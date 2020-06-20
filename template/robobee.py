@@ -11,49 +11,37 @@ CDmax = 3.4
 CLmax = 1.8
 AERO_REGULARIZE_EPS = 1e-10 # stops undefined AoA when no wind
 # True in Chen (2017) science robotics, but differently calculated in Osborne (1951)
-RHO = 1.225e-3 # density of air kg/m^3
+RHO = 1.225e-3 # [mg/(mm^3)]
 
 rcopnondim = 0.5
 
 def aerodynamics(theta, dtheta, lrSign, params):
     """Return aerodynamic force and instantaneous CoP in the body frame (both in R^3). If flip=False it will work for the left wing (along +y axis), and if flip=True it will """
-    # Helper from DIckinson model; in order lift, drag
-    Caero = lambda a : np.array([CLmax * np.sin(2*a), (CDmax + CD0) / 2.0 - (CDmax - CD0) / 2.0 * np.cos(2*a)])
+    theta[0] *= lrSign
+    dtheta[0] *= lrSign
 
-    # These are all in the body frame
-    Rspar = Rotation.from_euler('z', lrSign * theta[0])
-    Rhinge = Rotation.from_euler('y', theta[1])
-    # vector along wing
-    sparVecB = Rspar.apply(np.array([0, 1, 0]))
-    # wing chord unit vector
-    chordB = Rspar.apply(Rhinge.apply(np.array([0,0,-1])))
-    # TODO: add external wind vector
-    # NOTE: assuming spar velocity is dominant
-    wB = -np.cross(lrSign * dtheta[0] * np.array([0,0,1]), params['ycp'] * sparVecB)
-    # print(dtheta[0] * np.array([0,0,1]), self.ycp * sparVecB)
+    # Faero = 1/2 * ρ * dφ^2 * Aw^2 * AR * m.r2h^2 * (Caero[1]*eD + Caero[2]*eL*sign(-dφ)) # [mN]
+    Aw = 54.4
+    r1h = 0.49
+    r2h = 0.551
+    cbar = 3.2 #params['cbar']
+    rcnd = rcopnondim
 
-    # COP: half of cbar down
-    pcopB = np.array([0,params['Roffs'],params['d']]) + params['ycp'] * sparVecB + rcopnondim * params['cbar'] * chordB
+    cbar2 = cbar**2
+    AR = Aw / cbar2
+    Lw = Aw/cbar
+    ycp = params['ycp']#params['Rwing']*r1h #
 
-    # Various directions in the notation of Osborne (1951)
-    # l = vector along wing
-    # w = relative wind vector
-    # c = chord
-    lwB = np.cross(sparVecB, wB)
-    lwpB = wB - wB.dot(sparVecB) * sparVecB
-    wnorm = np.sqrt(wB.dot(wB)) + AERO_REGULARIZE_EPS
-    lwnorm = np.sqrt(lwB.dot(lwB)) + AERO_REGULARIZE_EPS
-    lwpnorm = np.sqrt(lwpB.dot(lwpB)) + AERO_REGULARIZE_EPS
-
-    # Lift/drag directions
-    eD = lwpB / lwpnorm
-    eL = np.array([0,0,1])
-
-    # Calculate aero force
-    aoa = np.arccos(chordB.dot(wB) / wnorm)
-    Cf = Caero(aoa)
-    # Cf *= 0.5 * rho * beta
-    FaeroB = 0.5 * RHO * params['cbar'] * params['ycp'] * (Cf[0] * eL + Cf[1] * eD) * lwnorm**2
+    s, c = np.sin(theta[0]), np.cos(theta[0])
+    sh, ch = np.sin(theta[1]), np.cos(theta[1])
+    pcopB = np.array([0,params['Roffs'],params['d']]) + \
+        np.array([-ycp*s - cbar*rcnd*c*sh, ycp*c - cbar*rcnd*s*sh, -cbar*rcnd*ch])
+    aoa = 0.5 * np.pi - theta[1]
+    eD = np.array([dtheta[0]*c, dtheta[0]*s, 0])/(np.abs(dtheta[0]) + 1e-4) # so it is well-defined
+    eL = np.array([0, 0, 1])
+    Caero = [((CDmax + CD0)/2 - (CDmax - CD0)/2 * np.cos(2*aoa)), CLmax * np.sin(2*aoa)]
+    FaeroB = 0.5 * RHO * dtheta[0]**2 * Aw**2 * AR * r2h**2 * (Caero[0]*eD + Caero[1]*eL*np.sign(-dtheta[0]))
+    
     if lrSign < 0:
         yflip = np.diag([1,-1,1])
         FaeroB = yflip @ FaeroB
@@ -68,7 +56,7 @@ class RobobeeSim():
     """Robobee simulator using pybullet"""
 
     # Parameters
-    FAERO_DRAW_SCALE = 10.0
+    FAERO_DRAW_SCALE = 2.0
     pcomLastDraw = np.zeros(3)
 
     def __init__(self, connMode, camLock=True, slowDown=True, timestep=1.0, gui=0):
