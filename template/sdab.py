@@ -7,7 +7,7 @@ import viewlog
 np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
 # p.DIRECT for non-graphical
-bee = robobee.RobobeeSim(p.GUI, slowDown=1, camLock=True, timestep=0.1, gui=1)
+bee = robobee.RobobeeSim(p.GUI, slowDown=1, camLock=True, timestep=0.1, gui=0)
 # load robot
 startPos = [0,0,10]
 startOrientation = p.getQuaternionFromEuler(np.zeros(3))
