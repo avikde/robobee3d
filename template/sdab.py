@@ -7,7 +7,7 @@ import viewlog
 np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
 # p.DIRECT for non-graphical
-bee = robobee.RobobeeSim(p.GUI, slowDown=1, camLock=True, timestep=0.1, gui=0)
+bee = robobee.RobobeeSim(p.GUI, slowDown=1, camLock=True, timestep=0.1, gui=1)
 # load robot
 startPos = [0,0,10]
 startOrientation = p.getQuaternionFromEuler(np.zeros(3))
@@ -27,9 +27,7 @@ data = viewlog.initLog()
     
 # ---
 
-# Params stored as (min, max, default) tuples
-params = {'freq': (0, 0.3, 0.16), 'umean': (0, 200, 150), 'udiff': (-0.5, 0.5, 0), 'uoffs': (-0.5, 0.5, 0), 'testFL': (-10,10,0), 'testFR': (-10,10,0)}
-controller = OpenLoop(params)
+controller = OpenLoop()
 
 # --- Actual simulation ---
 while True:
