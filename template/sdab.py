@@ -2,11 +2,12 @@ import time, subprocess
 import numpy as np
 import pybullet as p
 import robobee
+from robobee_test_controllers import OpenLoop
 import viewlog
 np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
 # p.DIRECT for non-graphical
-bee = robobee.RobobeeSim(p.GUI, slowDown=1, camLock=True, timestep=0.1, gui=1)
+bee = robobee.RobobeeSim(p.GUI, slowDown=1, camLock=True, timestep=0.1, gui=0)
 # load robot
 startPos = [0,0,10]
 startOrientation = p.getQuaternionFromEuler(np.zeros(3))
@@ -28,23 +29,7 @@ data = viewlog.initLog()
 
 # Params stored as (min, max, default) tuples
 params = {'freq': (0, 0.3, 0.16), 'umean': (0, 200, 150), 'udiff': (-0.5, 0.5, 0), 'uoffs': (-0.5, 0.5, 0), 'testFL': (-10,10,0), 'testFR': (-10,10,0)}
-# Params using pybullet GUI (sliders)
-dbgIDs = {k : p.addUserDebugParameter(k, *params[k]) for k in params.keys()}
-def P(k):
-    try:
-        return p.readUserDebugParameter(dbgIDs[k])
-    except: # if in p.DIRECT mode, just return the default
-        return params[k][-1]
-
-def controller(t, q, dq):
-    # Stroke kinematics
-    omega = 2 * np.pi * P('freq') #ctrl['freq'] #
-    ph = omega * bee.simt
-    # force control
-    umean = P('umean')
-    udiff = P('udiff')
-    uoffs = P('uoffs')
-    return np.array([1 + udiff, 1 - udiff]) * umean * (np.sin(ph) + uoffs)
+controller = OpenLoop(params)
 
 # --- Actual simulation ---
 while True:
@@ -53,7 +38,7 @@ while True:
         ss = bee.sampleStates()
 
         pdes = np.zeros(6)
-        tau = controller(*ss)
+        tau = controller.update(*ss)
         data = viewlog.appendLog(data, *ss, tau, pdes) # log
         
         bee.update(tau)#, testF=[P('testFL'), P('testFR')])
