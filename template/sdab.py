@@ -2,7 +2,7 @@ import time, subprocess, argparse
 import numpy as np
 import pybullet as p
 import robobee
-from robobee_test_controllers import OpenLoop, SimpleHover
+from robobee_test_controllers import OpenLoop, WaypointHover
 import viewlog
 np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
@@ -33,7 +33,7 @@ data = viewlog.initLog()
 # ---
 
 # controller = OpenLoop()
-controller = SimpleHover()
+controller = WaypointHover()
 
 # --- Actual simulation ---
 try:

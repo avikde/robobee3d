@@ -44,32 +44,38 @@ class OpenLoop(RobobeeController):
         w = self.wf.update(t, self.P('freq'))
         return np.array([1 + udiff, 1 - udiff]) * umean * (w + uoffs)
 
-class SimpleHover(RobobeeController):
+class WaypointHover(RobobeeController):
     """Simplified version of Pakpong (2013)"""
     def __init__(self):
-        super(SimpleHover, self).__init__({'freq': (0, 0.3, 0.16)})
+        super(WaypointHover, self).__init__({'freq': (0, 0.3, 0.16)})
         self.wf = WaveformGenerator()
+        self.posdes = np.zeros(3)
     
     def update(self, t, q, dq):
         # unpack
-        Rb = Rotation.from_quat(q[7:11])
-        omega = dq[7:10]
+        qb = q[-7:]
+        dqb = dq[-6:]
+        Rb = Rotation.from_quat(qb[3:7])
+        omega = dqb[3:6]
 
         Rm = Rb.as_dcm()
         zdes = np.array([0,0,1]) # desired z vector
 
-        ornError = np.array([[Rm[0,1], Rm[1,1], Rm[2,1]], [-Rm[0,0], -Rm[1,0], -Rm[2,0]], [0,0,0]]) @ zdes # Pakpong (2013) (6)
+        ornError = np.array([
+            [Rm[0,1], Rm[1,1], Rm[2,1]], 
+            [-Rm[0,0], -Rm[1,0], -Rm[2,0]], 
+            [0,0,0]]) @ zdes # Pakpong (2013) (6)
         Iomegades = -20.0*ornError - 1000.0*omega
 
         # momentum-based control
         pdes = np.hstack((0, 0, 0, Iomegades))
 
-        return self.lowlevel(t, q, dq, pdes)
+        return self.lowlevel(t, qb, dqb, pdes)
         
-    def lowlevel(self, t, q, dq, pdes):
+    def lowlevel(self, t, qb, dqb, pdes):
         """Low level mapping to torques. Can be replaced"""
         w = self.wf.update(t, self.P('freq'))
-        umean = 120 + 1000 * (pdes[2] - dq[6])
+        umean = 120 + 1000 * (pdes[2] - dqb[2])#  10 * (self.posdes[2] - qb[2]) + 
         udiff = np.clip(0.01*pdes[3], -0.5, 0.5)
         uoffs = np.clip(0.1*pdes[4], -0.5, 0.5)
         return np.array([1 + udiff, 1 - udiff]) * umean * (w + uoffs)
