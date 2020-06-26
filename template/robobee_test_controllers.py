@@ -2,6 +2,8 @@
 import pybullet as p
 import numpy as np
 from scipy.spatial.transform import Rotation
+from ca6dynamics import dynamicsTerms, wrenchMap
+from wrenchlinQP import WrenchLinQP
 
 class WaveformGenerator(object):
     """A simple waveform generator that keeps track of phase"""
@@ -51,6 +53,9 @@ class WaypointHover(RobobeeController):
         super(WaypointHover, self).__init__({'freq': (0, 0.3, 0.16)})
         self.wf = WaveformGenerator()
         self.posdes = np.array([0.,0.,100.])
+        self.wlqp = WrenchLinQP(6, 6, dynamicsTerms, wrenchMap)
+        self.lowlevel = self.manualMapping
+        # self.lowlevel = self.wlqp.updateFromState
     
     def update(self, t, q, dq):
         # unpack
@@ -76,7 +81,7 @@ class WaypointHover(RobobeeController):
 
         return self.lowlevel(t, qb, dqb, self.pdes)
         
-    def lowlevel(self, t, qb, dqb, pdes):
+    def manualMapping(self, t, qb, dqb, pdes):
         """Low level mapping to torques. Can be replaced"""
         w = self.wf.update(t, self.P('freq'))
         umean = 120 + 1000 * (pdes[2] - dqb[2]) + 0.1 * (self.posdes[2] - qb[2])
