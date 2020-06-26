@@ -1,4 +1,4 @@
-import time, subprocess
+import time, subprocess, argparse
 import numpy as np
 import pybullet as p
 import robobee
@@ -6,8 +6,13 @@ from robobee_test_controllers import OpenLoop, SimpleHover
 import viewlog
 np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
+parser = argparse.ArgumentParser(description='Process some integers.')
+parser.add_argument('-t', '--tend', type=float, default=np.inf, help='end time [ms]')
+parser.add_argument('-d', '--direct', action='store_true', default=False, help='direct mode (no vis)')
+args = parser.parse_args()
+
 # p.DIRECT for non-graphical
-bee = robobee.RobobeeSim(p.GUI, slowDown=1, camLock=True, timestep=0.2, gui=0)
+bee = robobee.RobobeeSim(p.DIRECT if args.direct else p.GUI, slowDown=1, camLock=True, timestep=0.1, gui=0)
 # load robot
 startPos = [0,0,100]
 startOrientation = p.getQuaternionFromEuler([0.5,-0.5,0])
@@ -31,8 +36,8 @@ data = viewlog.initLog()
 controller = SimpleHover()
 
 # --- Actual simulation ---
-while True:
-    try:
+try:
+    while bee.simt < args.tend:
         # actual sim
         ss = bee.sampleStates()
 
@@ -41,8 +46,9 @@ while True:
         data = viewlog.appendLog(data, *ss, tau, pdes) # log
         
         bee.update(tau)#, testF=[P('testFL'), P('testFR')])
-        time.sleep(bee._slowDown * bee.TIMESTEP * 1e-3)
-    except:
-        viewlog.saveLog('../logs/sdab', data)
-        raise
+
+        if not args.direct:
+            time.sleep(bee._slowDown * bee.TIMESTEP * 1e-3)
+finally:
+    viewlog.saveLog('../logs/sdab', data)
 

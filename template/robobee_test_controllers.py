@@ -59,7 +59,7 @@ class SimpleHover(RobobeeController):
         zdes = np.array([0,0,1]) # desired z vector
 
         ornError = np.array([[Rm[0,1], Rm[1,1], Rm[2,1]], [-Rm[0,0], -Rm[1,0], -Rm[2,0]], [0,0,0]]) @ zdes # Pakpong (2013) (6)
-        Iomegades = -20.0*ornError - 1.0*omega
+        Iomegades = -20.0*ornError - 20.0*omega
 
         # momentum-based control
         pdes = np.hstack((0, 0, 0, Iomegades))
