@@ -49,7 +49,7 @@ class WaypointHover(RobobeeController):
     def __init__(self):
         super(WaypointHover, self).__init__({'freq': (0, 0.3, 0.16)})
         self.wf = WaveformGenerator()
-        self.posdes = np.zeros(3)
+        self.posdes = np.array([0.,0.,100.])
     
     def update(self, t, q, dq):
         # unpack
@@ -59,7 +59,10 @@ class WaypointHover(RobobeeController):
         omega = dqb[3:6]
 
         Rm = Rb.as_dcm()
-        zdes = np.array([0,0,1]) # desired z vector
+        zdes = np.array([0.,0.,1.]) # desired z vector
+        # upright controller
+        zdes[0:2] = np.clip(0.01 * (self.posdes[0:2] - qb[0:2]) - 1 * dqb[0:2],
+         -0.5 * np.ones(2), 0.5 * np.ones(2))
 
         ornError = np.array([
             [Rm[0,1], Rm[1,1], Rm[2,1]], 
@@ -75,7 +78,7 @@ class WaypointHover(RobobeeController):
     def lowlevel(self, t, qb, dqb, pdes):
         """Low level mapping to torques. Can be replaced"""
         w = self.wf.update(t, self.P('freq'))
-        umean = 120 + 1000 * (pdes[2] - dqb[2])#  10 * (self.posdes[2] - qb[2]) + 
+        umean = 120 + 1000 * (pdes[2] - dqb[2]) + 0.1 * (self.posdes[2] - qb[2])
         udiff = np.clip(0.01*pdes[3], -0.5, 0.5)
         uoffs = np.clip(0.1*pdes[4], -0.5, 0.5)
         return np.array([1 + udiff, 1 - udiff]) * umean * (w + uoffs)
