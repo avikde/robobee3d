@@ -7,7 +7,7 @@ import pybullet as p
 import pybullet_data
 import viewlog
 from wrenchlinQP import WrenchLinQP
-from ca6dynamics import ycp
+from ca6dynamics import ycp, dynamicsTerms, wrenchMap
 np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
 # Usage params
@@ -40,7 +40,7 @@ tLastDraw1 = 0
 data = viewlog.initLog()
 
 # controller
-wlqp = WrenchLinQP(6,6)
+wlqp = WrenchLinQP(6, 6, dynamicsTerms, wrenchMap)
 # wlqp = WrenchLinQP(1,1)
 # wlqp.test()
 

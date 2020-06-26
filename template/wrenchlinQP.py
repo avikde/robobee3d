@@ -4,10 +4,6 @@ from autograd import jacobian
 import scipy.sparse as sp
 from scipy.spatial.transform import Rotation
 
-# TODO: this can be factored
-from ca6dynamics import dynamicsTerms, wrenchMap
-dw_du = jacobian(wrenchMap)
-
 def qpSetupDense(n, m):
     "Helper to set up a dense QP"
     model = osqp.OSQP()
@@ -20,17 +16,20 @@ def qpSetupDense(n, m):
     return model
 
 class WrenchLinQP(object):
-    def __init__(self, n, m):
+    def __init__(self, n, m, dynamicsTerms, wrenchMap):
         self.model = qpSetupDense(n, m)
         self.n = n
         self.m = m
         self.u0 = np.zeros(n)
         self.w0 = np.zeros(n)
+        self.dynamicsTerms = dynamicsTerms
+        self.wrenchMap = wrenchMap
     
     def update(self, p0, h0, B0, dt, Qd, pdes):
         if self.n == 6:
             # assume ca6 model
             u = 1e-2 * np.ones(self.n)
+            dw_du = jacobian(self.wrenchMap)
             curDwDu = dw_du(self.u0)
         else:
             # For testing other models (assume w=u if n != 6)
@@ -53,7 +52,7 @@ class WrenchLinQP(object):
         self.u0 = res.x + self.u0
 
         if self.n == 6:
-            self.w0 = wrenchMap(self.u0)
+            self.w0 = self.wrenchMap(self.u0)
             return self.u0
         else:
             self.w0 = self.u0
@@ -62,7 +61,7 @@ class WrenchLinQP(object):
             return r
     
     def updateFromState(self, q, dq, pdes):
-        M0, h0, B0 = dynamicsTerms(q, dq)
+        M0, h0, B0 = self.dynamicsTerms(q, dq)
         p0 = M0 @ dq
         dt = 2
         Qd = np.hstack((1.0*np.ones(3), 0.1*np.ones(3)))
