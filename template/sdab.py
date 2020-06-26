@@ -2,15 +2,15 @@ import time, subprocess
 import numpy as np
 import pybullet as p
 import robobee
-from robobee_test_controllers import OpenLoop
+from robobee_test_controllers import OpenLoop, SimpleHover
 import viewlog
 np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
 # p.DIRECT for non-graphical
-bee = robobee.RobobeeSim(p.GUI, slowDown=1, camLock=True, timestep=0.1, gui=0)
+bee = robobee.RobobeeSim(p.GUI, slowDown=1, camLock=True, timestep=0.2, gui=0)
 # load robot
 startPos = [0,0,10]
-startOrientation = p.getQuaternionFromEuler(np.zeros(3))
+startOrientation = p.getQuaternionFromEuler([0.5,0.5,0])
 subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.urdf"])
 bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=False)
 data = viewlog.initLog()
@@ -27,7 +27,8 @@ data = viewlog.initLog()
     
 # ---
 
-controller = OpenLoop()
+# controller = OpenLoop()
+controller = SimpleHover()
 
 # --- Actual simulation ---
 while True:

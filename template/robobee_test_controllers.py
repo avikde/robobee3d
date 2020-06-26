@@ -1,6 +1,7 @@
 """Each controller has a set of parameters and ranges as well as a function to evaluate it"""
 import pybullet as p
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 class WaveformGenerator(object):
     """A simple waveform generator that keeps track of phase"""
@@ -43,10 +44,30 @@ class OpenLoop(RobobeeController):
         w = self.wf.update(t, self.P('freq'))
         return np.array([1 + udiff, 1 - udiff]) * umean * (w + uoffs)
 
-# class SimpleHover(RobobeeController):
-#     """Simplified version of Pakpong (2013)"""
-#     def __init__(self):
-#         super(SimpleHover, self).__init__({})
+class SimpleHover(RobobeeController):
+    """Simplified version of Pakpong (2013)"""
+    def __init__(self):
+        super(SimpleHover, self).__init__({'freq': (0, 0.3, 0.16)})
+        self.wf = WaveformGenerator()
     
-#     def update(self, t, q, dq):
+    def update(self, t, q, dq):
+        # unpack
+        Rb = Rotation.from_quat(q[7:11])
+        omega = dq[7:10]
 
+        Rm = Rb.as_dcm()
+        zdes = np.array([0,0,1]) # desired z vector
+        ornError = np.array([[Rm[0,1], Rm[1,1], Rm[2,1]], [-Rm[0,0], -Rm[1,0], -Rm[2,0]], [0,0,0]]) @ zdes # Pakpong (2013) (6)
+        Iomegades = -20.0*ornError - 1.0*omega
+
+        pdes = np.hstack((0, 0, 10, Iomegades))
+
+        return self.lowlevel(t, q, dq, pdes)
+        
+    def lowlevel(self, t, q, dq, pdes):
+        """Low level mapping to torques. Can be replaced"""
+        w = self.wf.update(t, self.P('freq'))
+        umean = 150
+        udiff = np.clip(0.005*pdes[3], -0.5, 0.5)
+        uoffs = np.clip(0.1*pdes[4], -0.5, 0.5)
+        return np.array([1 + udiff, 1 - udiff]) * umean * (w + uoffs)
