@@ -51,7 +51,25 @@ def aerodynamics(theta, dtheta, lrSign, params):
 def actuatorModel(V, qact, dqact):
     """Return actuator force for applied voltage input and current actuator state"""
     T = 2.6666
-    return 1 / T * (40./180. * V) # proportional model FIXME: why low
+    return 1 / T * (50./180. * V) # proportional model FIXME: why low
+
+class WingFlapFilter(object):
+    """Utilities to filter based on wing flap frequency"""
+    def __init__(self, freq, timestep, n):
+        self.buf = np.zeros((int(1/(freq * timestep)), n)) # each row will be a sample
+        self.bufi = 0
+        self.firstTime = True
+    
+    def update(self, x):
+        """Operators on a vector x"""
+        if self.firstTime:
+            self.firstTime = False
+            for i in range(self.buf.shape[0]):
+                self.buf[i,:] = x
+        else:
+            self.buf[self.bufi,:] = x
+        self.bufi = (self.bufi + 1) % len(self.buf)
+        return np.mean(self.buf, axis=0)
 
 class RobobeeSim():
     """Robobee simulator using pybullet"""
@@ -60,7 +78,7 @@ class RobobeeSim():
     FAERO_DRAW_SCALE = 2.0
     pcomLastDraw = np.zeros(3)
 
-    def __init__(self, connMode, camLock=True, slowDown=True, timestep=1.0, gui=0):
+    def __init__(self, connMode, camLock=True, slowDown=True, timestep=1.0, gui=0, filtfreq=0.15):
         self._camLock = camLock
         self._slowDown = slowDown
         self.TIMESTEP = timestep
@@ -78,9 +96,9 @@ class RobobeeSim():
         # load background
         p.setAdditionalSearchPath(pybullet_data.getDataPath()) #optionally
         self.planeId = p.loadURDF("plane.urdf", globalScaling=100.0)
-        self.reset()
+        self.reset(filtfreq)
     
-    def reset(self):
+    def reset(self, filtfreq):
         """Reset states, to restart the sim, for instance"""
         self.simt = 0
         # vectors for storing states
@@ -88,6 +106,7 @@ class RobobeeSim():
         self.dq = np.zeros(10)
         self.tLastPrint = 0
         self.tWallLastDraw = monotonic()
+        self.wf = WingFlapFilter(filtfreq, self.TIMESTEP, 6) # filter for body vel
 
     def wTb(self, FaeroB, pcopB):
         # Body to world frame --
@@ -170,7 +189,8 @@ class RobobeeSim():
         for j in range(self.Nj):
             self.q[j], self.dq[j] = p.getJointState(self.bid, j)[0:2]
         self.q[4:7], self.q[7:11] = p.getBasePositionAndOrientation(self.bid)[0:2]
-        self.dq[4:7], self.dq[7:10] = p.getBaseVelocity(self.bid)[0:2]
+        v, omega = p.getBaseVelocity(self.bid)[0:2]
+        self.dq[4:10] = self.wf.update(np.hstack((v, omega)))
         return self.simt, self.q, self.dq
         
     def resetJoints(self, bid, jarr, q, dq):

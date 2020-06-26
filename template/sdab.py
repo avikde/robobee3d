@@ -1,64 +1,54 @@
-import time, subprocess
+import time, subprocess, argparse
 import numpy as np
 import pybullet as p
 import robobee
+from robobee_test_controllers import OpenLoop, WaypointHover
 import viewlog
 np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
-# p.DIRECT for non-graphical
-bee = robobee.RobobeeSim(p.GUI, slowDown=1, camLock=True, timestep=0.1, gui=1)
+parser = argparse.ArgumentParser(description='Process some integers.')
+parser.add_argument('-t', '--tend', type=float, default=np.inf, help='end time [ms]')
+parser.add_argument('-d', '--direct', action='store_true', default=False, help='direct mode (no visualization)')
+args = parser.parse_args()
+
+# filtfreq is for the body velocity filter
+bee = robobee.RobobeeSim(p.DIRECT if args.direct else p.GUI, slowDown=1, camLock=True, timestep=0.1, gui=0, filtfreq=0.16)
 # load robot
-startPos = [0,0,10]
-startOrientation = p.getQuaternionFromEuler(np.zeros(3))
+startPos = [0,0,100]
+startOrientation = p.getQuaternionFromEuler([0.5,-0.5,0])
 subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.urdf"])
 bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=False)
 data = viewlog.initLog()
 
-# # Helper function: traj to track
-# def traj(t):
-#     return startPos + np.array([30 * np.sin(0.002*np.pi*t), 0, 0.5 * t])
+# Helper function: traj to track
+def traj(t):
+    ph = 1*2*np.pi*(1e-3*t)
+    return startPos + np.array([50 * np.sin(ph), 50 * (1 - np.cos(ph)), 0.0 * t])
 
-# # draw traj
-# T_END=1000
-# tdraw = np.linspace(0, T_END, 20)
-# for ti in range(1, len(tdraw)):
-#     p.addUserDebugLine(traj(tdraw[ti-1]), traj(tdraw[ti]), lineColorRGB=[0,0,0], lifeTime=0)
+# draw traj
+tdraw = np.linspace(0, args.tend, 20)
+for ti in range(1, len(tdraw)):
+    p.addUserDebugLine(traj(tdraw[ti-1]), traj(tdraw[ti]), lineColorRGB=[0,0,0], lifeTime=0)
     
 # ---
 
-# Params stored as (min, max, default) tuples
-params = {'freq': (0, 0.3, 0.15), 'umean': (0, 100, 50), 'udiff': (-0.5, 0.5, 0), 'uoffs': (-0.5, 0.5, 0), 'testFL': (-10,10,0), 'testFR': (-10,10,0)}
-# Params using pybullet GUI (sliders)
-dbgIDs = {k : p.addUserDebugParameter(k, *params[k]) for k in params.keys()}
-def P(k):
-    try:
-        return p.readUserDebugParameter(dbgIDs[k])
-    except: # if in p.DIRECT mode, just return the default
-        return params[k][-1]
-
-def controller(t, q, dq):
-    # Stroke kinematics
-    omega = 2 * np.pi * P('freq') #ctrl['freq'] #
-    ph = omega * bee.simt
-    # force control
-    umean = P('umean')
-    udiff = P('udiff')
-    uoffs = P('uoffs')
-    return np.array([1 + udiff, 1 - udiff]) * umean * (np.sin(ph) + uoffs)
+# controller = OpenLoop()
+controller = WaypointHover()
 
 # --- Actual simulation ---
-while True:
-    try:
+try:
+    while bee.simt < args.tend:
         # actual sim
         ss = bee.sampleStates()
 
-        pdes = np.zeros(6)
-        tau = controller(*ss)
-        data = viewlog.appendLog(data, *ss, tau, pdes) # log
+        controller.posdes = traj(bee.simt)
+        tau = controller.update(*ss)
+        data = viewlog.appendLog(data, *ss, tau, controller.pdes) # log
         
         bee.update(tau)#, testF=[P('testFL'), P('testFR')])
-        time.sleep(bee._slowDown * bee.TIMESTEP * 1e-3)
-    except:
-        viewlog.saveLog('../logs/sdab', data)
-        raise
+
+        if not args.direct:
+            time.sleep(bee._slowDown * bee.TIMESTEP * 1e-3)
+finally:
+    viewlog.saveLog('../logs/sdab', data)
 
