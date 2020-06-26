@@ -8,11 +8,11 @@ np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
 parser = argparse.ArgumentParser(description='Process some integers.')
 parser.add_argument('-t', '--tend', type=float, default=np.inf, help='end time [ms]')
-parser.add_argument('-d', '--direct', action='store_true', default=False, help='direct mode (no vis)')
+parser.add_argument('-d', '--direct', action='store_true', default=False, help='direct mode (no visualization)')
 args = parser.parse_args()
 
-# p.DIRECT for non-graphical
-bee = robobee.RobobeeSim(p.DIRECT if args.direct else p.GUI, slowDown=1, camLock=True, timestep=0.1, gui=0)
+# filtfreq is for the body velocity filter
+bee = robobee.RobobeeSim(p.DIRECT if args.direct else p.GUI, slowDown=1, camLock=True, timestep=0.1, gui=0, filtfreq=0.16)
 # load robot
 startPos = [0,0,100]
 startOrientation = p.getQuaternionFromEuler([0.5,-0.5,0])
