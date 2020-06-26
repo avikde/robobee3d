@@ -9,8 +9,8 @@ np.set_printoptions(precision=2, suppress=True, linewidth=200)
 # p.DIRECT for non-graphical
 bee = robobee.RobobeeSim(p.GUI, slowDown=1, camLock=True, timestep=0.2, gui=0)
 # load robot
-startPos = [0,0,10]
-startOrientation = p.getQuaternionFromEuler([0.5,0.5,0])
+startPos = [0,0,100]
+startOrientation = p.getQuaternionFromEuler([0.5,-0.5,0])
 subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.urdf"])
 bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=False)
 data = viewlog.initLog()

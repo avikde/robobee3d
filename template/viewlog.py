@@ -54,7 +54,7 @@ def defaultPlots(data):
     qb = data['q'][:,-7:]
     dqb = data['dq'][:,-6:]
 
-    fig, ax = plt.subplots(6)
+    fig, ax = plt.subplots(5)
     ax[0].plot(data['t'], qb[:,:3])
     ax[0].set_ylabel('pos [mm]')
 
@@ -74,8 +74,8 @@ def defaultPlots(data):
         # ca6 log
         ax[4].plot(data['t'], data['u'][:,[1,4]])
         ax[4].set_ylabel('u2')
-        ax[5].plot(data['t'], data['u'][:,[2,5]])
-        ax[5].set_ylabel('u3')
+        # ax[5].plot(data['t'], data['u'][:,[2,5]])
+        # ax[5].set_ylabel('u3')
     else:
         # plot wing states
         qw = data['q'][:,:4]

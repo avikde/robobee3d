@@ -57,17 +57,19 @@ class SimpleHover(RobobeeController):
 
         Rm = Rb.as_dcm()
         zdes = np.array([0,0,1]) # desired z vector
+
         ornError = np.array([[Rm[0,1], Rm[1,1], Rm[2,1]], [-Rm[0,0], -Rm[1,0], -Rm[2,0]], [0,0,0]]) @ zdes # Pakpong (2013) (6)
         Iomegades = -20.0*ornError - 1.0*omega
 
-        pdes = np.hstack((0, 0, 10, Iomegades))
+        # momentum-based control
+        pdes = np.hstack((0, 0, 0, Iomegades))
 
         return self.lowlevel(t, q, dq, pdes)
         
     def lowlevel(self, t, q, dq, pdes):
         """Low level mapping to torques. Can be replaced"""
         w = self.wf.update(t, self.P('freq'))
-        umean = 150
-        udiff = np.clip(0.005*pdes[3], -0.5, 0.5)
-        uoffs = np.clip(0.1*pdes[4], -0.5, 0.5)
+        umean = 120 + 1000 * (pdes[2] - dq[6])
+        udiff = np.clip(0.002*pdes[3], -0.5, 0.5)
+        uoffs = np.clip(0.04*pdes[4], -0.5, 0.5)
         return np.array([1 + udiff, 1 - udiff]) * umean * (w + uoffs)
