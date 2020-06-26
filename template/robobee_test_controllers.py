@@ -59,7 +59,7 @@ class WaypointHover(RobobeeController):
         Rb = Rotation.from_quat(qb[3:7])
         omega = dqb[3:6]
 
-        Rm = Rb.as_dcm()
+        Rm = Rb.as_matrix()
         zdes = np.array([0.,0.,1.]) # desired z vector
         # upright controller
         zdes[0:2] = np.clip(0.01 * (self.posdes[0:2] - qb[0:2]) - 1 * dqb[0:2], -0.5 * np.ones(2), 0.5 * np.ones(2))

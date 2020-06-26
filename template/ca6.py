@@ -96,7 +96,7 @@ def ornVF(Rb, omega, posErr):
     """return last elements of pdes"""
     # hat = lambda M : np.array([M[2,1], M[0,2], M[1,0]])
     Rdes = np.eye(3)#Rotation.from_euler('x', 0)
-    Rm = Rb.as_dcm()
+    Rm = Rb.as_matrix()
     zdes = np.array([0,0,1]) # desired z vector
     # ornError = hat(Rdes.T @ Rm - Rm.T @ Rdes)
     # ornError = -np.cross([0,0,1], Rb.inv().apply(zdes))
