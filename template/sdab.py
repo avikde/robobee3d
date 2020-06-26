@@ -12,7 +12,7 @@ parser.add_argument('-d', '--direct', action='store_true', default=False, help='
 args = parser.parse_args()
 
 # filtfreq is for the body velocity filter
-bee = robobee.RobobeeSim(p.DIRECT if args.direct else p.GUI, slowDown=1, camLock=True, timestep=0.1, gui=0, filtfreq=0.16)
+bee = robobee.RobobeeSim(p.DIRECT if args.direct else p.GUI, slowDown=0, camLock=True, timestep=0.1, gui=0, filtfreq=0.16)
 # load robot
 startPos = [0,0,100]
 startOrientation = p.getQuaternionFromEuler([0.5,-0.5,0])
