@@ -20,6 +20,7 @@ class RobobeeController(object):
         self.params = params
         # Params using pybullet GUI (sliders)
         self.dbgIDs = {k : p.addUserDebugParameter(k, *params[k]) for k in params.keys()}
+        self.pdes = np.zeros(6) # controller should set
 
     def P(self, k):
         try:
@@ -61,8 +62,8 @@ class WaypointHover(RobobeeController):
         Rm = Rb.as_dcm()
         zdes = np.array([0.,0.,1.]) # desired z vector
         # upright controller
-        zdes[0:2] = np.clip(0.01 * (self.posdes[0:2] - qb[0:2]) - 1 * dqb[0:2],
-         -0.5 * np.ones(2), 0.5 * np.ones(2))
+        zdes[0:2] = np.clip(0.01 * (self.posdes[0:2] - qb[0:2]) - 1 * dqb[0:2], -0.5 * np.ones(2), 0.5 * np.ones(2))
+        # zdes /= np.linalg.norm(zdes)
 
         ornError = np.array([
             [Rm[0,1], Rm[1,1], Rm[2,1]], 
@@ -71,9 +72,9 @@ class WaypointHover(RobobeeController):
         Iomegades = -20.0*ornError - 1000.0*omega
 
         # momentum-based control
-        pdes = np.hstack((0, 0, 0, Iomegades))
+        self.pdes = np.hstack((0, 0, 0, Iomegades))
 
-        return self.lowlevel(t, qb, dqb, pdes)
+        return self.lowlevel(t, qb, dqb, self.pdes)
         
     def lowlevel(self, t, qb, dqb, pdes):
         """Low level mapping to torques. Can be replaced"""

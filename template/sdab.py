@@ -20,15 +20,15 @@ subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../u
 bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=False)
 data = viewlog.initLog()
 
-# # Helper function: traj to track
-# def traj(t):
-#     return startPos + np.array([30 * np.sin(0.002*np.pi*t), 0, 0.5 * t])
+# Helper function: traj to track
+def traj(t):
+    ph = 1*2*np.pi*(1e-3*t)
+    return startPos + np.array([50 * np.sin(ph), 50 * (1 - np.cos(ph)), 0.0 * t])
 
-# # draw traj
-# T_END=1000
-# tdraw = np.linspace(0, T_END, 20)
-# for ti in range(1, len(tdraw)):
-#     p.addUserDebugLine(traj(tdraw[ti-1]), traj(tdraw[ti]), lineColorRGB=[0,0,0], lifeTime=0)
+# draw traj
+tdraw = np.linspace(0, args.tend, 20)
+for ti in range(1, len(tdraw)):
+    p.addUserDebugLine(traj(tdraw[ti-1]), traj(tdraw[ti]), lineColorRGB=[0,0,0], lifeTime=0)
     
 # ---
 
@@ -41,9 +41,9 @@ try:
         # actual sim
         ss = bee.sampleStates()
 
-        pdes = np.zeros(6)
+        controller.posdes = traj(bee.simt)
         tau = controller.update(*ss)
-        data = viewlog.appendLog(data, *ss, tau, pdes) # log
+        data = viewlog.appendLog(data, *ss, tau, controller.pdes) # log
         
         bee.update(tau)#, testF=[P('testFL'), P('testFR')])
 
