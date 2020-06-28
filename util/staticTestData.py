@@ -1,4 +1,4 @@
-import csv, sys
+import csv, sys, itertools
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -17,17 +17,29 @@ def loadStaticTestData(fname):
     dat = csv.DictReader(csvfile, delimiter=',', quotechar='"')
     for row in dat:
         freq[row['Voltage']].append(float(row['Frequency']))
-        strokes[row['Voltage']].append(np.hstack((float(row['Stroke bot']), float(row['Stroke bot']))))
+        strokes[row['Voltage']].append(np.hstack((float(row['Stroke bot']), float(row['Stroke top']))))
     # convert to np array from list
     for key in freq.keys():
         freq[key] = np.array(freq[key])
         strokes[key] = np.array(strokes[key])
     return freq, strokes
 
-# def normStrokePlot(ax, V, f, S):
-#     ax.
+def normStrokePlot(ax, freq, strokes, avg=False):
+    marker = itertools.cycle(('^', '+', '.', 'o', '*', 'v')) 
+    for key in freq.keys():
+        V = float(key)
+        if avg:
+            ax.plot(freq[key], np.mean(strokes[key], axis=1) / V, marker=next(marker), label=key+'V bot')
+        else:
+            ax.plot(freq[key], strokes[key][:,0] / V, marker=next(marker), label=key+'V bot')
+            ax.plot(freq[key], strokes[key][:,1] / V, marker=next(marker), label=key+'V top')
+    ax.set_xlabel('Freq [Hz]')
+    ax.set_ylabel('Norm stroke [deg/V]')
 
-f,S = loadStaticTestData(sys.argv[1])
-print(f, S)
+aa = loadStaticTestData(sys.argv[1])
+fig, ax = plt.subplots()
+normStrokePlot(ax, *aa)
+ax.legend()
+plt.show()
 
 
