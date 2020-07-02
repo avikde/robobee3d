@@ -88,7 +88,7 @@ def testControl(q, dq, pdes):
     # pitchCtrl = ezb[0]
     # u = [mm + dd, pitchCtrl,0.0,mm-dd,pitchCtrl,-0.0]
 
-    u = wlqp.updateFromState(q, dq, pdes)
+    u = wlqp.updateFromState(0., q, dq, pdes)
 
     return u
 

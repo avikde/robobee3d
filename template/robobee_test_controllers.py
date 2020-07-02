@@ -54,9 +54,13 @@ class WaypointHover(RobobeeController):
         self.wf = WaveformGenerator()
         self.posdes = np.array([0.,0.,100.])
         self.wlqp = WrenchLinQP(6, 6, dynamicsTerms, wrenchMap)
-        self.lowlevel = self.manualMapping
-        # self.lowlevel = self.wlqp.updateFromState
+        # self.lowlevel = self.manualMapping
+        self.lowlevel = self.wrenchLinWrapper
     
+    def wrenchLinWrapper(self, *args):
+        u6 = self.wlqp.updateFromState(*args)
+        return u6[[0,3]]
+
     def update(self, t, q, dq):
         # unpack
         qb = q[-7:]
