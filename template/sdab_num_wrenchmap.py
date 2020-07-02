@@ -19,4 +19,14 @@ def olAvgWrenchLeft(Vamp, uoffs, f, **kwargs):
     NptsInPeriod = int(1/(f * bee.TIMESTEP))
     return np.mean(qw[-NptsInPeriod:,-6:], axis=0)
 
-print(olAvgWrenchLeft(120, 0, 0.16))
+def olAvgWrench(Vmean, uoffs, f, udiff, h2):
+    """Incorporate both wings"""
+    wl = olAvgWrenchLeft(Vmean * (1 + udiff), uoffs, f, h2=h2)
+    wr = olAvgWrenchLeft(Vmean * (1 - udiff), uoffs, f, h2=-h2)
+    # Need to mirror for wr
+    wr[1] = -wr[1] # y
+    wr[3] = -wr[3] # rx
+    wr[5] = -wr[5] # rz
+    return wl + wr
+    
+print(olAvgWrench(120, 0, 0.16, 0., -0.2))
