@@ -19,7 +19,7 @@ def olSweepAndResult(Vamp, uoffs, f, **kwargs):
     - Wing pitch amplitude [deg]
     - Avg lift [mN]
     """
-    qw = bee.openLoop(Vamp, uoffs, f, **kwargs)[:,[0,1,4]] # only want the lift
+    qw = bee.openLoopLeft(Vamp, uoffs, f, **kwargs)[:,[0,1,4]] # only want the lift
 
     # stroke and pitch amplitudes
     amps = np.rad2deg(np.ptp(qw[:,:2], axis=0)) # get peak to peak
