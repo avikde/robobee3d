@@ -26,7 +26,7 @@ def traj(t):
     return startPos + np.array([50 * np.sin(ph), 50 * (1 - np.cos(ph)), 0.0 * t])
 
 # draw traj
-tdraw = np.linspace(0, args.tend, 20)
+tdraw = np.linspace(0, 500 if np.isinf(args.tend) else args.tend, 20)
 for ti in range(1, len(tdraw)):
     p.addUserDebugLine(traj(tdraw[ti-1]), traj(tdraw[ti]), lineColorRGB=[0,0,0], lifeTime=0)
     
