@@ -180,7 +180,7 @@ class RobobeeSim():
             if j == jointId[b'lwing_hinge']:
                 urdfParams['khinge'] = stiffness
                 urdfParams['bhinge'] = damping
-                print(dinfo)
+                # print(dinfo)
             elif j == jointId[b'lwing_stroke']:
                 urdfParams['kstroke'] = stiffness
 
