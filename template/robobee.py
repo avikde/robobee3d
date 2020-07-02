@@ -48,6 +48,9 @@ def aerodynamics(theta, dtheta, lrSign, params):
         pcopB = yflip @ pcopB
     return FaeroB, pcopB
 
+def wrench(F, p):
+    return np.hstack((F, np.cross(p, F)))
+
 def actuatorModel(V, qact, dqact):
     """Return actuator force for applied voltage input and current actuator state"""
     T = 2.6666
@@ -267,3 +270,23 @@ class RobobeeSim():
         #         self._slowDown = self.SLOWDOWN_FAST
         if ord('c') in keys and keys[ord('c')] & p.KEY_WAS_TRIGGERED:
             self._camLock = not self._camLock
+
+    def openLoop(self, Vamp, uoffs, f, tendMS=100, h2=0, h3=0):
+        """A function for testing open-loop control input results"""
+        print('Now testing:', np.array([Vamp, uoffs, f]))
+        qw = []
+        omega = 2 * np.pi * f
+        self.reset(f)
+
+        while self.simt < tendMS:
+            ss = self.sampleStates()
+            ph = omega * self.simt
+            V = Vamp * ((1+h3)*np.sin(ph) + h3*np.sin(3*ph) + h2*np.sin(2*ph) + uoffs)
+            tau = [V,V] # same to both wings
+            # call aerodynamics to calculate avg wrench
+            waero = wrench(*aerodynamics(self.q[0:2], self.dq[0:2], 1, self.urdfParams))
+            # data contains wing kinematics and wrench
+            qw.append(np.copy(np.hstack((self.q[:2], waero))))
+            self.update(tau)
+        
+        return np.array(qw)

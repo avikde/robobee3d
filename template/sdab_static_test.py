@@ -13,28 +13,14 @@ startOrientation = p.getQuaternionFromEuler(np.zeros(3))
 subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.urdf"])
 bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=False)
 
-def olSweepAndResult(Vamp, f, tendMS=100, h2=0, h3=0):
+def olSweepAndResult(Vamp, uoffs, f, **kwargs):
     """Drives the wings with an open-loop signal and the given amplitude and freq, and returns a 3-vector containing:
     - Voltage-normalized stroke amplitude [deg/V]
     - Wing pitch amplitude [deg]
     - Avg lift [mN]
     """
-    print('Now testing:', np.array([Vamp, f]))
-    qw = []
-    omega = 2 * np.pi * f
+    qw = bee.openLoop(Vamp, uoffs, f, **kwargs)[:,[0,1,4]] # only want the lift
 
-    while bee.simt < tendMS:
-        ss = bee.sampleStates()
-        ph = omega * bee.simt
-        V = Vamp * ((1+h3)*np.sin(ph) + h3*np.sin(3*ph) + h2*np.sin(2*ph))
-        tau = [V,V] # same to both wings
-        # call aerodynamics to calculate avg lift
-        F, _ = robobee.aerodynamics(bee.q[0:2], bee.dq[0:2], 1, bee.urdfParams)
-        qw.append(np.copy(np.hstack((bee.q[:2], F[2]))))
-        bee.update(tau)
-    
-    bee.reset()
-    qw = np.array(qw)
     # stroke and pitch amplitudes
     amps = np.rad2deg(np.ptp(qw[:,:2], axis=0)) # get peak to peak
     amps[1] *= 0.5 # for hinge only want amplitude
@@ -47,7 +33,7 @@ def olSweepAndResult(Vamp, f, tendMS=100, h2=0, h3=0):
 
 Vamps = [120, 150, 180]
 fs = np.linspace(0.1, 0.2, num=20)
-res = [np.array([olSweepAndResult(V, f) for f in fs]) for V in Vamps]
+res = [np.array([olSweepAndResult(V, 0, f) for f in fs]) for V in Vamps]
 
 fig, ax = plt.subplots(3)
 
