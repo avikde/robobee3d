@@ -11,7 +11,7 @@ bee = robobee.RobobeeSim(p.DIRECT, slowDown=1, camLock=True, timestep=0.1, gui=0
 startPos = [0,0,10]
 startOrientation = p.getQuaternionFromEuler(np.zeros(3))
 subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.urdf"])
-bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=False)
+bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=True)
 
 def olSweepAndResult(Vamp, uoffs, f, **kwargs):
     """Drives the wings with an open-loop signal and the given amplitude and freq, and returns a 3-vector containing:
