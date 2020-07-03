@@ -1,4 +1,4 @@
-import subprocess, sys
+import subprocess, sys, progressbar
 import numpy as np
 import matplotlib.pyplot as plt
 import pybullet as p
@@ -13,9 +13,21 @@ def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
     subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.urdf"])
     bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=True)
 
+    # create a progress bar
+    nrun = 0
+    widgets = [
+        'Progress: ', progressbar.Percentage(),
+        ' ', progressbar.Bar(),
+        ' ', progressbar.ETA(),
+    ]
+    bar = progressbar.ProgressBar(widgets=widgets, max_value=len(Vmeans)*len(uoffss)*len(fs)*len(udiffs)*len(h2s))
+
     def olAvgWrench(Vmean, uoffs, f, udiff, h2):
         """Incorporate both wings"""
-        qw = bee.openLoop(Vmean * (1 + udiff), Vmean * (1 - udiff), uoffs, f, h2=h2)
+        nonlocal nrun
+        nrun += 1
+        bar.update(nrun)
+        qw = bee.openLoop(Vmean * (1 + udiff), Vmean * (1 - udiff), uoffs, f, h2=h2, verbose=False)
         # avg wrench
         NptsInPeriod = int(1/(f * bee.TIMESTEP))
         return np.mean(qw[-NptsInPeriod:,-6:], axis=0)
@@ -36,9 +48,9 @@ if __name__ == "__main__":
         print(dat)
     else:
         # save to file
-        Vmeans = np.linspace(120, 160, num=2)
-        uoffss = np.linspace(-0.5, 0.5, num=1)
-        fs = [0.15]
-        udiffs = [0.]
+        Vmeans = np.linspace(120, 160, num=10)
+        uoffss = np.linspace(-0.5, 0.5, num=10)
+        fs = [0.165]
+        udiffs = np.linspace(-0.2, 0.2, num=10)
         h2s = [0.]
         sweepFile('test.npy', Vmeans, uoffss, fs, udiffs, h2s)

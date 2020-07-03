@@ -271,9 +271,10 @@ class RobobeeSim():
         if ord('c') in keys and keys[ord('c')] & p.KEY_WAS_TRIGGERED:
             self._camLock = not self._camLock
 
-    def openLoop(self, VampL, VampR, uoffs, f, tendMS=100, h2=0, h3=0):
+    def openLoop(self, VampL, VampR, uoffs, f, tendMS=100, h2=0, h3=0, verbose=True):
         """A function for testing open-loop control input results"""
-        print('Now testing:', np.array([VampL, VampR, uoffs, f, h2]))
+        if verbose:
+            print('Now testing:', np.array([VampL, VampR, uoffs, f, h2]))
         qw = []
         omega = 2 * np.pi * f
         self.reset(f)
