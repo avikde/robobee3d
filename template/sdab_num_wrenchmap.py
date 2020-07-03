@@ -20,7 +20,10 @@ def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
         NptsInPeriod = int(1/(f * bee.TIMESTEP))
         return np.mean(qw[-NptsInPeriod:,-6:], axis=0)
 
-    res = np.array([np.hstack((Vmean, uoffs, olAvgWrench(Vmean, uoffs, f, udiff, h2))) for Vmean in Vmeans for uoffs in uoffss for f in fs for udiff in udiffs for h2 in h2s])
+    res = np.array([
+        np.hstack((Vmean, uoffs, f, udiff, h2, 
+        olAvgWrench(Vmean, uoffs, f, udiff, h2))) 
+        for Vmean in Vmeans for uoffs in uoffss for f in fs for udiff in udiffs for h2 in h2s])
     with open('test.npy', 'wb') as f:
         np.save(f, res)
 
@@ -30,7 +33,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         with open(sys.argv[1], 'rb') as f:
             dat = np.load(f)
-        print(dat.shape, dat)
+        print(dat)
     else:
         # save to file
         Vmeans = np.linspace(120, 160, num=2)
