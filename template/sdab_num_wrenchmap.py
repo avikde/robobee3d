@@ -28,5 +28,9 @@ def olAvgWrench(Vmean, uoffs, f, udiff, h2):
     wr[3] = -wr[3] # rx
     wr[5] = -wr[5] # rz
     return wl + wr
-    
-print(olAvgWrench(120, 0, 0.16, 0., -0.2))
+
+Vmeans = np.linspace(120, 160, num=20)
+uoffss = np.linspace(-0.5, 0.5, num=20)
+res = np.array([np.hstack((Vmean, uoffs, olAvgWrench(Vmean, uoffs, 0.15, 0, 0))) for Vmean in Vmeans for uoffs in uoffss])
+with open('test.npy', 'wb') as f:
+    np.save(f, res)
