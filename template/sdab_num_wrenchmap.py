@@ -1,6 +1,7 @@
 import subprocess, sys, progressbar
-import numpy as np
-from scipy.interpolate import SmoothBivariateSpline
+import autograd.numpy as np
+from autograd import jacobian
+from scipy.interpolate import SmoothBivariateSpline, Rbf, griddata
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import pybullet as p
@@ -47,8 +48,13 @@ def splineContour(ax, xiu, yiu, Zfun, length=50, dx=0, dy=0):
     dimrow = lambda row : np.linspace(row.min(), row.max(), length)
     xi = dimrow(xiu)
     yi = dimrow(yiu)
-    zi = Zfun(xi, yi, grid=True, dx=dx, dy=dy)
-    return ax.contourf(xi, yi, zi.T, cmap='RdBu')
+    if isinstance(Zfun, SmoothBivariateSpline):
+        zi = (Zfun(xi, yi, grid=True, dx=dx, dy=dy)).T
+    else:
+        # create a grid for the plot
+        Xi, Yi = np.meshgrid(xi, yi)
+        zi = Zfun(Xi, Yi, np.zeros_like(Xi))
+    return ax.contourf(xi, yi, zi, cmap='RdBu')
 
 if __name__ == "__main__":
     np.set_printoptions(precision=2, suppress=True, linewidth=200)
@@ -72,6 +78,7 @@ if __name__ == "__main__":
         ax.set_zlabel('Ry')
 
         # test spline
+        wfuns = [Rbf(Vmeans, uoffss, udiffs, ws[:,i]) for i in range(6)]
         Fzfun = SmoothBivariateSpline(Vmeans, uoffss, ws[:,2])
         Ryfun = SmoothBivariateSpline(Vmeans, uoffss, ws[:,4])
         # Fzs = Fzfun(np.linspace(), uoffss, grid=False)
@@ -79,7 +86,7 @@ if __name__ == "__main__":
         # Rys = Ryfun(Vmeans, uoffss, grid=False)
 
         ax = fig.add_subplot(223)#, projection='3d')
-        c = splineContour(ax, Vmeans, uoffss, Fzfun)
+        c = splineContour(ax, Vmeans, uoffss, wfuns[4])
         fig.colorbar(c, ax=ax)
         ax.set_xlabel('Vmean')
         ax.set_ylabel('uoffs')
