@@ -1,5 +1,6 @@
 import subprocess, sys, progressbar
 import numpy as np
+from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import pybullet as p
 import robobee
@@ -39,13 +40,29 @@ def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
     with open('test.npy', 'wb') as f:
         np.save(f, res)
 
+unpackDat = lambda dat : (dat[:,0], dat[:,1], dat[:,2], dat[:,3], dat[:,4], dat[:,5:])
+
 if __name__ == "__main__":
     np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
     if len(sys.argv) > 1:
         with open(sys.argv[1], 'rb') as f:
             dat = np.load(f)
-        print(dat)
+        Vmeans, uoffss, fs, udiffs, h2s, ws = unpackDat(dat)
+        # scatter vis
+        fig = plt.figure()
+        ax = fig.add_subplot(121, projection='3d')
+        ax.plot(Vmeans, uoffss, ws[:,2], '.')
+        ax.set_xlabel('Vmean')
+        ax.set_ylabel('uoffs')
+        ax.set_zlabel('Fz')
+        ax = fig.add_subplot(122, projection='3d')
+        ax.plot(Vmeans, uoffss, ws[:,4], '.')
+        ax.set_xlabel('Vmean')
+        ax.set_ylabel('uoffs')
+        ax.set_zlabel('Ry')
+        plt.show()
+
     else:
         # save to file
         Vmeans = np.linspace(120, 160, num=10)
