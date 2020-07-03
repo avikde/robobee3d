@@ -1,5 +1,6 @@
 import subprocess, sys, progressbar
 import numpy as np
+from scipy.interpolate import SmoothBivariateSpline
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import pybullet as p
@@ -49,15 +50,34 @@ if __name__ == "__main__":
         with open(sys.argv[1], 'rb') as f:
             dat = np.load(f)
         Vmeans, uoffss, fs, udiffs, h2s, ws = unpackDat(dat)
+
         # scatter vis
         fig = plt.figure()
-        ax = fig.add_subplot(121, projection='3d')
+        ax = fig.add_subplot(221, projection='3d')
         ax.plot(Vmeans, uoffss, ws[:,2], '.')
         ax.set_xlabel('Vmean')
         ax.set_ylabel('uoffs')
         ax.set_zlabel('Fz')
-        ax = fig.add_subplot(122, projection='3d')
+        ax = fig.add_subplot(222, projection='3d')
         ax.plot(Vmeans, uoffss, ws[:,4], '.')
+        ax.set_xlabel('Vmean')
+        ax.set_ylabel('uoffs')
+        ax.set_zlabel('Ry')
+
+
+        # test spline
+        Fzfun = SmoothBivariateSpline(Vmeans, uoffss, ws[:,2])
+        Ryfun = SmoothBivariateSpline(Vmeans, uoffss, ws[:,4])
+        Fzs = Fzfun(Vmeans, uoffss, grid=False)
+        Rys = Ryfun(Vmeans, uoffss, grid=False)
+
+        ax = fig.add_subplot(223, projection='3d')
+        ax.plot(Vmeans, uoffss, Fzs, '.')
+        ax.set_xlabel('Vmean')
+        ax.set_ylabel('uoffs')
+        ax.set_zlabel('Fz')
+        ax = fig.add_subplot(224, projection='3d')
+        ax.plot(Vmeans, uoffss, Rys, '.')
         ax.set_xlabel('Vmean')
         ax.set_ylabel('uoffs')
         ax.set_zlabel('Ry')
