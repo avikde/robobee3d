@@ -43,6 +43,13 @@ def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
 
 unpackDat = lambda dat : (dat[:,0], dat[:,1], dat[:,2], dat[:,3], dat[:,4], dat[:,5:])
 
+def splineContour(ax, xiu, yiu, Zfun, length=50, dx=0, dy=0):
+    dimrow = lambda row : np.linspace(row.min(), row.max(), length)
+    xi = dimrow(xiu)
+    yi = dimrow(yiu)
+    zi = Zfun(xi, yi, grid=True, dx=dx, dy=dy)
+    return ax.contourf(xi, yi, zi.T, cmap='RdBu')
+
 if __name__ == "__main__":
     np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
@@ -64,23 +71,25 @@ if __name__ == "__main__":
         ax.set_ylabel('uoffs')
         ax.set_zlabel('Ry')
 
-
         # test spline
         Fzfun = SmoothBivariateSpline(Vmeans, uoffss, ws[:,2])
         Ryfun = SmoothBivariateSpline(Vmeans, uoffss, ws[:,4])
-        Fzs = Fzfun(Vmeans, uoffss, grid=False)
-        Rys = Ryfun(Vmeans, uoffss, grid=False)
+        # Fzs = Fzfun(np.linspace(), uoffss, grid=False)
+        # dFzs = Fzfun(Vmeans, uoffss, dx=1, dy=1, grid=False)
+        # Rys = Ryfun(Vmeans, uoffss, grid=False)
 
-        ax = fig.add_subplot(223, projection='3d')
-        ax.plot(Vmeans, uoffss, Fzs, '.')
+        ax = fig.add_subplot(223)#, projection='3d')
+        c = splineContour(ax, Vmeans, uoffss, Fzfun)
+        fig.colorbar(c, ax=ax)
         ax.set_xlabel('Vmean')
         ax.set_ylabel('uoffs')
-        ax.set_zlabel('Fz')
-        ax = fig.add_subplot(224, projection='3d')
-        ax.plot(Vmeans, uoffss, Rys, '.')
+        # ax.set_zlabel('Fz')
+        ax = fig.add_subplot(224)
+        c = splineContour(ax, Vmeans, uoffss, Ryfun)
+        fig.colorbar(c, ax=ax)
         ax.set_xlabel('Vmean')
         ax.set_ylabel('uoffs')
-        ax.set_zlabel('Ry')
+        # ax.set_zlabel('dFz')
         plt.show()
 
     else:
