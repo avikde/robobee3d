@@ -271,22 +271,24 @@ class RobobeeSim():
         if ord('c') in keys and keys[ord('c')] & p.KEY_WAS_TRIGGERED:
             self._camLock = not self._camLock
 
-    def openLoopLeft(self, Vamp, uoffs, f, tendMS=100, h2=0, h3=0):
+    def openLoop(self, VampL, VampR, uoffs, f, tendMS=100, h2=0, h3=0):
         """A function for testing open-loop control input results"""
-        print('Now testing:', np.array([Vamp, uoffs, f]))
+        print('Now testing:', np.array([VampL, VampR, uoffs, f, h2]))
         qw = []
         omega = 2 * np.pi * f
         self.reset(f)
 
+        sig = lambda ph, h2 : ((1+h3)*np.sin(ph) + h3*np.sin(3*ph) + h2*np.sin(2*ph) + uoffs)
+
         while self.simt < tendMS:
             ss = self.sampleStates()
             ph = omega * self.simt
-            V = Vamp * ((1+h3)*np.sin(ph) + h3*np.sin(3*ph) + h2*np.sin(2*ph) + uoffs)
-            tau = [V,V] # same to both wings
+            tau = [VampL * sig(ph, h2), VampR * sig(ph, -h2)]
             # call aerodynamics to calculate avg wrench
-            waero = wrench(*aerodynamics(self.q[0:2], self.dq[0:2], 1, self.urdfParams))
+            waeroL = wrench(*aerodynamics(self.q[0:2], self.dq[0:2], 1, self.urdfParams))
+            waeroR = wrench(*aerodynamics(-self.q[2:4], -self.dq[2:4], -1, self.urdfParams))
             # data contains wing kinematics and wrench
-            qw.append(np.copy(np.hstack((self.q[:2], waero))))
+            qw.append(np.copy(np.hstack((self.q[:4], waeroL + waeroR))))
             self.update(tau)
         
         return np.array(qw)
