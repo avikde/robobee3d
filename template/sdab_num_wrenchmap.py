@@ -1,7 +1,7 @@
 import subprocess, sys, progressbar
-import autograd.numpy as np
-from autograd import jacobian
-from scipy.interpolate import SmoothBivariateSpline, Rbf, griddata
+import numpy as np
+from scipy.interpolate import SmoothBivariateSpline, Rbf, LinearNDInterpolator
+from scipy.optimize import curve_fit
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import pybullet as p
@@ -55,6 +55,31 @@ def splineContour(ax, xiu, yiu, Zfun, length=50, dx=0, dy=0):
         Xi, Yi = np.meshgrid(xi, yi)
         zi = Zfun(Xi, Yi, np.zeros_like(Xi))
     return ax.contourf(xi, yi, zi, cmap='RdBu')
+    
+class FunApprox:
+    """Using https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.curve_fit.html"""
+    def __init__(self, k):
+        # Rk to R1
+        self.k = k
+    
+    def unpackp(self, p):
+        a1 = np.array(p[:self.k])
+        a0 = p[self.k]
+        return a1, a0
+
+    def f(self, xdata, *p):
+        a1, a0 = self.unpackp(p)
+        # print(a.shape, b, xdata.shape)
+        y = xdata @ a1 + a0
+        # print(y.shape)
+        return y
+    
+    def Df(self, xdata, *p):
+        a1, a0 = self.unpackp(p)
+        J = np.hstack((a1, 1)) # 1 indicates gradient w.r.t. b
+        # print(a.shape, a[:,np.newaxis].T)
+        print(np.tile(J, (xdata.shape[0],1)))
+        return a
 
 if __name__ == "__main__":
     np.set_printoptions(precision=2, suppress=True, linewidth=200)
@@ -84,6 +109,12 @@ if __name__ == "__main__":
         # Fzs = Fzfun(np.linspace(), uoffss, grid=False)
         # dFzs = Fzfun(Vmeans, uoffss, dx=1, dy=1, grid=False)
         # Rys = Ryfun(Vmeans, uoffss, grid=False)
+        
+        fa = FunApprox(2)
+        xdata = np.vstack((Vmeans, uoffss)).T # k,M
+        ydata = ws[:,2] # M
+        ret = curve_fit(fa.f, xdata, ydata, p0=np.ones(3))#, jac=fa.Df)
+        print(ret)
 
         ax = fig.add_subplot(223)#, projection='3d')
         c = splineContour(ax, Vmeans, uoffss, wfuns[4])
@@ -92,7 +123,7 @@ if __name__ == "__main__":
         ax.set_ylabel('uoffs')
         # ax.set_zlabel('Fz')
         ax = fig.add_subplot(224)
-        c = splineContour(ax, Vmeans, uoffss, Ryfun)
+        c = splineContour(ax, Vmeans, uoffss, Ryfun, dx=1,dy=1)
         fig.colorbar(c, ax=ax)
         ax.set_xlabel('Vmean')
         ax.set_ylabel('uoffs')
