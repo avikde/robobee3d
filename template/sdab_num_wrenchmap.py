@@ -63,17 +63,28 @@ class FunApprox:
     def __init__(self, k):
         # Rk to R1
         self.k = k
+        self.A2 = np.zeros((self.k, self.k))
+        self.xs, self.ys = np.triu_indices(self.k)
+    
+    def nparams(self):
+        return int(1 + self.k + (self.k * (self.k+1))/2)
     
     def unpackp(self, p):
         a0 = p[0]
         a1 = np.array(p[1:self.k+1])
-        # a2 
+        a2 = np.array(p[self.k+1:])
+        # create a symmetric matrix
+        self.A2[self.xs, self.ys] = a2
+        self.A2[self.ys, self.xs] = a2
         return a0, a1
 
     def f(self, xdata, *p):
         a0, a1 = self.unpackp(p)
         # print(a.shape, b, xdata.shape)
         y = a0 + xdata @ a1
+        for i in range(xdata.shape[0]):
+            xi = xdata[i,:]
+            y[i] += xi.T @ self.A2 @ xi
         # print(y.shape)
         return y
     
@@ -116,7 +127,7 @@ if __name__ == "__main__":
         fa = FunApprox(2)
         xdata = np.vstack((Vmeans, uoffss)).T # k,M
         ydata = ws[:,4] # M
-        popt, pcov = curve_fit(fa.f, xdata, ydata, p0=np.ones(3))#, jac=fa.Df)
+        popt, pcov = curve_fit(fa.f, xdata, ydata, p0=np.ones(fa.nparams()))#, jac=fa.Df)
         print(popt)
         ffit = lambda xdata : fa.f(xdata, *popt)
 
