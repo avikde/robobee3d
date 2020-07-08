@@ -1,6 +1,6 @@
 import subprocess, sys, progressbar
 import numpy as np
-from scipy.interpolate import SmoothBivariateSpline, Rbf, LinearNDInterpolator
+from scipy.interpolate import SmoothBivariateSpline
 from scipy.optimize import curve_fit
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
@@ -102,47 +102,44 @@ if __name__ == "__main__":
         with open(sys.argv[1], 'rb') as f:
             dat = np.load(f)
         Vmeans, uoffss, fs, udiffs, h2s, ws = unpackDat(dat)
+        
+        fa = FunApprox(4) # k
+        xdata = np.vstack((Vmeans, uoffss, udiffs, h2s)).T # k,M
+
+        def fitWi(i, ax3d, ax):
+            # scatter
+            ax3d.plot(Vmeans, uoffss, ws[:,i], '.')
+            ax3d.set_xlabel('Vmean')
+            ax3d.set_ylabel('uoffs')
+            ax3d.set_zlabel('W'+str(i))
+
+            # Spline2D
+            ydata = ws[:,i] # M
+            Sfun = SmoothBivariateSpline(Vmeans, uoffss, ydata)
+            c = splineContour(ax[0], Vmeans, uoffss, Sfun)#Ryfun, dx=1,dy=1)
+            fig.colorbar(c, ax=ax[0])
+            ax[0].set_xlabel('Vmean')
+            ax[0].set_ylabel('uoffs')
+
+            # Custom fit
+            popt, pcov = curve_fit(fa.f, xdata, ydata, p0=np.ones(fa.nparams()))#, jac=fa.Df)
+            print(popt)
+            ffit = lambda xdata : fa.f(np.hstack((xdata, np.zeros((xdata.shape[0], 2)))), *popt)
+            c = splineContour(ax[1], Vmeans, uoffss, ffit)
+            fig.colorbar(c, ax=ax[1])
+            ax[1].set_xlabel('Vmean')
+            ax[1].set_ylabel('uoffs')
 
         # scatter vis
         fig = plt.figure()
-        ax = fig.add_subplot(221, projection='3d')
-        ax.plot(Vmeans, uoffss, ws[:,2], '.')
-        ax.set_xlabel('Vmean')
-        ax.set_ylabel('uoffs')
-        ax.set_zlabel('Fz')
-        ax = fig.add_subplot(222, projection='3d')
-        ax.plot(Vmeans, uoffss, ws[:,4], '.')
-        ax.set_xlabel('Vmean')
-        ax.set_ylabel('uoffs')
-        ax.set_zlabel('Ry')
 
-        # test spline
-        wfuns = [Rbf(Vmeans, uoffss, udiffs, ws[:,i]) for i in range(6)]
-        Fzfun = SmoothBivariateSpline(Vmeans, uoffss, ws[:,2])
-        Ryfun = SmoothBivariateSpline(Vmeans, uoffss, ws[:,4])
-        # Fzs = Fzfun(np.linspace(), uoffss, grid=False)
-        # dFzs = Fzfun(Vmeans, uoffss, dx=1, dy=1, grid=False)
-        # Rys = Ryfun(Vmeans, uoffss, grid=False)
-        
-        fa = FunApprox(2)
-        xdata = np.vstack((Vmeans, uoffss)).T # k,M
-        ydata = ws[:,4] # M
-        popt, pcov = curve_fit(fa.f, xdata, ydata, p0=np.ones(fa.nparams()))#, jac=fa.Df)
-        print(popt)
-        ffit = lambda xdata : fa.f(xdata, *popt)
-
-        ax = fig.add_subplot(223)#, projection='3d')
-        c = splineContour(ax, Vmeans, uoffss, ffit)#wfuns[4])
-        fig.colorbar(c, ax=ax)
-        ax.set_xlabel('Vmean')
-        ax.set_ylabel('uoffs')
-        # ax.set_zlabel('Fz')
-        ax = fig.add_subplot(224)
-        c = splineContour(ax, Vmeans, uoffss, Ryfun)#Ryfun, dx=1,dy=1)
-        fig.colorbar(c, ax=ax)
-        ax.set_xlabel('Vmean')
-        ax.set_ylabel('uoffs')
-        # ax.set_zlabel('dFz')
+        ax3d1 = fig.add_subplot(2,3,1, projection='3d')
+        ax1 = [fig.add_subplot(2,3,2), fig.add_subplot(2,3,3)]
+        fitWi(2, ax3d1, ax1)
+        ax3d2 = fig.add_subplot(2,3,4, projection='3d')
+        ax2 = [fig.add_subplot(2,3,5), fig.add_subplot(2,3,6)]
+        fitWi(4, ax3d2, ax2)
+        fig.tight_layout()
         plt.show()
 
     else:
