@@ -114,7 +114,7 @@ if __name__ == "__main__":
         
         fa = FunApprox(2)
         xdata = np.vstack((Vmeans, uoffss)).T # k,M
-        ydata = ws[:,2] # M
+        ydata = ws[:,4] # M
         popt, pcov = curve_fit(fa.f, xdata, ydata, p0=np.ones(3))#, jac=fa.Df)
         print(popt)
         ffit = lambda xdata : fa.f(xdata, *popt)
@@ -126,7 +126,7 @@ if __name__ == "__main__":
         ax.set_ylabel('uoffs')
         # ax.set_zlabel('Fz')
         ax = fig.add_subplot(224)
-        c = splineContour(ax, Vmeans, uoffss, Fzfun)#Ryfun, dx=1,dy=1)
+        c = splineContour(ax, Vmeans, uoffss, Ryfun)#Ryfun, dx=1,dy=1)
         fig.colorbar(c, ax=ax)
         ax.set_xlabel('Vmean')
         ax.set_ylabel('uoffs')
