@@ -53,7 +53,9 @@ def splineContour(ax, xiu, yiu, Zfun, length=50, dx=0, dy=0):
     else:
         # create a grid for the plot
         Xi, Yi = np.meshgrid(xi, yi)
-        zi = Zfun(Xi, Yi, np.zeros_like(Xi))
+        positions = np.vstack([Xi.ravel(), Yi.ravel()])
+        zi = np.reshape(Zfun(positions.T), Xi.shape)
+        # zi = Zfun(Xi, Yi, np.zeros_like(Xi))
     return ax.contourf(xi, yi, zi, cmap='RdBu')
     
 class FunApprox:
@@ -113,17 +115,18 @@ if __name__ == "__main__":
         fa = FunApprox(2)
         xdata = np.vstack((Vmeans, uoffss)).T # k,M
         ydata = ws[:,2] # M
-        ret = curve_fit(fa.f, xdata, ydata, p0=np.ones(3))#, jac=fa.Df)
-        print(ret)
+        popt, pcov = curve_fit(fa.f, xdata, ydata, p0=np.ones(3))#, jac=fa.Df)
+        print(popt)
+        ffit = lambda xdata : fa.f(xdata, *popt)
 
         ax = fig.add_subplot(223)#, projection='3d')
-        c = splineContour(ax, Vmeans, uoffss, wfuns[4])
+        c = splineContour(ax, Vmeans, uoffss, ffit)#wfuns[4])
         fig.colorbar(c, ax=ax)
         ax.set_xlabel('Vmean')
         ax.set_ylabel('uoffs')
         # ax.set_zlabel('Fz')
         ax = fig.add_subplot(224)
-        c = splineContour(ax, Vmeans, uoffss, Ryfun, dx=1,dy=1)
+        c = splineContour(ax, Vmeans, uoffss, Fzfun)#Ryfun, dx=1,dy=1)
         fig.colorbar(c, ax=ax)
         ax.set_xlabel('Vmean')
         ax.set_ylabel('uoffs')
