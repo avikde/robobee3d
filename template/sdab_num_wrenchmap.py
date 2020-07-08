@@ -65,23 +65,24 @@ class FunApprox:
         self.k = k
     
     def unpackp(self, p):
-        a1 = np.array(p[:self.k])
-        a0 = p[self.k]
-        return a1, a0
+        a0 = p[0]
+        a1 = np.array(p[1:self.k+1])
+        # a2 
+        return a0, a1
 
     def f(self, xdata, *p):
-        a1, a0 = self.unpackp(p)
+        a0, a1 = self.unpackp(p)
         # print(a.shape, b, xdata.shape)
-        y = xdata @ a1 + a0
+        y = a0 + xdata @ a1
         # print(y.shape)
         return y
     
-    def Df(self, xdata, *p):
-        a1, a0 = self.unpackp(p)
-        J = np.hstack((a1, 1)) # 1 indicates gradient w.r.t. b
-        # print(a.shape, a[:,np.newaxis].T)
-        print(np.tile(J, (xdata.shape[0],1)))
-        return a
+    # def Df(self, xdata, *p):
+    #     a1, a0 = self.unpackp(p)
+    #     J = np.hstack((a1, 1)) # 1 indicates gradient w.r.t. b
+    #     # print(a.shape, a[:,np.newaxis].T)
+    #     print(np.tile(J, (xdata.shape[0],1)))
+    #     return a
 
 if __name__ == "__main__":
     np.set_printoptions(precision=2, suppress=True, linewidth=200)
