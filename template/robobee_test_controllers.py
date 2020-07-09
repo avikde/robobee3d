@@ -64,7 +64,8 @@ def positionControllerPakpongLike(posdes, qb, dqb):
         [-Rm[0,0], -Rm[1,0], -Rm[2,0]], 
         [0,0,0]]) @ zdes # Pakpong (2013) (6)
     Iomegades = -20.0*ornError - 1000.0*omega
-    return np.hstack((0, 0, 0, Iomegades))
+    
+    return np.hstack((0, 0, 0.01 * (posdes[2] - qb[2]), Iomegades))
 
 class WaypointHover(RobobeeController):
     """Simplified version of Pakpong (2013)"""
@@ -76,8 +77,8 @@ class WaypointHover(RobobeeController):
         self.wmap = lambda u : wrenchMap(u, popts)
         self.Dwmap = lambda u : dw_du(u, popts)
         self.wlqp = WrenchLinQP(4, 4, dynamicsTerms, self.wmap, dwduMap=self.Dwmap, u0=[140.0,0.,0.,0.], dumax=[1.,0.01,0.01,0.01])
-        # self.lowlevel = self.manualMapping
-        self.momentumController = self.wrenchLinWrapper
+        self.momentumController = self.manualMapping
+        # self.momentumController = self.wrenchLinWrapper
         self.u4 = np.zeros(4) # for logging
         self.positionController = positionControllerPakpongLike
     
@@ -88,7 +89,7 @@ class WaypointHover(RobobeeController):
         # TODO: h2
         w = self.wf.update(t, self.P('freq'))
         # test
-        Vmean = 120 + 1000 * (pdes[2] - dqb[2]) + 0.1 * (self.posdes[2] - qb[2])
+        Vmean = 120 + 1000 * (pdes[2] - dqb[2])
         udiff = np.clip(udiff, -0.3, 0.3)
         uoffs = np.clip(uoffs, -0.3, 0.3)
         return np.array([1 + udiff, 1 - udiff]) * Vmean * (w + uoffs)
@@ -104,7 +105,7 @@ class WaypointHover(RobobeeController):
     def manualMapping(self, t, qb, dqb, pdes):
         """Low level mapping to torques. Can be replaced"""
         w = self.wf.update(t, self.P('freq'))
-        umean = 120 + 1000 * (pdes[2] - dqb[2]) + 0.1 * (self.posdes[2] - qb[2])
+        umean = 120 + 1000 * (pdes[2] - dqb[2])
         udiff = np.clip(0.01*pdes[3], -0.5, 0.5)
         uoffs = np.clip(0.1*pdes[4], -0.5, 0.5)
         self.u4 = np.array([umean, uoffs, udiff, 0.]) # last is h2
