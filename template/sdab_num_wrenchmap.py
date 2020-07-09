@@ -122,47 +122,47 @@ if __name__ == "__main__":
         # Optimized param fits in each row for each component of the wrench
         popts = np.vstack([curve_fit(fa.f, xdata, ws[:,i], p0=np.ones(fa.nparams()))[0] for i in range(6)])
 
-        def fitWi(i, ax3d, ax):
+        xlabels = ['Vmean', 'uoffs', 'udiff', 'h2']
+
+        def plotFitWi(ui1, ui2, wi, ax3d, ax):
+            def lbl(ax):
+                ax.set_xlabel(xlabels[ui1])
+                ax.set_ylabel(xlabels[ui2])
+            lbl(ax3d)
+            for i in range(3):
+                lbl(ax[i])
+            def cplot(ax, ffit, ttl):
+                c = splineContour(ax, xdata[:,ui1], xdata[:,ui2], ffit)
+                fig.colorbar(c, ax=ax)
+                ax.set_title(ttl)
+
             # scatter
-            ax3d.plot(Vmeans, uoffss, ws[:,i], '.')
-            ax3d.set_xlabel('Vmean')
-            ax3d.set_ylabel('uoffs')
-            ax3d.set_zlabel('W'+str(i))
+            ax3d.plot(xdata[:,ui1], xdata[:,ui2], ws[:,wi], '.')
+            ax3d.set_zlabel('W'+str(wi))
 
             # Spline2D
-            ydata = ws[:,i] # M
-            Sfun = SmoothBivariateSpline(Vmeans, uoffss, ydata)
-            c = splineContour(ax[0], Vmeans, uoffss, Sfun)#Ryfun, dx=1,dy=1)
-            fig.colorbar(c, ax=ax[0])
-            ax[0].set_xlabel('Vmean')
-            ax[0].set_ylabel('uoffs')
-            ax[0].set_title('W'+str(i)+' spline2D')
+            ydata = ws[:,wi] # M
+            Sfun = SmoothBivariateSpline(xdata[:,ui1], xdata[:,ui2], ydata)
+            cplot(ax[0], Sfun, 'W'+str(wi)+' spline2D')
 
             # Custom fit
-            ffit = lambda xdata2 : wrenchMap(np.hstack((xdata2, np.zeros((xdata2.shape[0], 2)))), popts)[:,i]
-            c = splineContour(ax[1], Vmeans, uoffss, ffit)
-            fig.colorbar(c, ax=ax[1])
-            ax[1].set_xlabel('Vmean')
-            ax[1].set_ylabel('uoffs')
-            ax[1].set_title('W'+str(i)+' fit')
+            ffit2 = lambda xdata2 : wrenchMap(np.hstack((xdata2, np.zeros((xdata2.shape[0], 2)))), popts)[:,wi]
+            cplot(ax[1], ffit2, 'W'+str(wi)+' fit')
+            # FIXME: the filling out of xdata only works for 0,1 ui
 
             # Jac d/dVmean
-            ffit = lambda xdata2 : np.hstack([dw_du(np.hstack((xdata2[j,:], np.zeros(2))), popts)[i,0] for j in range(xdata2.shape[0])])
-            c = splineContour(ax[2], Vmeans, uoffss, ffit)
-            fig.colorbar(c, ax=ax[2])
-            ax[2].set_xlabel('Vmean')
-            ax[2].set_ylabel('uoffs')
-            ax[2].set_title('dW'+str(i)+'/dVmean')
+            ffit3 = lambda xdata2 : np.hstack([dw_du(np.hstack((xdata2[j,:], np.zeros(2))), popts)[wi,0] for j in range(xdata2.shape[0])])
+            cplot(ax[2], ffit3, 'dW'+str(wi)+'/dVmean')
 
         # scatter vis
         fig = plt.figure()
 
         ax3d1 = fig.add_subplot(2,4,1, projection='3d')
         ax1 = [fig.add_subplot(2,4,2), fig.add_subplot(2,4,3), fig.add_subplot(2,4,4)]
-        fitWi(2, ax3d1, ax1)
+        plotFitWi(0, 1, 2, ax3d1, ax1)
         ax3d2 = fig.add_subplot(2,4,5, projection='3d')
         ax2 = [fig.add_subplot(2,4,6), fig.add_subplot(2,4,7), fig.add_subplot(2,4,8)]
-        fitWi(4, ax3d2, ax2)
+        plotFitWi(0, 1, 4, ax3d2, ax2)
         # fig.tight_layout()
         plt.show()
 
