@@ -52,7 +52,7 @@ class WrenchLinQP(object):
         A1 = dt * B0 @ curDwDu
         P = A1.T @ np.diag(Qd) @ A1
         q = A1.T @ np.diag(Qd) @ (a0 - pdes)
-        print("p0=", a0, "pdes=", pdes)
+        # print("p0=", a0, "pdes=", pdes)
         L = -self.U
         # update OSQP
         Px = P[np.tril_indices(P.shape[0])] # need in col order

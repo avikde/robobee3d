@@ -57,15 +57,15 @@ class WaypointHover(RobobeeController):
         popts = np.load('popts.npy')
         self.wmap = lambda u : wrenchMap(u, popts)
         self.Dwmap = lambda u : dw_du(u, popts)
-        self.wlqp = WrenchLinQP(4, 4, dynamicsTerms, self.wmap, dwduMap=self.Dwmap, u0=[140.0,0.,0.,0.], dumax=[1.,0.1,0.1,0.1])
+        self.wlqp = WrenchLinQP(4, 4, dynamicsTerms, self.wmap, dwduMap=self.Dwmap, u0=[140.0,0.,0.,0.], dumax=[1.,0.01,0.01,0.01])
         # self.lowlevel = self.manualMapping
         self.lowlevel = self.wrenchLinWrapper
     
     def wrenchLinWrapper(self, *args):
-        u4 = self.wlqp.updateFromState(*args)
-        print("HI", u4)
-        # TODO: convert to actuator forces
-        return u4
+        Vmean, uoffs, udiff, h2 = self.wlqp.updateFromState(*args)
+        # TODO: h2
+        w = self.wf.update(args[0], self.P('freq'))
+        return np.array([1 + udiff, 1 - udiff]) * Vmean * (w + uoffs)
 
     def update(self, t, q, dq):
         # unpack
