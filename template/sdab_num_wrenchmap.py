@@ -98,8 +98,15 @@ def wrenchMap(xdata, popts):
     """popts = (6,k)-shaped array of optimized params for each wrench component.
     xdata = N,Nu
     Returns N,6"""
-    Np = xdata.shape[0]
-    return np.vstack([fa.f(xdata, *popts[i,:]) for i in range(6)]).T
+    if len(xdata.shape) > 1:
+        Np = xdata.shape[0]
+        return np.vstack([fa.f(xdata, *popts[i,:]) for i in range(6)]).T
+    else:
+        xdata = np.reshape(xdata,(1,len(xdata)))
+        return np.hstack([fa.f(xdata, *popts[i,:]) for i in range(6)])
+
+# def dw_du(xdata, popts):
+
 
 if __name__ == "__main__":
     np.set_printoptions(precision=2, suppress=True, linewidth=200)
