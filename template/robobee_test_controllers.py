@@ -77,8 +77,8 @@ class WaypointHover(RobobeeController):
         self.wmap = lambda u : wrenchMap(u, popts)
         self.Dwmap = lambda u : dw_du(u, popts)
         self.wlqp = WrenchLinQP(4, 4, dynamicsTerms, self.wmap, dwduMap=self.Dwmap, u0=[140.0,0.,0.,0.], dumax=[1.,0.01,0.01,0.01])
-        self.momentumController = self.manualMapping
-        # self.momentumController = self.wrenchLinWrapper
+        # self.momentumController = self.manualMapping
+        self.momentumController = self.wrenchLinWrapper
         self.u4 = np.zeros(4) # for logging
         self.positionController = positionControllerPakpongLike
     
@@ -89,9 +89,9 @@ class WaypointHover(RobobeeController):
         # TODO: h2
         w = self.wf.update(t, self.P('freq'))
         # test
-        Vmean = 120 + 1000 * (pdes[2] - dqb[2])
-        udiff = np.clip(udiff, -0.3, 0.3)
-        uoffs = np.clip(uoffs, -0.3, 0.3)
+        # Vmean = 120 + 1000 * (pdes[2] - dqb[2])
+        udiff = 0#np.clip(udiff, -0.3, 0.3)
+        uoffs = 0#np.clip(uoffs, -0.3, 0.3)
         return np.array([1 + udiff, 1 - udiff]) * Vmean * (w + uoffs)
 
     def update(self, t, q, dq):
