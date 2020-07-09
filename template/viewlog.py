@@ -48,15 +48,13 @@ def getData(fname):
         fname = files[0]
     return readFile(fname)
 
-def defaultPlots(data):
+def defaultPlots(data, ca6log=False):
     t = data['t']
     # SDAB log also has wings
     qb = data['q'][:,-7:]
     dqb = data['dq'][:,-6:]
 
-    ca6log = data['u'].shape[1] > 2
-
-    fig, ax = plt.subplots(6 if ca6log else 5)
+    fig, ax = plt.subplots(6)
     ax[0].plot(data['t'], qb[:,:3])
     ax[0].set_ylabel('pos [mm]')
 
@@ -82,8 +80,13 @@ def defaultPlots(data):
         ax[3].plot(data['t'], dqb[:,3:])
         ax[3].set_ylabel('Omega')
         # Inputs
-        ax[4].plot(t, data['u'])
-        ax[4].set_ylabel('Vact')
+        ax[4].plot(t, data['u'][:,2]) # Vmean
+        ax[4].set_ylabel('Vmean')
+        ax[5].plot(t, data['u'][:,3], label='offs')
+        ax[5].plot(t, data['u'][:,4], label='diff')
+        ax[5].plot(t, data['u'][:,5], label='h2')
+        ax[5].set_ylabel('u')
+        ax[5].legend()
         # # plot wing states
         # qw = data['q'][:,:4]
         # dqw = data['dq'][:,:4]

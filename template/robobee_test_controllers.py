@@ -60,9 +60,11 @@ class WaypointHover(RobobeeController):
         self.wlqp = WrenchLinQP(4, 4, dynamicsTerms, self.wmap, dwduMap=self.Dwmap, u0=[140.0,0.,0.,0.], dumax=[1.,0.01,0.01,0.01])
         # self.lowlevel = self.manualMapping
         self.lowlevel = self.wrenchLinWrapper
+        self.u4 = np.zeros(4) # for logging
     
     def wrenchLinWrapper(self, *args):
-        Vmean, uoffs, udiff, h2 = self.wlqp.updateFromState(*args)
+        self.u4 = self.wlqp.updateFromState(*args)
+        Vmean, uoffs, udiff, h2 = self.u4
         t, qb, dqb, pdes = args
         # TODO: h2
         w = self.wf.update(t, self.P('freq'))
@@ -102,4 +104,5 @@ class WaypointHover(RobobeeController):
         umean = 120 + 1000 * (pdes[2] - dqb[2]) + 0.1 * (self.posdes[2] - qb[2])
         udiff = np.clip(0.01*pdes[3], -0.5, 0.5)
         uoffs = np.clip(0.1*pdes[4], -0.5, 0.5)
+        self.u4 = np.array([umean, uoffs, udiff, 0.]) # last is h2
         return np.array([1 + udiff, 1 - udiff]) * umean * (w + uoffs)
