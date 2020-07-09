@@ -48,6 +48,24 @@ class OpenLoop(RobobeeController):
         w = self.wf.update(t, self.P('freq'))
         return np.array([1 + udiff, 1 - udiff]) * umean * (w + uoffs)
 
+def positionControllerPakpongLike(posdes, qb, dqb):
+    """Unified interface for a controller that spits out desired momentum"""
+    Rb = Rotation.from_quat(qb[3:7])
+    omega = dqb[3:6]
+
+    Rm = Rb.as_matrix()
+    zdes = np.array([0.,0.,1.]) # desired z vector
+    # upright controller
+    zdes[0:2] = np.clip(0.01 * (posdes[0:2] - qb[0:2]) - 1 * dqb[0:2], -0.5 * np.ones(2), 0.5 * np.ones(2))
+    # zdes /= np.linalg.norm(zdes)
+
+    ornError = np.array([
+        [Rm[0,1], Rm[1,1], Rm[2,1]], 
+        [-Rm[0,0], -Rm[1,0], -Rm[2,0]], 
+        [0,0,0]]) @ zdes # Pakpong (2013) (6)
+    Iomegades = -20.0*ornError - 1000.0*omega
+    return np.hstack((0, 0, 0, Iomegades))
+
 class WaypointHover(RobobeeController):
     """Simplified version of Pakpong (2013)"""
     def __init__(self):
@@ -59,8 +77,9 @@ class WaypointHover(RobobeeController):
         self.Dwmap = lambda u : dw_du(u, popts)
         self.wlqp = WrenchLinQP(4, 4, dynamicsTerms, self.wmap, dwduMap=self.Dwmap, u0=[140.0,0.,0.,0.], dumax=[1.,0.01,0.01,0.01])
         # self.lowlevel = self.manualMapping
-        self.lowlevel = self.wrenchLinWrapper
+        self.momentumController = self.wrenchLinWrapper
         self.u4 = np.zeros(4) # for logging
+        self.positionController = positionControllerPakpongLike
     
     def wrenchLinWrapper(self, *args):
         self.u4 = self.wlqp.updateFromState(*args)
@@ -78,25 +97,9 @@ class WaypointHover(RobobeeController):
         # unpack
         qb = q[-7:]
         dqb = dq[-6:]
-        Rb = Rotation.from_quat(qb[3:7])
-        omega = dqb[3:6]
-
-        Rm = Rb.as_matrix()
-        zdes = np.array([0.,0.,1.]) # desired z vector
-        # upright controller
-        zdes[0:2] = np.clip(0.01 * (self.posdes[0:2] - qb[0:2]) - 1 * dqb[0:2], -0.5 * np.ones(2), 0.5 * np.ones(2))
-        # zdes /= np.linalg.norm(zdes)
-
-        ornError = np.array([
-            [Rm[0,1], Rm[1,1], Rm[2,1]], 
-            [-Rm[0,0], -Rm[1,0], -Rm[2,0]], 
-            [0,0,0]]) @ zdes # Pakpong (2013) (6)
-        Iomegades = -20.0*ornError - 1000.0*omega
-
         # momentum-based control
-        self.pdes = np.hstack((0, 0, 0, Iomegades))
-
-        return self.lowlevel(t, qb, dqb, self.pdes)
+        self.pdes = self.positionController(self.posdes, qb, dqb)
+        return self.momentumController(t, qb, dqb, self.pdes)
         
     def manualMapping(self, t, qb, dqb, pdes):
         """Low level mapping to torques. Can be replaced"""
