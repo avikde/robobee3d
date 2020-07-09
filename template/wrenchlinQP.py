@@ -16,11 +16,11 @@ def qpSetupDense(n, m):
     return model
 
 class WrenchLinQP(object):
-    def __init__(self, n, m, dynamicsTerms, wrenchMap, dwduMap=None):
+    def __init__(self, n, m, dynamicsTerms, wrenchMap, dwduMap=None, u0=None):
         self.model = qpSetupDense(n, m)
         self.n = n
         self.m = m
-        self.u0 = np.zeros(n)
+        self.u0 = np.zeros(n) if u0 is None else u0
         self.w0 = np.zeros(6)
         self.dynamicsTerms = dynamicsTerms
         self.wrenchMap = wrenchMap
