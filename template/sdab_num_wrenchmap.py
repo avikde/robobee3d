@@ -88,12 +88,18 @@ class FunApprox:
         # print(y.shape)
         return y
     
-    # def Df(self, xdata, *p):
-    #     a1, a0 = self.unpackp(p)
-    #     J = np.hstack((a1, 1)) # 1 indicates gradient w.r.t. b
-    #     # print(a.shape, a[:,np.newaxis].T)
-    #     print(np.tile(J, (xdata.shape[0],1)))
-    #     return a
+    def df_dx(self, xi, *p):
+        """This is dy/dx; NOT the jacobian wrt params required by the curve fit alg"""
+        a0, a1 = self.unpackp(p)
+        # y = a0 + a1 * x + x^T * A2 * x
+        return a1 + self.A2 @ xi
+
+def wrenchMap(xdata, popts):
+    """popts = (6,k)-shaped array of optimized params for each wrench component.
+    xdata = N,Nu
+    Returns N,6"""
+    Np = xdata.shape[0]
+    return np.vstack([fa.f(xdata, *popts[i,:]) for i in range(6)]).T
 
 if __name__ == "__main__":
     np.set_printoptions(precision=2, suppress=True, linewidth=200)
@@ -105,6 +111,9 @@ if __name__ == "__main__":
         
         fa = FunApprox(4) # k
         xdata = np.vstack((Vmeans, uoffss, udiffs, h2s)).T # k,M
+
+        # Optimized param fits in each row for each component of the wrench
+        popts = np.vstack([curve_fit(fa.f, xdata, ws[:,i], p0=np.ones(fa.nparams()))[0] for i in range(6)])
 
         def fitWi(i, ax3d, ax):
             # scatter
@@ -122,9 +131,7 @@ if __name__ == "__main__":
             ax[0].set_ylabel('uoffs')
 
             # Custom fit
-            popt, pcov = curve_fit(fa.f, xdata, ydata, p0=np.ones(fa.nparams()))#, jac=fa.Df)
-            print(popt)
-            ffit = lambda xdata : fa.f(np.hstack((xdata, np.zeros((xdata.shape[0], 2)))), *popt)
+            ffit = lambda xdata2 : wrenchMap(np.hstack((xdata2, np.zeros((xdata2.shape[0], 2)))), popts)[:,i]
             c = splineContour(ax[1], Vmeans, uoffss, ffit)
             fig.colorbar(c, ax=ax[1])
             ax[1].set_xlabel('Vmean')
