@@ -99,14 +99,14 @@ def wrenchMap(xdata, popts):
     xdata = N,Nu
     Returns N,6"""
     if len(xdata.shape) > 1:
-        Np = xdata.shape[0]
         return np.vstack([fa.f(xdata, *popts[i,:]) for i in range(6)]).T
     else:
         xdata = np.reshape(xdata,(1,len(xdata)))
         return np.hstack([fa.f(xdata, *popts[i,:]) for i in range(6)])
 
-# def dw_du(xdata, popts):
-
+def dw_du(xdata, popts):
+    """xdata must be (Nu,) shaped"""
+    return np.vstack([fa.df_dx(xdata, *popts[i,:]) for i in range(6)])
 
 if __name__ == "__main__":
     np.set_printoptions(precision=2, suppress=True, linewidth=200)
@@ -136,6 +136,7 @@ if __name__ == "__main__":
             fig.colorbar(c, ax=ax[0])
             ax[0].set_xlabel('Vmean')
             ax[0].set_ylabel('uoffs')
+            ax[0].set_title('W'+str(i)+' spline2D')
 
             # Custom fit
             ffit = lambda xdata2 : wrenchMap(np.hstack((xdata2, np.zeros((xdata2.shape[0], 2)))), popts)[:,i]
@@ -143,17 +144,26 @@ if __name__ == "__main__":
             fig.colorbar(c, ax=ax[1])
             ax[1].set_xlabel('Vmean')
             ax[1].set_ylabel('uoffs')
+            ax[1].set_title('W'+str(i)+' fit')
+
+            # Jac d/dVmean
+            ffit = lambda xdata2 : np.hstack([dw_du(np.hstack((xdata2[j,:], np.zeros(2))), popts)[i,0] for j in range(xdata2.shape[0])])
+            c = splineContour(ax[2], Vmeans, uoffss, ffit)
+            fig.colorbar(c, ax=ax[2])
+            ax[2].set_xlabel('Vmean')
+            ax[2].set_ylabel('uoffs')
+            ax[2].set_title('dW'+str(i)+'/dVmean')
 
         # scatter vis
         fig = plt.figure()
 
-        ax3d1 = fig.add_subplot(2,3,1, projection='3d')
-        ax1 = [fig.add_subplot(2,3,2), fig.add_subplot(2,3,3)]
+        ax3d1 = fig.add_subplot(2,4,1, projection='3d')
+        ax1 = [fig.add_subplot(2,4,2), fig.add_subplot(2,4,3), fig.add_subplot(2,4,4)]
         fitWi(2, ax3d1, ax1)
-        ax3d2 = fig.add_subplot(2,3,4, projection='3d')
-        ax2 = [fig.add_subplot(2,3,5), fig.add_subplot(2,3,6)]
+        ax3d2 = fig.add_subplot(2,4,5, projection='3d')
+        ax2 = [fig.add_subplot(2,4,6), fig.add_subplot(2,4,7), fig.add_subplot(2,4,8)]
         fitWi(4, ax3d2, ax2)
-        fig.tight_layout()
+        # fig.tight_layout()
         plt.show()
 
     else:
