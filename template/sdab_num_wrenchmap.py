@@ -94,6 +94,8 @@ class FunApprox:
         # y = a0 + a1 * x + x^T * A2 * x
         return a1 + self.A2 @ xi
 
+fa = FunApprox(4) # k
+
 def wrenchMap(xdata, popts):
     """popts = (6,k)-shaped array of optimized params for each wrench component.
     xdata = N,Nu
@@ -116,7 +118,6 @@ if __name__ == "__main__":
             dat = np.load(f)
         Vmeans, uoffss, fs, udiffs, h2s, ws = unpackDat(dat)
         
-        fa = FunApprox(4) # k
         xdata = np.vstack((Vmeans, uoffss, udiffs, h2s)).T # k,M
 
         # Optimized param fits in each row for each component of the wrench

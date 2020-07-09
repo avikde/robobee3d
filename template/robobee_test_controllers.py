@@ -4,6 +4,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 from ca6dynamics import dynamicsTerms
 from wrenchlinQP import WrenchLinQP
+from sdab_num_wrenchmap import wrenchMap
 
 class WaveformGenerator(object):
     """A simple waveform generator that keeps track of phase"""
@@ -54,9 +55,8 @@ class WaypointHover(RobobeeController):
         self.wf = WaveformGenerator()
         self.posdes = np.array([0.,0.,100.])
         popts = np.load('popts.npy')
-        print(popts)
-        # self.wrenchMapTODO:
-        self.wlqp = WrenchLinQP(6, 6, dynamicsTerms, wrenchMap)
+        self.wmap = lambda u : wrenchMap(u, popts)
+        self.wlqp = WrenchLinQP(6, 6, dynamicsTerms, self.wmap)
         # self.lowlevel = self.manualMapping
         self.lowlevel = self.wrenchLinWrapper
     
