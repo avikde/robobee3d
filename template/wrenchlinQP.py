@@ -16,21 +16,26 @@ def qpSetupDense(n, m):
     return model
 
 class WrenchLinQP(object):
-    def __init__(self, n, m, dynamicsTerms, wrenchMap):
+    def __init__(self, n, m, dynamicsTerms, wrenchMap, dwduMap=None):
         self.model = qpSetupDense(n, m)
         self.n = n
         self.m = m
         self.u0 = np.zeros(n)
-        self.w0 = np.zeros(n)
+        self.w0 = np.zeros(6)
         self.dynamicsTerms = dynamicsTerms
         self.wrenchMap = wrenchMap
+        if dwduMap is None:
+            # Use autograd
+            self.dwduMap = jacobian(self.wrenchMap)
+        else:
+            # Use the provided Jacobian function
+            self.dwduMap = dwduMap
     
     def update(self, p0, h0, B0, dt, Qd, pdes):
-        if self.n == 6:
-            # assume ca6 model
+        if self.n >= 4:
+            # assume ca6/sdab model
             u = 1e-2 * np.ones(self.n)
-            dw_du = jacobian(self.wrenchMap)
-            curDwDu = dw_du(self.u0)
+            curDwDu = self.dwduMap(self.u0)
         else:
             # For testing other models (assume w=u if n != 6)
             u = np.ones(self.n) * 1e-1
@@ -51,7 +56,7 @@ class WrenchLinQP(object):
         res = self.model.solve()
         self.u0 = res.x + self.u0
 
-        if self.n == 6:
+        if self.n >= 4:
             self.w0 = self.wrenchMap(self.u0)
             return self.u0
         else:
@@ -61,12 +66,12 @@ class WrenchLinQP(object):
             return r
     
     def updateFromState(self, t, q, dq, pdes, dt=2):
-        M0, h0, B0 = self.dynamicsTerms(q, dq)
+        M0, h0, B0 = self.dynamicsTerms(q, dq) # B=I, since the input is B*w(u)
         p0 = M0 @ dq
         Qd = np.hstack((1.0*np.ones(3), 0.1*np.ones(3)))
 
-        if self.n != 6:
-            # For testing other models (assume w=u if n != 6)
+        if self.n < 4:
+            # For testing other models (assume w=u if n<4)
             p0 = np.array([M0[2,2] * dq[2]]) # assume z
             Qd = Qd[2:3]
             B0 = np.eye(1)

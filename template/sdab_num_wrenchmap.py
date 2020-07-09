@@ -96,6 +96,11 @@ class FunApprox:
 
 fa = FunApprox(4) # k
 
+"""Function for the numerical versions of the wrench map and its Jacobian.
+Here u = [Vmean,uoffs,udiff,h2] is the input,
+and w in R^6 is the output
+"""
+
 def wrenchMap(xdata, popts):
     """popts = (6,k)-shaped array of optimized params for each wrench component.
     xdata = N,Nu
