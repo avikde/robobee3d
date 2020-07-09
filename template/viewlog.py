@@ -54,7 +54,9 @@ def defaultPlots(data):
     qb = data['q'][:,-7:]
     dqb = data['dq'][:,-6:]
 
-    fig, ax = plt.subplots(6)
+    ca6log = data['u'].shape[1] > 2
+
+    fig, ax = plt.subplots(6 if ca6log else 5)
     ax[0].plot(data['t'], qb[:,:3])
     ax[0].set_ylabel('pos [mm]')
 
@@ -68,7 +70,7 @@ def defaultPlots(data):
     ax[2].set_ylabel('Momentum')
     ax[2].legend()
 
-    if data['u'].shape[1] > 2:
+    if ca6log:
         ax[3].plot(data['t'], data['u'][:,[0,3]])
         ax[3].set_ylabel('u1')
         # ca6 log
@@ -79,13 +81,16 @@ def defaultPlots(data):
     else:
         ax[3].plot(data['t'], dqb[:,3:])
         ax[3].set_ylabel('Omega')
-        # plot wing states
-        qw = data['q'][:,:4]
-        dqw = data['dq'][:,:4]
-        ax[4].plot(t, qw[:,[0,2]])
-        ax[4].set_ylabel('Stroke')
-        ax[5].plot(t, qw[:,[1,3]])
-        ax[5].set_ylabel('Pitch')
+        # Inputs
+        ax[4].plot(t, data['u'])
+        ax[4].set_ylabel('Vact')
+        # # plot wing states
+        # qw = data['q'][:,:4]
+        # dqw = data['dq'][:,:4]
+        # ax[5].plot(t, qw[:,[0,2]])
+        # ax[5].set_ylabel('Stroke')
+        # ax[6].plot(t, qw[:,[1,3]])
+        # ax[6].set_ylabel('Pitch')
 
     ax[-1].set_xlabel('Time [ms]')
 

@@ -63,8 +63,13 @@ class WaypointHover(RobobeeController):
     
     def wrenchLinWrapper(self, *args):
         Vmean, uoffs, udiff, h2 = self.wlqp.updateFromState(*args)
+        t, qb, dqb, pdes = args
         # TODO: h2
-        w = self.wf.update(args[0], self.P('freq'))
+        w = self.wf.update(t, self.P('freq'))
+        # test
+        Vmean = 120 + 1000 * (pdes[2] - dqb[2]) + 0.1 * (self.posdes[2] - qb[2])
+        udiff = np.clip(udiff, -0.3, 0.3)
+        uoffs = np.clip(uoffs, -0.3, 0.3)
         return np.array([1 + udiff, 1 - udiff]) * Vmean * (w + uoffs)
 
     def update(self, t, q, dq):
