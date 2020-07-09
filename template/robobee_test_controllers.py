@@ -2,7 +2,7 @@
 import pybullet as p
 import numpy as np
 from scipy.spatial.transform import Rotation
-from ca6dynamics import dynamicsTerms, wrenchMap
+from ca6dynamics import dynamicsTerms
 from wrenchlinQP import WrenchLinQP
 
 class WaveformGenerator(object):
@@ -53,6 +53,9 @@ class WaypointHover(RobobeeController):
         super(WaypointHover, self).__init__({'freq': (0, 0.3, 0.16)})
         self.wf = WaveformGenerator()
         self.posdes = np.array([0.,0.,100.])
+        popts = np.load('popts.npy')
+        print(popts)
+        # self.wrenchMapTODO:
         self.wlqp = WrenchLinQP(6, 6, dynamicsTerms, wrenchMap)
         # self.lowlevel = self.manualMapping
         self.lowlevel = self.wrenchLinWrapper

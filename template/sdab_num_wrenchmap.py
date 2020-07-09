@@ -121,6 +121,7 @@ if __name__ == "__main__":
 
         # Optimized param fits in each row for each component of the wrench
         popts = np.vstack([curve_fit(fa.f, xdata, ws[:,i], p0=np.ones(fa.nparams()))[0] for i in range(6)])
+        np.save('popts.npy', popts)
 
         xlabels = ['Vmean', 'uoffs', 'udiff', 'h2']
 
