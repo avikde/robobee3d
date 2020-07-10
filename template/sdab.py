@@ -1,5 +1,5 @@
 import time, subprocess, argparse
-import numpy as np
+import autograd.numpy as np
 import pybullet as p
 import robobee
 from robobee_test_controllers import OpenLoop, WaypointHover

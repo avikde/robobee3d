@@ -89,7 +89,7 @@ class FunApprox:
         # print(y.shape)
         return y
 
-    def fsingle(self, xu, *p):
+    def fsingle(self, xi, *p):
         # To try and use autograd FIXME:
         a0, a1 = self.unpackp(p)
         # print(a.shape, b, xdata.shape)
