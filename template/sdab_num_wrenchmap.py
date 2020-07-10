@@ -1,5 +1,5 @@
 import subprocess, sys, progressbar
-import numpy as np
+import autograd.numpy as np
 from scipy.interpolate import SmoothBivariateSpline
 from scipy.optimize import curve_fit
 from mpl_toolkits.mplot3d import Axes3D
@@ -76,6 +76,7 @@ class FunApprox:
         # create a symmetric matrix
         self.A2[self.xs, self.ys] = a2
         self.A2[self.ys, self.xs] = a2
+        # print(a2, self.A2)
         return a0, a1
 
     def f(self, xdata, *p):
@@ -84,9 +85,15 @@ class FunApprox:
         y = a0 + xdata @ a1
         for i in range(xdata.shape[0]):
             xi = xdata[i,:]
-            y[i] += xi.T @ self.A2 @ xi
+            y[i] += 0.5 * xi.T @ self.A2 @ xi
         # print(y.shape)
         return y
+
+    def fsingle(self, xu, *p):
+        # To try and use autograd FIXME:
+        a0, a1 = self.unpackp(p)
+        # print(a.shape, b, xdata.shape)
+        return a0 + np.dot(xi, a1) + 0.5 * xi.T @ self.A2 @ xi
     
     def df_dx(self, xi, *p):
         """This is dy/dx; NOT the jacobian wrt params required by the curve fit alg"""
@@ -108,8 +115,8 @@ def wrenchMap(xdata, popts):
     if len(xdata.shape) > 1:
         return np.vstack([fa.f(xdata, *popts[i,:]) for i in range(6)]).T
     else:
-        xdata = np.reshape(xdata,(1,len(xdata)))
-        return np.hstack([fa.f(xdata, *popts[i,:]) for i in range(6)])
+        # xdata = np.reshape(xdata,(1,len(xdata)))
+        return np.hstack([fa.fsingle(xdata, *popts[i,:]) for i in range(6)])
 
 def dw_du(xdata, popts):
     """xdata must be (Nu,) shaped"""
