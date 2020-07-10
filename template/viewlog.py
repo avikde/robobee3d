@@ -46,7 +46,7 @@ def getData(fname):
         files = glob.glob('../logs/' + '*')
         files.sort(key=os.path.getmtime, reverse=True)
         fname = files[0]
-    return readFile(fname)
+    return readFile(fname), 'ca6' in fname
 
 def defaultPlots(data, ca6log=False):
     t = data['t']
@@ -98,6 +98,6 @@ def defaultPlots(data, ca6log=False):
     ax[-1].set_xlabel('Time [ms]')
 
 if __name__ == "__main__":
-    data = getData("")
-    defaultPlots(data)
+    data, ca6log = getData("")
+    defaultPlots(data, ca6log=ca6log)
     plt.show()
