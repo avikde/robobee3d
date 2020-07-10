@@ -1,6 +1,6 @@
 """Each controller has a set of parameters and ranges as well as a function to evaluate it"""
 import pybullet as p
-import numpy as np
+import autograd.numpy as np
 from scipy.spatial.transform import Rotation
 from ca6dynamics import dynamicsTerms
 from wrenchlinQP import WrenchLinQP
@@ -24,6 +24,7 @@ class RobobeeController(object):
         # Params using pybullet GUI (sliders)
         self.dbgIDs = {k : p.addUserDebugParameter(k, *params[k]) for k in params.keys()}
         self.pdes = np.zeros(6) # controller should set
+        self.u4 = np.zeros(4) # for logging
 
     def P(self, k):
         try:
@@ -76,10 +77,9 @@ class WaypointHover(RobobeeController):
         popts = np.load('popts.npy')
         self.wmap = lambda u : wrenchMap(u, popts)
         self.Dwmap = lambda u : dw_du(u, popts)
-        self.wlqp = WrenchLinQP(4, 4, dynamicsTerms, self.wmap, dwduMap=self.Dwmap, u0=[140.0,0.,0.,0.], dumax=[1.,0.01,0.01,0.01])
+        self.wlqp = WrenchLinQP(4, 4, dynamicsTerms, self.wmap, u0=[140.0,0.,0.,0.], dumax=[1.,0.01,0.01,0.01])#dwduMap=self.Dwmap, 
         # self.momentumController = self.manualMapping
         self.momentumController = self.wrenchLinWrapper
-        self.u4 = np.zeros(4) # for logging
         self.positionController = positionControllerPakpongLike
     
     def wrenchLinWrapper(self, *args):
