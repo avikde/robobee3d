@@ -129,6 +129,7 @@ if __name__ == "__main__":
         with open(sys.argv[1], 'rb') as f:
             dat = np.load(f)
         Vmeans, uoffss, fs, udiffs, h2s, ws = unpackDat(dat)
+        print("Unique in data:", np.unique(Vmeans), np.unique(uoffss), np.unique(fs), np.unique(udiffs), np.unique(h2s))
         
         xdata = np.vstack((Vmeans, uoffss, udiffs, h2s)).T # k,M
 
