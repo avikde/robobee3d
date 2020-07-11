@@ -56,7 +56,7 @@ def splineContour(ax, xiu, yiu, Zfun, length=50, dx=0, dy=0):
         positions = np.vstack([Xi.ravel(), Yi.ravel()])
         zi = np.reshape(Zfun(positions.T), Xi.shape)
         # zi = Zfun(Xi, Yi, np.zeros_like(Xi))
-    return ax.contourf(xi, yi, zi, cmap='RdBu')
+    return ax.contourf(xi, yi, zi, cmap='RdBu_r')
     
 class FunApprox:
     """Using https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.curve_fit.html"""
@@ -132,12 +132,11 @@ if __name__ == "__main__":
         print("Unique in data:", np.unique(Vmeans), np.unique(uoffss), np.unique(fs), np.unique(udiffs), np.unique(h2s))
         
         xdata = np.vstack((Vmeans, uoffss, udiffs, h2s)).T # k,M
+        xlabels = ['Vmean', 'uoffs', 'udiff', 'h2']
 
         # Optimized param fits in each row for each component of the wrench
         popts = np.vstack([curve_fit(fa.f, xdata, ws[:,i], p0=np.ones(fa.nparams()))[0] for i in range(6)])
         np.save('popts.npy', popts)
-
-        xlabels = ['Vmean', 'uoffs', 'udiff', 'h2']
 
         def plotFitWi(ui1, ui2, wi, ax3d, ax):
             def lbl(ax):
@@ -177,7 +176,8 @@ if __name__ == "__main__":
         plotFitWi(0, 1, 2, ax3d1, ax1)
         ax3d2 = fig.add_subplot(2,4,5, projection='3d')
         ax2 = [fig.add_subplot(2,4,6), fig.add_subplot(2,4,7), fig.add_subplot(2,4,8)]
-        plotFitWi(0, 1, 4, ax3d2, ax2)
+        plotFitWi(0, 2, 2, ax3d2, ax2)
+        # plotFitWi(0, 1, 4, ax3d2, ax2)
         # fig.tight_layout()
         plt.show()
 
