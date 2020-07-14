@@ -41,6 +41,15 @@ class WrenchLinQP(object):
             # assume ca6/sdab model
             curDwDu = self.dwduMap(self.u0)
             # print(curDwDu)
+            # FIXME: made up Jac for testing. out = 6
+            curDwDu = np.array([
+                [0,0,0,0],
+                [0,0,0,0],
+                [0.03,0,0,0],
+                [0,0,0,0],
+                [0,0,0,0],
+                [0,0,0,0]
+                ])
         else:
             # For testing other models (assume w=u if n != 6)
             curDwDu = np.eye(self.n)
@@ -60,9 +69,12 @@ class WrenchLinQP(object):
         self.model.update(Px=Px, q=q, l=L, u=self.U, Ax=np.ravel(A))
         res = self.model.solve()
         self.u0 = res.x + self.u0
+        # FIXME: 
+        self.u0[1:].fill(0)
 
         if self.n >= 4:
             self.w0 = self.wrenchMap(self.u0)
+            print(res.x, self.w0[[2,4]], self.u0)
             return self.u0
         else:
             self.w0 = self.u0
