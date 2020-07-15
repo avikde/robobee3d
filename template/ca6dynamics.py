@@ -40,12 +40,11 @@ def wrenchMap(u):
 def dynamicsTerms(q, dq):
     Rb = Rotation.from_quat(q[3:7])
     h = np.hstack((Rb.inv().apply([0, 0, mb * g]), np.zeros(3)))
-    B = np.eye(6)
-    # NOTE: don't actually need B, since wrenchMap(u) is sort of like B??
+    
 	# rot(x) = [cos(x) -sin(x); sin(x) cos(x)]
 	# fL = 0.15
 	# fR = 0.15
 	# # now should be multiplied by u = [ΦL^2; ΦR^2]
 	# S = hcat(aeroWrenchAffine(fL), Diagonal([1,-1]) * aeroWrenchAffine(fR)) # 2x2 matrix
 	# B = [rot(y[3])[:,2] zeros(2,1); 0 1] * S
-    return M, h, B
+    return M, h

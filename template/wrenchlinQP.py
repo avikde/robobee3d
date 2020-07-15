@@ -36,7 +36,7 @@ class WrenchLinQP(object):
         else:
             self.U = np.array(dumax)
     
-    def update(self, p0, h0, B0, dt, Qd, pdes):
+    def update(self, p0, h0, dt, Qd, pdes):
         if self.n >= 4:
             # assume ca6/sdab model
             curDwDu = self.dwduMap(self.u0)
@@ -57,9 +57,9 @@ class WrenchLinQP(object):
 
         # general form
         A = np.eye(self.n)
-        a0 = p0 - dt * h0 + dt * B0 @ self.w0
+        a0 = p0 + dt * (self.w0 - h0)
         # print(curDwDu)
-        A1 = dt * B0 @ curDwDu
+        A1 = dt * curDwDu
         P = A1.T @ np.diag(Qd) @ A1
         q = A1.T @ np.diag(Qd) @ (a0 - pdes)
         # print("p0=", a0, "pdes=", pdes)
@@ -83,7 +83,7 @@ class WrenchLinQP(object):
             return r
     
     def updateFromState(self, t, q, dq, pdes, dt=2):
-        M0, h0, B0 = self.dynamicsTerms(q, dq) # B=I, since the input is B*w(u)
+        M0, h0 = self.dynamicsTerms(q, dq) # B=I, since the input is B*w(u)
         p0 = M0 @ dq
         Qd = np.hstack((1.0*np.ones(3), 0.1*np.ones(3)))
 
@@ -91,10 +91,9 @@ class WrenchLinQP(object):
             # For testing other models (assume w=u if n<4)
             p0 = np.array([M0[2,2] * dq[2]]) # assume z
             Qd = Qd[2:3]
-            B0 = np.eye(1)
             h0 = np.zeros(1)
 
-        return self.update(p0, h0, B0, dt, Qd, pdes)
+        return self.update(p0, h0, dt, Qd, pdes)
 
     def test(self):
         q = [0.,0,0,0,0,0,1]
