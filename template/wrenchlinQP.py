@@ -57,7 +57,7 @@ class WrenchLinQP(object):
 
         # general form
         A = np.eye(self.n)
-        a0 = p0 + dt * (self.w0 - h0)
+        a0 = p0# + dt * (self.w0 - h0)
         # print(curDwDu)
         A1 = dt * curDwDu
         P = A1.T @ np.diag(Qd) @ A1
@@ -74,7 +74,7 @@ class WrenchLinQP(object):
 
         if self.n >= 4:
             self.w0 = self.wrenchMap(self.u0)
-            print(res.x, self.w0[[2,4]], self.u0)
+            # print(p0[2], self.u0[0])
             return self.u0
         else:
             self.w0 = self.u0
