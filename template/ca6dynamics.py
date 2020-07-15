@@ -39,9 +39,9 @@ def wrenchMap(u):
 
 def dynamicsTerms(q, dq):
     Rb = Rotation.from_quat(q[3:7])
-    h = np.hstack((Rb.inv().apply([0, 0, -mb * g]), np.zeros(3)))
+    h = np.hstack((Rb.inv().apply([0, 0, mb * g]), np.zeros(3)))
     B = np.eye(6)
-    # FIXME: don't actually need B, since wrenchMap(u) is sort of like B??
+    # NOTE: don't actually need B, since wrenchMap(u) is sort of like B??
 	# rot(x) = [cos(x) -sin(x); sin(x) cos(x)]
 	# fL = 0.15
 	# fR = 0.15
