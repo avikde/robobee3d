@@ -64,17 +64,22 @@ class WrenchLinQP(object):
         q = A1.T @ np.diag(Qd) @ (a0 - pdes)
         # print("p0=", a0, "pdes=", pdes)
         L = -self.U
+        U = np.copy(self.U)
+
+        # FIXME: limits on voltage
+        if self.u0[0] < 50:
+            L[0] = 0
+        elif self.u0[0] > 200:
+            U[0] = 0
+
         # update OSQP
         Px = P[np.tril_indices(P.shape[0])] # need in col order
-        self.model.update(Px=Px, q=q, l=L, u=self.U, Ax=np.ravel(A))
+        self.model.update(Px=Px, q=q, l=L, u=U, Ax=np.ravel(A))
         res = self.model.solve()
         self.u0 = res.x + self.u0
-        # FIXME: 
-        self.u0[1:].fill(0)
-        self.u0[0] = 120 + 3 * (pdes[2] - p0[2])
+        # self.u0[0] = 110 + 3 * (pdes[2] - p0[2])
 
         if self.n >= 4:
-            # print(self.u0[0], self.w0[2], p0[2])
             self.w0 = self.wrenchMap(self.u0)
             return self.u0
         else:
