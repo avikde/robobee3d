@@ -42,6 +42,14 @@ def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
     with open('numwrench.npy', 'wb') as f:
         np.save(f, res)
 
+    # xdata = np.array([
+    #     np.hstack((Vmean, uoffs, f, udiff, h2)) 
+    #     for Vmean in Vmeans for uoffs in uoffss for f in fs for udiff in udiffs for h2 in h2s])
+    # cpus = multiprocessing.cpu_count()
+    # pool = multiprocessing.Pool(processes=cpus)
+    # res = pool.map(test, xdata)
+    # TODO: multiprocessing but need different copies of the sim too
+
 unpackDat = lambda dat : (dat[:,0], dat[:,1], dat[:,2], dat[:,3], dat[:,4], dat[:,5:])
 
 def splineContour(ax, xiu, yiu, Zfun, length=50, dx=0, dy=0):
