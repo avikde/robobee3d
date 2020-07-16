@@ -100,7 +100,7 @@ class WaypointHover(RobobeeController):
         qb = q[-7:]
         dqb = dq[-6:]
         # momentum-based control
-        self.pdes = self.positionController(self.posdes, qb, dqb)
+        self.pdes = np.array([0,0,15,0,0,0])#self.positionController(self.posdes, qb, dqb) FIXME:
         return self.momentumController(t, qb, dqb, self.pdes)
         
     def manualMapping(self, t, qb, dqb, pdes):
