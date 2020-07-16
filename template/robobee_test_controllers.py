@@ -69,7 +69,7 @@ def positionControllerPakpongLike(posdes, qb, dqb):
     return np.hstack((0, 0, 0.01 * (posdes[2] - qb[2]), Iomegades))
 
 class WaypointHover(RobobeeController):
-    """Simplified version of Pakpong (2013)"""
+    """Simplified version of Pakpong (2013). u = [Vmean, uoffs, udiff, h2]"""
     def __init__(self):
         super(WaypointHover, self).__init__({'freq': (0, 0.3, 0.16)})
         self.wf = WaveformGenerator()
@@ -77,7 +77,7 @@ class WaypointHover(RobobeeController):
         popts = np.load('popts.npy')
         self.wmap = lambda u : wrenchMap(u, popts)
         self.Dwmap = lambda u : dw_du(u, popts)
-        self.wlqp = WrenchLinQP(4, 4, dynamicsTerms, self.wmap, u0=[140.0,0.,0.,0.], dumax=[1.,0.01,0.01,0.01])#dwduMap=self.Dwmap, 
+        self.wlqp = WrenchLinQP(4, 4, dynamicsTerms, self.wmap, u0=[140.0,0.,0.,0.], dumax=[1.,0.01,0.01,0.01], umin=[50.,-0.3,-0.3,-0.2], umax=[200.,0.3,0.3,0.2])#dwduMap=self.Dwmap, 
         # self.momentumController = self.manualMapping
         self.momentumController = self.wrenchLinWrapper
         self.positionController = positionControllerPakpongLike

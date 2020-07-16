@@ -16,7 +16,7 @@ def qpSetupDense(n, m):
     return model
 
 class WrenchLinQP(object):
-    def __init__(self, n, m, dynamicsTerms, wrenchMap, dwduMap=None, u0=None, dumax=None):
+    def __init__(self, n, m, dynamicsTerms, wrenchMap, dwduMap=None, u0=None, dumax=None, umin=None, umax=None):
         self.model = qpSetupDense(n, m)
         self.n = n
         self.m = m
@@ -24,6 +24,8 @@ class WrenchLinQP(object):
         self.dynamicsTerms = dynamicsTerms
         self.wrenchMap = wrenchMap
         self.w0 = self.wrenchMap(self.u0)
+        self.umin = umin
+        self.umax = umax
         if dwduMap is None:
             # Use autograd
             self.dwduMap = jacobian(self.wrenchMap)
@@ -66,11 +68,13 @@ class WrenchLinQP(object):
         L = -self.U
         U = np.copy(self.U)
 
-        # FIXME: limits on voltage
-        if self.u0[0] < 50:
-            L[0] = 0
-        elif self.u0[0] > 200:
-            U[0] = 0
+        # Input limits (not just rate limits)
+        if self.umin is not None:
+            for i in range(len(self.umin)):
+                if self.u0[i] < self.umin[i]:
+                    L[i] = 0 # do not reduce further
+                elif self.u0[i] > self.umax[i]:
+                    U[i] = 0 # do not increase further
 
         # update OSQP
         Px = P[np.tril_indices(P.shape[0])] # need in col order
