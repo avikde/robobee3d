@@ -39,7 +39,7 @@ def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
         np.hstack((Vmean, uoffs, f, udiff, h2, 
         olAvgWrench(Vmean, uoffs, f, udiff, h2))) 
         for Vmean in Vmeans for uoffs in uoffss for f in fs for udiff in udiffs for h2 in h2s])
-    with open('test.npy', 'wb') as f:
+    with open('numwrench.npy', 'wb') as f:
         np.save(f, res)
 
 unpackDat = lambda dat : (dat[:,0], dat[:,1], dat[:,2], dat[:,3], dat[:,4], dat[:,5:])
@@ -183,9 +183,9 @@ if __name__ == "__main__":
 
     else:
         # save to file
-        Vmeans = np.linspace(120, 180, num=8)
+        Vmeans = np.linspace(90, 160, num=8)
         uoffss = np.linspace(-0.5, 0.5, num=8)
         fs = [0.17]
         udiffs = np.linspace(-0.2, 0.2, num=8)
         h2s = np.linspace(-0.2, 0.2, num=8)#[0.]
-        sweepFile('test2.npy', Vmeans, uoffss, fs, udiffs, h2s)
+        sweepFile('numwrench.npy', Vmeans, uoffss, fs, udiffs, h2s)
