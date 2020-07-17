@@ -48,6 +48,9 @@ def aerodynamics(theta, dtheta, lrSign, params):
         pcopB = yflip @ pcopB
     return FaeroB, pcopB
 
+def wrench(F, p):
+    return np.hstack((F, np.cross(p, F)))
+
 def actuatorModel(V, qact, dqact):
     """Return actuator force for applied voltage input and current actuator state"""
     T = 2.6666
@@ -177,7 +180,7 @@ class RobobeeSim():
             if j == jointId[b'lwing_hinge']:
                 urdfParams['khinge'] = stiffness
                 urdfParams['bhinge'] = damping
-                print(dinfo)
+                # print(dinfo)
             elif j == jointId[b'lwing_stroke']:
                 urdfParams['kstroke'] = stiffness
 
@@ -267,3 +270,26 @@ class RobobeeSim():
         #         self._slowDown = self.SLOWDOWN_FAST
         if ord('c') in keys and keys[ord('c')] & p.KEY_WAS_TRIGGERED:
             self._camLock = not self._camLock
+
+    def openLoop(self, VampL, VampR, uoffs, f, tendMS=100, h2=0, h3=0, verbose=True):
+        """A function for testing open-loop control input results"""
+        if verbose:
+            print('Now testing:', np.array([VampL, VampR, uoffs, f, h2]))
+        qw = []
+        omega = 2 * np.pi * f
+        self.reset(f)
+
+        sig = lambda ph, h2 : ((1+h3)*np.sin(ph) + h3*np.sin(3*ph) + h2*np.sin(2*ph) + uoffs)
+
+        while self.simt < tendMS:
+            ss = self.sampleStates()
+            ph = omega * self.simt
+            tau = [VampL * sig(ph, h2), VampR * sig(ph, -h2)]
+            # call aerodynamics to calculate avg wrench
+            waeroL = wrench(*aerodynamics(self.q[0:2], self.dq[0:2], 1, self.urdfParams))
+            waeroR = wrench(*aerodynamics(-self.q[2:4], -self.dq[2:4], -1, self.urdfParams))
+            # data contains wing kinematics and wrench
+            qw.append(np.copy(np.hstack((self.q[:4], waeroL + waeroR))))
+            self.update(tau)
+        
+        return np.array(qw)

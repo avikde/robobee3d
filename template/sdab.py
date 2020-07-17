@@ -1,5 +1,5 @@
 import time, subprocess, argparse
-import numpy as np
+import autograd.numpy as np
 import pybullet as p
 import robobee
 from robobee_test_controllers import OpenLoop, WaypointHover
@@ -12,10 +12,10 @@ parser.add_argument('-d', '--direct', action='store_true', default=False, help='
 args = parser.parse_args()
 
 # filtfreq is for the body velocity filter
-bee = robobee.RobobeeSim(p.DIRECT if args.direct else p.GUI, slowDown=1, camLock=True, timestep=0.1, gui=0, filtfreq=0.16)
+bee = robobee.RobobeeSim(p.DIRECT if args.direct else p.GUI, slowDown=0, camLock=True, timestep=0.1, gui=0, filtfreq=0.16)
 # load robot
 startPos = [0,0,100]
-startOrientation = p.getQuaternionFromEuler([0.5,-0.5,0])
+startOrientation = p.getQuaternionFromEuler(np.zeros(3))#[0.5,-0.5,0])
 subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.urdf"])
 bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=False)
 data = viewlog.initLog()
@@ -26,7 +26,7 @@ def traj(t):
     return startPos + np.array([50 * np.sin(ph), 50 * (1 - np.cos(ph)), 0.0 * t])
 
 # draw traj
-tdraw = np.linspace(0, args.tend, 20)
+tdraw = np.linspace(0, 500 if np.isinf(args.tend) else args.tend, 20)
 for ti in range(1, len(tdraw)):
     p.addUserDebugLine(traj(tdraw[ti-1]), traj(tdraw[ti]), lineColorRGB=[0,0,0], lifeTime=0)
     
@@ -43,7 +43,8 @@ try:
 
         controller.posdes = traj(bee.simt)
         tau = controller.update(*ss)
-        data = viewlog.appendLog(data, *ss, tau, controller.pdes) # log
+        # Also log the 4-dim u
+        data = viewlog.appendLog(data, *ss, np.hstack((tau, controller.u4)), controller.pdes) # log
         
         bee.update(tau)#, testF=[P('testFL'), P('testFR')])
 

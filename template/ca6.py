@@ -7,7 +7,7 @@ import pybullet as p
 import pybullet_data
 import viewlog
 from wrenchlinQP import WrenchLinQP
-from ca6dynamics import ycp
+from ca6dynamics import ycp, dynamicsTerms, wrenchMap
 np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
 # Usage params
@@ -32,7 +32,7 @@ planeId = p.loadURDF("plane.urdf", globalScaling=100.0)
 
 # load robot
 startPos = [0,0,100]
-startOrientation = Rotation.from_euler('xy', [0.5,0.5])
+startOrientation = Rotation.from_euler('xy', [0.8,0.8])
 bid = p.loadURDF("../urdf/sdabNW.urdf", startPos, startOrientation.as_quat(), useFixedBase=False)
 
 simt = 0
@@ -40,7 +40,7 @@ tLastDraw1 = 0
 data = viewlog.initLog()
 
 # controller
-wlqp = WrenchLinQP(6,6)
+wlqp = WrenchLinQP(6, 6, dynamicsTerms, wrenchMap)
 # wlqp = WrenchLinQP(1,1)
 # wlqp.test()
 
@@ -88,7 +88,7 @@ def testControl(q, dq, pdes):
     # pitchCtrl = ezb[0]
     # u = [mm + dd, pitchCtrl,0.0,mm-dd,pitchCtrl,-0.0]
 
-    u = wlqp.updateFromState(q, dq, pdes)
+    u = wlqp.updateFromState(0., q, dq, pdes)
 
     return u
 
@@ -96,7 +96,7 @@ def ornVF(Rb, omega, posErr):
     """return last elements of pdes"""
     # hat = lambda M : np.array([M[2,1], M[0,2], M[1,0]])
     Rdes = np.eye(3)#Rotation.from_euler('x', 0)
-    Rm = Rb.as_dcm()
+    Rm = Rb.as_matrix()
     zdes = np.array([0,0,1]) # desired z vector
     # ornError = hat(Rdes.T @ Rm - Rm.T @ Rdes)
     # ornError = -np.cross([0,0,1], Rb.inv().apply(zdes))

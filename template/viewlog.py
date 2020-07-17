@@ -46,9 +46,9 @@ def getData(fname):
         files = glob.glob('../logs/' + '*')
         files.sort(key=os.path.getmtime, reverse=True)
         fname = files[0]
-    return readFile(fname)
+    return readFile(fname), 'ca6' in fname
 
-def defaultPlots(data):
+def defaultPlots(data, ca6log=False):
     t = data['t']
     # SDAB log also has wings
     qb = data['q'][:,-7:]
@@ -68,7 +68,7 @@ def defaultPlots(data):
     ax[2].set_ylabel('Momentum')
     ax[2].legend()
 
-    if data['u'].shape[1] > 2:
+    if ca6log:
         ax[3].plot(data['t'], data['u'][:,[0,3]])
         ax[3].set_ylabel('u1')
         # ca6 log
@@ -79,17 +79,25 @@ def defaultPlots(data):
     else:
         ax[3].plot(data['t'], dqb[:,3:])
         ax[3].set_ylabel('Omega')
-        # plot wing states
-        qw = data['q'][:,:4]
-        dqw = data['dq'][:,:4]
-        ax[4].plot(t, qw[:,[0,2]])
-        ax[4].set_ylabel('Stroke')
-        ax[5].plot(t, qw[:,[1,3]])
-        ax[5].set_ylabel('Pitch')
+        # Inputs
+        ax[4].plot(t, data['u'][:,2]) # Vmean
+        ax[4].set_ylabel('Vmean')
+        ax[5].plot(t, data['u'][:,3], label='offs')
+        ax[5].plot(t, data['u'][:,4], label='diff')
+        ax[5].plot(t, data['u'][:,5], label='h2')
+        ax[5].set_ylabel('u')
+        ax[5].legend()
+        # # plot wing states
+        # qw = data['q'][:,:4]
+        # dqw = data['dq'][:,:4]
+        # ax[5].plot(t, qw[:,[0,2]])
+        # ax[5].set_ylabel('Stroke')
+        # ax[6].plot(t, qw[:,[1,3]])
+        # ax[6].set_ylabel('Pitch')
 
     ax[-1].set_xlabel('Time [ms]')
 
 if __name__ == "__main__":
-    data = getData("")
-    defaultPlots(data)
+    data, ca6log = getData("")
+    defaultPlots(data, ca6log=ca6log)
     plt.show()
