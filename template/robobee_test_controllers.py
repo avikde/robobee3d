@@ -103,7 +103,7 @@ class WaypointHover(RobobeeController):
         wR = self.wf.get(h2=-h2)
         udiff = np.clip(udiff, -0.3, 0.3)
         uoffs = np.clip(uoffs, -0.3, 0.3)
-        return np.array([1 + udiff, 1 - udiff]) * Vmean * (w + uoffs)
+        return Vmean * np.array([(1 + udiff) * (wL + uoffs), (1 - udiff) * (wR + uoffs)])
 
     def update(self, t, q, dq):
         # unpack
