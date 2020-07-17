@@ -12,9 +12,11 @@ class WaveformGenerator(object):
         self.ph = 0 # phase
         self.tprev = 0
     
-    def update(self, t, f, h2=0., h3=0.1):
+    def step(self, t, f):
         self.ph += 2 * np.pi * f * (t - self.tprev)
         self.tprev = t
+    
+    def get(self, h2=0., h3=0.1):
         return (1 + h3) * np.sin(self.ph) + h3 * np.sin(3 * self.ph) + h2 * np.sin(2 * self.ph)
 
 class RobobeeController(object):
@@ -77,7 +79,12 @@ class WaypointHover(RobobeeController):
         popts = np.load('popts.npy')
         self.wmap = lambda u : wrenchMap(u, popts)
         self.Dwmap = lambda u : dw_du(u, popts)
-        self.wlqp = WrenchLinQP(4, 4, dynamicsTerms, self.wmap, u0=[140.0,0.,0.,0.], dumax=[5.,0.01,0.01,0.01], umin=[90.,-0.5,-0.2,-0.2], umax=[160.,0.5,0.2,0.2], dwduMap=self.Dwmap)
+        self.wlqp = WrenchLinQP(4, 4, dynamicsTerms, self.wmap, 
+            u0=[140.0,0.,0.,0.], 
+            dumax=[5.,0.01,0.01,0.01], 
+            umin=[90.,-0.5,-0.2,-0.1], 
+            umax=[160.,0.5,0.2,0.1], 
+            dwduMap=self.Dwmap)
         # self.momentumController = self.manualMapping
         self.momentumController = self.wrenchLinWrapper
         self.positionController = positionControllerPakpongLike
@@ -86,10 +93,14 @@ class WaypointHover(RobobeeController):
         t, qb, dqb, pdes = args
         self.u4 = self.wlqp.updateFromState(t, qb, dqb, pdes)
         Vmean, uoffs, udiff, h2 = self.u4
-        # TODO: h2
-        w = self.wf.update(t, self.P('freq'))
-        # test
-        # Vmean = 120 + 1000 * (pdes[2] - dqb[2])
+        # # test
+        # Vmean = 110# + 1000 * (pdes[2] - dqb[2])
+        # udiff = 0
+        # uoffs = 0
+        
+        self.wf.step(t, self.P('freq'))
+        wL = self.wf.get(h2=h2)
+        wR = self.wf.get(h2=-h2)
         udiff = np.clip(udiff, -0.3, 0.3)
         uoffs = np.clip(uoffs, -0.3, 0.3)
         return np.array([1 + udiff, 1 - udiff]) * Vmean * (w + uoffs)
@@ -104,7 +115,8 @@ class WaypointHover(RobobeeController):
         
     def manualMapping(self, t, qb, dqb, pdes):
         """Low level mapping to torques. Can be replaced"""
-        w = self.wf.update(t, self.P('freq'))
+        self.wf.step(t, self.P('freq'))
+        w = self.wf.get(t, self.P('freq')) # no h2 usage in this
         umean = 120 + 1000 * (pdes[2] - dqb[2])
         udiff = np.clip(0.01*pdes[3], -0.5, 0.5)
         uoffs = np.clip(0.1*pdes[4], -0.5, 0.5)
