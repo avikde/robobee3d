@@ -77,7 +77,7 @@ class WaypointHover(RobobeeController):
         popts = np.load('popts.npy')
         self.wmap = lambda u : wrenchMap(u, popts)
         self.Dwmap = lambda u : dw_du(u, popts)
-        self.wlqp = WrenchLinQP(4, 4, dynamicsTerms, self.wmap, u0=[140.0,0.,0.,0.], dumax=[5.,0.01,0.01,0.01], umin=[120.,-0.5,-0.2,-0.2], umax=[180.,0.5,0.2,0.2], dwduMap=self.Dwmap)
+        self.wlqp = WrenchLinQP(4, 4, dynamicsTerms, self.wmap, u0=[140.0,0.,0.,0.], dumax=[5.,0.01,0.01,0.01], umin=[90.,-0.5,-0.2,-0.2], umax=[160.,0.5,0.2,0.2], dwduMap=self.Dwmap)
         # self.momentumController = self.manualMapping
         self.momentumController = self.wrenchLinWrapper
         self.positionController = positionControllerPakpongLike
