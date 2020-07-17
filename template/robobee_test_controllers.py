@@ -84,8 +84,7 @@ class WaypointHover(RobobeeController):
     
     def wrenchLinWrapper(self, *args):
         t, qb, dqb, pdes = args
-        pdes2 = [0,0,10.0,0,0,0] # FIXME: testing only vertical
-        self.u4 = self.wlqp.updateFromState(t, qb, dqb, pdes2)
+        self.u4 = self.wlqp.updateFromState(t, qb, dqb, pdes)
         Vmean, uoffs, udiff, h2 = self.u4
         # TODO: h2
         w = self.wf.update(t, self.P('freq'))
@@ -101,8 +100,6 @@ class WaypointHover(RobobeeController):
         dqb = dq[-6:]
         # momentum-based control
         self.pdes = self.positionController(self.posdes, qb, dqb)
-        # FIXME:
-        self.pdes[2] = 20
         return self.momentumController(t, qb, dqb, self.pdes)
         
     def manualMapping(self, t, qb, dqb, pdes):
