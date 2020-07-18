@@ -126,7 +126,7 @@ function readOLExpCSV(fname)
 	return Vs, [dat[dat[:,1] .== V,2:3] for V in Vs]
 end
 
-STROKE_ACT_COORDS = true # to respond to Rob question about what act disp was in these trials
+STROKE_ACT_COORDS = false # to respond to Rob question about what act disp was in these trials
 
 function toAct(stroke, τcoeffs)
 	param = copy(param0)
@@ -151,7 +151,7 @@ function olExpPlotCurves!(p, dataset, lbl; kwargs...)
 	end
 end
 
-function olExpPlot2(mop, datasets...; title="", ulim=0.6)
+function olExpPlot2(mop, datasets...; title="", ulim=0.5)
 	p = STROKE_ACT_COORDS ? 
 		plot(xlabel="Freq [Hz]", ylabel="Peak act disp [mm]", legend=:topleft, title=title) :
 		plot(xlabel="Freq [Hz]", ylabel="Norm. stroke ampl [deg/V]", ylims=(0.2,ulim), legend=:topleft, title=title)
@@ -249,9 +249,9 @@ wingDims = Dict{String,Tuple{Float64,Float64,Float64,Float64}}(
 τCOEFFS_SDAB = (2.6666, 0)
 τCOEFFS_BB = (3.28, 0)
 
-function liftPowerPlot(mop; includeBigbee=false)
-	p1 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="SDAB actuator")
-	p3 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow (S*V*f)", legend=false)
+function liftPowerPlot(mop; includeBigbee=true)
+	p1 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="SDAB actuator", ylim=(2,20))
+	p3 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow (S*V*f)", legend=false, ylim=(2,20))
 
 	function addToPlot!(p, pn, lbl, args...; kwargs...)
 		s, Vs = calculateStats(args...)
@@ -276,8 +276,8 @@ function liftPowerPlot(mop; includeBigbee=false)
 	addToPlot!(p1, p3, "modhAR", mop,  "data/normstroke/Param opt manuf 2 - mod4 b h2.csv", wingDims["4b"]...; markershape=:utriangle)
 
 	if includeBigbee
-		p2 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="BigBee actuator")
-		p4 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow (S*V*f)", legend=false)
+		p2 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="BigBee actuator", ylim=(2,20))
+		p4 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow (S*V*f)", legend=false, ylim=(2,20))
 		addToPlot!(p2, p4, "bigbee orig", mop, "data/normstroke/Param opt manuf 2 - bigbee orig.csv", wingDims["bigbee"]...)
 		addToPlot!(p2, p4, "bigbee 1b", mop,  "data/normstroke/Param opt manuf 2 - bigbee b1.csv", wingDims["1b"]...; markershape=:rect)
 		addToPlot!(p2, p4, "bigbee 4l", mop, "data/normstroke/Param opt manuf 2 - bigbee 4l3.csv", wingDims["4l"]...; markershape=:utriangle)
@@ -301,7 +301,7 @@ normStrokeSDAB(mop) = plot(
 	olExpPlot2(mop, 
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h2.csv")..., wingDims["4b2"], [120,150,190], :utriangle, τCOEFFS_MOD1),
 		(readOLExpCSV("data/normstroke/Param opt manuf 2 - halfbee1 4b1.csv")..., wingDims["4b"], [120,150,190], :+, τCOEFFS_SDAB),
-		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h1.csv")..., wingDims["4b"], [120,140,160], :dtriangle, τCOEFFS_MOD1);
+		(readOLExpCSV("data/normstroke/Param opt manuf 2 - mod4 b h1.csv")..., wingDims["4b"], [120,140], :dtriangle, τCOEFFS_MOD1);
 		title="Wing 4B1"),
 	size=(800,400))
 
@@ -320,7 +320,7 @@ normStrokeBigBee(mop) = plot(
 # --------------------------------------------------------
 mop = (m, opt, param0)
 
-# liftPowerPlot(mop)
+liftPowerPlot(mop)
 
 # normStrokeSDAB(mop)
 # normStrokeBigBee(mop)
