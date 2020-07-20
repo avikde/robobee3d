@@ -66,7 +66,7 @@ def positionControllerPakpongLike(posdes, qb, dqb):
         [Rm[0,1], Rm[1,1], Rm[2,1]], 
         [-Rm[0,0], -Rm[1,0], -Rm[2,0]], 
         [0,0,0]]) @ zdes # Pakpong (2013) (6)
-    Iomegades = -20.0*ornError - 1000.0*omega
+    Iomegades = -1e2*ornError - 1e3*omega
     
     return np.hstack((0, 0, 0.01 * (posdes[2] - qb[2]), Iomegades))
 
