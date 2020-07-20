@@ -44,7 +44,7 @@ def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
         np.hstack((Vmean, uoffs, f, udiff, h2, 
         olAvgWrench(Vmean, uoffs, f, udiff, h2))) 
         for Vmean in Vmeans for uoffs in uoffss for f in fs for udiff in udiffs for h2 in h2s])
-    with open('numwrench.npy', 'wb') as f:
+    with open(fname, 'wb') as f:
         np.save(f, res)
 
     # xdata = np.array([
