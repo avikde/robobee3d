@@ -30,10 +30,15 @@ def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
         nonlocal nrun
         nrun += 1
         bar.update(nrun)
+        # qw below contains wing kinematics as well as the wrench
         qw = bee.openLoop(Vmean * (1 + udiff), Vmean * (1 - udiff), uoffs, f, h2=h2, verbose=False)
-        # avg wrench
         NptsInPeriod = int(1/(f * bee.TIMESTEP))
-        return np.mean(qw[-NptsInPeriod:,-6:], axis=0)
+        # # avg wrench
+        # avgwrench = np.mean(qw[-NptsInPeriod:,-6:], axis=0)
+        # amplitudes
+        ampls = np.ptp(qw[-NptsInPeriod:,:4], axis=0)
+        ampls[[1,3]] = 0.5 * ampls[[1,3]] # pitch amplitude one-sided
+        return ampls
 
     res = np.array([
         np.hstack((Vmean, uoffs, f, udiff, h2, 
@@ -196,4 +201,4 @@ if __name__ == "__main__":
         fs = [0.17]
         udiffs = np.linspace(-0.2, 0.2, num=8)
         h2s = np.linspace(-0.2, 0.2, num=8)#[0.]
-        sweepFile('numwrench.npy', Vmeans, uoffss, fs, udiffs, h2s)
+        sweepFile('numkins.npy', Vmeans, uoffss, fs, udiffs, h2s)
