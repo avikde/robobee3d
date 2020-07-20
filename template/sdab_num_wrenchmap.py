@@ -118,8 +118,6 @@ class FunApprox:
 def wrenchFromKinematics(kins, params):
     """Analytical prediction of average wrench from kinematics features. See w2d_template.nb."""
     # params that affect aerodynamics
-    Aw = 54.4
-    # TODO:
 
     return ws
 
@@ -151,9 +149,7 @@ if __name__ == "__main__":
         with open(sys.argv[1], 'rb') as f:
             dat = np.load(f)
         Vmeans, uoffss, fs, udiffs, h2s, ws0, kins = unpackDat(dat)
-        # params that affect aerodynamics
-        params = {'Aw': 54.4}
-        ws = wrenchFromKinematics(kins, params)
+        ws = wrenchFromKinematics(kins, robobee.wparams)
         # TODO: compare ws0 to ws
 
         print("Unique in data:", np.unique(Vmeans), np.unique(uoffss), np.unique(fs), np.unique(udiffs), np.unique(h2s))

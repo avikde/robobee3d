@@ -15,32 +15,30 @@ RHO = 1.225e-3 # [mg/(mm^3)]
 
 rcopnondim = 0.5
 
+wparams = {'Aw': 54.4, 'r1h': 0.49, 'r2h': 0.551, 'cbar': 3.2}
+
 def aerodynamics(theta, dtheta, lrSign, params):
     """Return aerodynamic force and instantaneous CoP in the body frame (both in R^3). If flip=False it will work for the left wing (along +y axis), and if flip=True it will """
     theta[0] *= lrSign
     dtheta[0] *= lrSign
 
     # Faero = 1/2 * ρ * dφ^2 * Aw^2 * AR * m.r2h^2 * (Caero[1]*eD + Caero[2]*eL*sign(-dφ)) # [mN]
-    Aw = 54.4
-    r1h = 0.49
-    r2h = 0.551
-    cbar = 3.2 #params['cbar']
     rcnd = rcopnondim
 
-    cbar2 = cbar**2
-    AR = Aw / cbar2
-    Lw = Aw/cbar
+    cbar2 = wparams['cbar']**2
+    AR = wparams['Aw'] / cbar2
+    Lw = wparams['Aw']/wparams['cbar']
     ycp = params['ycp']#params['Rwing']*r1h #
 
     s, c = np.sin(theta[0]), np.cos(theta[0])
     sh, ch = np.sin(theta[1]), np.cos(theta[1])
     pcopB = np.array([0,params['Roffs'],params['d']]) + \
-        np.array([-ycp*s - cbar*rcnd*c*sh, ycp*c - cbar*rcnd*s*sh, -cbar*rcnd*ch])
+        np.array([-ycp*s - wparams['cbar']*rcnd*c*sh, ycp*c - wparams['cbar']*rcnd*s*sh, -wparams['cbar']*rcnd*ch])
     aoa = 0.5 * np.pi - theta[1]
     eD = np.array([dtheta[0]*c, dtheta[0]*s, 0])/(np.abs(dtheta[0]) + 1e-4) # so it is well-defined
     eL = np.array([0, 0, 1])
     Caero = [((CDmax + CD0)/2 - (CDmax - CD0)/2 * np.cos(2*aoa)), CLmax * np.sin(2*aoa)]
-    FaeroB = 0.5 * RHO * dtheta[0]**2 * Aw**2 * AR * r2h**2 * (Caero[0]*eD + Caero[1]*eL*np.sign(-dtheta[0]))
+    FaeroB = 0.5 * RHO * dtheta[0]**2 * wparams['Aw']**2 * AR * wparams['r2h']**2 * (Caero[0]*eD + Caero[1]*eL*np.sign(-dtheta[0]))
     
     if lrSign < 0:
         yflip = np.diag([1,-1,1])
