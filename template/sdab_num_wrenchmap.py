@@ -33,12 +33,12 @@ def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
         # qw below contains wing kinematics as well as the wrench
         qw = bee.openLoop(Vmean * (1 + udiff), Vmean * (1 - udiff), uoffs, f, h2=h2, verbose=False)
         NptsInPeriod = int(1/(f * bee.TIMESTEP))
-        # # avg wrench
-        # avgwrench = np.mean(qw[-NptsInPeriod:,-6:], axis=0)
+        # avg wrench
+        avgwrench = np.mean(qw[-NptsInPeriod:,-6:], axis=0)
         # amplitudes
         ampls = np.ptp(qw[-NptsInPeriod:,:4], axis=0)
         ampls[[1,3]] = 0.5 * ampls[[1,3]] # pitch amplitude one-sided
-        return ampls
+        return np.hstack((avgwrench, ampls))
 
     res = np.array([
         np.hstack((Vmean, uoffs, f, udiff, h2, 
@@ -55,7 +55,7 @@ def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
     # res = pool.map(test, xdata)
     # TODO: multiprocessing but need different copies of the sim too
 
-unpackDat = lambda dat : (dat[:,0], dat[:,1], dat[:,2], dat[:,3], dat[:,4], dat[:,5:])
+unpackDat = lambda dat : (dat[:,0], dat[:,1], dat[:,2], dat[:,3], dat[:,4], dat[:,5:11], dat[11:])
 
 def splineContour(ax, xiu, yiu, Zfun, length=50, dx=0, dy=0):
     dimrow = lambda row : np.linspace(row.min(), row.max(), length)
@@ -114,8 +114,6 @@ class FunApprox:
         # y = a0 + a1 * x + x^T * A2 * x
         return a1 + self.A2 @ xi
 
-
-"""Analytical function taking stroke/pitch amplitudes to avg wrench"""
 def wrenchFromKinematics(amps):
     """Analytical prediction of average wrench from kinematics features. See w2d_template.nb."""
     # params that affect aerodynamics
@@ -151,8 +149,9 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         with open(sys.argv[1], 'rb') as f:
             dat = np.load(f)
-        Vmeans, uoffss, fs, udiffs, h2s, kins = unpackDat(dat)
+        Vmeans, uoffss, fs, udiffs, h2s, ws0, kins = unpackDat(dat)
         ws = wrenchFromKinematics(kins)
+        # TODO: compare ws0 to ws
 
         print("Unique in data:", np.unique(Vmeans), np.unique(uoffss), np.unique(fs), np.unique(udiffs), np.unique(h2s))
         
