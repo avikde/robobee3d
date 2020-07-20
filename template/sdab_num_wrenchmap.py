@@ -36,9 +36,10 @@ def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
         # avg wrench
         avgwrench = np.mean(qw[-NptsInPeriod:,-6:], axis=0)
         # amplitudes
-        ampls = np.ptp(qw[-NptsInPeriod:,:4], axis=0)
-        ampls[[1,3]] = 0.5 * ampls[[1,3]] # pitch amplitude one-sided
-        return np.hstack((avgwrench, ampls))
+        qw = qw[-NptsInPeriod:,:4]
+        # for each wing, get max and min amplitude (corresponding to upstroke and downstroke)
+        kins = np.hstack([np.hstack((np.amax(qw[:,2*i:2*i+2], axis=0), -np.amin(qw[:,2*i:2*i+2], axis=0))) for i in range(2)]) # size 8
+        return np.hstack((avgwrench, kins))
 
     res = np.array([
         np.hstack((Vmean, uoffs, f, udiff, h2, 
@@ -114,7 +115,7 @@ class FunApprox:
         # y = a0 + a1 * x + x^T * A2 * x
         return a1 + self.A2 @ xi
 
-def wrenchFromKinematics(amps):
+def wrenchFromKinematics(kins, params):
     """Analytical prediction of average wrench from kinematics features. See w2d_template.nb."""
     # params that affect aerodynamics
     Aw = 54.4
@@ -150,7 +151,9 @@ if __name__ == "__main__":
         with open(sys.argv[1], 'rb') as f:
             dat = np.load(f)
         Vmeans, uoffss, fs, udiffs, h2s, ws0, kins = unpackDat(dat)
-        ws = wrenchFromKinematics(kins)
+        # params that affect aerodynamics
+        params = {'Aw': 54.4}
+        ws = wrenchFromKinematics(kins, params)
         # TODO: compare ws0 to ws
 
         print("Unique in data:", np.unique(Vmeans), np.unique(uoffss), np.unique(fs), np.unique(udiffs), np.unique(h2s))
