@@ -38,25 +38,25 @@ class WrenchLinQP(object):
         else:
             self.U = np.array(dumax)
     
-    def update(self, p0, h0, dt, Qd, pdes):
+    def update(self, h0, Qd, pdotdes):
+        """See https://github.com/avikde/robobee3d/pull/166"""
         if self.n >= 4:
             # assume ca6/sdab model
             curDwDu = self.dwduMap(self.u0)
-            # FIXME:
-            # print(curDwDu)
         else:
             # For testing other models (assume w=u if n != 6)
             curDwDu = np.eye(self.n)
             pdes = pdes[2:3] # assume z component
 
         # general form
-        A = np.eye(self.n)
-        a0 = p0 + dt * (self.w0 - h0)
+        A = np.eye(self.n) # for input rate limit
+
+        # Objective: momentum reference dynamics
+        a0 = self.w0 - h0 - pdotdes
         # print(curDwDu)
-        A1 = dt * curDwDu
+        A1 = curDwDu
         P = A1.T @ np.diag(Qd) @ A1
-        q = A1.T @ np.diag(Qd) @ (a0 - pdes)
-        # print("p0=", a0, "pdes=", pdes)
+        q = A1.T @ np.diag(Qd) @ a0
         L = -self.U
         U = np.copy(self.U)
 
@@ -84,10 +84,13 @@ class WrenchLinQP(object):
             r[0] = r[3] = self.u0[0]
             return r
     
-    def updateFromState(self, t, q, dq, pdes, dt=2):
+    def updateFromState(self, t, q, dq, pdes, kpmom=np.array([0,0,1,0.1,0.1,0.1])):
         M0, h0 = self.dynamicsTerms(q, dq) # B=I, since the input is B*w(u)
         p0 = M0 @ dq
         Qd = np.hstack((1.0*np.ones(3), 0.1*np.ones(3)))
+
+        # Momentum reference dynamics https://github.com/avikde/robobee3d/pull/166 TODO: incorporate as MPC
+        pdotdes = kpmom * (pdes - p0)
 
         if self.n < 4:
             # For testing other models (assume w=u if n<4)
@@ -95,7 +98,7 @@ class WrenchLinQP(object):
             Qd = Qd[2:3]
             h0 = np.zeros(1)
 
-        return self.update(p0, h0, dt, Qd, pdes)
+        return self.update(h0, Qd, pdotdes)
 
     def test(self):
         q = [0.,0,0,0,0,0,1]
