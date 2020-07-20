@@ -114,6 +114,16 @@ class FunApprox:
         # y = a0 + a1 * x + x^T * A2 * x
         return a1 + self.A2 @ xi
 
+
+"""Analytical function taking stroke/pitch amplitudes to avg wrench"""
+def wrenchFromKinematics(amps):
+    """Analytical prediction of average wrench from kinematics features. See w2d_template.nb."""
+    # params that affect aerodynamics
+    Aw = 54.4
+    # TODO:
+
+    return ws
+
 fa = FunApprox(4) # k
 
 """Function for the numerical versions of the wrench map and its Jacobian.
@@ -141,7 +151,9 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         with open(sys.argv[1], 'rb') as f:
             dat = np.load(f)
-        Vmeans, uoffss, fs, udiffs, h2s, ws = unpackDat(dat)
+        Vmeans, uoffss, fs, udiffs, h2s, kins = unpackDat(dat)
+        ws = wrenchFromKinematics(kins)
+
         print("Unique in data:", np.unique(Vmeans), np.unique(uoffss), np.unique(fs), np.unique(udiffs), np.unique(h2s))
         
         xdata = np.vstack((Vmeans, uoffss, udiffs, h2s)).T # k,M
