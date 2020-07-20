@@ -43,8 +43,6 @@ class WrenchLinQP(object):
         if self.n >= 4:
             # assume ca6/sdab model
             curDwDu = self.dwduMap(self.u0)
-            # FIXME:
-            # print(curDwDu)
         else:
             # For testing other models (assume w=u if n != 6)
             curDwDu = np.eye(self.n)
