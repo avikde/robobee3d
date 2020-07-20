@@ -84,7 +84,7 @@ class WrenchLinQP(object):
             r[0] = r[3] = self.u0[0]
             return r
     
-    def updateFromState(self, t, q, dq, pdes, kpmom=np.array([0.1,0.1,0.1,0.1,0.1,0.1])):
+    def updateFromState(self, t, q, dq, pdes, kpmom=np.array([0,0,1,0.1,0.1,0.1])):
         M0, h0 = self.dynamicsTerms(q, dq) # B=I, since the input is B*w(u)
         p0 = M0 @ dq
         Qd = np.hstack((1.0*np.ones(3), 0.1*np.ones(3)))
