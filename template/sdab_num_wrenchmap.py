@@ -31,14 +31,18 @@ def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
         nrun += 1
         bar.update(nrun)
         # qw below contains wing kinematics as well as the wrench
-        qw = bee.openLoop(Vmean * (1 + udiff), Vmean * (1 - udiff), uoffs, f, h2=h2, verbose=False)
+        sw = bee.openLoop(Vmean * (1 + udiff), Vmean * (1 - udiff), uoffs, f, h2=h2, verbose=False)
         NptsInPeriod = int(1/(f * bee.TIMESTEP))
         # avg wrench
-        avgwrench = np.mean(qw[-NptsInPeriod:,-6:], axis=0)
+        avgwrench = np.mean(sw[-NptsInPeriod:,-6:], axis=0)
         # amplitudes
-        qw = qw[-NptsInPeriod:,:4]
+        qw = sw[-NptsInPeriod:,:4]
+        dqw = sw[-NptsInPeriod:,4:8]
+        # to estimate alpha (fraction of period for upstroke)
+        ratioPosStrokeVel = np.sum(dqw[:,0] >= 0, axis=0) / NptsInPeriod
         # for each wing, get max and min amplitude (corresponding to upstroke and downstroke)
         kins = np.hstack([np.hstack((np.amax(qw[:,2*i:2*i+2], axis=0), -np.amin(qw[:,2*i:2*i+2], axis=0))) for i in range(2)]) # size 8
+        kins = np.hstack((kins, ratioPosStrokeVel)) # size 9
         return np.hstack((avgwrench, kins))
 
     res = np.array([
@@ -118,14 +122,14 @@ class FunApprox:
 def wrenchFromKinematics(kins, params):
     """Analytical prediction of average wrench from kinematics features. See w2d_template.nb."""
     # params that affect aerodynamics
-    iwrencha = (-4*((-2 + alpha)*c2Psi1*(CD0 - CDmax) + alpha*c2Psi2*(CD0 - CDmax) - 2*(-1 + alpha)*(CD0 + CDmax))*cPhim*f2*kaero*
-      Phid*sPhid)/((-2 + alpha)*alpha),(-4*((-2 + alpha)*c2Psi1*(CD0 - CDmax) + alpha*c2Psi2*(CD0 - CDmax) - 
-        2*(-1 + alpha)*(CD0 + CDmax))*f2*kaero*Phid*sPhid*sPhim)/((-2 + alpha)*alpha),
-   (8*CLmax*f2*kaero*Phid2*((-2 + alpha)*s2Psi1 + alpha*s2Psi2))/((-2 + alpha)*alpha),
-   (8*CLmax*cPhim*f2*kaero*Phid*((-2 + alpha)*s2Psi1 + alpha*s2Psi2)*sPhid*ycp)/((-2 + alpha)*alpha),
-   (8*CLmax*f2*kaero*Phid*((-2 + alpha)*s2Psi1 + alpha*s2Psi2)*sPhid*sPhim*ycp)/((-2 + alpha)*alpha),
-   (4*((-2 + alpha)*c2Psi1*(CD0 - CDmax) + alpha*c2Psi2*(CD0 - CDmax) - 2*(-1 + alpha)*(CD0 + CDmax))*f2*kaero*Phid2*ycp)/
-    ((-2 + alpha)*alpha)
+    iwrencha = np.array([
+        (-4*((-2 + alpha)*c2Psi1*(CD0 - CDmax) + alpha*c2Psi2*(CD0 - CDmax) - 2*(-1 + alpha)*(CD0 + CDmax))*cPhim*f2*kaero*Phid*sPhid)/((-2 + alpha)*alpha),
+        (-4*((-2 + alpha)*c2Psi1*(CD0 - CDmax) + alpha*c2Psi2*(CD0 - CDmax) - 2*(-1 + alpha)*(CD0 + CDmax))*f2*kaero*Phid*sPhid*sPhim)/((-2 + alpha)*alpha),
+        (8*CLmax*f2*kaero*Phid2*((-2 + alpha)*s2Psi1 + alpha*s2Psi2))/((-2 + alpha)*alpha),
+        (8*CLmax*cPhim*f2*kaero*Phid*((-2 + alpha)*s2Psi1 + alpha*s2Psi2)*sPhid*ycp)/((-2 + alpha)*alpha),
+        (8*CLmax*f2*kaero*Phid*((-2 + alpha)*s2Psi1 + alpha*s2Psi2)*sPhid*sPhim*ycp)/((-2 + alpha)*alpha),
+        (4*((-2 + alpha)*c2Psi1*(CD0 - CDmax) + alpha*c2Psi2*(CD0 - CDmax) - 2*(-1 + alpha)*(CD0 + CDmax))*f2*kaero*Phid2*ycp)/((-2 + alpha)*alpha)
+    ])
     return ws
 
 fa = FunApprox(4) # k

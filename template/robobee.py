@@ -287,7 +287,7 @@ class RobobeeSim():
             waeroL = wrench(*aerodynamics(self.q[0:2], self.dq[0:2], 1, self.urdfParams))
             waeroR = wrench(*aerodynamics(-self.q[2:4], -self.dq[2:4], -1, self.urdfParams))
             # data contains wing kinematics and wrench
-            qw.append(np.copy(np.hstack((self.q[:4], waeroL + waeroR))))
+            qw.append(np.copy(np.hstack((self.q[:4], self.dq[:4], waeroL + waeroR))))
             self.update(tau)
         
         return np.array(qw)
