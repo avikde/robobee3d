@@ -119,12 +119,12 @@ class FunApprox:
         # y = a0 + a1 * x + x^T * A2 * x
         return a1 + self.A2 @ xi
 
-def wrenchFromKinematics(kins, freq, params, kaerox=1):
+def wrenchFromKinematics(kins, freq, params, kaerox=1, strokex=1):
     """Analytical prediction of average wrench from kinematics features. See w2d_template.nb."""
     if len(kins.shape) > 1:
         # apply to each row and return result
         N = kins.shape[0]
-        return np.array([wrenchFromKinematics(kins[i,:], freq[i], params, kaerox=kaerox) for i in range(N)])
+        return np.array([wrenchFromKinematics(kins[i,:], freq[i], params, kaerox=kaerox, strokex=strokex) for i in range(N)])
     
     # unpack params
     CD0 = robobee.CD0
@@ -153,7 +153,7 @@ def wrenchFromKinematics(kins, freq, params, kaerox=1):
     
     def remapKins(q1max, q2max, q1nmin, q2nmin):
         Phim = 0.5 * (q1max - q1nmin)
-        Phid = 0.5 * (q1max + q1nmin)
+        Phid = 0.5 * (q1max + q1nmin) * strokex
         Psi1 = q2max
         Psi2 = -q2nmin
         return Phim, Phid, Psi1, Psi2
@@ -203,8 +203,8 @@ if __name__ == "__main__":
             dat = np.load(f)
         Vmeans, uoffss, fs, udiffs, h2s, ws0, kins = unpackDat(dat)
         params = robobee.wparams.copy()
-        params.update({'ycp': 7.5, 'AR': 4.5, 'R': 6})
-        ws = wrenchFromKinematics(kins, fs, params, kaerox=1.5)
+        params.update({'ycp': 7.5, 'AR': 4.5, 'R': 3})
+        ws = wrenchFromKinematics(kins, fs, params, kaerox=1.2, strokex=1.1)
         # TODO: compare ws0 to ws
         wrenchCompare(ws0, ws)
         sys.exit()
