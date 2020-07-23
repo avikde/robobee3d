@@ -60,7 +60,7 @@ def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
     # res = pool.map(test, xdata)
     # TODO: multiprocessing but need different copies of the sim too
 
-unpackDat = lambda dat : (dat[:,0], dat[:,1], dat[:,2], dat[:,3], dat[:,4], dat[:,5:11], dat[11:])
+unpackDat = lambda dat : (dat[:,0], dat[:,1], dat[:,2], dat[:,3], dat[:,4], dat[:,5:11], dat[:,11:])
 
 def splineContour(ax, xiu, yiu, Zfun, length=50, dx=0, dy=0):
     dimrow = lambda row : np.linspace(row.min(), row.max(), length)
@@ -119,18 +119,45 @@ class FunApprox:
         # y = a0 + a1 * x + x^T * A2 * x
         return a1 + self.A2 @ xi
 
-def wrenchFromKinematics(kins, params):
+def wrenchFromKinematics(kins, freq, params):
     """Analytical prediction of average wrench from kinematics features. See w2d_template.nb."""
-    # params that affect aerodynamics
-    iwrencha = np.array([
-        (-4*((-2 + alpha)*c2Psi1*(CD0 - CDmax) + alpha*c2Psi2*(CD0 - CDmax) - 2*(-1 + alpha)*(CD0 + CDmax))*cPhim*f2*kaero*Phid*sPhid)/((-2 + alpha)*alpha),
-        (-4*((-2 + alpha)*c2Psi1*(CD0 - CDmax) + alpha*c2Psi2*(CD0 - CDmax) - 2*(-1 + alpha)*(CD0 + CDmax))*f2*kaero*Phid*sPhid*sPhim)/((-2 + alpha)*alpha),
-        (8*CLmax*f2*kaero*Phid2*((-2 + alpha)*s2Psi1 + alpha*s2Psi2))/((-2 + alpha)*alpha),
-        (8*CLmax*cPhim*f2*kaero*Phid*((-2 + alpha)*s2Psi1 + alpha*s2Psi2)*sPhid*ycp)/((-2 + alpha)*alpha),
-        (8*CLmax*f2*kaero*Phid*((-2 + alpha)*s2Psi1 + alpha*s2Psi2)*sPhid*sPhim*ycp)/((-2 + alpha)*alpha),
-        (4*((-2 + alpha)*c2Psi1*(CD0 - CDmax) + alpha*c2Psi2*(CD0 - CDmax) - 2*(-1 + alpha)*(CD0 + CDmax))*f2*kaero*Phid2*ycp)/((-2 + alpha)*alpha)
-    ])
-    return ws
+    if len(kins.shape) > 1:
+        # apply to each row and return result
+        N = kins.shape[0]
+        return np.array([wrenchFromKinematics(kins[i,:], freq[i], params) for i in range(N)])
+    
+    # unpack params
+    CD0 = robobee.CD0
+    CDmax = robobee.CDmax
+    CLmax = robobee.CLmax
+    f2 = freq**2
+    kaero = 1/2 * robobee.RHO * params['Aw']**2 * params['AR'] * params['r2h']**2
+    ycp = params['ycp']
+
+    def iwrencha(Phim, Phid, Psi1, Psi2, alpha):
+        """From w2d_template.nb"""
+        c2Psi1, s2Psi1 = np.cos(2*Psi1), np.sin(2*Psi1)
+        c2Psi2, s2Psi2 = np.cos(2*Psi2), np.sin(2*Psi2)
+        cPhid, sPhid = np.cos(Phid), np.sin(Phid)
+        cPhim, sPhim = np.cos(Phim), np.sin(Phim)
+        Phid2 = Phid**2
+        return np.array([
+            (-4*((-2 + alpha)*c2Psi1*(CD0 - CDmax) + alpha*c2Psi2*(CD0 - CDmax) - 2*(-1 + alpha)*(CD0 + CDmax))*cPhim*f2*kaero*Phid*sPhid)/((-2 + alpha)*alpha),
+            (-4*((-2 + alpha)*c2Psi1*(CD0 - CDmax) + alpha*c2Psi2*(CD0 - CDmax) - 2*(-1 + alpha)*(CD0 + CDmax))*f2*kaero*Phid*sPhid*sPhim)/((-2 + alpha)*alpha),
+            (8*CLmax*f2*kaero*Phid2*((-2 + alpha)*s2Psi1 + alpha*s2Psi2))/((-2 + alpha)*alpha),
+            (8*CLmax*cPhim*f2*kaero*Phid*((-2 + alpha)*s2Psi1 + alpha*s2Psi2)*sPhid*ycp)/((-2 + alpha)*alpha),
+            (8*CLmax*f2*kaero*Phid*((-2 + alpha)*s2Psi1 + alpha*s2Psi2)*sPhid*sPhim*ycp)/((-2 + alpha)*alpha),
+            (4*((-2 + alpha)*c2Psi1*(CD0 - CDmax) + alpha*c2Psi2*(CD0 - CDmax) - 2*(-1 + alpha)*(CD0 + CDmax))*f2*kaero*Phid2*ycp)/((-2 + alpha)*alpha)
+            ])
+    
+    # unpack the stored numerical kinematics features
+    ampls = kins[:4], kins[4:8]
+    dalpha = kins[8] - 1.0
+
+    # Symmetry mapping right to left
+    Symmw = np.array([1,-1,1,-1,1,-1])
+
+    return iwrencha(*ampls[0], 1 + dalpha) + Symmw * iwrencha(*ampls[1], 1 - dalpha)
 
 fa = FunApprox(4) # k
 
@@ -160,8 +187,12 @@ if __name__ == "__main__":
         with open(sys.argv[1], 'rb') as f:
             dat = np.load(f)
         Vmeans, uoffss, fs, udiffs, h2s, ws0, kins = unpackDat(dat)
-        ws = wrenchFromKinematics(kins, robobee.wparams)
+        params = robobee.wparams.copy()
+        params.update({'ycp': 10, 'AR': 5})
+        ws = wrenchFromKinematics(kins, fs, params)
         # TODO: compare ws0 to ws
+        print(ws.shape)
+        sys.exit()
 
         print("Unique in data:", np.unique(Vmeans), np.unique(uoffss), np.unique(fs), np.unique(udiffs), np.unique(h2s))
         
