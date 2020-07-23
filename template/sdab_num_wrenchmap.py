@@ -119,20 +119,21 @@ class FunApprox:
         # y = a0 + a1 * x + x^T * A2 * x
         return a1 + self.A2 @ xi
 
-def wrenchFromKinematics(kins, freq, params):
+def wrenchFromKinematics(kins, freq, params, kaerox=1):
     """Analytical prediction of average wrench from kinematics features. See w2d_template.nb."""
     if len(kins.shape) > 1:
         # apply to each row and return result
         N = kins.shape[0]
-        return np.array([wrenchFromKinematics(kins[i,:], freq[i], params) for i in range(N)])
+        return np.array([wrenchFromKinematics(kins[i,:], freq[i], params, kaerox=kaerox) for i in range(N)])
     
     # unpack params
     CD0 = robobee.CD0
     CDmax = robobee.CDmax
     CLmax = robobee.CLmax
     f2 = freq**2
-    kaero = 1/2 * robobee.RHO * params['Aw']**2 * params['AR'] * params['r2h']**2
+    kaero = 1/2 * robobee.RHO * params['Aw']**2 * params['AR'] * params['r2h']**2 * kaerox
     ycp = params['ycp']
+    R = params['R']
 
     def iwrencha(Phim, Phid, Psi1, Psi2, alpha):
         """From w2d_template.nb"""
@@ -145,9 +146,9 @@ def wrenchFromKinematics(kins, freq, params):
             (-4*((-2 + alpha)*c2Psi1*(CD0 - CDmax) + alpha*c2Psi2*(CD0 - CDmax) - 2*(-1 + alpha)*(CD0 + CDmax))*cPhim*f2*kaero*Phid*sPhid)/((-2 + alpha)*alpha),
             (-4*((-2 + alpha)*c2Psi1*(CD0 - CDmax) + alpha*c2Psi2*(CD0 - CDmax) - 2*(-1 + alpha)*(CD0 + CDmax))*f2*kaero*Phid*sPhid*sPhim)/((-2 + alpha)*alpha),
             (8*CLmax*f2*kaero*Phid2*((-2 + alpha)*s2Psi1 + alpha*s2Psi2))/((-2 + alpha)*alpha),
-            (8*CLmax*cPhim*f2*kaero*Phid*((-2 + alpha)*s2Psi1 + alpha*s2Psi2)*sPhid*ycp)/((-2 + alpha)*alpha),
+            (8*CLmax*f2*kaero*Phid*((-2 + alpha)*s2Psi1 + alpha*s2Psi2)*(Phid*R +cPhim*sPhid*ycp))/((-2 + alpha)*alpha),
             (8*CLmax*f2*kaero*Phid*((-2 + alpha)*s2Psi1 + alpha*s2Psi2)*sPhid*sPhim*ycp)/((-2 + alpha)*alpha),
-            (4*((-2 + alpha)*c2Psi1*(CD0 - CDmax) + alpha*c2Psi2*(CD0 - CDmax) - 2*(-1 + alpha)*(CD0 + CDmax))*f2*kaero*Phid2*ycp)/((-2 + alpha)*alpha)
+            (4*((-2 + alpha)*c2Psi1*(CD0 - CDmax) + alpha*c2Psi2*(CD0 - CDmax) - 2*(-1 + alpha)*(CD0 + CDmax))*f2*kaero*Phid*(cPhim*R*sPhid + Phid*ycp))/((-2 + alpha)*alpha)
             ])
     
     def remapKins(q1max, q2max, q1nmin, q2nmin):
@@ -202,8 +203,8 @@ if __name__ == "__main__":
             dat = np.load(f)
         Vmeans, uoffss, fs, udiffs, h2s, ws0, kins = unpackDat(dat)
         params = robobee.wparams.copy()
-        params.update({'ycp': 10, 'AR': 5})
-        ws = wrenchFromKinematics(kins, fs, params)
+        params.update({'ycp': 7.5, 'AR': 4.5, 'R': 6})
+        ws = wrenchFromKinematics(kins, fs, params, kaerox=1.5)
         # TODO: compare ws0 to ws
         wrenchCompare(ws0, ws)
         sys.exit()
