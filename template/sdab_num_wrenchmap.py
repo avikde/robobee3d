@@ -150,14 +150,28 @@ def wrenchFromKinematics(kins, freq, params):
             (4*((-2 + alpha)*c2Psi1*(CD0 - CDmax) + alpha*c2Psi2*(CD0 - CDmax) - 2*(-1 + alpha)*(CD0 + CDmax))*f2*kaero*Phid2*ycp)/((-2 + alpha)*alpha)
             ])
     
+    def remapKins(q1max, q2max, q1nmin, q2nmin):
+        Phim = 0.5 * (q1max - q1nmin)
+        Phid = 0.5 * (q1max + q1nmin)
+        Psi1 = q2max
+        Psi2 = -q2nmin
+        return Phim, Phid, Psi1, Psi2
+
     # unpack the stored numerical kinematics features
-    ampls = kins[:4], kins[4:8]
-    dalpha = kins[8] - 1.0
+    ampls = remapKins(*kins[:4]), remapKins(*kins[4:8])
+    dalpha = 2*kins[8] - 1.0
 
     # Symmetry mapping right to left
     Symmw = np.array([1,-1,1,-1,1,-1])
 
-    return iwrencha(*ampls[0], 1 + dalpha) + Symmw * iwrencha(*ampls[1], 1 - dalpha)
+    return iwrencha(*ampls[0], 1 - dalpha) + Symmw * iwrencha(*ampls[1], 1 + dalpha)
+
+def wrenchCompare(ws, ws2):
+    fig, ax = plt.subplots(6)
+    for i in range(6):
+        ax[i].plot(ws[:,i], '.')
+        ax[i].plot(ws2[:,i], '.')
+    plt.show()
 
 fa = FunApprox(4) # k
 
@@ -191,7 +205,7 @@ if __name__ == "__main__":
         params.update({'ycp': 10, 'AR': 5})
         ws = wrenchFromKinematics(kins, fs, params)
         # TODO: compare ws0 to ws
-        print(ws.shape)
+        wrenchCompare(ws0, ws)
         sys.exit()
 
         print("Unique in data:", np.unique(Vmeans), np.unique(uoffss), np.unique(fs), np.unique(udiffs), np.unique(h2s))
