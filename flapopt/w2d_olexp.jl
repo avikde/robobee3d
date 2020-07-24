@@ -252,8 +252,8 @@ wingDims = Dict{String,Tuple{Float64,Float64,Float64,Float64}}(
 τCOEFFS_BB = (3.28, 0)
 
 function liftPowerPlot(mop; includeBigbee=true)
-	p1 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="SDAB actuator", ylim=(2,20))
-	p3 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow (S*V*f)", legend=false, ylim=(2,20))
+	p1 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="SDAB actuator", ylim=(5,25))
+	p3 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow (S*V*f)", legend=false, ylim=(5,25))
 
 	function addToPlot!(p, pn, lbl, tau, args...; kwargs...)
 		s, Vs = calculateStats(tau, args...)
@@ -280,8 +280,8 @@ function liftPowerPlot(mop; includeBigbee=true)
 	addToPlot!(p1, p3, "modhAR", τmod1Avg, mop,  "data/normstroke/Param opt manuf 2 - mod4 b h2.csv", wingDims["4b"]...; markershape=:utriangle)
 
 	if includeBigbee
-		p2 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="BigBee actuator", ylim=(2,20))
-		p4 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow (S*V*f)", legend=false, ylim=(2,20))
+		p2 = plot(xlabel="FL [mg]", ylabel="pow (S*V*f)", legend=:topleft, title="BigBee actuator", ylim=(2,15))
+		p4 = plot(xlabel="FL/V^2 [ug/V^2]", ylabel="pow (S*V*f)", legend=false, ylim=(2,15))
 		addToPlot!(p2, p4, "bigbee orig", τCOEFFS_BB[1], mop, "data/normstroke/Param opt manuf 2 - bigbee orig.csv", wingDims["bigbee"]...)
 		addToPlot!(p2, p4, "bigbee 1b", τCOEFFS_BB[1], mop,  "data/normstroke/Param opt manuf 2 - bigbee b1.csv", wingDims["1b"]...; markershape=:rect)
 		addToPlot!(p2, p4, "bigbee 4l", τCOEFFS_BB[1], mop, "data/normstroke/Param opt manuf 2 - bigbee 4l3.csv", wingDims["4l"]...; markershape=:utriangle)
