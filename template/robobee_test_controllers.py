@@ -72,11 +72,13 @@ def positionControllerPakpongLike(posdes, qb, dqb):
 
 class WaypointHover(RobobeeController):
     """Simplified version of Pakpong (2013). u = [Vmean, uoffs, udiff, h2]"""
-    def __init__(self):
+    def __init__(self, wrenchMapPoptsFile, constPdes=None):
         super(WaypointHover, self).__init__({'freq': (0, 0.3, 0.16)})
         self.wf = WaveformGenerator()
         self.posdes = np.array([0.,0.,100.])
-        popts = np.load('popts.npy')
+        self.constPdes = constPdes
+        popts = np.load(wrenchMapPoptsFile)
+        print('Loaded wrenchMap params from', wrenchMapPoptsFile, '\npopts=\n', popts)
         self.wmap = lambda u : wrenchMap(u, popts)
         self.Dwmap = lambda u : dw_du(u, popts)
         self.wlqp = WrenchLinQP(4, 4, dynamicsTerms, self.wmap, 
@@ -110,7 +112,7 @@ class WaypointHover(RobobeeController):
         qb = q[-7:]
         dqb = dq[-6:]
         # momentum-based control
-        self.pdes = self.positionController(self.posdes, qb, dqb)
+        self.pdes = self.constPdes if self.constPdes is not None else self.positionController(self.posdes, qb, dqb)
         return self.momentumController(t, qb, dqb, self.pdes)
         
     def manualMapping(self, t, qb, dqb, pdes):

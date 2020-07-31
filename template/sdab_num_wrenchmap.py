@@ -205,9 +205,9 @@ if __name__ == "__main__":
         params = robobee.wparams.copy()
         params.update({'ycp': 7.5, 'AR': 4.5, 'R': 3})
         ws = wrenchFromKinematics(kins, fs, params, kaerox=1.2, strokex=1.1)
-        # TODO: compare ws0 to ws
-        wrenchCompare(ws0, ws)
-        sys.exit()
+        
+        # wrenchCompare(ws0, ws) # compare ws0 to ws
+        # sys.exit()
 
         print("Unique in data:", np.unique(Vmeans), np.unique(uoffss), np.unique(fs), np.unique(udiffs), np.unique(h2s))
         
