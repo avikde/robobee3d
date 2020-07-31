@@ -7,6 +7,7 @@ import viewlog
 np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
 parser = argparse.ArgumentParser(description='Process some integers.')
+parser.add_argument('poptsFile', nargs='?', default='popts.npy')
 parser.add_argument('-t', '--tend', type=float, default=np.inf, help='end time [ms]')
 parser.add_argument('-d', '--direct', action='store_true', default=False, help='direct mode (no visualization)')
 args = parser.parse_args()
@@ -33,7 +34,7 @@ for ti in range(1, len(tdraw)):
 # ---
 
 # controller = OpenLoop()
-controller = WaypointHover()
+controller = WaypointHover(args.poptsFile, useh2=False)#, constPdes=[0.,0,10,0,0,0])
 
 # --- Actual simulation ---
 try:

@@ -30,16 +30,26 @@ def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
         nonlocal nrun
         nrun += 1
         bar.update(nrun)
-        qw = bee.openLoop(Vmean * (1 + udiff), Vmean * (1 - udiff), uoffs, f, h2=h2, verbose=False)
-        # avg wrench
+        # qw below contains wing kinematics as well as the wrench
+        sw = bee.openLoop(Vmean * (1 + udiff), Vmean * (1 - udiff), uoffs, f, h2=h2, verbose=False)
         NptsInPeriod = int(1/(f * bee.TIMESTEP))
-        return np.mean(qw[-NptsInPeriod:,-6:], axis=0)
+        # avg wrench
+        avgwrench = np.mean(sw[-NptsInPeriod:,-6:], axis=0)
+        # amplitudes
+        qw = sw[-NptsInPeriod:,:4]
+        dqw = sw[-NptsInPeriod:,4:8]
+        # to estimate alpha (fraction of period for upstroke)
+        ratioPosStrokeVel = np.sum(dqw[:,0] >= 0, axis=0) / NptsInPeriod
+        # for each wing, get max and min amplitude (corresponding to upstroke and downstroke)
+        kins = np.hstack([np.hstack((np.amax(qw[:,2*i:2*i+2], axis=0), -np.amin(qw[:,2*i:2*i+2], axis=0))) for i in range(2)]) # size 8
+        kins = np.hstack((kins, ratioPosStrokeVel)) # size 9
+        return np.hstack((avgwrench, kins))
 
     res = np.array([
         np.hstack((Vmean, uoffs, f, udiff, h2, 
         olAvgWrench(Vmean, uoffs, f, udiff, h2))) 
         for Vmean in Vmeans for uoffs in uoffss for f in fs for udiff in udiffs for h2 in h2s])
-    with open('numwrench.npy', 'wb') as f:
+    with open(fname, 'wb') as f:
         np.save(f, res)
 
     # xdata = np.array([
@@ -50,7 +60,7 @@ def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
     # res = pool.map(test, xdata)
     # TODO: multiprocessing but need different copies of the sim too
 
-unpackDat = lambda dat : (dat[:,0], dat[:,1], dat[:,2], dat[:,3], dat[:,4], dat[:,5:])
+unpackDat = lambda dat : (dat[:,0], dat[:,1], dat[:,2], dat[:,3], dat[:,4], dat[:,5:11], dat[:,11:])
 
 def splineContour(ax, xiu, yiu, Zfun, length=50, dx=0, dy=0):
     dimrow = lambda row : np.linspace(row.min(), row.max(), length)
@@ -109,6 +119,61 @@ class FunApprox:
         # y = a0 + a1 * x + x^T * A2 * x
         return a1 + self.A2 @ xi
 
+def wrenchFromKinematics(kins, freq, params, kaerox=1, strokex=1):
+    """Analytical prediction of average wrench from kinematics features. See w2d_template.nb."""
+    if len(kins.shape) > 1:
+        # apply to each row and return result
+        N = kins.shape[0]
+        return np.array([wrenchFromKinematics(kins[i,:], freq[i], params, kaerox=kaerox, strokex=strokex) for i in range(N)])
+    
+    # unpack params
+    CD0 = robobee.CD0
+    CDmax = robobee.CDmax
+    CLmax = robobee.CLmax
+    f2 = freq**2
+    kaero = 1/2 * robobee.RHO * params['Aw']**2 * params['AR'] * params['r2h']**2 * kaerox
+    ycp = params['ycp']
+    R = params['R']
+
+    def iwrencha(Phim, Phid, Psi1, Psi2, alpha):
+        """From w2d_template.nb"""
+        c2Psi1, s2Psi1 = np.cos(2*Psi1), np.sin(2*Psi1)
+        c2Psi2, s2Psi2 = np.cos(2*Psi2), np.sin(2*Psi2)
+        cPhid, sPhid = np.cos(Phid), np.sin(Phid)
+        cPhim, sPhim = np.cos(Phim), np.sin(Phim)
+        Phid2 = Phid**2
+        return np.array([
+            (-4*((-2 + alpha)*c2Psi1*(CD0 - CDmax) + alpha*c2Psi2*(CD0 - CDmax) - 2*(-1 + alpha)*(CD0 + CDmax))*cPhim*f2*kaero*Phid*sPhid)/((-2 + alpha)*alpha),
+            (-4*((-2 + alpha)*c2Psi1*(CD0 - CDmax) + alpha*c2Psi2*(CD0 - CDmax) - 2*(-1 + alpha)*(CD0 + CDmax))*f2*kaero*Phid*sPhid*sPhim)/((-2 + alpha)*alpha),
+            (8*CLmax*f2*kaero*Phid2*((-2 + alpha)*s2Psi1 + alpha*s2Psi2))/((-2 + alpha)*alpha),
+            (8*CLmax*f2*kaero*Phid*((-2 + alpha)*s2Psi1 + alpha*s2Psi2)*(Phid*R +cPhim*sPhid*ycp))/((-2 + alpha)*alpha),
+            (8*CLmax*f2*kaero*Phid*((-2 + alpha)*s2Psi1 + alpha*s2Psi2)*sPhid*sPhim*ycp)/((-2 + alpha)*alpha),
+            (4*((-2 + alpha)*c2Psi1*(CD0 - CDmax) + alpha*c2Psi2*(CD0 - CDmax) - 2*(-1 + alpha)*(CD0 + CDmax))*f2*kaero*Phid*(cPhim*R*sPhid + Phid*ycp))/((-2 + alpha)*alpha)
+            ])
+    
+    def remapKins(q1max, q2max, q1nmin, q2nmin):
+        Phim = 0.5 * (q1max - q1nmin)
+        Phid = 0.5 * (q1max + q1nmin) * strokex
+        Psi1 = q2max
+        Psi2 = -q2nmin
+        return Phim, Phid, Psi1, Psi2
+
+    # unpack the stored numerical kinematics features
+    ampls = remapKins(*kins[:4]), remapKins(*kins[4:8])
+    dalpha = 2*kins[8] - 1.0
+
+    # Symmetry mapping right to left
+    Symmw = np.array([1,-1,1,-1,1,-1])
+
+    return iwrencha(*ampls[0], 1 - dalpha) + Symmw * iwrencha(*ampls[1], 1 + dalpha)
+
+def wrenchCompare(ws, ws2):
+    fig, ax = plt.subplots(6)
+    for i in range(6):
+        ax[i].plot(ws[:,i], '.')
+        ax[i].plot(ws2[:,i], '.')
+    plt.show()
+
 fa = FunApprox(4) # k
 
 """Function for the numerical versions of the wrench map and its Jacobian.
@@ -136,7 +201,14 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         with open(sys.argv[1], 'rb') as f:
             dat = np.load(f)
-        Vmeans, uoffss, fs, udiffs, h2s, ws = unpackDat(dat)
+        Vmeans, uoffss, fs, udiffs, h2s, ws0, kins = unpackDat(dat)
+        params = robobee.wparams.copy()
+        params.update({'ycp': 7.5, 'AR': 4.5, 'R': 3})
+        ws = wrenchFromKinematics(kins, fs, params, kaerox=1.2, strokex=1.1)
+        
+        # wrenchCompare(ws0, ws) # compare ws0 to ws
+        # sys.exit()
+
         print("Unique in data:", np.unique(Vmeans), np.unique(uoffss), np.unique(fs), np.unique(udiffs), np.unique(h2s))
         
         xdata = np.vstack((Vmeans, uoffss, udiffs, h2s)).T # k,M
@@ -196,4 +268,4 @@ if __name__ == "__main__":
         fs = [0.17]
         udiffs = np.linspace(-0.2, 0.2, num=8)
         h2s = np.linspace(-0.2, 0.2, num=8)#[0.]
-        sweepFile('numwrench.npy', Vmeans, uoffss, fs, udiffs, h2s)
+        sweepFile('numkins.npy', Vmeans, uoffss, fs, udiffs, h2s)
