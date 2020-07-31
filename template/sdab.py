@@ -34,7 +34,7 @@ for ti in range(1, len(tdraw)):
 # ---
 
 # controller = OpenLoop()
-controller = WaypointHover(args.poptsFile, constPdes=[0.,0,10,0,0,0])
+controller = WaypointHover(args.poptsFile, useh2=False)#, constPdes=[0.,0,10,0,0,0])
 
 # --- Actual simulation ---
 try:
