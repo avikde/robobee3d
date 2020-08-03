@@ -68,8 +68,20 @@ def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
 def loadEmpiricalData(fnameCSV):
     # Loading the sim-generated data looks like this `Vmeans, uoffss, fs, udiffs, h2s, ws0, kins = unpackDat(dat)``
     # From the empirical data should be able to replicate all this except for ws0
-    dat = np.genfromtxt(fnameCSV, delimiter=",", skip_header=2)
-    print('hi', dat)
+    datcsv = np.genfromtxt(fnameCSV, delimiter=",", skip_header=2)
+    # unpack https://docs.google.com/spreadsheets/d/1Sa6lT008fpYqdgcjl0M7Nx5MlD-OYx808FP6nt6We5A/edit#gid=0
+    fs, Vleft, Vright, drv_pch, h2 = datcsv[:,0], datcsv[:,1], datcsv[:,2], datcsv[:,3], datcsv[:,4]
+    rawT, rawB = datcsv[:,5:9], datcsv[:,9:13]
+    Nrows = len(fs)
+    # print(datcsv)
+
+    def convertRawKins(rawKins):
+        scaledKins = rawKins # TODO:
+        return scaledKins
+    
+    alpha = 0.5 * np.ones(Nrows) # no information about this
+    kins = np.hstack((convertRawKins(rawT), convertRawKins(rawB), alpha[:,np.newaxis]))
+
     sys.exit()
 
 # Load data and fit a function --------------------------------------------------------------------------
