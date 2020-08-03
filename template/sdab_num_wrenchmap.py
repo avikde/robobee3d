@@ -25,7 +25,7 @@ def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
     ]
     bar = progressbar.ProgressBar(widgets=widgets, max_value=len(Vmeans)*len(uoffss)*len(fs)*len(udiffs)*len(h2s))
 
-    def olAvgWrench(Vmean, uoffs, f, udiff, h2):
+    def olAvgWrenchKinFeat(Vmean, uoffs, f, udiff, h2):
         """Incorporate both wings"""
         nonlocal nrun
         nrun += 1
@@ -33,8 +33,9 @@ def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
         # qw below contains wing kinematics as well as the wrench
         sw = bee.openLoop(Vmean * (1 + udiff), Vmean * (1 - udiff), uoffs, f, h2=h2, verbose=False)
         NptsInPeriod = int(1/(f * bee.TIMESTEP))
-        # avg wrench
+        # avg wrench (stored from sim for calibrating the kinfeat -> wrench analytical prediction)
         avgwrench = np.mean(sw[-NptsInPeriod:,-6:], axis=0)
+        # Kinematics features:
         # amplitudes
         qw = sw[-NptsInPeriod:,:4]
         dqw = sw[-NptsInPeriod:,4:8]
