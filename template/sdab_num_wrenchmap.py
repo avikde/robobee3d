@@ -1,4 +1,4 @@
-import subprocess, sys, progressbar
+import subprocess, sys, progressbar, os
 import autograd.numpy as np
 from scipy.interpolate import SmoothBivariateSpline
 from scipy.optimize import curve_fit
@@ -6,6 +6,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import pybullet as p
 import robobee
+
+# Generate the data from simulation-----------------------------------------------------------------
 
 def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
     # p.DIRECT for non-graphical
@@ -60,6 +62,17 @@ def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
     # pool = multiprocessing.Pool(processes=cpus)
     # res = pool.map(test, xdata)
     # TODO: multiprocessing but need different copies of the sim too
+
+# Load empirical data and convert to the same format as tested with sim ---------------------------------
+
+def loadEmpiricalData(fnameCSV):
+    # Loading the sim-generated data looks like this `Vmeans, uoffss, fs, udiffs, h2s, ws0, kins = unpackDat(dat)``
+    # From the empirical data should be able to replicate all this except for ws0
+    dat = np.genfromtxt(fnameCSV, delimiter=",", skip_header=2)
+    print('hi', dat)
+    sys.exit()
+
+# Load data and fit a function --------------------------------------------------------------------------
 
 unpackDat = lambda dat : (dat[:,0], dat[:,1], dat[:,2], dat[:,3], dat[:,4], dat[:,5:11], dat[:,11:])
 
@@ -200,8 +213,12 @@ if __name__ == "__main__":
     np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
     if len(sys.argv) > 1:
-        with open(sys.argv[1], 'rb') as f:
-            dat = np.load(f)
+        ext = os.path.splitext(sys.argv[1])[1]
+        if ext == '.npy':
+            with open(sys.argv[1], 'rb') as f:
+                dat = np.load(f)
+        elif ext == '.csv':
+            dat = loadEmpiricalData(sys.argv[1])
         Vmeans, uoffss, fs, udiffs, h2s, ws0, kins = unpackDat(dat)
         params = robobee.wparams.copy()
         params.update({'ycp': 7.5, 'AR': 4.5, 'R': 3})
