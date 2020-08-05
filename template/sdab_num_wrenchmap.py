@@ -1,4 +1,4 @@
-import subprocess, sys, progressbar, os
+import subprocess, sys, progressbar, os, itertools
 import autograd.numpy as np
 from scipy.interpolate import SmoothBivariateSpline
 from scipy.optimize import curve_fit
@@ -70,10 +70,61 @@ def loadEmpiricalData(fnameCSV):
     # From the empirical data should be able to replicate all this except for ws0
     datcsv = np.genfromtxt(fnameCSV, delimiter=",", skip_header=2)
     # unpack https://docs.google.com/spreadsheets/d/1Sa6lT008fpYqdgcjl0M7Nx5MlD-OYx808FP6nt6We5A/edit#gid=0
-    fs, Vleft, Vright, drv_pch, h2 = datcsv[:,0], datcsv[:,1], datcsv[:,2], datcsv[:,3], datcsv[:,4]
-    rawT, rawB = datcsv[:,5:9], datcsv[:,9:13]
-    Nrows = len(fs)
+    # fs, Vleft, Vright, drv_pch, h2 = datcsv[:,0], datcsv[:,1], datcsv[:,2], datcsv[:,3], datcsv[:,4]
+    rawInp, rawT, rawB = datcsv[:,:5], datcsv[:,5:9], datcsv[:,9:13]
+    Nrows = rawInp.shape[0]
     # print(datcsv)
+
+    def convertVmean(Inp, T, B):
+        # Assumes all the 
+        outU = []
+        outK = []
+        # Produce rows from combinations https://github.com/avikde/robobee3d/pull/172#issuecomment-669311864
+        Vleft, Vright = Inp[:,1], Inp[:,2]
+        uVolts = np.unique(Vleft)
+        combs = list(itertools.combinations(uVolts,2))
+        inds = list(itertools.combinations(range(len(uVolts)), 2))
+        # print('Vleft,Vright combinations', combs)
+
+        def addRow(Vmean, udiff, kinT, kinB):
+            uoffs = Inp[0,3] # should be the same
+            h2 =  Inp[0,4]
+            alpha = 0.5 # TODO:
+            outU.append(np.array([Vmean, uoffs, udiff, h2]))
+            outK.append(np.hstack((kinT, kinB, 0.5)))
+
+        for i in range(len(combs)):
+            i0, i1 = inds[i] # i0,i1 are the indices in the original collected data
+            # Get 4 different combinations
+            # NOTE: assuming vleft = vright in each original data row
+            V1, V2 = combs[i]
+            Vm = 0.5*(V1+V2)
+            addRow(V1, 0, T[i0,:], B[i0,:])
+            # invert the CC [1+udiff;1-udiff]*Vm = [V1;V2]
+            udiff = V2/Vm - 1# = 1-V1/Vm
+            addRow(Vm, udiff, T[i0,:], B[i1,:])
+            addRow(Vm, -udiff, T[i1,:], B[i0,:])
+            addRow(V2, 0, T[i1,:], B[i1,:])
+        # convert to 2D array
+        outU = np.array(outU)
+        outK = np.array(outK)
+        return outU, outK
+
+    # First find all the rows with the same uoffs, h2 (except Vmean, udiff)
+    drv_pch = rawInp[:,3]
+    uniqueuoffs, invinds = np.unique(drv_pch, return_inverse=True)
+    outU = []
+    outK = []
+    for i in range(len(uniqueuoffs)):
+        originds = np.where(invinds == i)[0]
+        outUi, outKi = convertVmean(rawInp[originds,:], rawT[originds,:], rawB[originds,:])
+        outU.append(outUi)
+        outK.append(outKi)
+        # outU
+    outU = np.vstack(outU)
+    outK = np.vstack(outK)
+    # print(uniqueuoffs, uinds)
+    print(outU)
 
     def convertRawKins(rawKins):
         scaledKins = rawKins # TODO:
