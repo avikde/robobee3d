@@ -58,11 +58,14 @@ def loadEmpiricalData(fnameCSV):
         For each wing, get max and min amplitude (corresponding to upstroke and downstroke)
         np.hstack((np.amax(qw[:,2*i:2*i+2], axis=0), -np.amin(qw[:,2*i:2*i+2], axis=0)))
         = [num max stroke, num max pitch, -num min stroke, -num min pitch] -- all should be positive numbers
+        Sim data plot https://github.com/avikde/robobee3d/pull/172#issuecomment-671369920.
         
         *** Empirical:
         All positive numbers, have [stroke L, pitch L->R, stroke R, pitch R->L]. Would help to see this data for a sim trial for comparison.
+        Comparing with the sim plot on github, stroke L, stroke R seem to match in both, except for deg to rad
         """
         scaledKins = rawKins
+        scaledKins[:,[0,2]] = np.radians(scaledKins[:,[0,2]])
         print(rawKins, topSign)
         return scaledKins
 
