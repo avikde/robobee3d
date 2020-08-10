@@ -93,7 +93,7 @@ def loadEmpiricalData(fnameCSV):
     outK = np.vstack(outK)
     # print(uniqueuoffs, uinds)
     Nrows2 = outU.shape[0]
-    fs = np.ones((Nrows2, 1)) * rawInp[:,0]
+    fs = np.ones((Nrows2, 1)) * rawInp[0,0]
     # print(outU.shape, outK.shape)
     # outU = Vmean, uoffs, udiff, h2
 
@@ -249,6 +249,7 @@ if __name__ == "__main__":
     elif ext == '.csv':
         dat = loadEmpiricalData(sys.argv[1])
     Vmeans, uoffss, fs, udiffs, h2s, ws0, kins = unpackDat(dat)
+
     params = robobee.wparams.copy()
     params.update({'ycp': 7.5, 'AR': 4.5, 'R': 3})
     ws = wrenchFromKinematics(kins, fs, params, kaerox=1.2, strokex=1.1)
