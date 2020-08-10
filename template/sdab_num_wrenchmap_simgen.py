@@ -69,4 +69,4 @@ if __name__ == "__main__":
     fs = [0.17]
     udiffs = np.linspace(-0.2, 0.2, num=8)
     h2s = np.linspace(-0.2, 0.2, num=8)#[0.]
-    sweepFile('numkinsaa.npy', Vmeans, uoffss, fs, udiffs, h2s)
+    sweepFile('numkins.npy', Vmeans, uoffss, fs, udiffs, h2s)
