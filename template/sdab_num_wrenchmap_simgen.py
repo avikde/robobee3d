@@ -8,15 +8,18 @@ import robobee
 
 # Generate the data from simulation-----------------------------------------------------------------
 
-def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
-    # p.DIRECT for non-graphical
-    bee = robobee.RobobeeSim(p.DIRECT, slowDown=1, camLock=True, timestep=0.1, gui=0)
-    # load robot
-    startPos = [0,0,10]
-    startOrientation = p.getQuaternionFromEuler(np.zeros(3))
-    subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.urdf"])
-    bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=True)
+# p.DIRECT for non-graphical
+bee = robobee.RobobeeSim(p.DIRECT, slowDown=1, camLock=True, timestep=0.1, gui=0)
+# load robot
+startPos = [0,0,10]
+startOrientation = p.getQuaternionFromEuler(np.zeros(3))
+subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.urdf"])
+bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=True)
 
+def singleSim(Vmean, uoffs, f, udiff, h2):
+    return bee.openLoop(Vmean * (1 + udiff), Vmean * (1 - udiff), uoffs, f, h2=h2, verbose=False)
+
+def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
     # create a progress bar
     nrun = 0
     widgets = [
@@ -32,7 +35,7 @@ def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
         nrun += 1
         bar.update(nrun)
         # qw below contains wing kinematics as well as the wrench
-        sw = bee.openLoop(Vmean * (1 + udiff), Vmean * (1 - udiff), uoffs, f, h2=h2, verbose=False)
+        sw = singleSim(Vmean, uoffs, f, udiff, h2)
         NptsInPeriod = int(1/(f * bee.TIMESTEP))
         # avg wrench (stored from sim for calibrating the kinfeat -> wrench analytical prediction)
         avgwrench = np.mean(sw[-NptsInPeriod:,-6:], axis=0)
