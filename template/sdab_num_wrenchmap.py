@@ -76,7 +76,7 @@ def loadEmpiricalData(fnameCSV):
     # print(datcsv)
 
     def convertVmean(Inp, T, B):
-        # Assumes all the 
+        """Convert Vleft/Vright from empirical trials to different combinations of Vmean/udiff"""
         outU = []
         outK = []
         # Produce rows from combinations https://github.com/avikde/robobee3d/pull/172#issuecomment-669311864
@@ -110,28 +110,36 @@ def loadEmpiricalData(fnameCSV):
         outK = np.array(outK)
         return outU, outK
 
+    def convertRawKins(rawKins, topSign):
+        """Convert the empirically measured kinematics features to the ones used in the sim; working on one wing at a time
+        *** In sim:
+        For each wing, get max and min amplitude (corresponding to upstroke and downstroke)
+        np.hstack((np.amax(qw[:,2*i:2*i+2], axis=0), -np.amin(qw[:,2*i:2*i+2], axis=0)))
+        = [num max stroke, num max pitch, -num min stroke, -num min pitch] -- all should be positive numbers
+        
+        *** Empirical:
+        All positive numbers, have [stroke L, pitch L->R, stroke R, pitch R->L]. Would help to see this data for a sim trial for comparison.
+        """
+        scaledKins = rawKins
+        print(rawKins, topSign)
+        return scaledKins
+
     # First find all the rows with the same uoffs, h2 (except Vmean, udiff)
     drv_pch = rawInp[:,3]
     uniqueuoffs, invinds = np.unique(drv_pch, return_inverse=True)
     outU = []
     outK = []
+    # Next convert (Vleft/Vright) to Vmean/udiff from all co
     for i in range(len(uniqueuoffs)):
         originds = np.where(invinds == i)[0]
-        outUi, outKi = convertVmean(rawInp[originds,:], rawT[originds,:], rawB[originds,:])
+        outUi, outKi = convertVmean(rawInp[originds,:], convertRawKins(rawT[originds,:], 1), convertRawKins(rawB[originds,:], -1))
         outU.append(outUi)
         outK.append(outKi)
         # outU
     outU = np.vstack(outU)
     outK = np.vstack(outK)
     # print(uniqueuoffs, uinds)
-    print(outU)
-
-    def convertRawKins(rawKins):
-        scaledKins = rawKins # TODO:
-        return scaledKins
-    
-    alpha = 0.5 * np.ones(Nrows) # no information about this
-    kins = np.hstack((convertRawKins(rawT), convertRawKins(rawB), alpha[:,np.newaxis]))
+    print(outU.shape, outK.shape)
 
     sys.exit()
 
