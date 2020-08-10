@@ -73,3 +73,14 @@ if __name__ == "__main__":
     udiffs = np.linspace(-0.2, 0.2, num=8)
     h2s = np.linspace(-0.2, 0.2, num=8)#[0.]
     sweepFile('numkins.npy', Vmeans, uoffss, fs, udiffs, h2s)
+
+    # # test single sim
+    # import matplotlib.pyplot as plt
+    # sw = singleSim(150, 0, 0.15, 0, 0)
+    # # print(sw.shape) # (N,14). np.hstack((self.q[:4], self.dq[:4], waeroL + waeroR)
+    # fig, ax = plt.subplots(2)
+    # for i in range(2):
+    #     ax[i].plot(sw[-100:,0+i], label='L')
+    #     ax[i].plot(sw[-100:,2+i], label='R')
+    #     ax[i].legend()
+    # plt.show()
