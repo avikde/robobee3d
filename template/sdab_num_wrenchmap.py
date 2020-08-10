@@ -4,6 +4,7 @@ from scipy.interpolate import SmoothBivariateSpline
 from scipy.optimize import curve_fit
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
+import robobee
 
 # Load empirical data and convert to the same format as tested with sim ---------------------------------
 
@@ -64,9 +65,16 @@ def loadEmpiricalData(fnameCSV):
         All positive numbers, have [stroke L, pitch L->R, stroke R, pitch R->L]. Would help to see this data for a sim trial for comparison.
         Comparing with the sim plot on github, stroke L, stroke R seem to match in both, except for deg to rad
         """
-        scaledKins = rawKins
+        scaledKins = np.zeros_like(rawKins)
+        # NOTE: assuming top = left wing otherwise these need to be flipped
         scaledKins[:,[0,2]] = np.radians(scaledKins[:,[0,2]])
-        print(rawKins, topSign)
+        if topSign > 0:
+            # ~ sin(t)
+            scaledKins[:,1] = np.radians(rawKins[:,1])
+            scaledKins[:,3] = np.radians(rawKins[:,3])
+        else:
+            scaledKins[:,1] = np.radians(rawKins[:,3])
+            scaledKins[:,3] = np.radians(rawKins[:,1])
         return scaledKins
 
     # First find all the rows with the same uoffs, h2 (except Vmean, udiff)
@@ -84,12 +92,18 @@ def loadEmpiricalData(fnameCSV):
     outU = np.vstack(outU)
     outK = np.vstack(outK)
     # print(uniqueuoffs, uinds)
-    print(outU.shape, outK.shape)
+    Nrows2 = outU.shape[0]
+    fs = np.ones((Nrows2, 1)) * rawInp[:,0]
+    # print(outU.shape, outK.shape)
+    # outU = Vmean, uoffs, udiff, h2
 
-    sys.exit()
+    dat = np.hstack((outU[:,:2], fs, outU[:,2:], np.zeros((Nrows2, 6)), outK))
+    # print(dat.shape)
+    return dat
 
 # Load data and fit a function --------------------------------------------------------------------------
 
+# Vmeans, uoffss, fs, udiffs, h2s, ws0, kins = unpackDat(dat)
 unpackDat = lambda dat : (dat[:,0], dat[:,1], dat[:,2], dat[:,3], dat[:,4], dat[:,5:11], dat[:,11:])
 
 def splineContour(ax, xiu, yiu, Zfun, length=50, dx=0, dy=0):
@@ -249,7 +263,7 @@ if __name__ == "__main__":
 
     # Optimized param fits in each row for each component of the wrench
     popts = np.vstack([curve_fit(fa.f, xdata, ws[:,i], p0=np.ones(fa.nparams()))[0] for i in range(6)])
-    np.save('popts.npy', popts)
+    np.save('poptsEmp.npy', popts)
 
     def plotFitWi(ui1, ui2, wi, ax3d, ax):
         def lbl(ax):
