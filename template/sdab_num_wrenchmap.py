@@ -1,67 +1,9 @@
-import subprocess, sys, progressbar, os, itertools
+import sys, os, itertools
 import autograd.numpy as np
 from scipy.interpolate import SmoothBivariateSpline
 from scipy.optimize import curve_fit
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
-import pybullet as p
-import robobee
-
-# Generate the data from simulation-----------------------------------------------------------------
-
-def sweepFile(fname, Vmeans, uoffss, fs, udiffs, h2s):
-    # p.DIRECT for non-graphical
-    bee = robobee.RobobeeSim(p.DIRECT, slowDown=1, camLock=True, timestep=0.1, gui=0)
-    # load robot
-    startPos = [0,0,10]
-    startOrientation = p.getQuaternionFromEuler(np.zeros(3))
-    subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.urdf"])
-    bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=True)
-
-    # create a progress bar
-    nrun = 0
-    widgets = [
-        'Progress: ', progressbar.Percentage(),
-        ' ', progressbar.Bar(),
-        ' ', progressbar.ETA(),
-    ]
-    bar = progressbar.ProgressBar(widgets=widgets, max_value=len(Vmeans)*len(uoffss)*len(fs)*len(udiffs)*len(h2s))
-
-    def olAvgWrenchKinFeat(Vmean, uoffs, f, udiff, h2):
-        """Incorporate both wings"""
-        nonlocal nrun
-        nrun += 1
-        bar.update(nrun)
-        # qw below contains wing kinematics as well as the wrench
-        sw = bee.openLoop(Vmean * (1 + udiff), Vmean * (1 - udiff), uoffs, f, h2=h2, verbose=False)
-        NptsInPeriod = int(1/(f * bee.TIMESTEP))
-        # avg wrench (stored from sim for calibrating the kinfeat -> wrench analytical prediction)
-        avgwrench = np.mean(sw[-NptsInPeriod:,-6:], axis=0)
-        # Kinematics features:
-        # amplitudes
-        qw = sw[-NptsInPeriod:,:4]
-        dqw = sw[-NptsInPeriod:,4:8]
-        # to estimate alpha (fraction of period for upstroke)
-        ratioPosStrokeVel = np.sum(dqw[:,0] >= 0, axis=0) / NptsInPeriod
-        # for each wing, get max and min amplitude (corresponding to upstroke and downstroke)
-        kins = np.hstack([np.hstack((np.amax(qw[:,2*i:2*i+2], axis=0), -np.amin(qw[:,2*i:2*i+2], axis=0))) for i in range(2)]) # size 8
-        kins = np.hstack((kins, ratioPosStrokeVel)) # size 9
-        return np.hstack((avgwrench, kins))
-
-    res = np.array([
-        np.hstack((Vmean, uoffs, f, udiff, h2, 
-        olAvgWrench(Vmean, uoffs, f, udiff, h2))) 
-        for Vmean in Vmeans for uoffs in uoffss for f in fs for udiff in udiffs for h2 in h2s])
-    with open(fname, 'wb') as f:
-        np.save(f, res)
-
-    # xdata = np.array([
-    #     np.hstack((Vmean, uoffs, f, udiff, h2)) 
-    #     for Vmean in Vmeans for uoffs in uoffss for f in fs for udiff in udiffs for h2 in h2s])
-    # cpus = multiprocessing.cpu_count()
-    # pool = multiprocessing.Pool(processes=cpus)
-    # res = pool.map(test, xdata)
-    # TODO: multiprocessing but need different copies of the sim too
 
 # Load empirical data and convert to the same format as tested with sim ---------------------------------
 
@@ -283,78 +225,68 @@ def dw_du(xdata, popts):
 if __name__ == "__main__":
     np.set_printoptions(precision=2, suppress=True, linewidth=200)
 
-    if len(sys.argv) > 1:
-        ext = os.path.splitext(sys.argv[1])[1]
-        if ext == '.npy':
-            with open(sys.argv[1], 'rb') as f:
-                dat = np.load(f)
-        elif ext == '.csv':
-            dat = loadEmpiricalData(sys.argv[1])
-        Vmeans, uoffss, fs, udiffs, h2s, ws0, kins = unpackDat(dat)
-        params = robobee.wparams.copy()
-        params.update({'ycp': 7.5, 'AR': 4.5, 'R': 3})
-        ws = wrenchFromKinematics(kins, fs, params, kaerox=1.2, strokex=1.1)
-        
-        # wrenchCompare(ws0, ws) # compare ws0 to ws
-        # sys.exit()
+    ext = os.path.splitext(sys.argv[1])[1]
+    if ext == '.npy':
+        with open(sys.argv[1], 'rb') as f:
+            dat = np.load(f)
+    elif ext == '.csv':
+        dat = loadEmpiricalData(sys.argv[1])
+    Vmeans, uoffss, fs, udiffs, h2s, ws0, kins = unpackDat(dat)
+    params = robobee.wparams.copy()
+    params.update({'ycp': 7.5, 'AR': 4.5, 'R': 3})
+    ws = wrenchFromKinematics(kins, fs, params, kaerox=1.2, strokex=1.1)
+    
+    # wrenchCompare(ws0, ws) # compare ws0 to ws
+    # sys.exit()
 
-        print("Unique in data:", np.unique(Vmeans), np.unique(uoffss), np.unique(fs), np.unique(udiffs), np.unique(h2s))
-        
-        xdata = np.vstack((Vmeans, uoffss, udiffs, h2s)).T # k,M
-        xlabels = ['Vmean', 'uoffs', 'udiff', 'h2']
+    print("Unique in data:", np.unique(Vmeans), np.unique(uoffss), np.unique(fs), np.unique(udiffs), np.unique(h2s))
+    
+    xdata = np.vstack((Vmeans, uoffss, udiffs, h2s)).T # k,M
+    xlabels = ['Vmean', 'uoffs', 'udiff', 'h2']
 
-        # Optimized param fits in each row for each component of the wrench
-        popts = np.vstack([curve_fit(fa.f, xdata, ws[:,i], p0=np.ones(fa.nparams()))[0] for i in range(6)])
-        np.save('popts.npy', popts)
+    # Optimized param fits in each row for each component of the wrench
+    popts = np.vstack([curve_fit(fa.f, xdata, ws[:,i], p0=np.ones(fa.nparams()))[0] for i in range(6)])
+    np.save('popts.npy', popts)
 
-        def plotFitWi(ui1, ui2, wi, ax3d, ax):
-            def lbl(ax):
-                ax.set_xlabel(xlabels[ui1])
-                ax.set_ylabel(xlabels[ui2])
-            lbl(ax3d)
-            for i in range(3):
-                lbl(ax[i])
-            def cplot(ax, ffit, ttl):
-                c = splineContour(ax, xdata[:,ui1], xdata[:,ui2], ffit)
-                fig.colorbar(c, ax=ax)
-                ax.set_title(ttl)
+    def plotFitWi(ui1, ui2, wi, ax3d, ax):
+        def lbl(ax):
+            ax.set_xlabel(xlabels[ui1])
+            ax.set_ylabel(xlabels[ui2])
+        lbl(ax3d)
+        for i in range(3):
+            lbl(ax[i])
+        def cplot(ax, ffit, ttl):
+            c = splineContour(ax, xdata[:,ui1], xdata[:,ui2], ffit)
+            fig.colorbar(c, ax=ax)
+            ax.set_title(ttl)
 
-            # scatter
-            ax3d.plot(xdata[:,ui1], xdata[:,ui2], ws[:,wi], '.')
-            ax3d.set_zlabel('W'+str(wi))
+        # scatter
+        ax3d.plot(xdata[:,ui1], xdata[:,ui2], ws[:,wi], '.')
+        ax3d.set_zlabel('W'+str(wi))
 
-            # Spline2D
-            ydata = ws[:,wi] # M
-            Sfun = SmoothBivariateSpline(xdata[:,ui1], xdata[:,ui2], ydata)
-            cplot(ax[0], Sfun, 'W'+str(wi)+' spline2D')
+        # Spline2D
+        ydata = ws[:,wi] # M
+        Sfun = SmoothBivariateSpline(xdata[:,ui1], xdata[:,ui2], ydata)
+        cplot(ax[0], Sfun, 'W'+str(wi)+' spline2D')
 
-            # Custom fit
-            ffit2 = lambda xdata2 : wrenchMap(np.hstack((xdata2, np.zeros((xdata2.shape[0], 2)))), popts)[:,wi]
-            cplot(ax[1], ffit2, 'W'+str(wi)+' fit')
-            # FIXME: the filling out of xdata only works for 0,1 ui
+        # Custom fit
+        ffit2 = lambda xdata2 : wrenchMap(np.hstack((xdata2, np.zeros((xdata2.shape[0], 2)))), popts)[:,wi]
+        cplot(ax[1], ffit2, 'W'+str(wi)+' fit')
+        # FIXME: the filling out of xdata only works for 0,1 ui
 
-            # Jac d/dVmean
-            ffit3 = lambda xdata2 : np.hstack([dw_du(np.hstack((xdata2[j,:], np.zeros(2))), popts)[wi,0] for j in range(xdata2.shape[0])])
-            cplot(ax[2], ffit3, 'dW'+str(wi)+'/dVmean')
+        # Jac d/dVmean
+        ffit3 = lambda xdata2 : np.hstack([dw_du(np.hstack((xdata2[j,:], np.zeros(2))), popts)[wi,0] for j in range(xdata2.shape[0])])
+        cplot(ax[2], ffit3, 'dW'+str(wi)+'/dVmean')
 
-        # scatter vis
-        fig = plt.figure()
+    # scatter vis
+    fig = plt.figure()
 
-        ax3d1 = fig.add_subplot(2,4,1, projection='3d')
-        ax1 = [fig.add_subplot(2,4,2), fig.add_subplot(2,4,3), fig.add_subplot(2,4,4)]
-        plotFitWi(0, 1, 2, ax3d1, ax1)
-        ax3d2 = fig.add_subplot(2,4,5, projection='3d')
-        ax2 = [fig.add_subplot(2,4,6), fig.add_subplot(2,4,7), fig.add_subplot(2,4,8)]
-        plotFitWi(0, 2, 2, ax3d2, ax2)
-        # plotFitWi(0, 1, 4, ax3d2, ax2)
-        # fig.tight_layout()
-        plt.show()
-
-    else:
-        # save to file
-        Vmeans = np.linspace(90, 160, num=8)
-        uoffss = np.linspace(-0.5, 0.5, num=8)
-        fs = [0.17]
-        udiffs = np.linspace(-0.2, 0.2, num=8)
-        h2s = np.linspace(-0.2, 0.2, num=8)#[0.]
-        sweepFile('numkins.npy', Vmeans, uoffss, fs, udiffs, h2s)
+    ax3d1 = fig.add_subplot(2,4,1, projection='3d')
+    ax1 = [fig.add_subplot(2,4,2), fig.add_subplot(2,4,3), fig.add_subplot(2,4,4)]
+    plotFitWi(0, 1, 2, ax3d1, ax1)
+    ax3d2 = fig.add_subplot(2,4,5, projection='3d')
+    ax2 = [fig.add_subplot(2,4,6), fig.add_subplot(2,4,7), fig.add_subplot(2,4,8)]
+    plotFitWi(0, 2, 2, ax3d2, ax2)
+    # plotFitWi(0, 1, 4, ax3d2, ax2)
+    # fig.tight_layout()
+    plt.show()
