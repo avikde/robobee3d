@@ -11,7 +11,7 @@ extern "C" {
 /* Operating system */
 /* #undef IS_LINUX */
 /* #undef IS_MAC */
-#define IS_WINDOWS
+/* #undef IS_WINDOWS */
 
 /* EMBEDDED */
 #define EMBEDDED (2)
@@ -26,10 +26,10 @@ extern "C" {
 /* #undef CTRLC */
 
 /* DFLOAT */
-/* #undef DFLOAT */
+#define DFLOAT
 
 /* DLONG */
-#define DLONG
+/* #undef DLONG */
 
 /* ENABLE_MKL_PARDISO */
 /* #undef ENABLE_MKL_PARDISO */
