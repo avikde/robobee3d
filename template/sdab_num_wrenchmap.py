@@ -30,7 +30,7 @@ def loadEmpiricalData(fnameCSV):
         # print('Vleft,Vright combinations', combs)
 
         def addRow(Vmean, udiff, kinT, kinB):
-            uoffs = Inp[0,3] # should be the same
+            uoffs = Inp[0,3]/Vmean # should be the same
             h2 =  Inp[0,4]
             alpha = 0.5 # TODO:
             outU.append(np.array([Vmean, uoffs, udiff, h2]))
@@ -93,7 +93,7 @@ def loadEmpiricalData(fnameCSV):
     outK = np.vstack(outK)
     # print(uniqueuoffs, uinds)
     Nrows2 = outU.shape[0]
-    fs = np.ones((Nrows2, 1)) * rawInp[0,0]
+    fs = np.ones((Nrows2, 1)) * rawInp[0,0] * 1e-3 # to KHz
     # print(outU.shape, outK.shape)
     # outU = Vmean, uoffs, udiff, h2
 
