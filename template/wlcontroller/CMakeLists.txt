@@ -16,8 +16,12 @@ set(QDLDL_BOOL_TYPE "int")
 # Generate header file with the global options
 configure_file(${WLQP_DIR}/configure/qdldl_types.h.in ${WLQP_DIR}/include/qdldl_types.h)
 include_directories(${WLQP_DIR}/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../SDK/thirdparty/eigen)
 
-set(SRC_CONTROLLER ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
+set(SRC_CONTROLLER 
+  ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/wlqp.cpp
+  )
 set(SRC_CONTROLLER ${SRC_CONTROLLER} ${osqp_src})
 
 add_executable(test ${SRC_CONTROLLER})
