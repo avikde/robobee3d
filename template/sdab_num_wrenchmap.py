@@ -271,39 +271,62 @@ if __name__ == "__main__":
             ax.set_xlabel(xlabels[ui1])
             ax.set_ylabel(xlabels[ui2])
         lbl(ax3d)
-        for i in range(3):
+        for i in range(2):
             lbl(ax[i])
         def cplot(ax, ffit, ttl):
             c = splineContour(ax, xdata[:,ui1], xdata[:,ui2], ffit)
             fig.colorbar(c, ax=ax)
             ax.set_title(ttl)
 
+        def fitSurface(ax, xiu, yiu, Zfun, length=50):
+            dimrow = lambda row : np.linspace(row.min(), row.max(), length)
+            xi = dimrow(xiu)
+            yi = dimrow(yiu)
+            
+            # create a grid for the plot
+            Xi, Yi = np.meshgrid(xi, yi)
+            positions = np.vstack([Xi.ravel(), Yi.ravel()])
+            zi = np.reshape(Zfun(positions.T), Xi.shape)
+            Zi = zi.reshape(Xi.shape)
+            # zi = Zfun(Xi, Yi, np.zeros_like(Xi))
+            return ax.plot_surface(Xi, Yi, Zi, cmap='RdBu_r')
+        
+        if ui1 == 0 and ui2 in [1,2]:
+            pass
+        else:
+            print("WARNING!!! the surface plots are picking the wrong slice for ui =", ui1, ui2)
+
         # scatter
         ax3d.plot(xdata[:,ui1], xdata[:,ui2], ws[:,wi], '.')
         ax3d.set_zlabel('W'+str(wi))
 
-        # Spline2D
-        ydata = ws[:,wi] # M
-        Sfun = SmoothBivariateSpline(xdata[:,ui1], xdata[:,ui2], ydata)
-        cplot(ax[0], Sfun, 'W'+str(wi)+' spline2D')
+        # # Spline2D
+        # ydata = ws[:,wi] # M
+        # Sfun = SmoothBivariateSpline(xdata[:,ui1], xdata[:,ui2], ydata)
+        # cplot(ax[0], Sfun, 'W'+str(wi)+' spline2D')
 
         # Custom fit
-        ffit2 = lambda xdata2 : wrenchMap(np.hstack((xdata2, np.zeros((xdata2.shape[0], 2)))), popts)[:,wi]
-        cplot(ax[1], ffit2, 'W'+str(wi)+' fit')
+        def ffit2(xdata2):
+            testxdataSection = np.zeros((xdata2.shape[0], 4))
+            testxdataSection[:,ui1] = xdata2[:,0]
+            testxdataSection[:,ui2] = xdata2[:,1]
+            return wrenchMap(testxdataSection, popts)[:,wi]
+        cplot(ax[0], ffit2, 'W'+str(wi)+' fit')
+        fitSurface(ax3d, xdata[:,ui1], xdata[:,ui2], ffit2)
         # FIXME: the filling out of xdata only works for 0,1 ui
 
         # Jac d/dVmean
         ffit3 = lambda xdata2 : np.hstack([dw_du(np.hstack((xdata2[j,:], np.zeros(2))), popts)[wi,0] for j in range(xdata2.shape[0])])
-        cplot(ax[2], ffit3, 'dW'+str(wi)+'/dVmean')
+        cplot(ax[1], ffit3, 'dW'+str(wi)+'/dVmean')
 
     # scatter vis
     fig = plt.figure()
 
-    ax3d1 = fig.add_subplot(2,4,1, projection='3d')
-    ax1 = [fig.add_subplot(2,4,2), fig.add_subplot(2,4,3), fig.add_subplot(2,4,4)]
+    ax3d1 = fig.add_subplot(2,3,1, projection='3d')
+    ax1 = [fig.add_subplot(2,3,2), fig.add_subplot(2,3,3)]
     plotFitWi(0, 1, 2, ax3d1, ax1)
-    ax3d2 = fig.add_subplot(2,4,5, projection='3d')
-    ax2 = [fig.add_subplot(2,4,6), fig.add_subplot(2,4,7), fig.add_subplot(2,4,8)]
+    ax3d2 = fig.add_subplot(2,3,4, projection='3d')
+    ax2 = [fig.add_subplot(2,3,5), fig.add_subplot(2,3,6)]
     # plotFitWi(0, 2, 2, ax3d2, ax2)
     # plotFitWi(0, 1, 4, ax3d2, ax2) # Vmean, uoffs -> pitch
     plotFitWi(0, 2, 3, ax3d2, ax2) # Vmean, udiff -> roll
