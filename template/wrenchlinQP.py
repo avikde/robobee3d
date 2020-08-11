@@ -107,3 +107,14 @@ class WrenchLinQP(object):
         pdes = np.array([0,0,10,0,0,0])
         print(self.updateFromState(0., q, dq, pdes))
         
+if __name__ == "__main__":
+    # Autogen code
+    prob = qpSetupDense(4,4)
+    # codegen
+    try:
+        prob.codegen('gen', project_type='', force_rewrite=True, parameters='matrices', FLOAT=True, LONG=False)
+    except:
+        # No worries if python module failed to compile
+        pass
+
+
