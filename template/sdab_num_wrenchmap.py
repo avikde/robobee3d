@@ -67,7 +67,7 @@ def loadEmpiricalData(fnameCSV):
         """
         scaledKins = np.zeros_like(rawKins)
         # NOTE: assuming top = left wing otherwise these need to be flipped
-        scaledKins[:,[0,2]] = np.radians(scaledKins[:,[0,2]])
+        scaledKins[:,[0,2]] = np.radians(rawKins[:,[0,2]])
         if topSign > 0:
             # ~ sin(t)
             scaledKins[:,1] = np.radians(rawKins[:,1])
