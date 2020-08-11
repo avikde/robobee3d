@@ -304,7 +304,8 @@ if __name__ == "__main__":
     plotFitWi(0, 1, 2, ax3d1, ax1)
     ax3d2 = fig.add_subplot(2,4,5, projection='3d')
     ax2 = [fig.add_subplot(2,4,6), fig.add_subplot(2,4,7), fig.add_subplot(2,4,8)]
-    plotFitWi(0, 2, 2, ax3d2, ax2)
-    # plotFitWi(0, 1, 4, ax3d2, ax2)
+    # plotFitWi(0, 2, 2, ax3d2, ax2)
+    # plotFitWi(0, 1, 4, ax3d2, ax2) # Vmean, uoffs -> pitch
+    plotFitWi(0, 2, 3, ax3d2, ax2) # Vmean, udiff -> roll
     # fig.tight_layout()
     plt.show()
