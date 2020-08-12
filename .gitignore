@@ -8,3 +8,4 @@ __pycache__/
 h7bee/build
 g4bee/build
 logs/**
+.vscode/settings.json

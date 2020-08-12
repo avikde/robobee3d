@@ -20,7 +20,8 @@ typedef Eigen::Vector4f u_t;
 typedef Eigen::Matrix<float, 6, 1> w_t;
 typedef Eigen::Matrix<float, 6, 4> dw_du_t;
 typedef Eigen::Map<const u_t> mc_u;
-typedef Eigen::Array<c_float, Eigen::Dynamic, 1> ArrX_t;
+typedef Eigen::Array<float, Eigen::Dynamic, 1> ArrX_t;
+typedef Eigen::Matrix<float, 6, 6> M_t;
 
 // namespace ctrl
 // {
@@ -67,8 +68,9 @@ typedef Eigen::Array<c_float, Eigen::Dynamic, 1> ArrX_t;
  * @param tvals Must have size N * (N + 1) / 2
  */
 template< int N >
-inline void eigenUpperTriangularVals(const Eigen::Ref<const Eigen::Matrix<float, N, N> > & M, float *tvals)
+inline void eigenUpperTriangularVals(const Eigen::Ref<const Eigen::Matrix<float, N, N> > & M, Eigen::VectorXf &tvals)
 {
+  tvals.resize(4 * (4+1)/2);
   int k = 0;
   for (int j = 0; j < N; ++j) {
     for (int i = 0; i <= j; ++i) {
@@ -76,7 +78,6 @@ inline void eigenUpperTriangularVals(const Eigen::Ref<const Eigen::Matrix<float,
       k++;
     }
   }
-  return tvals;
 }
 
 // } // namespace ctrl

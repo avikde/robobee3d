@@ -10,61 +10,60 @@
  */
 #include "wlqp.hpp"
 #include <osqp.h>
+#include <cmath>
 extern "C" {
 #include <workspace.h>
 }
 
-u_t wlqp(const u_t &u, const dw_du_t &dw_du, const w_t &w0, int maxIter) {
-	OSQPWorkspace *work = &workspace;
-	static Eigen::Matrix<float, 4 * (4+1)/2, 1> Px_data;
-
-	// Osqp init
-	osqp_update_max_iter(work, maxIter);
-	osqp_update_check_termination(work, 0); // don't check at all
-
+u_t WrenchLinQP::update(const u_t &u0, const w_t &h0, const w_t &pdotdes, const w_t &Qdiag) {
 	// Input rate limit TODO: sparsity
 	Eigen::Matrix4f A = Eigen::Matrix4f::Identity();
 
-	// auto a0 = w0 - h0 - pdotdes;
-	const auto &A1 = dw_du;
-
-	w_t Qdiag = q_t::Zero();
+	auto w0 = wrenchMap(u0);
+	auto a0 = w0 - h0 - pdotdes;
+	auto A1 = wrenchJacMap(u0);
 
 	auto P = A1.transpose() * Eigen::DiagonalMatrix<float, 6>(Qdiag) * A1;
-	auto q = A1.transpose() * Qdiag.cwiseProduct(a0);
-	auto l = -u;
+	u_t q = A1.transpose() * Qdiag.cwiseProduct(a0);
+	u_t L = -this->U0;
+	u_t U = this->U0;
 
-	// q = A1.T @ np.diag(Qd) @ a0
-	// L = -self.U
-	// U = np.copy(self.U)
+	// Input limits (not just rate limits)
+	if (!std::isnan(umin[0])) {
+		for (int i = 0; i < umin.size(); ++i) {
+			if (u0[i] < umin[i])
+				L[i] = 0; // do not reduce further
+			else if (u0[i] > umax[i])
+				U[i] = 0; // do not increase further
+		}
+	}
 
-	// # Input limits (not just rate limits)
-	// if self.umin is not None:
-	//     for i in range(len(self.umin)):
-	//         if self.u0[i] < self.umin[i]:
-	//             L[i] = 0 # do not reduce further
-	//         elif self.u0[i] > self.umax[i]:
-	//             U[i] = 0 # do not increase further
+	auto du = solve(P, A, q, L, U);
+	return u0 + du;
+}
 
-	// # update OSQP
-	// Px = P[np.tril_indices(P.shape[0])] # need in col order
-	// self.model.update(Px=Px, q=q, l=L, u=U, Ax=np.ravel(A))
-	// res = self.model.solve()
-	// self.u0 = res.x + self.u0
-	// # self.u0[0] = 110 + 3 * (pdes[2] - p0[2])
+void WrenchLinQP::setLimits(const u_t &umin, const u_t &umax, const u_t &dumax) {
+	this->umin = umin;
+	this->umax = umax;
+	this->U0 = dumax;
+}
 
-	// if self.n >= 4:
-	//     self.w0 = self.wrenchMap(self.u0)
-	//     return self.u0
+u_t WrenchLinQP::solve(const Eigen::Matrix4f &P, const Eigen::Matrix4f &A, const u_t &q, const u_t &L, const u_t &U) {
+	OSQPWorkspace *work = &workspace;
+	static Eigen::VectorXf Px_data;
+
+	// Osqp init
+	osqp_update_max_iter(work, maxIter);
+	osqp_update_eps_rel(work, eps);
+	osqp_update_eps_abs(work, eps);
+	osqp_update_check_termination(work, 0); // don't check at all
 
 	// Update
 	eigenUpperTriangularVals<4>(P, Px_data);
-	Px_idx.resize(Pu0_inds.size() + P_yaw_inds.size());
-	for (Eigen::Index i = 0; i < Px_idx.size(); ++i) {
-		Px_idx[i] = (c_int)(i < Pnnz_u0 ? Pu0_inds[i] : P_yaw_inds[i - Pnnz_u0]);
-	}
-	osqp_update_P(work, Px_data);
+	osqp_update_P(work, Px_data.data(), OSQP_NULL, Px_data.size());
 	osqp_update_A(work, A.data(), OSQP_NULL, work->data->m * work->data->n);
+	osqp_update_lin_cost(work, q.data());
+	osqp_update_bounds(work, L.data(), U.data());
 
 	/* int res = */ osqp_solve(work);
 
