@@ -23,10 +23,12 @@ public:
   // Define these to instantiate
   virtual w_t wrenchMap(const u_t &u) = 0;
   virtual dw_du_t wrenchJacMap(const u_t &u) = 0;
-  virtual void dynamicsTerms(M_t &M, w_t &h) = 0;
+  virtual void dynamicsTerms(M_t &M, w_t &h, const pose_t &q, const w_t &dq) = 0;
 
   // Functions to call, variables to read and set
   void setLimits(const u_t &umin, const u_t &umax, const u_t &dumax);
+
+  u_t updateFromState(const u_t &u0, const pose_t &q, const w_t &dq, const w_t &pdes, const w_t &Qdiag, const w_t &kpmom = w_t(0, 0, 1, 0.1, 0.1, 0.1));
 
   // Solve settings
   int maxIter = 10;

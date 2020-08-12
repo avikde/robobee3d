@@ -18,6 +18,7 @@
 
 typedef Eigen::Vector4f u_t;
 typedef Eigen::Matrix<float, 6, 1> w_t;
+typedef Eigen::Matrix<float, 7, 1> pose_t; // Pose with position and quaternion
 typedef Eigen::Matrix<float, 6, 4> dw_du_t;
 typedef Eigen::Map<const u_t> mc_u;
 typedef Eigen::Array<float, Eigen::Dynamic, 1> ArrX_t;
