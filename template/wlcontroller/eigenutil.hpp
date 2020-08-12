@@ -20,6 +20,7 @@ typedef Eigen::Vector4f u_t;
 typedef Eigen::Matrix<float, 6, 1> w_t;
 typedef Eigen::Matrix<float, 6, 4> dw_du_t;
 typedef Eigen::Map<const u_t> mc_u;
+typedef Eigen::Array<c_float, Eigen::Dynamic, 1> ArrX_t;
 
 // namespace ctrl
 // {
@@ -58,28 +59,24 @@ typedef Eigen::Map<const u_t> mc_u;
 //            (c_int *)sm.outerIndexPtr());
 // }
 
-// /**
-//  * @brief Given a dense matrix, return the upper-triangular elements. There must be a better way to do this within Eigen.
-//  *
-//  * M.triangularView<Eigen::Upper>()
-//  *
-//  * returns the triangular view but have not found a way to get the elements in order
-//  *
-//  * @param M Matrix assumed square
-//  * @return ArrX_t
-//  */
-// inline ArrX_t eigenUpperTriangularVals(const Eigen::Ref<const MatX_t> & M)
-// {
-//   static ArrX_t tvals;
-//   tvals.resize(M.rows() * (M.cols() + 1) / 2);
-//   int k = 0;
-//   for (int j = 0; j < M.rows(); ++j) {
-//     for (int i = 0; i <= j; ++i) {
-//       tvals[k] = M(i, j);
-//       k++;
-//     }
-//   }
-//   return tvals;
-// }
+/**
+ * @brief 
+ * 
+ * @tparam N matrix number of rows or cols
+ * @param M matrix
+ * @param tvals Must have size N * (N + 1) / 2
+ */
+template< int N >
+inline void eigenUpperTriangularVals(const Eigen::Ref<const Eigen::Matrix<float, N, N> > & M, float *tvals)
+{
+  int k = 0;
+  for (int j = 0; j < N; ++j) {
+    for (int i = 0; i <= j; ++i) {
+      tvals[k] = M(i, j);
+      k++;
+    }
+  }
+  return tvals;
+}
 
 // } // namespace ctrl

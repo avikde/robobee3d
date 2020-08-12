@@ -12,4 +12,4 @@
 
 #include "eigenutil.hpp"
 
-u_t wlqp(const u_t &u, const dw_du_t &dw_du, int maxIter);
+u_t wlqp(const u_t &u, const dw_du_t &dw_du, const w_t &w0, int maxIter);
