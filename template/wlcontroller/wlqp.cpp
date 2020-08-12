@@ -15,18 +15,16 @@ extern "C" {
 #include <workspace.h>
 }
 
-u_t WrenchLinQP::updateFromState(const u_t &u0, const pose_t &q, const w_t &dq, const w_t &pdes, const w_t &Qdiag, const w_t &kpmom) {
-	static M_t M0;
-	static w_t h0;
-	// Evaluate dynamics
-	dynamicsTerms(M0, h0, q, dq);
-	auto p0 = M0 * dq;
+u_t WrenchLinQP::update(const u_t &u0, const w_t &p0, const w_t &h0, const w_t &pdes, const w_t &Qdiag, const w_t &kpmom) {
+	if (!wrenchMap || !wrenchJacMap)
+		return u_t::Zero();
+	
 	// Momentum reference dynamics https://github.com/avikde/robobee3d/pull/166 TODO: incorporate as MPC
 	w_t pdotdes = kpmom.cwiseProduct(pdes - p0);
-	return update(u0, h0, pdotdes, Qdiag);
+	return update2(u0, h0, pdotdes, Qdiag);
 }
 
-u_t WrenchLinQP::update(const u_t &u0, const w_t &h0, const w_t &pdotdes, const w_t &Qdiag) {
+u_t WrenchLinQP::update2(const u_t &u0, const w_t &h0, const w_t &pdotdes, const w_t &Qdiag) {
 	// Input rate limit TODO: sparsity
 	Eigen::Matrix4f A = Eigen::Matrix4f::Identity();
 
