@@ -21,10 +21,18 @@ WLController::WLController() {
     fa[i].init(popts.row(i));
 }
 
-w_t WLController::wrenchMap(const u_t &) {
-  return w_t::Zero();
+w_t WLController::wrenchMap(const u_t &u) {
+  static w_t w;
+  for (int i = 0; i < w.size(); ++i) {
+    w[i] = fa[i].f(u);
+  }
+  return w;
 }
 
-dw_du_t WLController::wrenchJacMap(const u_t &) {
-  return dw_du_t::Zero();
+dw_du_t WLController::wrenchJacMap(const u_t &u) {
+  static dw_du_t dw_du;
+  for (int i = 0; i < dw_du.rows(); ++i) {
+    dw_du.row(i) = fa[i].Df(u);
+  }
+  return dw_du;
 }

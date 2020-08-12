@@ -14,28 +14,40 @@
 /* template <int k> */
 class FunApprox {
 public:
-	typedef Eigen::Matrix<float, /* 1 + k + k *(k + 1) / 2 */15, 1> popts_t;
+	const static int k = 4; // TODO: template
+
+	typedef Eigen::Matrix<float, 1 + k + k * (k + 1) / 2, 1> popts_t;
+	typedef Eigen::Matrix<float, k, 1> x_t;
+	typedef Eigen::Matrix<float, k, k> A_t;
 
 	void init(const popts_t &p) {
 		// unpack
 		a0 = p[0];
-		a1 = p.segment</*  k  */4>(1);
+		a1 = p.segment<k>(1);
 		// eigenUpperTriangularSet<4>(A2, p.segment</*  k *(k + 1) / 2  */10>(/* k + 1 */5));
 		// eigenUpperTriangularSet<4>(A2, p.segment<10>(5));
 			
-		int k = 0, N = 4;
-		auto tvals = p.segment<10>(5);
+		int kk = 0, N = 4;
+		auto tvals = p.segment<k * (k + 1) / 2>(k + 1);
 		for (int j = 0; j < N; ++j) {
 			for (int i = 0; i <= j; ++i) {
-				A2(i, j) = tvals[k];
-				k++;
+				A2(i, j) = tvals[kk];
+				kk++;
 			}
 		}
 		// Use A2.selfadjointView<Eigen::Upper>() after this
 	}
 
+	inline float f(const x_t &xi) const {
+		return a0 + xi.dot(a1) + 0.5 * xi.transpose() * A2.selfadjointView<Eigen::Upper>() * xi;
+	}
+
+	inline x_t Df(const x_t &xi) const {
+		return a1 + A2.selfadjointView<Eigen::Upper>() * xi;
+	}
+
 protected:
 	float a0;
-	Eigen::Matrix<float, /* k */4, 1> a1;
-	Eigen::Matrix<float, /* k, k */4, 4> A2;
+	x_t a1;
+	A_t A2;
 };
