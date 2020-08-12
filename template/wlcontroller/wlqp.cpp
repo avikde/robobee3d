@@ -29,7 +29,7 @@ u_t WrenchLinQP::update2(const u_t &u0, const w_t &h0, const w_t &pdotdes, const
 	auto a0 = w0 - h0 - pdotdes;
 	auto A1 = wrenchJacMap(u0);
 
-	auto P = A1.transpose() * Eigen::DiagonalMatrix<float, 6>(Qdiag) * A1;
+	auto P = A1.transpose() * Qdiag.asDiagonal() * A1;
 	u_t q = A1.transpose() * Qdiag.cwiseProduct(a0);
 	u_t L = -this->U0;
 	u_t U = this->U0;
