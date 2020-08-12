@@ -22,6 +22,8 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../SDK/thirdparty/eigen)
 set(SRC_CONTROLLER 
   ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/wlqp.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/funapprox.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/wlcontroller.cpp
   )
 set(SRC_CONTROLLER ${SRC_CONTROLLER} ${osqp_src})
 

@@ -1,8 +1,14 @@
 
 #include <iostream>
-#include "wlqp.hpp"
+#include "wlcontroller.hpp"
 
 int main(int argc, char **argv) {
-  std::cout << /* wlqp(u_t::Zero(), dw_du_t::Zero(), w_t::Zero(), 2).transpose() <<  */ "hello\n";
+  float popts[] = {0};
+  WLController wlc(popts);
+  
+  u_t u0;
+  w_t p0, h0, pdes, Qdiag;
+
+  std::cout << wlc.update(u0, p0, h0, pdes, Qdiag) <<  "hello\n";
   return 0;
 }

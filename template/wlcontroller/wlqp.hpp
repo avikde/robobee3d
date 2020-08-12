@@ -12,7 +12,6 @@
 
 #include "eigenutil.hpp"
 #include <limits>
-#include <functional>
 
 /**
  * @brief Abstract base class for wrench lin QP. Assumes wrench in R^6, nu = 4;
@@ -22,8 +21,8 @@ public:
   virtual ~WrenchLinQP() {}
   const float nan = std::numeric_limits<float>::quiet_NaN();
   // Define these to instantiate
-  std::function<w_t(const u_t &)> wrenchMap = 0;
-  std::function<dw_du_t(const u_t &)> wrenchJacMap = 0;
+  virtual w_t wrenchMap(const u_t &) = 0;
+  virtual dw_du_t wrenchJacMap(const u_t &) = 0;
 
   // Functions to call, variables to read and set
   void setLimits(const u_t &umin, const u_t &umax, const u_t &dumax);
