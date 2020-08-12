@@ -10,13 +10,11 @@
  */
 #pragma once
 #include "wlqp.hpp"
-#include "funapprox.hpp"
 
 class WLController : public WrenchLinQP {
 public:
-  WLController(const float *popts);
+  WLController();
   w_t wrenchMap(const u_t &);
   dw_du_t wrenchJacMap(const u_t &);
 protected:
-  FunApprox fa;
 };

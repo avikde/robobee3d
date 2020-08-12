@@ -3,8 +3,7 @@
 #include "wlcontroller.hpp"
 
 int main(int argc, char **argv) {
-  float popts[] = {0};
-  WLController wlc(popts);
+  WLController wlc;
   
   u_t u0;
   w_t p0, h0, pdes, Qdiag;
