@@ -116,6 +116,9 @@ def test():
     from sdab_num_wrenchmap import wrenchMap, dw_du
     from ca6dynamics import dynamicsTerms
     popts = np.load('popts.npy')
+    for vv in np.ravel(popts, order='C'):
+        print(vv,',',end='')
+    print()
     
     wmap = lambda u : wrenchMap(u, popts)
     Dwmap = lambda u : dw_du(u, popts)

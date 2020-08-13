@@ -80,7 +80,7 @@ class WaypointHover(RobobeeController):
         self.useh2 = useh2
         popts = np.load(wrenchMapPoptsFile)
         print('Loaded wrenchMap params from', wrenchMapPoptsFile, '\npopts=\n', popts)
-        for vv in np.ravel(popts, order='F'):
+        for vv in np.ravel(popts, order='C'):
             print(vv,',',end='')
         print()
         self.wmap = lambda u : wrenchMap(u, popts)
