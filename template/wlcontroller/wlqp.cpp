@@ -59,9 +59,9 @@ u_t WrenchLinQP::solve(const Eigen::Matrix4f &P, const Eigen::Matrix4f &A, const
 	static Eigen::VectorXf Px_data;
 
 	// Osqp init
-	osqp_update_max_iter(work, maxIter);
-	osqp_update_eps_rel(work, eps);
-	osqp_update_eps_abs(work, eps);
+	// osqp_update_max_iter(work, maxIter);
+	// osqp_update_eps_rel(work, eps);
+	// osqp_update_eps_abs(work, eps);
 	osqp_update_check_termination(work, 0); // don't check at all
 
 	// Update
