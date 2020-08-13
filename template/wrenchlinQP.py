@@ -70,6 +70,11 @@ class WrenchLinQP(object):
 
         # update OSQP
         Px = P[np.tril_indices(P.shape[0])] # need in col order
+
+        # FIXME: remove; testing python vs. C
+        print(self.w0, A1)
+        # print(P, q, L, U, A)
+
         self.model.update(Px=Px, q=q, l=L, u=U, Ax=np.ravel(A))
         res = self.model.solve()
         self.u0 = res.x + self.u0
@@ -125,6 +130,7 @@ def test():
     p0 = np.zeros(6)
     pdes = np.array([0, 0, 20, 0, 0, 0])
     wlqp.u0 = np.array([140.0, 0., 0., 0.])
+    wlqp.w0 = wrenchMap(wlqp.u0, popts)
     Qd = np.hstack((1.0*np.ones(3), 0.1*np.ones(3)))
     kpmom=np.array([0,0,1,0.1,0.1,0.1])
     pdotdes = kpmom * (pdes - p0)
