@@ -26,8 +26,9 @@ public:
 
   // Functions to call, variables to read and set
   void setLimits(const u_t &umin, const u_t &umax, const u_t &dumax);
+  void setWeight(const w_t &Qdiag) { this->Qdiag = Qdiag; }
 
-  u_t update(const u_t &u0, const w_t &p0, const w_t &h0, const w_t &pdes, const w_t &Qdiag, const w_t &kpmom = w_t(0, 0, 1, 0.1, 0.1, 0.1));
+  u_t update(const u_t &u0, const w_t &p0, const w_t &h0, const w_t &pdes, const w_t &kpmom = w_t(0, 0, 1, 0.1, 0.1, 0.1));
 
   // Solve settings
   int maxIter = 10;
@@ -40,6 +41,7 @@ protected:
   u_t U0 = 1e-2f * u_t::Ones();
   // Keep track of this
   w_t w0 = w_t::Zero();
+  w_t Qdiag = w_t::Ones();
 
   u_t update2(const u_t &u0, const w_t &h0, const w_t &pdotdes, const w_t &Qdiag);
   

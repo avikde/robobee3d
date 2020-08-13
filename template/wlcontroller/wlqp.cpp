@@ -15,7 +15,7 @@ extern "C" {
 #include <workspace.h>
 }
 
-u_t WrenchLinQP::update(const u_t &u0, const w_t &p0, const w_t &h0, const w_t &pdes, const w_t &Qdiag, const w_t &kpmom) {
+u_t WrenchLinQP::update(const u_t &u0, const w_t &p0, const w_t &h0, const w_t &pdes, const w_t &kpmom) {
 	// Momentum reference dynamics https://github.com/avikde/robobee3d/pull/166 TODO: incorporate as MPC
 	w_t pdotdes = kpmom.cwiseProduct(pdes - p0);
 	return update2(u0, h0, pdotdes, Qdiag);
