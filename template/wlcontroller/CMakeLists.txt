@@ -20,14 +20,13 @@ include_directories(${WLQP_DIR}/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../SDK/thirdparty/eigen)
 
 set(SRC_CONTROLLER 
-  ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/wlqp.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/wlcontroller.cpp
   )
 set(SRC_CONTROLLER ${SRC_CONTROLLER} ${osqp_src})
 add_library(wlcontroller STATIC ${SRC_CONTROLLER})
 
-add_executable(test ${SRC_CONTROLLER})
+add_executable(test ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
 target_link_libraries(test PUBLIC wlcontroller)
 
 # Mex build
