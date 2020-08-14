@@ -28,9 +28,12 @@ public:
 		// eigenUpperTriangularSet<4>(A2, p.segment<10>(5));
 			
 		int kk = 0, N = 4;
+		A2.setZero();
+		// Upper triangular must be filled in row major to match python:
+		// https://github.com/avikde/robobee3d/pull/173#issuecomment-674082069
 		auto tvals = p.segment<k * (k + 1) / 2>(k + 1);
-		for (int j = 0; j < N; ++j) {
-			for (int i = 0; i <= j; ++i) {
+		for (int i = 0; i < N; ++i) {
+			for (int j = i; j < N; ++j) {
 				A2(i, j) = tvals[kk];
 				kk++;
 			}
