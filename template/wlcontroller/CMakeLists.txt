@@ -19,14 +19,19 @@ configure_file(${WLQP_DIR}/configure/osqp_configure.h.in ${WLQP_DIR}/include/osq
 include_directories(${WLQP_DIR}/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../SDK/thirdparty/eigen)
 
-# Mex build
-find_package(Matlab)
-
 set(SRC_CONTROLLER 
   ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/wlqp.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/wlcontroller.cpp
   )
 set(SRC_CONTROLLER ${SRC_CONTROLLER} ${osqp_src})
+add_library(wlcontroller STATIC ${SRC_CONTROLLER})
 
 add_executable(test ${SRC_CONTROLLER})
+target_link_libraries(test PUBLIC wlcontroller)
+
+# Mex build
+find_package(Matlab)
+set(SRC_MEX ${CMAKE_CURRENT_SOURCE_DIR}/wlmex.cpp)
+matlab_add_mex(NAME wlmex SRC ${SRC_MEX} LINK_TO wlcontroller)
+
