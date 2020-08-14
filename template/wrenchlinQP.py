@@ -70,6 +70,10 @@ class WrenchLinQP(object):
 
         # update OSQP
         Px = P[np.tril_indices(P.shape[0])] # need in col order
+
+        # print(self.w0, A1)
+        # print(P, q, L, U, A)
+
         self.model.update(Px=Px, q=q, l=L, u=U, Ax=np.ravel(A))
         res = self.model.solve()
         self.u0 = res.x + self.u0
@@ -100,10 +104,49 @@ class WrenchLinQP(object):
 
         return self.update(h0, Qd, pdotdes)
 
-    def test(self):
-        q = [0.,0,0,0,0,0,1]
-        dq = np.zeros(6)
-        self.uprev = np.array([1.0,0.0,0.0,1.0,0.0,0.0])
-        pdes = np.array([0,0,10,0,0,0])
-        print(self.updateFromState(0., q, dq, pdes))
+def test():
+    # q = [0.,0,0,0,0,0,1]
+    # dq = np.zeros(6)
+    # self.uprev = np.array([1.0,0.0,0.0,1.0,0.0,0.0])
+    # pdes = np.array([0,0,10,0,0,0])
+    # print(self.updateFromState(0., q, dq, pdes))
+
+    np.set_printoptions(precision=6, suppress=True, linewidth=200)
+    from sdab_num_wrenchmap import wrenchMap, dw_du
+    from ca6dynamics import dynamicsTerms
+    popts = np.load('popts.npy')
+    for vv in np.ravel(popts, order='C'):
+        print(vv,',',end='')
+    print()
+    
+    wmap = lambda u : wrenchMap(u, popts)
+    Dwmap = lambda u : dw_du(u, popts)
+    wlqp = WrenchLinQP(4, 4, dynamicsTerms, wmap, 
+        u0=[140.0,0.,0.,0.], 
+        dumax=[5.,0.01,0.01,0.01], 
+        umin=[90.,-0.5,-0.2,-0.1], 
+        umax=[160.,0.5,0.2,0.1], 
+        dwduMap=Dwmap)
+    
+    h0 = np.array([0, 0, 100 * 9.81e-3, 0, 0, 0])
+    p0 = np.zeros(6)
+    pdes = np.array([0, 0, 20, 0, 0, 0])
+    wlqp.u0 = np.array([140.0, 0., 0., 0.])
+    wlqp.w0 = wrenchMap(wlqp.u0, popts)
+    Qd = np.hstack((1.0*np.ones(3), 0.1*np.ones(3)))
+    kpmom=np.array([0,0,1,0.1,0.1,0.1])
+    pdotdes = kpmom * (pdes - p0)
+    print("u =", wlqp.update(h0, Qd, pdotdes))
         
+if __name__ == "__main__":
+    test()
+    # # Autogen code
+    # prob = qpSetupDense(4,4)
+    # # codegen
+    # try:
+    #     prob.codegen('gen', project_type='', force_rewrite=True, parameters='matrices', FLOAT=True, LONG=False)
+    # except:
+    #     # No worries if python module failed to compile
+    #     pass
+
+
