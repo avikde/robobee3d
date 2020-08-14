@@ -19,6 +19,9 @@ configure_file(${WLQP_DIR}/configure/osqp_configure.h.in ${WLQP_DIR}/include/osq
 include_directories(${WLQP_DIR}/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../SDK/thirdparty/eigen)
 
+# Mex build
+find_package(Matlab)
+
 set(SRC_CONTROLLER 
   ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/wlqp.cpp
