@@ -9,7 +9,7 @@
  * 
  */
 #include "wlcontroller.hpp"
-#include <iostream>
+// #include <iostream>
 
 WLController::WLController() {
   // load popts

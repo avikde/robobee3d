@@ -14,7 +14,7 @@
 extern "C" {
 #include <workspace.h>
 }
-#include <iostream>
+// #include <iostream>
 
 u_t WrenchLinQP::update(const u_t &u0, const w_t &p0, const w_t &h0, const w_t &pdes, const w_t &kpmom) {
 	// Momentum reference dynamics https://github.com/avikde/robobee3d/pull/166 TODO: incorporate as MPC
@@ -45,7 +45,7 @@ u_t WrenchLinQP::update2(const u_t &u0, const w_t &h0, const w_t &pdotdes, const
 		}
 	}
 
-	std::cout << w0 << A1;
+	// std::cout << w0 << A1;
 	// std::cout << P << q << L << U << A;
 
 	auto du = solve(P, A, q, L, U);
