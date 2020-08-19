@@ -104,7 +104,7 @@ class WrenchLinQP(object):
 
         return self.update(h0, Qd, pdotdes)
 
-def test():
+def test(fname):
     # q = [0.,0,0,0,0,0,1]
     # dq = np.zeros(6)
     # self.uprev = np.array([1.0,0.0,0.0,1.0,0.0,0.0])
@@ -114,7 +114,7 @@ def test():
     np.set_printoptions(precision=6, suppress=True, linewidth=200)
     from sdab_num_wrenchmap import wrenchMap, dw_du
     from ca6dynamics import dynamicsTerms
-    popts = np.load('popts.npy')
+    popts = np.load(fname)
     for vv in np.ravel(popts, order='C'):
         print(vv,',',end='')
     print()
@@ -139,7 +139,8 @@ def test():
     print("u =", wlqp.update(h0, Qd, pdotdes))
         
 if __name__ == "__main__":
-    test()
+    import sys
+    test(sys.argv[1])
     # # Autogen code
     # prob = qpSetupDense(4,4)
     # # codegen
