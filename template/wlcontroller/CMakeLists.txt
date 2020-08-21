@@ -19,18 +19,29 @@ configure_file(${WLQP_DIR}/configure/osqp_configure.h.in ${WLQP_DIR}/include/osq
 include_directories(${WLQP_DIR}/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../SDK/thirdparty/eigen)
 
-set(SRC_CONTROLLER 
-  ${CMAKE_CURRENT_SOURCE_DIR}/wlqp.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/wlcontroller.cpp
-  )
-set(SRC_CONTROLLER ${SRC_CONTROLLER} ${osqp_src})
-add_library(wlcontroller STATIC ${SRC_CONTROLLER})
+# # C++ version
+# set(SRC_CONTROLLER 
+#   ${CMAKE_CURRENT_SOURCE_DIR}/wlqp.cpp
+#   ${CMAKE_CURRENT_SOURCE_DIR}/wlcontroller.cpp
+#   )
+# set(SRC_CONTROLLER ${SRC_CONTROLLER} ${osqp_src})
+# add_library(wlcontroller STATIC ${SRC_CONTROLLER})
 
-add_executable(test ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
-target_link_libraries(test PUBLIC wlcontroller)
+# add_executable(test ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
+# target_link_libraries(test PUBLIC wlcontroller)
 
-# # Mex build
-# find_package(Matlab)
-# set(SRC_MEX ${CMAKE_CURRENT_SOURCE_DIR}/wlmex.cpp)
+# STUPID C MATLAB VERSION
+find_package(Matlab)
+message("HI ${Matlab_MX_LIBRARY}")
+set(ML_DIR ${CMAKE_CURRENT_SOURCE_DIR}/c)
+set(ML_SRC ${ML_DIR}/funapprox.c)
+add_library(wlcontrollerMat STATIC ${ML_SRC} ${osqp_src})
+target_link_libraries(wlcontrollerMat ${Matlab_MX_LIBRARY})
+target_include_directories(wlcontrollerMat PUBLIC ${Matlab_INCLUDE_DIRS})
+
+add_executable(test ${ML_DIR}/main.c)
+target_link_libraries(test PUBLIC wlcontrollerMat)
+
+# # set(SRC_MEX ${CMAKE_CURRENT_SOURCE_DIR}/wlmex.cpp)
 # matlab_add_mex(NAME wlmex SRC ${SRC_MEX} LINK_TO wlcontroller)
 
