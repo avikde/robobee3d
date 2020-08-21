@@ -16,9 +16,9 @@
 extern "C" {
 #endif
 
-void wlControllerInit(const float *u0);
+void wlControllerInit();
 
-void wlControllerUpdate(float *u, const float *h0, const float *pdotdes);
+void wlControllerUpdate(float *u, const float *u0init, const float *h0, const float *pdotdes);
 
 #ifdef __cplusplus
 }

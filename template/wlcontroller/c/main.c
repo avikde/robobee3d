@@ -20,8 +20,8 @@ int main() {
 	float pdotdes[6] = {0, 0, 10, 0, 0, 0};
 	float u[4];
 
-	wlControllerInit(u0);
-	wlControllerUpdate(u, h0, pdotdes);
+	wlControllerInit();
+	wlControllerUpdate(u, u0, h0, pdotdes);
 
 	for (int i = 0; i < 4; ++i)
 		printf("%f,", u[i]);

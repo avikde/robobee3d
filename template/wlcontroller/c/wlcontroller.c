@@ -15,9 +15,9 @@
 // Global vars needed
 FunApprox_t fa[NW];
 WLQP_t wlqp;
-float g_u0[NU] = {140, 0, 0, 0}; // state
+float g_u0[NU] = {-1, 0, 0, 0}; // state
 
-void wlControllerInit(const float *u0) {
+void wlControllerInit() {
 	wlqpInit(&wlqp);
 	
   // poptsEmp row major
@@ -29,12 +29,14 @@ void wlControllerInit(const float *u0) {
 	for (int i = 0; i < NW; ++i) {
 		funApproxInit(&fa[i], &popts[15 * i]);
 	}
-	for (int i = 0; i < NU; ++i) {
-		g_u0[i] = u0[i];
-	}
 }
 
-void wlControllerUpdate(float *u, const float *h0, const float *pdotdes) {
+void wlControllerUpdate(float *u, const float *u0init, const float *h0, const float *pdotdes) {
+	if (g_u0[0] < 0) {
+		for (int i = 0; i < NU; ++i) {
+			g_u0[i] = u0init[i];
+		}
+	}
 	wlqpUpdate(&wlqp, u, g_u0, h0, pdotdes);
 	for (int i = 0; i < NU; ++i) {
 		g_u0[i] = u[i];
