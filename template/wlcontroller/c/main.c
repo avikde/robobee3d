@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 // Global vars needed
-FunApprox_t fa[6];
+FunApprox_t fa[NW];
 WLQP_t wlqp;
 
 void wlControllerInit() {
@@ -22,10 +22,20 @@ void wlControllerInit() {
 }
 
 void wrenchMap(float *w, const float *u) {
-
+  for (int i = 0; i < NW; ++i) {
+    w[i] = funApproxF(&fa[i], u);
+  }
 }
-void wrenchJacMap(float *dw_du, const float *u) {
 
+void wrenchJacMap(float *dw_du, const float *u) {
+	static float dwi_du[NU];
+  for (int i = 0; i < NW; ++i) {
+    funApproxDf(dwi_du, &fa[i], u);
+  	for (int j = 0; j < NU; ++j) {
+			// Copy into the col-major matrix
+			dw_du[Cind(NW, i, j)] = dwi_du[j];
+		}
+  }
 }
 
 int main() {
