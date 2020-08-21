@@ -46,5 +46,5 @@ protected:
   u_t update2(const u_t &u0, const w_t &h0, const w_t &pdotdes, const w_t &Qdiag);
   
   // Call osqp. NOTE: assumes P is symmetric.
-  u_t solve(const Eigen::Matrix4f &P, const Eigen::Matrix4f &A, const u_t &q, const u_t &L, const u_t &U);
+  u_t solve(const Eigen::Matrix4f &P, /* const Eigen::Matrix4f &A,  */const u_t &q, const u_t &L, const u_t &U);
 };
