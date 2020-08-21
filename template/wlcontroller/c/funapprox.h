@@ -22,6 +22,12 @@ typedef struct {
 	float A2[NU * NU];
 } FunApprox_t;
 
+/**
+ * @brief 
+ * 
+ * @param fa 
+ * @param popts A2 components are row major!
+ */
 void funApproxInit(FunApprox_t *fa, const float popts[/* 1 + k + k * (k + 1) / 2 */]);
 
 float funApproxF(const FunApprox_t *fa, const float *xi);

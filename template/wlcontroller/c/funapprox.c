@@ -19,9 +19,10 @@ void funApproxInit(FunApprox_t *fa, const float popts[/* 1 + k + k * (k + 1) / 2
 	fa->a0 = popts[0];
 	memcpy(fa->a1, &popts[1], fa->k * sizeof(float));
 	
+	// Unpack A2 components row major, fill out upper triangular A2
   int kk = 0;
-  for (int j = 0; j < fa->k; ++j) {
-    for (int i = 0; i <= j; ++i) {
+  for (int i = 0; i < fa->k; ++i) {
+    for (int j = i; j < fa->k; ++j) {
       fa->A2[Cind(fa->k, i, j)] = fa->A2[Cind(fa->k, j, i)] = popts[(fa->k + 1) + kk];
       kk++;
     }
