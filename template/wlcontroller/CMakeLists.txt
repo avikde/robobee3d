@@ -29,8 +29,8 @@ add_library(wlcontroller STATIC ${SRC_CONTROLLER})
 add_executable(test ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
 target_link_libraries(test PUBLIC wlcontroller)
 
-# Mex build
-find_package(Matlab)
-set(SRC_MEX ${CMAKE_CURRENT_SOURCE_DIR}/wlmex.cpp)
-matlab_add_mex(NAME wlmex SRC ${SRC_MEX} LINK_TO wlcontroller)
+# # Mex build
+# find_package(Matlab)
+# set(SRC_MEX ${CMAKE_CURRENT_SOURCE_DIR}/wlmex.cpp)
+# matlab_add_mex(NAME wlmex SRC ${SRC_MEX} LINK_TO wlcontroller)
 

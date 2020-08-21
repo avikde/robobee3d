@@ -20,3 +20,5 @@ public:
 protected:
   FunApprox fa[6];
 };
+
+void wlcWrapper(double uout[/* 4 */], const double u0[/* 4 */], const double p0[/* 6 */], const double h0[/* 6 */], const double pdes[/* 6 */], const double kpmom[/* 6 */], const double Qdiag[/* 6 */]);
