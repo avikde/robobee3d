@@ -41,5 +41,5 @@ void matMult(float *C, const float *A, const float *B, size_t m, size_t n, size_
 	if (BT)
 		transb = cht;
 
-	sgemm(transa, transb, &m, &n, &k, &alpha, A, &m, B, &k, &zero, C, &m);
+	sgemm(transa, transb, &m, &n, &k, &alpha, A, AT ? &k : &m, B, BT ? &n : &k, &zero, C, &m);
 }

@@ -15,8 +15,11 @@
 
 void wlqpInit(WLQP_t *wlqp) {
 	// populate default values
-	wlqp->Qdiag[0] = wlqp->Qdiag[1] = wlqp->Qdiag[2] = 1.0f;
-	wlqp->Qdiag[3] = wlqp->Qdiag[4] = wlqp->Qdiag[5] = 0.1f;
+	for (int i = 0; i < NW; ++i) {
+		for (int j = 0; j < NW; ++j) {
+			wlqp->Q[Cind(NW, i, j)] = (i == j) ? (i < 3 ? 1.0f : 0.1f) : 0.0f;
+		}
+	}
 	// Limits
 	// u = Vmean, uoffs, udiff, h2
 	wlqp->umin[0] = 90.0f;
@@ -35,15 +38,27 @@ void wlqpInit(WLQP_t *wlqp) {
 	wlqp->U0[3] = 0.01f;
 }
 
-void wlqpUpdate(WLQP_t *wlqp, const float *u0, const float *h0, const float *pdotdes) {
-	// // Input rate limit TODO: sparsity
-	// Eigen::Matrix4f A = Eigen::Matrix4f::Identity();
+void wlqpUpdate(WLQP_t *wlqp, float *u, const float *u0, const float *h0, const float *pdotdes) {
+	static float A1[NW * NU];
+	static float a0[NW];
+	static float Q[NW * NW];
+	static float dum[NW * NU];
+	static float P[NU * NU];
+	static float q[NU];
 
-	// auto w0 = wrenchMap(u0);
+	// Sample numerical maps
+	wrenchMap(wlqp->w0, u0);
+	wrenchJacMap(A1, u0);
+	
 	// auto a0 = w0 - h0 - pdotdes;
-	// auto A1 = wrenchJacMap(u0);
+	for (int i = 0; i < NW; ++i) {
+		a0[i] = wlqp->w0[i] - h0[i] - pdotdes[i];
+	}
 
 	// auto P = A1.transpose() * Qdiag.asDiagonal() * A1;
+	matMult(dum, wlqp->Q, A1, NW, NU, NW, 1.0f, false, false);
+	matMult(P, A1, dum, NU, NW, NW, 1.0f, true, false);
+
 	// u_t q = A1.transpose() * Qdiag.cwiseProduct(a0);
 	// u_t L = -this->U0;
 	// u_t U = this->U0;

@@ -16,15 +16,19 @@
 extern "C" {
 #endif
 
+// Need to define these
+void wrenchMap(float *w, const float *u);
+void wrenchJacMap(float *dw_du, const float *u);
+
 typedef struct {
 	float umin[NU], umax[NU], U0[NU];
-	float w0[NW], Qdiag[NW];
+	float w0[NW];
+	float Q[NW * NW];
 } WLQP_t;
 
 void wlqpInit(WLQP_t *wlqp);
 
-void wlqpUpdate(WLQP_t *wlqp, const float *u0, const float *p0, const float *h0, const float *pdes, const float *kpmom);
-
+void wlqpUpdate(WLQP_t *wlqp, float *u, const float *u0, const float *h0, const float *pdotdes);
 
 #ifdef __cplusplus
 }
