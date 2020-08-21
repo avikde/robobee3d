@@ -16,7 +16,7 @@ WLController wlc;
 typedef Eigen::Map<const Eigen::Matrix<double, 6, 1> > MC6;
 typedef Eigen::Map<const Eigen::Matrix<double, 4, 1> > MC4;
 
-void wlcWrapper(double uout[/* 4 */], const double u0[/* 4 */], const double p0[/* 6 */], const double h0[/* 6 */], const double pdes[/* 6 */], const double kpmom[/* 6 */], const double Qdiag[/* 6 */]) {
+extern "C" void wlcWrapper(double uout[/* 4 */], const double u0[/* 4 */], const double p0[/* 6 */], const double h0[/* 6 */], const double pdes[/* 6 */], const double kpmom[/* 6 */], const double Qdiag[/* 6 */]) {
 	// init
 	wlc.setLimits(u_t(90., -0.5, -0.2, -0.1), u_t(160., 0.5, 0.2, 0.1), u_t(5., 0.01, 0.01, 0.01));
 	wlc.setWeight(MC6(Qdiag).cast<float>());
