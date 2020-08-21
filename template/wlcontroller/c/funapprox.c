@@ -13,46 +13,41 @@
 #include <stdio.h>
 
 void funApproxInit(FunApprox_t *fa, const float popts[/* 1 + k + k * (k + 1) / 2 */]) {
-	const int k = 4;
-	double *ptr;
+	const int k = FA_K;
 
 	// unpack
 	fa->a0 = popts[0];
-
-	fa->a1 = mxCreateNumericMatrix(k, 1, mxSINGLE_CLASS, mxREAL);
-	fa->A2 = mxCreateNumericMatrix(k, k, mxSINGLE_CLASS, mxREAL);
+	memcpy(fa->a1, &popts[1], k * sizeof(float));
 	
-	ptr = mxGetPr(fa->a1);
-	for (int i = 0; i < k; ++i) {
-		printf("%d\n", ptr[i]);
-	}
-	// memcpy(ptr, &popts[1], k * sizeof(double));
-	
-	// // eigenUpperTriangularSet<4>(A2, p.segment</*  k *(k + 1) / 2  */10>(/* k + 1 */5));
-	// // eigenUpperTriangularSet<4>(A2, p.segment<10>(5));
-		
-	// int kk = 0, N = 4;
-	
-	// // Upper triangular must be filled in row major to match python:
-	// // https://github.com/avikde/robobee3d/pull/173#issuecomment-674082069
-	// auto tvals = p.segment<k * (k + 1) / 2>(k + 1);
-	// for (int i = 0; i < N; ++i) {
-	// 	for (int j = i; j < N; ++j) {
-	// 		A2(i, j) = tvals[kk];
-	// 		kk++;
-	// 	}
-	// }
-	// // Use A2.selfadjointView<Eigen::Upper>() after this
-}
-float funApproxF(const FunApprox_t *fa, const mxArray *xi) {
-		// return a0 + xi.dot(a1) + 0.5 * xi.transpose() * A2.selfadjointView<Eigen::Upper>() * xi;
+  int kk = 0;
+  for (int j = 0; j < k; ++j) {
+    for (int i = 0; i <= j; ++i) {
+      fa->A2[Cind(k, i, j)] = fa->A2[Cind(k, j, i)] = popts[(k + 1) + kk];
+      kk++;
+    }
+  }
 }
 
-void funApproxDf(mxArray *Df, const FunApprox_t *fa, const mxArray *xi) {
-		// return a1 + A2.selfadjointView<Eigen::Upper>() * xi;
+float funApproxF(const FunApprox_t *fa, const float *xi) {
+	static float vout[FA_K], fout;
+	float res = fa->a0;
+	// xi.dot(a1)
+	matMult(vout, xi, fa->a1, 1, 1, FA_K, 1.0f, false, false);
+	res += vout[0];
+	// 0.5 * xi.transpose() * A2.selfadjointView<Eigen::Upper>() * xi
+	// First A2 * xi
+	matMult(vout, fa->A2, xi, FA_K, 1, FA_K, 1.0f, false, false);
+	// Then 0.5 * xi.dot(vout)
+	matMult(&fout, xi, vout, 1, 1, FA_K, 0.5f, false, false);
+	return res + fout;
 }
 
-void funApproxClear(FunApprox_t *fa) {
-	mxDestroyArray(fa->a1);
-	mxDestroyArray(fa->A2);
+void funApproxDf(float *Df, const FunApprox_t *fa, const float *xi) {
+	static float vout[FA_K];
+	memcpy(Df, fa->a1, FA_K * sizeof(float));
+	
+	// First A2 * xi
+	matMult(vout, fa->A2, xi, FA_K, 1, FA_K, 1.0f, false, false);
+	for (int i = 0; i < FA_K; ++i)
+		Df[i] += vout[i];
 }

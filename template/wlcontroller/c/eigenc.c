@@ -17,8 +17,8 @@
  * @brief Multiply matrices
  * 
  * @param C Output C = alpha * op(A) * op(B)
- * @param A 
- * @param B 
+ * @param A Column major (can use AT to switch)
+ * @param B Column major (can use BT to switch)
  * @param m Number of rows of op(A), C
  * @param n Number of columns of op(B), C
  * @param k Number of columns of op(A), rows of op(B)
