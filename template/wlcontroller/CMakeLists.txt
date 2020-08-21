@@ -37,8 +37,7 @@ set(ML_DIR ${CMAKE_CURRENT_SOURCE_DIR}/c)
 set(ML_SRC 
   ${ML_DIR}/eigenc.c 
   ${ML_DIR}/funapprox.c
-  ${ML_DIR}/wlqp.c
-  ${ML_DIR}/wlcontroller.c)
+  ${ML_DIR}/wlqp.c)
 add_library(wlcontrollerMat STATIC ${ML_SRC} ${osqp_src})
 target_link_directories(wlcontrollerMat PUBLIC ${Matlab_ROOT_DIR}/extern/lib/win64/microsoft)
 target_link_libraries(wlcontrollerMat libmwblas)

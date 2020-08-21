@@ -1,7 +1,6 @@
 
-// #include "funapprox.h"
-#include "eigenc.h"
-#include "wlcontroller.h"
+#include "funapprox.h"
+#include "wlqp.h"
 #include <stdio.h>
 
 void wrenchMap(float *w, const float *u) {
