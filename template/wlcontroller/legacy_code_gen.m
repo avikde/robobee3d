@@ -11,7 +11,7 @@ def.SrcPaths = {'.', 'wlqp/src/osqp'};
 def.IncPaths = {'.', 'eigen', 'wlqp/include'};
 def.SampleTime = 'parameterized';
 
-def.Options.language = 'C++';
+def.Options.language = 'C';
 
 %
 
