@@ -12,6 +12,7 @@
 #include <math.h>
 #include <osqp.h>
 #include <workspace.h>
+#include <string.h>
 
 void wlqpInit(WLQP_t *wlqp) {
 	// populate default values
@@ -38,13 +39,43 @@ void wlqpInit(WLQP_t *wlqp) {
 	wlqp->U0[3] = 0.01f;
 }
 
+static void wlqpSolve(float *du, const float *P, const float *q, const float *L, const float *U) {
+	static float Px_data[NU * (NU + 1) / 2];
+	OSQPWorkspace *work = &workspace;
+
+	// Osqp init
+	// osqp_update_max_iter(work, maxIter);
+	// osqp_update_eps_rel(work, eps);
+	// osqp_update_eps_abs(work, eps);
+	osqp_update_check_termination(work, 0); // don't check at all
+
+	// Get upper triangular
+  int kk = 0;
+  for (int j = 0; j < NU; ++j) {
+    for (int i = 0; i <= j; ++i) {
+			Px_data[kk] = P[Cind(NU, i, j)];
+      kk++;
+    }
+  }
+
+	// Update
+	osqp_update_P(work, Px_data, OSQP_NULL, NU * (NU + 1) / 2);
+	// osqp_update_A(work, A.data(), OSQP_NULL, work->data->m * work->data->n);
+	osqp_update_lin_cost(work, q);
+	osqp_update_bounds(work, L, U);
+
+	/* int res = */ osqp_solve(work);
+
+	memcpy(du, work->solution->x, NU * sizeof(float));
+}
+
 void wlqpUpdate(WLQP_t *wlqp, float *u, const float *u0, const float *h0, const float *pdotdes) {
 	static float A1[NW * NU];
 	static float a0[NW];
 	static float Q[NW * NW];
 	static float dum[NW * NU];
 	static float P[NU * NU];
-	static float q[NU];
+	static float q[NU], L[NU], U[NU];
 
 	// Sample numerical maps
 	wrenchMap(wlqp->w0, u0);
@@ -60,23 +91,28 @@ void wlqpUpdate(WLQP_t *wlqp, float *u, const float *u0, const float *h0, const 
 	matMult(P, A1, dum, NU, NW, NW, 1.0f, true, false);
 
 	// u_t q = A1.transpose() * Qdiag.cwiseProduct(a0);
+	matMult(dum, wlqp->Q, a0, NW, 1, NW, 1.0f, false, false); // only using NW elements of dum
+	matMult(q, A1, dum, NU, 1, NW, 1.0f, true, false);
+
 	// u_t L = -this->U0;
 	// u_t U = this->U0;
+	for (int i = 0; i < NU; ++i) {
+		L[i] = -wlqp->U0[i];
+		U[i] = wlqp->U0[i];
+	}
 
-	// // Input limits (not just rate limits)
-	// if (!std::isnan(umin[0])) {
-	// 	for (int i = 0; i < umin.size(); ++i) {
-	// 		if (u0[i] < umin[i])
-	// 			L[i] = 0; // do not reduce further
-	// 		else if (u0[i] > umax[i])
-	// 			U[i] = 0; // do not increase further
-	// 	}
-	// }
+	// Input limits (not just rate limits)
+	for (int i = 0; i < NU; ++i) {
+		if (u0[i] < wlqp->umin[i])
+			L[i] = 0; // do not reduce further
+		else if (u0[i] > wlqp->umax[i])
+			U[i] = 0; // do not increase further
+	}
 
-	// // std::cout << w0 << A1;
-	// // std::cout << P << q << L << U << A;
-
-	// auto du = solve(P, A, q, L, U);
-	// return u0 + du;
+	// Solve
+	wlqpSolve(u, P, q, L, U);
+	for (int i = 0; i < NU; ++i) {
+		u[i] += u0[i];
+	}
 }
 

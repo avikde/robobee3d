@@ -8,7 +8,7 @@ void wrenchMap(float *w, const float *u) {
 
 }
 void wrenchJacMap(float *dw_du, const float *u) {
-	
+
 }
 
 int main() {
@@ -23,6 +23,7 @@ int main() {
 	matMult(C, A, b, 3, 1, 3, 1, true, false);
 	for (int i = 0; i < 3; ++i)
 		printf("%f,", C[i]);
+	printf("\n");
 	
 	WLQP_t wlqp;
 	wlqpInit(&wlqp);
@@ -33,6 +34,9 @@ int main() {
 	float pdotdes[6] = {0, 0, 10, 0, 0, 0};
 	float u[4];
 	wlqpUpdate(&wlqp, u, u0, h0, pdotdes);
+	for (int i = 0; i < 4; ++i)
+		printf("%f,", u[i]);
+	printf("\n");
 
 	return 0;
 }
