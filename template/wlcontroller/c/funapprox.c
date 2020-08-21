@@ -13,41 +13,41 @@
 #include <stdio.h>
 
 void funApproxInit(FunApprox_t *fa, const float popts[/* 1 + k + k * (k + 1) / 2 */]) {
-	const int k = FA_K;
+	fa->k = NU;
 
 	// unpack
 	fa->a0 = popts[0];
-	memcpy(fa->a1, &popts[1], k * sizeof(float));
+	memcpy(fa->a1, &popts[1], fa->k * sizeof(float));
 	
   int kk = 0;
-  for (int j = 0; j < k; ++j) {
+  for (int j = 0; j < fa->k; ++j) {
     for (int i = 0; i <= j; ++i) {
-      fa->A2[Cind(k, i, j)] = fa->A2[Cind(k, j, i)] = popts[(k + 1) + kk];
+      fa->A2[Cind(fa->k, i, j)] = fa->A2[Cind(fa->k, j, i)] = popts[(fa->k + 1) + kk];
       kk++;
     }
   }
 }
 
 float funApproxF(const FunApprox_t *fa, const float *xi) {
-	static float vout[FA_K], fout;
+	static float vout[NU], fout;
 	float res = fa->a0;
 	// xi.dot(a1)
-	matMult(vout, xi, fa->a1, 1, 1, FA_K, 1.0f, false, false);
+	matMult(vout, xi, fa->a1, 1, 1, fa->k, 1.0f, false, false);
 	res += vout[0];
 	// 0.5 * xi.transpose() * A2.selfadjointView<Eigen::Upper>() * xi
 	// First A2 * xi
-	matMult(vout, fa->A2, xi, FA_K, 1, FA_K, 1.0f, false, false);
+	matMult(vout, fa->A2, xi, fa->k, 1, fa->k, 1.0f, false, false);
 	// Then 0.5 * xi.dot(vout)
-	matMult(&fout, xi, vout, 1, 1, FA_K, 0.5f, false, false);
+	matMult(&fout, xi, vout, 1, 1, fa->k, 0.5f, false, false);
 	return res + fout;
 }
 
 void funApproxDf(float *Df, const FunApprox_t *fa, const float *xi) {
-	static float vout[FA_K];
-	memcpy(Df, fa->a1, FA_K * sizeof(float));
+	static float vout[NU];
+	memcpy(Df, fa->a1, fa->k * sizeof(float));
 	
 	// First A2 * xi
-	matMult(vout, fa->A2, xi, FA_K, 1, FA_K, 1.0f, false, false);
-	for (int i = 0; i < FA_K; ++i)
+	matMult(vout, fa->A2, xi, fa->k, 1, fa->k, 1.0f, false, false);
+	for (int i = 0; i < fa->k; ++i)
 		Df[i] += vout[i];
 }

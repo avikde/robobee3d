@@ -15,12 +15,11 @@
 extern "C" {
 #endif
 
-#define FA_K 4
-
 typedef struct {
+	int k;
 	float a0;
-	float a1[FA_K];
-	float A2[FA_K * FA_K];
+	float a1[NU];
+	float A2[NU * NU];
 } FunApprox_t;
 
 void funApproxInit(FunApprox_t *fa, const float popts[/* 1 + k + k * (k + 1) / 2 */]);

@@ -1,6 +1,7 @@
 
 // #include "funapprox.h"
 #include "eigenc.h"
+#include "wlcontroller.h"
 #include <stdio.h>
 
 int main() {
@@ -15,6 +16,9 @@ int main() {
 	matMult(C, A, b, 3, 1, 3, 1, true, false);
 	for (int i = 0; i < 3; ++i)
 		printf("%f,", C[i]);
+	
+	WLQP_t wlqp;
+	wlqpInit(&wlqp);
 
 	return 0;
 }

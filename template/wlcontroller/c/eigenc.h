@@ -16,6 +16,10 @@
 extern "C" {
 #endif
 
+// Dimensions
+#define NU (4)
+#define NW (6)
+
 // index for col-major access
 #define Cind(n, i, j) ((i) + (j)*n)
 
