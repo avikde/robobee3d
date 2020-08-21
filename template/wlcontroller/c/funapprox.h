@@ -9,7 +9,7 @@
  * 
  */
 #pragma once
-#include <matrix.h>
+#include "eigenc.h"
 
 #ifdef __cplusplus
 extern "C" {
