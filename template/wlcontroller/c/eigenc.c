@@ -42,9 +42,9 @@ void matMult(float *C, const float *A, const float *B, const int m, const int n,
 	// Source for sgemm http://www.netlib.org/clapack/cblas/sgemm.c
 	const char *transa = chn;
 	const char *transb = chn;
-	if (AT)
+	if (AT == 1)
 		transa = cht;
-	if (BT)
+	if (BT == 1)
 		transb = cht;
 	
 	uint64_t um = m, un = n, uk = k;
@@ -58,9 +58,9 @@ void matMult(float *C, const float *A, const float *B, const int m, const int n,
 	// Source for sgemm http://www.netlib.org/blas/cblas.h
 	enum CBLAS_TRANSPOSE transa = CblasNoTrans;
 	enum CBLAS_TRANSPOSE transb = CblasNoTrans;
-	if (AT)
+	if (AT == 1)
 		transa = CblasTrans;
-	if (BT)
+	if (BT == 1)
 		transb = CblasTrans;
 
 	cblas_sgemm(CblasColMajor, transa, transb, 
