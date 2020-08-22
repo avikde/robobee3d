@@ -8,8 +8,9 @@ def.SourceFiles = {'wlcontroller.c', 'wlqp.c', 'eigenc.c', 'funapprox.c', ...
 	'auxil.c', 'error.c', ...
 	'kkt.c', 'lin_alg.c', 'osqp.c', 'proj.c', 'qdldl.c', ...
 	'qdldl_interface.c', 'scaling.c', 'util.c', 'workspace.c'};
-def.SrcPaths = {'c', 'wlqp/src/osqp'};
-def.IncPaths = {'c', 'wlqp/include'};
+% Flat structure
+def.SrcPaths = {'.'};
+def.IncPaths = {'.'};
 def.SampleTime = 'parameterized';
 
 def.Options.language = 'C';
