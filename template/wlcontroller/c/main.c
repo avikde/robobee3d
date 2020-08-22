@@ -7,7 +7,7 @@ int main() {
 	float b[] = {2,43,324};
 	float C[3];
 
-	matMult(C, A, b, 3, 1, 3, 1, true, false);
+	matMult(C, A, b, 3, 1, 3, 1, 1, 0);
 	for (int i = 0; i < 3; ++i)
 		printf("%f,", C[i]);
 	printf("\n");
