@@ -36,20 +36,17 @@ void matMult(float *C, const float *A, const float *B, const int m, const int n,
 	const float zero = 0.0f;
 
 #ifdef BASIC_BLAS
-	const char *chn = "N";	
-	const char *cht = "T";
-
 	// Source for sgemm http://www.netlib.org/clapack/cblas/sgemm.c
-	const char *transa = chn;
-	const char *transb = chn;
+	char transa = 'N';
+	char transb = 'N';
 	if (AT == 1)
-		transa = cht;
+		transa = 'T';
 	if (BT == 1)
-		transb = cht;
+		transb = 'T';
 	
-	uint64_t um = m, un = n, uk = k;
+	ptrdiff_t um = m, un = n, uk = k;
 
-	sgemm(transa, transb, 
+	sgemm(&transa, &transb, 
 		&um, &un, &uk, &alpha, 
 		A, AT ? &uk : &um, 
 		B, BT ? &un : &uk, 
