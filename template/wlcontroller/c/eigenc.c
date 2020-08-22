@@ -26,7 +26,7 @@
  * @param AT transpose A?
  * @param BT transpose B?
  */
-void matMult(float *C, const float *A, const float *B, size_t m, size_t n, size_t k, float alpha, bool AT, bool BT)
+void matMult(float *C, const float *A, const float *B, int64_t m, int64_t n, int64_t k, float alpha, bool AT, bool BT)
 {
 	const char *chn = "N";
 	const char *cht = "T";

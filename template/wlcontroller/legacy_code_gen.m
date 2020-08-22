@@ -4,12 +4,11 @@ def.SFunctionName = 'ex_wlmex';
 def.InitializeConditionsFcnSpec = 'void wlControllerInit()';
 def.OutputFcnSpec = 'void wlControllerUpdate(single y1[4], single u1[4], single u2[6], single u3[6])';
 
-def.HeaderFiles = {'wlmex.h'};
+def.HeaderFiles = {'wlcontroller.h'};
 def.SourceFiles = {'wlcontroller.c', 'wlqp.c', 'eigenc.c', 'funapprox.c', ...
 	'auxil.c', 'error.c', ...
 	'kkt.c', 'lin_alg.c', 'osqp.c', 'proj.c', 'qdldl.c', ...
-	'qdldl_interface.c', 'scaling.c', 'util.c', 'workspace.c', ...
-    'wlmex.cpp'};
+	'qdldl_interface.c', 'scaling.c', 'util.c', 'workspace.c'};
 def.SrcPaths = {'c', 'wlqp/src/osqp'};
 def.IncPaths = {'c', 'wlqp/include'};
 def.SampleTime = 'parameterized';

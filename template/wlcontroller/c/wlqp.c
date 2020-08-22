@@ -15,9 +15,10 @@
 #include <string.h>
 
 void wlqpInit(WLQP_t *wlqp) {
+	int i, j;
 	// populate default values
-	for (int i = 0; i < NW; ++i) {
-		for (int j = 0; j < NW; ++j) {
+	for (i = 0; i < NW; ++i) {
+		for (j = 0; j < NW; ++j) {
 			wlqp->Q[Cind(NW, i, j)] = (i == j) ? (i < 3 ? 1.0f : 0.1f) : 0.0f;
 		}
 	}
@@ -40,6 +41,8 @@ void wlqpInit(WLQP_t *wlqp) {
 }
 
 static void wlqpSolve(float *du, const float *P, const float *q, const float *L, const float *U) {
+	int i, j;
+
 	static float Px_data[NU * (NU + 1) / 2];
 	OSQPWorkspace *work = &workspace;
 
@@ -51,8 +54,8 @@ static void wlqpSolve(float *du, const float *P, const float *q, const float *L,
 
 	// Get upper triangular
   int kk = 0;
-  for (int j = 0; j < NU; ++j) {
-    for (int i = 0; i <= j; ++i) {
+  for (j = 0; j < NU; ++j) {
+    for (i = 0; i <= j; ++i) {
 			Px_data[kk] = P[Cind(NU, i, j)];
       kk++;
     }
@@ -70,6 +73,7 @@ static void wlqpSolve(float *du, const float *P, const float *q, const float *L,
 }
 
 void wlqpUpdate(WLQP_t *wlqp, float *u, const float *u0, const float *h0, const float *pdotdes) {
+	int i;
 	static float A1[NW * NU];
 	static float a0[NW];
 	static float Q[NW * NW];
@@ -82,7 +86,7 @@ void wlqpUpdate(WLQP_t *wlqp, float *u, const float *u0, const float *h0, const 
 	wrenchJacMap(A1, u0);
 	
 	// auto a0 = w0 - h0 - pdotdes;
-	for (int i = 0; i < NW; ++i) {
+	for (i = 0; i < NW; ++i) {
 		a0[i] = wlqp->w0[i] - h0[i] - pdotdes[i];
 	}
 
@@ -96,13 +100,13 @@ void wlqpUpdate(WLQP_t *wlqp, float *u, const float *u0, const float *h0, const 
 
 	// u_t L = -this->U0;
 	// u_t U = this->U0;
-	for (int i = 0; i < NU; ++i) {
+	for (i = 0; i < NU; ++i) {
 		L[i] = -wlqp->U0[i];
 		U[i] = wlqp->U0[i];
 	}
 
 	// Input limits (not just rate limits)
-	for (int i = 0; i < NU; ++i) {
+	for (i = 0; i < NU; ++i) {
 		if (u0[i] < wlqp->umin[i])
 			L[i] = 0; // do not reduce further
 		else if (u0[i] > wlqp->umax[i])
@@ -111,7 +115,7 @@ void wlqpUpdate(WLQP_t *wlqp, float *u, const float *u0, const float *h0, const 
 
 	// Solve
 	wlqpSolve(u, P, q, L, U);
-	for (int i = 0; i < NU; ++i) {
+	for (i = 0; i < NU; ++i) {
 		u[i] += u0[i];
 	}
 }
