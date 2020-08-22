@@ -32,8 +32,8 @@ void matMult(float *C, const float *A, const float *B, const int m, const int n,
 	const float zero = 0.0f;
 
 	// Source for sgemm http://www.netlib.org/blas/cblas.h
-		enum CBLAS_TRANSPOSE transa = CblasNoTrans;
-		enum CBLAS_TRANSPOSE transb = CblasNoTrans;
+	enum CBLAS_TRANSPOSE transa = CblasNoTrans;
+	enum CBLAS_TRANSPOSE transb = CblasNoTrans;
 	if (AT)
 		transa = CblasTrans;
 	if (BT)
