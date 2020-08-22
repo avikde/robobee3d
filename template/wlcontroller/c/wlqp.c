@@ -47,19 +47,19 @@ static void wlqpSolve(float *du, const float *P, const float *q, const float *L,
 	OSQPWorkspace *work = &workspace;
 
 	// Osqp init
-	// osqp_update_max_iter(work, maxIter);
-	// osqp_update_eps_rel(work, eps);
-	// osqp_update_eps_abs(work, eps);
+	osqp_update_max_iter(work, 10);
+	osqp_update_eps_rel(work, 1e-2f);
+	osqp_update_eps_abs(work, 1e-2f);
 	osqp_update_check_termination(work, 0); // don't check at all
 
 	// Get upper triangular
-  int kk = 0;
-  for (j = 0; j < NU; ++j) {
-    for (i = 0; i <= j; ++i) {
+	int kk = 0;
+	for (j = 0; j < NU; ++j) {
+		for (i = 0; i <= j; ++i) {
 			Px_data[kk] = P[Cind(NU, i, j)];
-      kk++;
-    }
-  }
+			kk++;
+		}
+	}
 
 	// Update
 	osqp_update_P(work, Px_data, OSQP_NULL, NU * (NU + 1) / 2);
