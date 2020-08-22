@@ -1,7 +1,6 @@
 def = legacy_code('initialize');
 def.SFunctionName = 'ex_wlmex';
 
-def.InitializeConditionsFcnSpec = 'void wlControllerInit()';
 def.OutputFcnSpec = 'void wlControllerUpdate(single y1[4], single u1[4], single u2[6], single u3[6])';
 
 def.HeaderFiles = {'wlcontroller.h'};

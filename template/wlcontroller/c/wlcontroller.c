@@ -17,7 +17,7 @@ FunApprox_t fa[NW];
 WLQP_t wlqp;
 float g_u0[NU] = {-1, 0, 0, 0}; // state
 
-void wlControllerInit() {
+static void wlControllerInit(const float *u0init) {
 	int i;
 
 	wlqpInit(&wlqp);
@@ -31,15 +31,16 @@ void wlControllerInit() {
 	for (i = 0; i < NW; ++i) {
 		funApproxInit(&fa[i], &popts[15 * i]);
 	}
+	for (i = 0; i < NU; ++i) {
+		g_u0[i] = u0init[i];
+	}
 }
 
 void wlControllerUpdate(float *u, const float *u0init, const float *h0, const float *pdotdes) {
 	int i;
 
 	if (g_u0[0] < 0) {
-		for (i = 0; i < NU; ++i) {
-			g_u0[i] = u0init[i];
-		}
+		wlControllerInit(u0init);
 	}
 	wlqpUpdate(&wlqp, u, g_u0, h0, pdotdes);
 	for (i = 0; i < NU; ++i) {

@@ -14,13 +14,10 @@ int main() {
 	
 	// Simple test
 	float u0[4] = {140.0, 0., 0., 0.};
-	const float mb = 100;
-	const float g = 9.81e-3f;
-	float h0[6] = {0, 0, mb * g, 0, 0, 0};
+	float h0[6] = {0, 0, 0.981, 0, 0, 0};
 	float pdotdes[6] = {0, 0, 10, 0, 0, 0};
 	float u[4];
 
-	wlControllerInit();
 	wlControllerUpdate(u, u0, h0, pdotdes);
 
 	for (int i = 0; i < 4; ++i)
