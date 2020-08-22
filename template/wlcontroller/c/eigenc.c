@@ -11,7 +11,11 @@
 #include "eigenc.h"
 // Use MATLAB -> BLAS https://www.mathworks.com/help/matlab/matlab_external/calling-lapack-and-blas-functions-from-mex-files.html
 #include <matrix.h>
-#include <cblas.h>
+#ifdef BASIC_BLAS
+#include <blas.h> // to test at home
+#else
+#include <cblas.h> // target computer has this
+#endif
 
 /**
  * @brief Multiply matrices
@@ -31,6 +35,26 @@ void matMult(float *C, const float *A, const float *B, const int m, const int n,
 	// scalar values to use in sgemm
 	const float zero = 0.0f;
 
+#ifdef BASIC_BLAS
+	const char *chn = "N";	
+	const char *cht = "T";
+
+	// Source for sgemm http://www.netlib.org/clapack/cblas/sgemm.c
+	const char *transa = chn;
+	const char *transb = chn;
+	if (AT)
+		transa = cht;
+	if (BT)
+		transb = cht;
+	
+	uint64_t um = m, un = n, uk = k;
+
+	sgemm(transa, transb, 
+		&um, &un, &uk, &alpha, 
+		A, AT ? &uk : &um, 
+		B, BT ? &un : &uk, 
+		&zero, C, &um);
+#else
 	// Source for sgemm http://www.netlib.org/blas/cblas.h
 	enum CBLAS_TRANSPOSE transa = CblasNoTrans;
 	enum CBLAS_TRANSPOSE transb = CblasNoTrans;
@@ -44,4 +68,5 @@ void matMult(float *C, const float *A, const float *B, const int m, const int n,
 		A, AT ? k : m,
 		B, BT ? n : k, 
 		zero, C, m);
+#endif
 }

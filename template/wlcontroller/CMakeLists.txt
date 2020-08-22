@@ -33,7 +33,6 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../SDK/thirdparty/eigen)
 
 # STUPID C MATLAB VERSION
 find_package(Matlab)
-message("HI ${Matlab_ROOT_DIR}")
 set(ML_DIR ${CMAKE_CURRENT_SOURCE_DIR}/c)
 set(ML_SRC 
   ${ML_DIR}/eigenc.c 
@@ -41,6 +40,7 @@ set(ML_SRC
   ${ML_DIR}/wlqp.c
   ${ML_DIR}/wlcontroller.c)
 add_library(wlcontrollerMat STATIC ${ML_SRC} ${osqp_src})
+target_compile_options(wlcontrollerMat PRIVATE -DBASIC_BLAS)
 target_link_directories(wlcontrollerMat PUBLIC ${Matlab_ROOT_DIR}/extern/lib/win64/microsoft)
 target_link_libraries(wlcontrollerMat libmwblas)
 target_include_directories(wlcontrollerMat PUBLIC ${Matlab_INCLUDE_DIRS})
