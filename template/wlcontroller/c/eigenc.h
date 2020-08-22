@@ -23,7 +23,7 @@ extern "C" {
 // index for col-major access
 #define Cind(n, i, j) ((i) + (j)*n)
 
-void matMult(float *C, const float *A, const float *B, int64_t m, int64_t n, int64_t k, float alpha, int AT, int BT);
+void matMult(float *C, const float *A, const float *B, const int m, const int n, const int k, const float alpha, int AT, int BT);
 
 #ifdef __cplusplus
 }
