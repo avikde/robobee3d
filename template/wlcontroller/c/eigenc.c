@@ -26,7 +26,7 @@
  * @param AT transpose A?
  * @param BT transpose B?
  */
-void matMult(float *C, const float *A, const float *B, int64_t m, int64_t n, int64_t k, float alpha, bool AT, bool BT)
+void matMult(float *C, const float *A, const float *B, int64_t m, int64_t n, int64_t k, float alpha, int AT, int BT)
 {
 	const char *chn = "N";
 	const char *cht = "T";
@@ -41,5 +41,5 @@ void matMult(float *C, const float *A, const float *B, int64_t m, int64_t n, int
 	if (BT)
 		transb = cht;
 
-	sgemm(transa, transb, &m, &n, &k, &alpha, A, AT ? &k : &m, B, BT ? &n : &k, &zero, C, &m);
+	cblas_sgemm(transa, transb, &m, &n, &k, &alpha, A, AT ? &k : &m, B, BT ? &n : &k, &zero, C, &m);
 }

@@ -10,7 +10,6 @@
  */
 #pragma once
 
-#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -24,7 +23,7 @@ extern "C" {
 // index for col-major access
 #define Cind(n, i, j) ((i) + (j)*n)
 
-void matMult(float *C, const float *A, const float *B, int64_t m, int64_t n, int64_t k, float alpha, bool AT, bool BT);
+void matMult(float *C, const float *A, const float *B, int64_t m, int64_t n, int64_t k, float alpha, int AT, int BT);
 
 #ifdef __cplusplus
 }

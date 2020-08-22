@@ -91,12 +91,12 @@ void wlqpUpdate(WLQP_t *wlqp, float *u, const float *u0, const float *h0, const 
 	}
 
 	// auto P = A1.transpose() * Qdiag.asDiagonal() * A1;
-	matMult(dum, wlqp->Q, A1, NW, NU, NW, 1.0f, false, false);
-	matMult(P, A1, dum, NU, NW, NW, 1.0f, true, false);
+	matMult(dum, wlqp->Q, A1, NW, NU, NW, 1.0f, 0, 0);
+	matMult(P, A1, dum, NU, NW, NW, 1.0f, 1, 0);
 
 	// u_t q = A1.transpose() * Qdiag.cwiseProduct(a0);
-	matMult(dum, wlqp->Q, a0, NW, 1, NW, 1.0f, false, false); // only using NW elements of dum
-	matMult(q, A1, dum, NU, 1, NW, 1.0f, true, false);
+	matMult(dum, wlqp->Q, a0, NW, 1, NW, 1.0f, 0, 0); // only using NW elements of dum
+	matMult(q, A1, dum, NU, 1, NW, 1.0f, 1, 0);
 
 	// u_t L = -this->U0;
 	// u_t U = this->U0;
