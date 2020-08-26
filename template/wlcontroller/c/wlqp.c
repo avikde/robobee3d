@@ -34,10 +34,10 @@ void wlqpInit(WLQP_t *wlqp) {
 	wlqp->umax[2] = 0.2f;
 	wlqp->umax[3] = 0.1f;
 	// This is dumax
-	wlqp->U0[0] = 5.0f;
-	wlqp->U0[1] = 0.01f;
-	wlqp->U0[2] = 0.01f;
-	wlqp->U0[3] = 0.01f;
+	wlqp->U0[0] = 0.5f;
+	wlqp->U0[1] = 1e-3f;
+	wlqp->U0[2] = 1e-3f;
+	wlqp->U0[3] = 1e-3f;
 	
 	// Osqp init
 	OSQPWorkspace *work = &workspace;
