@@ -11,6 +11,7 @@
 #include "wlcontroller.h"
 #include "funapprox.h"
 #include "wlqp.h"
+// #include <mex.h>
 
 // Global vars needed
 FunApprox_t fa[NW];
@@ -18,6 +19,7 @@ WLQP_t wlqp;
 float g_u0[NU] = {-1, 0, 0, 0}; // state
 
 static void wlControllerInit(const float *u0init) {
+	// mexPrintf("HI INITING\n\n");
 	int i;
 
 	wlqpInit(&wlqp);

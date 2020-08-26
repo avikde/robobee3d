@@ -38,6 +38,12 @@ void wlqpInit(WLQP_t *wlqp) {
 	wlqp->U0[1] = 0.01f;
 	wlqp->U0[2] = 0.01f;
 	wlqp->U0[3] = 0.01f;
+	
+	// Osqp init
+	OSQPWorkspace *work = &workspace;
+	osqp_set_default_settings(work->settings);
+	osqp_update_max_iter(work, 40);
+	// osqp_update_check_termination(work, 0); // don't check at all
 }
 
 static void wlqpSolve(float *du, const float *P, const float *q, const float *L, const float *U) {
@@ -45,12 +51,6 @@ static void wlqpSolve(float *du, const float *P, const float *q, const float *L,
 
 	static float Px_data[NU * (NU + 1) / 2];
 	OSQPWorkspace *work = &workspace;
-
-	// Osqp init
-	osqp_update_max_iter(work, 20);
-	osqp_update_eps_rel(work, 1e-4f);
-	osqp_update_eps_abs(work, 1e-4f);
-	osqp_update_check_termination(work, 0); // don't check at all
 
 	// Get upper triangular
 	int kk = 0;
@@ -70,6 +70,8 @@ static void wlqpSolve(float *du, const float *P, const float *q, const float *L,
 	/* int res = */ osqp_solve(work);
 
 	memcpy(du, work->solution->x, NU * sizeof(float));
+
+	// mexPrintf("du = %.3f %.3f %.3f, %s\n", du[0], du[1], du[2], work->info->status);
 }
 
 void wlqpUpdate(WLQP_t *wlqp, float *u, const float *u0, const float *h0, const float *pdotdes) {

@@ -39,16 +39,21 @@ set(ML_SRC
   ${ML_DIR}/funapprox.c
   ${ML_DIR}/wlqp.c
   ${ML_DIR}/wlcontroller.c)
-add_library(wlcontrollerMat STATIC ${ML_SRC} ${osqp_src})
-target_compile_options(wlcontrollerMat PRIVATE -DBASIC_BLAS)
-target_link_directories(wlcontrollerMat PUBLIC ${Matlab_ROOT_DIR}/extern/lib/win64/microsoft)
-target_link_libraries(wlcontrollerMat libmwblas)
-target_include_directories(wlcontrollerMat PUBLIC ${Matlab_INCLUDE_DIRS})
 
-add_executable(test ${ML_DIR}/main.c)
-target_link_libraries(test PUBLIC wlcontrollerMat)
+# add_library(wlcontrollerMat STATIC ${ML_SRC} ${osqp_src})
+# target_compile_options(wlcontrollerMat PRIVATE -DBASIC_BLAS)
+# target_link_directories(wlcontrollerMat PUBLIC ${Matlab_ROOT_DIR}/extern/lib/win64/microsoft)
+# target_link_libraries(wlcontrollerMat libmwblas)
+# target_include_directories(wlcontrollerMat PUBLIC ${Matlab_INCLUDE_DIRS})
 
-# set(SRC_MEX ${CMAKE_CURRENT_SOURCE_DIR}/wlmex.cpp)
-matlab_add_mex(NAME wlControllerUpdate SRC wlmexc.c LINK_TO wlcontrollerMat)
+# # add_executable(test ${ML_DIR}/main.c)
+# # target_link_libraries(test PUBLIC wlcontrollerMat)
+
+# matlab_add_mex(NAME wlControllerUpdate SRC wlmexc.c LINK_TO wlcontrollerMat)
+
+# all at once
+matlab_add_mex(NAME wlControllerUpdate SRC wlmexc.c ${ML_SRC} ${osqp_src} LINK_TO libmwblas)
 target_include_directories(wlControllerUpdate PUBLIC ${ML_DIR})
+target_compile_options(wlControllerUpdate PRIVATE -DBASIC_BLAS)
+target_link_directories(wlControllerUpdate PUBLIC ${Matlab_ROOT_DIR}/extern/lib/win64/microsoft)
 
