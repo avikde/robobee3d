@@ -47,9 +47,9 @@ static void wlqpSolve(float *du, const float *P, const float *q, const float *L,
 	OSQPWorkspace *work = &workspace;
 
 	// Osqp init
-	osqp_update_max_iter(work, 10);
-	osqp_update_eps_rel(work, 1e-2f);
-	osqp_update_eps_abs(work, 1e-2f);
+	osqp_update_max_iter(work, 20);
+	osqp_update_eps_rel(work, 1e-4f);
+	osqp_update_eps_abs(work, 1e-4f);
 	osqp_update_check_termination(work, 0); // don't check at all
 
 	// Get upper triangular

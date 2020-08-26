@@ -9,6 +9,7 @@
  * 
  */
 #include "eigenc.h"
+//#define BASIC_BLAS
 // Use MATLAB -> BLAS https://www.mathworks.com/help/matlab/matlab_external/calling-lapack-and-blas-functions-from-mex-files.html
 #include <matrix.h>
 #ifdef BASIC_BLAS
