@@ -48,6 +48,7 @@ target_include_directories(wlcontrollerMat PUBLIC ${Matlab_INCLUDE_DIRS})
 add_executable(test ${ML_DIR}/main.c)
 target_link_libraries(test PUBLIC wlcontrollerMat)
 
-# # set(SRC_MEX ${CMAKE_CURRENT_SOURCE_DIR}/wlmex.cpp)
-# matlab_add_mex(NAME wlmex SRC ${SRC_MEX} LINK_TO wlcontroller)
+# set(SRC_MEX ${CMAKE_CURRENT_SOURCE_DIR}/wlmex.cpp)
+matlab_add_mex(NAME wlControllerUpdate SRC wlmexc.c LINK_TO wlcontrollerMat)
+target_include_directories(wlControllerUpdate PUBLIC ${ML_DIR})
 
