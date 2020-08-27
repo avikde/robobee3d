@@ -23,8 +23,8 @@ u_t WrenchLinQP::update(const u_t &u0, const w_t &p0, const w_t &h0, const w_t &
 }
 
 u_t WrenchLinQP::update2(const u_t &u0, const w_t &h0, const w_t &pdotdes, const w_t &Qdiag) {
-	// Input rate limit TODO: sparsity
-	Eigen::Matrix4f A = Eigen::Matrix4f::Identity();
+	// // Input rate limit TODO: sparsity
+	// Eigen::Matrix4f A = Eigen::Matrix4f::Identity();
 
 	auto w0 = wrenchMap(u0);
 	auto a0 = w0 - h0 - pdotdes;
@@ -48,7 +48,7 @@ u_t WrenchLinQP::update2(const u_t &u0, const w_t &h0, const w_t &pdotdes, const
 	// std::cout << w0 << A1;
 	// std::cout << P << q << L << U << A;
 
-	auto du = solve(P, A, q, L, U);
+	auto du = solve(P, /* A,  */q, L, U);
 	return u0 + du;
 }
 
@@ -58,7 +58,7 @@ void WrenchLinQP::setLimits(const u_t &umin, const u_t &umax, const u_t &dumax) 
 	this->U0 = dumax;
 }
 
-u_t WrenchLinQP::solve(const Eigen::Matrix4f &P, const Eigen::Matrix4f &A, const u_t &q, const u_t &L, const u_t &U) {
+u_t WrenchLinQP::solve(const Eigen::Matrix4f &P, /* const Eigen::Matrix4f &A,  */const u_t &q, const u_t &L, const u_t &U) {
 	OSQPWorkspace *work = &workspace;
 	static Eigen::VectorXf Px_data;
 
@@ -71,7 +71,7 @@ u_t WrenchLinQP::solve(const Eigen::Matrix4f &P, const Eigen::Matrix4f &A, const
 	// Update
 	eigenUpperTriangularVals<4>(P, Px_data);
 	osqp_update_P(work, Px_data.data(), OSQP_NULL, Px_data.size());
-	osqp_update_A(work, A.data(), OSQP_NULL, work->data->m * work->data->n);
+	// osqp_update_A(work, A.data(), OSQP_NULL, work->data->m * work->data->n);
 	osqp_update_lin_cost(work, q.data());
 	osqp_update_bounds(work, L.data(), U.data());
 
