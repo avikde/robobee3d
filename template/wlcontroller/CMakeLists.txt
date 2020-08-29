@@ -5,6 +5,9 @@ project(wlcontroller)
 option(USEBLAS "Use BLAS and C instead of Eigen (C++)" ON)
 option(PYBIND "Build python bindings" ON)
 
+set(PYBIND11_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../controls/thirdparty/pybind11" CACHE STRING "Pybind location")
+set(EIGEN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../SDK/thirdparty/eigen" CACHE STRING "Eigen location")
+
 set(WLQP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/wlqp)
 file(GLOB osqp_src "${WLQP_DIR}/*.c")
 # emosqp options
@@ -31,6 +34,9 @@ if(USEBLAS)
     ${ML_DIR}/wlqp.c
     ${ML_DIR}/wlcontroller.c)
 
+  add_definitions(-DBASIC_BLAS) # use this to build locally, but not on the target
+  link_directories(${Matlab_ROOT_DIR}/extern/lib/win64/microsoft)
+
   # add_library(wlcontrollerMat STATIC ${ML_SRC} ${osqp_src})
   # target_compile_options(wlcontrollerMat PRIVATE -DBASIC_BLAS)
   # target_link_directories(wlcontrollerMat PUBLIC ${Matlab_ROOT_DIR}/extern/lib/win64/microsoft)
@@ -46,10 +52,16 @@ if(USEBLAS)
   matlab_add_mex(NAME wlControllerUpdate SRC wlmexc.c ${ML_SRC} ${osqp_src} LINK_TO libmwblas)
   target_include_directories(wlControllerUpdate PUBLIC ${ML_DIR})
   target_compile_options(wlControllerUpdate PRIVATE -DBASIC_BLAS)
-  target_link_directories(wlControllerUpdate PUBLIC ${Matlab_ROOT_DIR}/extern/lib/win64/microsoft)
+  
+  if(PYBIND)
+    add_subdirectory(${PYBIND11_DIR} "pybind11")
+    pybind11_add_module(wlqpc ${CMAKE_CURRENT_SOURCE_DIR}/pybind/wlqpc.cpp ${ML_SRC} ${osqp_src})
+    target_link_libraries(wlqpc PRIVATE libmwblas)
+    target_include_directories(wlqpc PRIVATE ${EIGEN_DIR} ${ML_DIR} ${Matlab_ROOT_DIR}/extern/include)
+  endif(PYBIND)
 else(USEBLAS)
   # C++ version
-  include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../SDK/thirdparty/eigen)
+  include_directories(${EIGEN_DIR})
   set(CPPSRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cpp)
   set(SRC_CONTROLLER 
     ${CPPSRC_DIR}/wlqp.cpp
