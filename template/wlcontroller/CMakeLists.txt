@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.5.0)
 
 project(wlcontroller)
 
+option(USEBLAS "Use BLAS and C instead of Eigen (C++)" ON)
+option(PYBIND "Build python bindings" ON)
+
 set(WLQP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/wlqp)
 file(GLOB osqp_src "${WLQP_DIR}/*.c")
 # emosqp options
@@ -18,42 +21,43 @@ set(QDLDL_BOOL_TYPE "int")
 # configure_file(${WLQP_DIR}/configure/osqp_configure.h.in ${WLQP_DIR}/include/osqp_configure.h)
 include_directories(${WLQP_DIR})
 
-# # C++ version
-# include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../SDK/thirdparty/eigen)
-# set(CPPSRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cpp)
-# set(SRC_CONTROLLER 
-#   ${CPPSRC_DIR}/wlqp.cpp
-#   ${CPPSRC_DIR}/wlcontroller.cpp
-#   )
-# set(SRC_CONTROLLER ${SRC_CONTROLLER} ${osqp_src})
-# add_library(wlcontroller STATIC ${SRC_CONTROLLER})
+if(USEBLAS)
+  # STUPID C MATLAB VERSION
+  find_package(Matlab)
+  set(ML_DIR ${CMAKE_CURRENT_SOURCE_DIR}/c)
+  set(ML_SRC 
+    ${ML_DIR}/eigenc.c 
+    ${ML_DIR}/funapprox.c
+    ${ML_DIR}/wlqp.c
+    ${ML_DIR}/wlcontroller.c)
 
-# add_executable(test ${CPPSRC_DIR}/main.cpp)
-# target_link_libraries(test PUBLIC wlcontroller)
+  # add_library(wlcontrollerMat STATIC ${ML_SRC} ${osqp_src})
+  # target_compile_options(wlcontrollerMat PRIVATE -DBASIC_BLAS)
+  # target_link_directories(wlcontrollerMat PUBLIC ${Matlab_ROOT_DIR}/extern/lib/win64/microsoft)
+  # target_link_libraries(wlcontrollerMat libmwblas)
+  # target_include_directories(wlcontrollerMat PUBLIC ${Matlab_INCLUDE_DIRS})
 
-# STUPID C MATLAB VERSION
-find_package(Matlab)
-set(ML_DIR ${CMAKE_CURRENT_SOURCE_DIR}/c)
-set(ML_SRC 
-  ${ML_DIR}/eigenc.c 
-  ${ML_DIR}/funapprox.c
-  ${ML_DIR}/wlqp.c
-  ${ML_DIR}/wlcontroller.c)
+  # # add_executable(test ${ML_DIR}/main.c)
+  # # target_link_libraries(test PUBLIC wlcontrollerMat)
 
-# add_library(wlcontrollerMat STATIC ${ML_SRC} ${osqp_src})
-# target_compile_options(wlcontrollerMat PRIVATE -DBASIC_BLAS)
-# target_link_directories(wlcontrollerMat PUBLIC ${Matlab_ROOT_DIR}/extern/lib/win64/microsoft)
-# target_link_libraries(wlcontrollerMat libmwblas)
-# target_include_directories(wlcontrollerMat PUBLIC ${Matlab_INCLUDE_DIRS})
+  # matlab_add_mex(NAME wlControllerUpdate SRC wlmexc.c LINK_TO wlcontrollerMat)
 
-# # add_executable(test ${ML_DIR}/main.c)
-# # target_link_libraries(test PUBLIC wlcontrollerMat)
+  # all at once
+  matlab_add_mex(NAME wlControllerUpdate SRC wlmexc.c ${ML_SRC} ${osqp_src} LINK_TO libmwblas)
+  target_include_directories(wlControllerUpdate PUBLIC ${ML_DIR})
+  target_compile_options(wlControllerUpdate PRIVATE -DBASIC_BLAS)
+  target_link_directories(wlControllerUpdate PUBLIC ${Matlab_ROOT_DIR}/extern/lib/win64/microsoft)
+else(USEBLAS)
+  # C++ version
+  include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../SDK/thirdparty/eigen)
+  set(CPPSRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cpp)
+  set(SRC_CONTROLLER 
+    ${CPPSRC_DIR}/wlqp.cpp
+    ${CPPSRC_DIR}/wlcontroller.cpp
+    )
+  set(SRC_CONTROLLER ${SRC_CONTROLLER} ${osqp_src})
+  add_library(wlcontroller STATIC ${SRC_CONTROLLER})
 
-# matlab_add_mex(NAME wlControllerUpdate SRC wlmexc.c LINK_TO wlcontrollerMat)
-
-# all at once
-matlab_add_mex(NAME wlControllerUpdate SRC wlmexc.c ${ML_SRC} ${osqp_src} LINK_TO libmwblas)
-target_include_directories(wlControllerUpdate PUBLIC ${ML_DIR})
-target_compile_options(wlControllerUpdate PRIVATE -DBASIC_BLAS)
-target_link_directories(wlControllerUpdate PUBLIC ${Matlab_ROOT_DIR}/extern/lib/win64/microsoft)
-
+  add_executable(test ${CPPSRC_DIR}/main.cpp)
+  target_link_libraries(test PUBLIC wlcontroller)
+endif(USEBLAS)
