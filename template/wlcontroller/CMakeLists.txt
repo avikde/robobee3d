@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.5.0)
 
 project(wlcontroller)
 
-option(USEBLAS "Use BLAS and C instead of Eigen (C++)" ON)
+option(USEBLAS "Use BLAS and C instead of Eigen (C++)" OFF)
 option(PYBIND "Build python bindings" ON)
 
 set(PYBIND11_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../controls/thirdparty/pybind11" CACHE STRING "Pybind location")

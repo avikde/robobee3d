@@ -28,7 +28,7 @@ public:
   void setLimits(const u_t &umin, const u_t &umax, const u_t &dumax);
   void setWeight(const w_t &Qdiag) { this->Qdiag = Qdiag; }
 
-  u_t update(const u_t &u0, const w_t &p0, const w_t &h0, const w_t &pdes, const w_t &kpmom = w_t(0, 0, 1, 0.1, 0.1, 0.1));
+  u_t update(const u_t &u0, const w_t &h0, const w_t &pdotdes);
 
   // Solve settings
   int maxIter = 10;
@@ -36,14 +36,12 @@ public:
 
 protected:
   // u_t u0 = u_t::Zero(); 
-  u_t umin = nan * u_t::Ones(), umax = nan * u_t::Ones();
+  u_t umin = u_t(90.0f, -0.5f, -0.2f, -0.1f), umax = u_t(160.0f, 0.5f, 0.2f, 0.1f);
   // QP bound *not* same as limit on u
-  u_t U0 = 1e-2f * u_t::Ones();
+  u_t U0 = u_t(0.5f, 1e-3f, 1e-3f, 1e-3f);
   // Keep track of this
   w_t w0 = w_t::Zero();
-  w_t Qdiag = w_t::Ones();
-
-  u_t update2(const u_t &u0, const w_t &h0, const w_t &pdotdes, const w_t &Qdiag);
+  w_t Qdiag = w_t(1.0f, 1.0f, 1.0f, 0.1f, 0.1f, 0.1f);
   
   // Call osqp. NOTE: assumes P is symmetric.
   u_t solve(const Eigen::Matrix4f &P, /* const Eigen::Matrix4f &A,  */const u_t &q, const u_t &L, const u_t &U);

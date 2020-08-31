@@ -16,16 +16,8 @@ extern "C" {
 }
 // #include <iostream>
 
-u_t WrenchLinQP::update(const u_t &u0, const w_t &p0, const w_t &h0, const w_t &pdes, const w_t &kpmom) {
-	// Momentum reference dynamics https://github.com/avikde/robobee3d/pull/166 TODO: incorporate as MPC
-	w_t pdotdes = kpmom.cwiseProduct(pdes - p0);
-	return update2(u0, h0, pdotdes, Qdiag);
-}
-
-u_t WrenchLinQP::update2(const u_t &u0, const w_t &h0, const w_t &pdotdes, const w_t &Qdiag) {
-	// // Input rate limit TODO: sparsity
-	// Eigen::Matrix4f A = Eigen::Matrix4f::Identity();
-
+u_t WrenchLinQP::update(const u_t &u0, const w_t &h0, const w_t &pdotdes) {
+	// Momentum reference dynamics https://github.com/avikde/robobee3d/pull/166
 	auto w0 = wrenchMap(u0);
 	auto a0 = w0 - h0 - pdotdes;
 	auto A1 = wrenchJacMap(u0);
@@ -70,7 +62,7 @@ u_t WrenchLinQP::solve(const Eigen::Matrix4f &P, /* const Eigen::Matrix4f &A,  *
 
 	// Update
 	eigenUpperTriangularVals<4>(P, Px_data);
-	osqp_update_P(work, Px_data.data(), OSQP_NULL, Px_data.size());
+	osqp_update_P(work, Px_data.data(), OSQP_NULL, (c_int)Px_data.size());
 	// osqp_update_A(work, A.data(), OSQP_NULL, work->data->m * work->data->n);
 	osqp_update_lin_cost(work, q.data());
 	osqp_update_bounds(work, L.data(), U.data());
