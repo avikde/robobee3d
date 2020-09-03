@@ -3,8 +3,7 @@ import pybullet as p
 import autograd.numpy as np
 from scipy.spatial.transform import Rotation
 from ca6dynamics import dynamicsTerms
-from wrenchlinQP import WrenchLinQP
-from sdab_num_wrenchmap import wrenchMap, dw_du
+from wlqppy import WLController
 
 class WaveformGenerator(object):
     """A simple waveform generator that keeps track of phase"""
@@ -74,30 +73,20 @@ class WaypointHover(RobobeeController):
     """Simplified version of Pakpong (2013). u = [Vmean, uoffs, udiff, h2]"""
     def __init__(self, wrenchMapPoptsFile, constPdes=None, useh2=True):
         super(WaypointHover, self).__init__({'freq': (0, 0.3, 0.16)})
-        self.wlqpCver = True
         self.wf = WaveformGenerator()
         self.posdes = np.array([0.,0.,100.])
         self.constPdes = constPdes
         self.useh2 = useh2
+
+        # NOTE: This is not actually used: need to put in wlcontroller.cpp or wlcontroller.c
         popts = np.load(wrenchMapPoptsFile)
-        print('Loaded wrenchMap params from', wrenchMapPoptsFile, '\npopts=\n', popts)
+        print(wrenchMapPoptsFile, '\npopts=\n', popts)
         for vv in np.ravel(popts, order='C'):
             print(vv,',',end='')
         print()
 
-        if self.wlqpCver:
-            from wlqppy import WLController
-            self.wl = WLController()
-            self.u4 = [140.0,0.,0.,0.]
-        else:
-            self.wmap = lambda u : wrenchMap(u, popts)
-            self.Dwmap = lambda u : dw_du(u, popts)
-            self.wlqp = WrenchLinQP(4, 4, dynamicsTerms, self.wmap, 
-                u0=[140.0,0.,0.,0.], 
-                dumax=[5.,0.01,0.01,0.01], 
-                umin=[90.,-0.5,-0.2,-0.1], 
-                umax=[160.,0.5,0.2,0.1], 
-                dwduMap=self.Dwmap)
+        self.wl = WLController()
+        self.u4 = [140.0,0.,0.,0.]
 
         # self.momentumController = self.manualMapping
         self.momentumController = self.wrenchLinWrapper
@@ -111,12 +100,9 @@ class WaypointHover(RobobeeController):
     def wrenchLinWrapper(self, *args):
         t, qb, dqb, pdes = args
 
-        if self.wlqpCver:
-            M0, h0 = dynamicsTerms(qb, dqb)
-            pdotdes = self.momentumReference(M0 @ dqb, pdes)
-            self.u4 = self.wl.update(self.u4, h0, pdotdes)
-        else:
-            self.u4 = self.wlqp.updateFromState(t, qb, dqb, pdes)
+        M0, h0 = dynamicsTerms(qb, dqb)
+        pdotdes = self.momentumReference(M0 @ dqb, pdes)
+        self.u4 = self.wl.update(self.u4, h0, pdotdes)
 
         Vmean, uoffs, udiff, h2 = self.u4
         # # test
