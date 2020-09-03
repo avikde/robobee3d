@@ -74,6 +74,7 @@ class WaypointHover(RobobeeController):
     """Simplified version of Pakpong (2013). u = [Vmean, uoffs, udiff, h2]"""
     def __init__(self, wrenchMapPoptsFile, constPdes=None, useh2=True):
         super(WaypointHover, self).__init__({'freq': (0, 0.3, 0.16)})
+        self.wlqpCver = True
         self.wf = WaveformGenerator()
         self.posdes = np.array([0.,0.,100.])
         self.constPdes = constPdes
@@ -83,21 +84,41 @@ class WaypointHover(RobobeeController):
         for vv in np.ravel(popts, order='C'):
             print(vv,',',end='')
         print()
-        self.wmap = lambda u : wrenchMap(u, popts)
-        self.Dwmap = lambda u : dw_du(u, popts)
-        self.wlqp = WrenchLinQP(4, 4, dynamicsTerms, self.wmap, 
-            u0=[140.0,0.,0.,0.], 
-            dumax=[5.,0.01,0.01,0.01], 
-            umin=[90.,-0.5,-0.2,-0.1], 
-            umax=[160.,0.5,0.2,0.1], 
-            dwduMap=self.Dwmap)
+
+        if self.wlqpCver:
+            from wlqppy import WLController
+            self.wl = WLController()
+            self.u4 = [140.0,0.,0.,0.]
+        else:
+            self.wmap = lambda u : wrenchMap(u, popts)
+            self.Dwmap = lambda u : dw_du(u, popts)
+            self.wlqp = WrenchLinQP(4, 4, dynamicsTerms, self.wmap, 
+                u0=[140.0,0.,0.,0.], 
+                dumax=[5.,0.01,0.01,0.01], 
+                umin=[90.,-0.5,-0.2,-0.1], 
+                umax=[160.,0.5,0.2,0.1], 
+                dwduMap=self.Dwmap)
+
         # self.momentumController = self.manualMapping
         self.momentumController = self.wrenchLinWrapper
         self.positionController = positionControllerPakpongLike
     
+    def momentumReference(self, t, qb, dqb, pdes):
+        # used in the C version
+        return np.array([0, 0, 10, 0, 0, 0])
+
     def wrenchLinWrapper(self, *args):
         t, qb, dqb, pdes = args
-        self.u4 = self.wlqp.updateFromState(t, qb, dqb, pdes)
+
+        if self.wlqpCver:
+            mb = 100
+            g = 9.81e-3
+            h0 = [0, 0, mb * g, 0, 0, 0]
+            pdotdes = self.momentumReference(t, qb, dqb, pdes)
+            self.u4 = self.wl.update(self.u4, h0, pdotdes)
+        else:
+            self.u4 = self.wlqp.updateFromState(t, qb, dqb, pdes)
+
         Vmean, uoffs, udiff, h2 = self.u4
         # # test
         # Vmean = 110# + 1000 * (pdes[2] - dqb[2])
