@@ -38,7 +38,7 @@ protected:
   // u_t u0 = u_t::Zero(); 
   u_t umin = u_t(90.0f, -0.5f, -0.2f, -0.1f), umax = u_t(160.0f, 0.5f, 0.2f, 0.1f);
   // QP bound *not* same as limit on u
-  u_t U0 = u_t(0.5f, 1e-3f, 1e-3f, 1e-3f);
+  u_t U0 = u_t(5.0f, 1e-2f, 1e-2f, 1e-2f); // for 1KHz; for 10KHz, divide by 10, etc.
   // Keep track of this
   w_t w0 = w_t::Zero();
   w_t Qdiag = w_t(1.0f, 1.0f, 1.0f, 0.1f, 0.1f, 0.1f);
