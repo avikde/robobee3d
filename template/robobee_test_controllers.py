@@ -103,18 +103,17 @@ class WaypointHover(RobobeeController):
         self.momentumController = self.wrenchLinWrapper
         self.positionController = positionControllerPakpongLike
     
-    def momentumReference(self, t, qb, dqb, pdes):
+    def momentumReference(self, p0, pdes):
         # used in the C version
-        return np.array([0, 0, 10, 0, 0, 0])
+        kpmom = np.array([0,0,1,0.1,0.1,0.1])
+        return kpmom * (pdes - p0)
 
     def wrenchLinWrapper(self, *args):
         t, qb, dqb, pdes = args
 
         if self.wlqpCver:
-            mb = 100
-            g = 9.81e-3
-            h0 = [0, 0, mb * g, 0, 0, 0]
-            pdotdes = self.momentumReference(t, qb, dqb, pdes)
+            M0, h0 = dynamicsTerms(qb, dqb)
+            pdotdes = self.momentumReference(M0 @ dqb, pdes)
             self.u4 = self.wl.update(self.u4, h0, pdotdes)
         else:
             self.u4 = self.wlqp.updateFromState(t, qb, dqb, pdes)
