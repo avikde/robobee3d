@@ -93,7 +93,8 @@ class WaypointHover(RobobeeController):
         self.positionController = positionControllerPakpongLike
     
     def momentumReference(self, p0, pdes):
-        # used in the C version
+        """Used in the C version"""
+        # TODO: use a quadratic value function, HJB to get this
         kpmom = np.array([0,0,1,0.1,0.1,0.1])
         return kpmom * (pdes - p0)
 
