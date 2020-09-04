@@ -93,7 +93,7 @@ class WaypointHover(RobobeeController):
         self.momentumController = self.wrenchLinWrapper
         self.positionController = positionControllerPakpongLike
         # For momentum reference. only need to get once for now for hover task
-        self.S = valuefunc.quadrotorS(Qpos=[0.01,0.01,0.01,0.001,0.001,0.001], Qvel=[1,1,1,0.1,0.1,0.1])
+        self.S = valuefunc.quadrotorS(9.81e-3, Qpos=[0,0,10,0.1,0.1,0.1], Qvel=[1,1,10,0.1,0.1,0.1])
     
     def momentumReference(self, q0, p0, pdes):
         """Used in the C version; returns pdotdes"""
@@ -105,7 +105,7 @@ class WaypointHover(RobobeeController):
         phi0 = Rotation.from_quat(q0[3:]).as_euler('xyz')
         x0 = np.hstack((p0 - np.array([0,0,100]), phi0, np.zeros(6)))
         # Here there should be an Rinverse where R is relevant to the pdot=u
-        Ru = np.array([10,10,10,10,10,10])
+        Ru = 100*np.ones(6)
         pddes = -np.diag(1/Ru) @ self.S[6:,:] @ x0
         # print(pddes)
         return pddes

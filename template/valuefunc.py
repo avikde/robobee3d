@@ -1,13 +1,13 @@
 import numpy as np
 import scipy.linalg
 
-def quadrotorS(Qpos, Qvel, Rdiag=np.ones(4)):
+Z6 = np.zeros((6,6))
+Z3 = np.zeros((3,3))
+
+def quadrotorS(T0, Qpos, Qvel, Rdiag=np.ones(4)):
     # For x = (q position, p momentum)
     Md = np.array([100, 100, 100, 3333, 3333, 1000])
     M = np.diag(Md)
-    T0 = 9.81e-3 # current thrust
-    Z6 = np.zeros((6,6))
-    Z3 = np.zeros((3,3))
     dpdotdphi = Md[0] * T0 * np.array([[0,1,0],
             [-1,0,0],
             [0,0,0]])
