@@ -12,6 +12,25 @@ parser.add_argument('-t', '--tend', type=float, default=np.inf, help='end time [
 parser.add_argument('-d', '--direct', action='store_true', default=False, help='direct mode (no visualization)')
 args = parser.parse_args()
 
+# TEST
+import sys
+import scipy.linalg
+
+# For x = (q position, p momentum)
+Md = np.array([100, 100, 100, 3333, 3333, 1000])
+M = np.diag(Md)
+Z6 = np.zeros((6,6))
+B = np.vstack((np.zeros((8,4)), np.eye(4)))
+A = np.vstack((
+    np.hstack((Z6, np.linalg.inv(M))),
+    np.hstack((Z6, Z6))
+))
+Q = np.diag(np.hstack((np.ones(6), np.array([1,1,1,0.1,0.1,0.1]))))
+R = np.eye(4)
+P = scipy.linalg.solve_continuous_are(A, B, Q, R)
+print(A,B,Q,R,P)
+sys.exit()
+
 # filtfreq is for the body velocity filter
 bee = robobee.RobobeeSim(p.DIRECT if args.direct else p.GUI, slowDown=0, camLock=True, timestep=0.1, gui=0, filtfreq=0.16)
 # load robot
