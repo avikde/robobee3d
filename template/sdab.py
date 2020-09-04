@@ -1,5 +1,5 @@
 import time, subprocess, argparse
-import autograd.numpy as np
+import numpy as np
 import pybullet as p
 import robobee
 from robobee_test_controllers import OpenLoop, WaypointHover
@@ -19,11 +19,29 @@ import scipy.linalg
 # For x = (q position, p momentum)
 Md = np.array([100, 100, 100, 3333, 3333, 1000])
 M = np.diag(Md)
+T0 = 9.81e-3 # current thrust
 Z6 = np.zeros((6,6))
-B = np.vstack((np.zeros((8,4)), np.eye(4)))
+Z3 = np.zeros((3,3))
+dpdotdphi = Md[0] * T0 * np.array([[0,0,0],
+        [0,0,1],
+        [0,-1,0]])
+dy2dy = np.block([[Z3, dpdotdphi],
+    [Z3, Z3]])
+
+B = np.vstack((
+    np.zeros((6,4)), 
+    np.array([
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [1, 0, 0, 0],
+        [0, 1, 0, 0],
+        [0, 0, 1, 0],
+        [0, 0, 0, 1]
+    ])
+    ))
 A = np.vstack((
     np.hstack((Z6, np.linalg.inv(M))),
-    np.hstack((Z6, Z6))
+    np.hstack((Z6, dy2dy))
 ))
 Q = np.diag(np.hstack((np.ones(6), np.array([1,1,1,0.1,0.1,0.1]))))
 R = np.eye(4)
