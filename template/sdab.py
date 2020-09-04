@@ -12,45 +12,6 @@ parser.add_argument('-t', '--tend', type=float, default=np.inf, help='end time [
 parser.add_argument('-d', '--direct', action='store_true', default=False, help='direct mode (no visualization)')
 args = parser.parse_args()
 
-# TEST
-import sys
-import scipy.linalg
-
-# For x = (q position, p momentum)
-Md = np.array([100, 100, 100, 3333, 3333, 1000])
-M = np.diag(Md)
-T0 = 9.81e-3 # current thrust
-Z6 = np.zeros((6,6))
-Z3 = np.zeros((3,3))
-dpdotdphi = Md[0] * T0 * np.array([[0,1,0],
-        [-1,0,0],
-        [0,0,0]])
-dy2dy = np.block([[Z3, dpdotdphi],
-    [Z3, Z3]])
-
-B = np.vstack((
-    np.zeros((6,4)), 
-    np.array([
-        [0, 0, 0, 0],
-        [0, 0, 0, 0],
-        [1, 0, 0, 0],
-        [0, 1, 0, 0],
-        [0, 0, 1, 0],
-        [0, 0, 0, 1]
-    ])
-    ))
-A = np.vstack((
-    np.hstack((Z6, np.linalg.inv(M))),
-    np.hstack((dy2dy, Z6))
-))
-Q = np.diag(np.hstack((np.ones(6), np.array([1,1,1,0.1,0.1,0.1]))))
-R = np.eye(4)
-S = scipy.linalg.solve_continuous_are(A, B, Q, R)
-# aa = A.T @ S + S @ A - S @ B @ np.linalg.inv(R) @ B.T @ S + Q <- should be = 0
-# Cc = np.hstack((B, A @ B, A @ A @ B))
-print(S)
-sys.exit()
-
 # filtfreq is for the body velocity filter
 bee = robobee.RobobeeSim(p.DIRECT if args.direct else p.GUI, slowDown=0, camLock=True, timestep=0.1, gui=0, filtfreq=0.16)
 # load robot

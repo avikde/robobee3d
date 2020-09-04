@@ -4,6 +4,7 @@ import autograd.numpy as np
 from scipy.spatial.transform import Rotation
 from ca6dynamics import dynamicsTerms
 from wlqppy import WLController
+from valuefunc import getSHover
 
 class WaveformGenerator(object):
     """A simple waveform generator that keeps track of phase"""
@@ -92,17 +93,24 @@ class WaypointHover(RobobeeController):
         self.momentumController = self.wrenchLinWrapper
         self.positionController = positionControllerPakpongLike
     
-    def momentumReference(self, p0, pdes):
-        """Used in the C version"""
-        # TODO: use a quadratic value function, HJB to get this
-        kpmom = np.array([0,0,1,0.1,0.1,0.1])
-        return kpmom * (pdes - p0)
+    def momentumReference(self, q0, p0, pdes):
+        """Used in the C version; returns pdotdes"""
+        # # Simple quadratic VF on momentum kpmom * ||p0 - pdes||^2
+        # kpmom = np.array([0,0,1,0.1,0.1,0.1])
+        # return kpmom * (pdes - p0)
+        S = getSHover() # only need to get once; keep here for time-varying
+        p0 = q0[:3]
+        phi0 = Rotation.from_quat(q0[3:]).as_euler('xyz')
+        x0 = np.hstack((p0 - np.array([0,0,100]), phi0, np.zeros(6)))
+        pddes = -0.01 * S[6:,:] @ x0
+        # print(pddes)
+        return pddes
 
     def wrenchLinWrapper(self, *args):
         t, qb, dqb, pdes = args
 
         M0, h0 = dynamicsTerms(qb, dqb)
-        pdotdes = self.momentumReference(M0 @ dqb, pdes)
+        pdotdes = self.momentumReference(qb, M0 @ dqb, pdes)
         self.u4 = self.wl.update(self.u4, h0, pdotdes)
 
         Vmean, uoffs, udiff, h2 = self.u4
