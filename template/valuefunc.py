@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.linalg
 
-def getSHover():
+def quadrotorS(Qpos, Qvel, Rdiag=np.ones(4)):
     # For x = (q position, p momentum)
     Md = np.array([100, 100, 100, 3333, 3333, 1000])
     M = np.diag(Md)
@@ -29,8 +29,8 @@ def getSHover():
         np.hstack((Z6, np.linalg.inv(M))),
         np.hstack((dy2dy, Z6))
     ))
-    Q = np.diag(np.hstack((np.ones(6), np.array([1,1,1,0.1,0.1,0.1]))))
-    R = np.eye(4)
+    Q = np.diag(np.hstack((Qpos, Qvel)))
+    R = np.diag(Rdiag)
     S = scipy.linalg.solve_continuous_are(A, B, Q, R)
     # aa = A.T @ S + S @ A - S @ B @ np.linalg.inv(R) @ B.T @ S + Q <- should be = 0
     # print(S)
