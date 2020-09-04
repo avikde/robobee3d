@@ -22,9 +22,9 @@ M = np.diag(Md)
 T0 = 9.81e-3 # current thrust
 Z6 = np.zeros((6,6))
 Z3 = np.zeros((3,3))
-dpdotdphi = Md[0] * T0 * np.array([[0,0,0],
-        [0,0,1],
-        [0,-1,0]])
+dpdotdphi = Md[0] * T0 * np.array([[0,1,0],
+        [-1,0,0],
+        [0,0,0]])
 dy2dy = np.block([[Z3, dpdotdphi],
     [Z3, Z3]])
 
