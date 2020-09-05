@@ -93,7 +93,8 @@ class WaypointHover(RobobeeController):
         self.momentumController = self.wrenchLinWrapper
         self.positionController = positionControllerPakpongLike
         # For momentum reference. only need to get once for now for hover task
-        self.S = valuefunc.quadrotorS(9.81e-3, Qpos=[0,0,10,0.1,0.1,0.1], Qvel=[1,1,10,0.1,0.1,0.1])
+        # In this R (for quadrotors) weigh the pitch and yaw torques high
+        self.S = valuefunc.quadrotorS(9.81e-3, Qpos=[0,0,10,0.1,0.1,0.1], Qvel=[1,1,10,0.1,0.1,0.1], Rdiag=[10,10,100,100])
     
     def momentumReference(self, q0, p0, pdes):
         """Used in the C version; returns pdotdes"""
