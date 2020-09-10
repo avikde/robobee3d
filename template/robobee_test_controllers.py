@@ -108,6 +108,9 @@ class WaypointHover(RobobeeController):
         # Here there should be an Rinverse where R is relevant to the pdot=u
         Ru = 100*np.ones(6)
         pddes = -np.diag(1/Ru) @ self.S[6:,:] @ x0
+        # Rotate
+        bRw = Rotation.from_euler('z', phi0[2])
+        pddes = np.hstack((bRw.apply(pddes[:3]), bRw.apply(pddes[3:])))
         # print(pddes)
         return pddes
 
