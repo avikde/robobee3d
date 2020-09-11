@@ -1,18 +1,12 @@
-function [q,Rb,dq] = stateEst(qvicon, controlRate)
-
-[q,Rb,dq] = lowPassFilter(qvicon, controlRate);
-
-end
-
-function [q,Rb,dq] = lowPassFilter(qvicon, controlRate)
+function [q,Rb,dq] = stateEst(qvicon, controlRate, viconRate)
 	% Low-pass filter
 	persistent Rbprev Rbdot omega v pprev
 	if isempty(Rbprev)
-			Rbprev = eye(3);
-			Rbdot = zeros(3,3);
-			omega = zeros(1,3);
-			pprev = zeros(1,3);
-			v = zeros(1,3);
+		Rbprev = eye(3);
+		Rbdot = zeros(3,3);
+		omega = zeros(3,1);
+		pprev = zeros(3,1);
+		v = zeros(3,1);
 	end
 	
 	% LPF params 0 to 1. 1 => deadbeat
@@ -20,19 +14,19 @@ function [q,Rb,dq] = lowPassFilter(qvicon, controlRate)
 	lpfomega = 0.1;
 	lpfv = 0.1;
 
-	eul = qvicon(3:5);
+	eul = qvicon(3:5); % col vec
 	Rb = eul2rotm(eul');
 
 	% Find Rbdot
 	Rbdot = Rbdot + lpfR * ((Rb - Rbprev) * controlRate - Rbdot);
 	Rbprev = Rb;
 	% body-frame ang vel
-	omgHat = Rb' * Rdot;
-	omega = omega + lpfomega * ([omgHat(3,2), omgHat(1,3), omgHat(2,1)] - omega);
+	omgHat = Rb' * Rbdot;
+	omega = omega + lpfomega * ([omgHat(3,2);omgHat(1,3);omgHat(2,1)] - omega);
 	% vel
 	v = v + lpfv * ((qvicon(1:3) - pprev) * controlRate - v);
 	pprev = qvicon(1:3);
 	
-	dq = [v,omega];
+	dq = [v;omega];
 	q = qvicon;
 end
