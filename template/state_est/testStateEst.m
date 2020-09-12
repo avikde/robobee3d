@@ -4,15 +4,18 @@ size(yout)
 
 %%
 
+clear stateEst
+
 Nt = size(yout,1);
 qfilt = zeros(Nt, 6);
 dqfilt = zeros(Nt, 6);
 
 for i=1:Nt
-	[q, Rb, dq] = stateEst(yout(i,7:12)',10000,500);
+	[q, Rb, dq, nmeas] = stateEst(yout(i,1), yout(i,7:12)');
 	qfilt(i,:) = q;
 	dqfilt(i,:) = dq;
 end
+nmeas/Nt * 10000 % approx vicon rate
 
 subplot(221)
 hold all
