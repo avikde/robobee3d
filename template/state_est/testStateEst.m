@@ -15,21 +15,21 @@ for i=1:Nt
 	qfilt(i,:) = q;
 	dqfilt(i,:) = dq;
 end
-nmeas/Nt * 10000 % approx vicon rate
+nmeas/Nt * 10000 % approx vicon rate discarding nan
 
 subplot(221)
 hold all
 plot(yout(:,1), yout(:,7:9), '.')
-plot(yout(:,1), qfilt(:,1:3))
+plot(yout(:,1), qfilt(:,1:3), '.')
 ylabel('pos')
-legend('x','y','z')
+legend('x','y','z', 'xf','yf','zf')
 
 subplot(222)
 hold all
 plot(yout(:,1), yout(:,10:12), '.')
-plot(yout(:,1), qfilt(:,3:5))
+%plot(yout(:,1), qfilt(:,3:5), '.')
 ylabel('rot')
-legend('rx','ry','rz')
+legend('rx','ry','rz','rxf','ryf','rzf')
 
 subplot(223)
 hold all

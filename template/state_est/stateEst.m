@@ -14,8 +14,8 @@ function [q,Rb,dq,nmeas1] = stateEst(t, qvicon)
 		xhat = zeros(12,1);
 		Rbhat = eye(3);
 		A = eye(12);
-		Q = diag([0.1 0.1 0.1 0.1 0.1 0.1 1 1 1 1 1 1]);
-		R = 1e-6 * diag([0.1 0.1 0.1 1 1 1]);
+		Q = 1e-1 * diag([0.1 0.1 0.1 1 1 1 100 100 100 10 10 10]);
+		R = 1e2 * diag([0.1 0.1 0.1 1 1 1]);
 		H = [eye(6) zeros(6,6)];
 		P = eye(12);
 		nmeas = 0;
@@ -25,7 +25,7 @@ function [q,Rb,dq,nmeas1] = stateEst(t, qvicon)
 	dt = t - tprevP;
 	tprevP = t;
 	%size(A(7:12, 1:6))
-	A(7:12, 1:6) = dt * eye(6);
+	A(1:6, 7:12) = dt * eye(6);
 	xhat = A * xhat;
 	P = A * P * A' + Q;
 	% group
