@@ -1,24 +1,25 @@
-function [q,Rb,dq,nmeas1] = stateEst(t, qvicon)
+function [q,Rb,dq,nmeas] = stateEst(t, qvicon)
 	% Low-pass filter
-	persistent Rbprev Rbdot eulprev v pprev tprevM tprevP qvprev xhat Rbhat A Q R H P nmeas
+	% persistent Rbprev Rbdot eulprev v pprev tprevM
+	persistent tprevP qvprev xhat Rbhat A Q R H P nmeas1
 	if isempty(tprevP)
-		fprintf(1, 'Initializing\n')
-		Rbprev = eye(3);
-		Rbdot = zeros(3,3);
-		eulprev = zeros(3,1);
-		pprev = zeros(3,1);
-		v = zeros(3,1);
-		tprevM = 0;
+		%fprintf(1, 'Initializing\n')
+% 		Rbprev = eye(3);
+% 		Rbdot = zeros(3,3);
+% 		eulprev = zeros(3,1);
+% 		pprev = zeros(3,1);
+% 		v = zeros(3,1);
+% 		tprevM = 0;
 		tprevP = 0;
 		qvprev = zeros(6,1);
 		xhat = zeros(12,1);
 		Rbhat = eye(3);
 		A = eye(12);
 		Q = 1e-1 * diag([0.1 0.1 0.1 1 1 1 100 100 100 1000 1000 1000]);
-		R = 1e2 * diag([0.1 0.1 0.1 10 10 10]);
+		R = 1e2 * diag([0.1 0.1 0.1 1 1 1]);
 		H = [eye(6) zeros(6,6)];
 		P = eye(12);
-		nmeas = 0;
+		nmeas1 = 0;
 	end
 	
 	% Prediction
@@ -34,7 +35,7 @@ function [q,Rb,dq,nmeas1] = stateEst(t, qvicon)
 	
 	% Measurement if the vicon data changed
 	if sum(isnan(qvicon)) == 0 && norm(qvicon - qvprev) > 1e-3
-		nmeas = nmeas + 1;
+		nmeas1 = nmeas1 + 1;
 		%dt = t - tprevM;
 		
 		y = qvicon - H * xhat;
@@ -64,12 +65,12 @@ function [q,Rb,dq,nmeas1] = stateEst(t, qvicon)
 	
 	dq = xhat(7:12);
 	q = xhat(1:6);
-	Rb = Rbhat;
-	nmeas1 = nmeas;
+	Rb = eul2rotm(q(4:6)');
+	nmeas = nmeas1;
 end
 
-function X = skew(v)
-	X=[0   -v(3)  v(2);
-	 v(3)    0  -v(1);
-	-v(2)    v(1)   0  ];
-end
+% function X = skew(v)
+% 	X=[0   -v(3)  v(2);
+% 	 v(3)    0  -v(1);
+% 	-v(2)    v(1)   0  ];
+% end
