@@ -20,25 +20,25 @@ nmeas/Nt * 10000 % approx vicon rate discarding nan
 subplot(221)
 hold all
 plot(yout(:,1), yout(:,7:9), '.')
-plot(yout(:,1), qfilt(:,1:3), '.')
+plot(yout(:,1), qfilt(:,1:3), 'linewidth', 2)
 ylabel('pos')
 legend('x','y','z', 'xf','yf','zf')
 
 subplot(222)
 hold all
 plot(yout(:,1), yout(:,10:12), '.')
-%plot(yout(:,1), qfilt(:,3:5), '.')
+plot(yout(:,1), qfilt(:,4:6), 'linewidth', 2)
 ylabel('rot')
 legend('rx','ry','rz','rxf','ryf','rzf')
 
 subplot(223)
 hold all
-plot(yout(:,1), dqfilt(:,1:3))
+plot(yout(:,1), dqfilt(:,1:3), 'linewidth', 2)
 ylabel('vel')
 legend('x','y','z')
 
 subplot(224)
 hold all
-plot(yout(:,1), dqfilt(:,3:5))
+plot(yout(:,1), dqfilt(:,4:6), 'linewidth', 2)
 ylabel('velrot')
 legend('rx','ry','rz')
