@@ -94,31 +94,32 @@ class WaypointHover(RobobeeController):
         self.positionController = positionControllerPakpongLike
         # For momentum reference. only need to get once for now for hover task
         # In this R (for quadrotors) weigh the pitch and yaw torques high
-        self.S = valuefunc.quadrotorS(9.81e-3, Qpos=[0,0,10,0.1,0.1,0.1], Qvel=[1,1,10,0.1,0.1,0.1], Rdiag=[10,10,100,100])
+        self.S = valuefunc.quadrotorS(9.81e-3, Qpos=[0,0,10,0.1,0.1,0.1], Qvel=[1,1,10,0.1,0.1,0.1], Rdiag=[1,1,1,1])
     
-    def momentumReference(self, q0, p0, pdes):
+    def momentumReference(self, q0, dq0, M0, pdes):
         """Used in the C version; returns pdotdes"""
         # # Simple quadratic VF on momentum kpmom * ||p0 - pdes||^2
         # kpmom = np.array([0,0,1,0.1,0.1,0.1])
-        # return kpmom * (pdes - p0)
+        # return kpmom * (pdes - M0 @ dq0)
         # Here the u is Thrust,torques (quadrotor template)
-        p0 = q0[:3]
-        phi0 = Rotation.from_quat(q0[3:]).as_euler('xyz')
-        x0 = np.hstack((p0 - np.array([0,0,100]), phi0, np.zeros(6)))
-        # Here there should be an Rinverse where R is relevant to the pdot=u
-        Ru = 100*np.ones(6)
-        pddes = -np.diag(1/Ru) @ self.S[6:,:] @ x0
-        # Rotate
-        bRw = Rotation.from_euler('z', phi0[2])
-        pddes = np.hstack((bRw.apply(pddes[:3]), bRw.apply(pddes[3:])))
-        # print(pddes)
+        pT = q0[:3]
+        Rb = Rotation.from_quat(q0[3:])
+        phiT = Rb.as_euler('xyz')
+        # https://github.com/avikde/robobee3d/pull/178
+        xA = np.hstack((pT - np.array([0,0,100]), phiT, dq0))
+        Dpi = np.block([[Rb.as_dcm(), np.zeros((3,3))], [np.zeros((3,3)), Rb.as_dcm()]]) @ np.linalg.inv(M0)
+        pddes = -Dpi.T @ self.S[6:,:] @ xA
+        # # Rotate
+        # bRw = Rotation.from_euler('z', phi0[2])
+        # pddes = np.hstack((bRw.apply(pddes[:3]), bRw.apply(pddes[3:])))
+        print(pddes)
         return pddes
 
     def wrenchLinWrapper(self, *args):
         t, qb, dqb, pdes = args
 
         M0, h0 = dynamicsTerms(qb, dqb)
-        pdotdes = self.momentumReference(qb, M0 @ dqb, pdes)
+        pdotdes = self.momentumReference(qb, dqb, M0, pdes)
         self.u4 = self.wl.update(self.u4, h0, pdotdes)
 
         Vmean, uoffs, udiff, h2 = self.u4
