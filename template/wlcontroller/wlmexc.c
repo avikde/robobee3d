@@ -31,9 +31,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	if (!mxIsSingle(prhs[2]) || mxGetNumberOfElements(prhs[2]) != 6) {
 		mexErrMsgIdAndTxt("wlControllerUpdate:notSingle", "pddes must have 6 floats");
 	}
+	if (!mxIsSingle(prhs[3])) {
+		mexErrMsgIdAndTxt("wlControllerUpdate:notSingle", "pddes must have 6 floats");
+	}
 	
 	// Create room for output
 	plhs[0] = mxCreateNumericMatrix(1, 4, mxSINGLE_CLASS, mxREAL);
 
-	wlControllerUpdate(mxGetPr(plhs[0]), mxGetPr(prhs[0]), mxGetPr(prhs[1]), mxGetPr(prhs[2]));
+	wlControllerUpdate(mxGetPr(plhs[0]), mxGetPr(prhs[0]), mxGetPr(prhs[1]), mxGetPr(prhs[2]), mxGetPr(prhs[3]), mxGetScalar(prhs[4]));
 }

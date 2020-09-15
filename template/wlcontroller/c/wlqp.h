@@ -26,7 +26,7 @@ typedef struct {
 	float Q[NW * NW];
 } WLQP_t;
 
-void wlqpInit(WLQP_t *wlqp);
+void wlqpInit(WLQP_t *wlqp, float controlRate);
 
 void wlqpUpdate(WLQP_t *wlqp, float *u, const float *u0, const float *h0, const float *pdotdes);
 
