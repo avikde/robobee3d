@@ -1,46 +1,56 @@
 function wltest()
 
 % repeatedly call for a made-up pdes to test
-Nn=500;
-aa = zeros(Nn,3);
-for i = 1:Nn
-	[drv_amp, drv_pch, drv_roll] = wlwrap(zeros(6), [0,0,10,0,0,0]);
-	aa(i,:) = [drv_amp, drv_pch, drv_roll];
-end
+Nt = 500;
+U = zeros(Nt,4);
+pdotdes = [0,0,10,0,0,0];
 
-figure(1)
-subplot(2,1,1)
-plot(aa(:,1))
-subplot(2,1,2)
-plot(aa(:,2:3))
-
-end
-
-% ---------------------
-
-function [drv_amp, drv_pch, drv_roll] = wlwrap(viconState, pdes)
-
-% Store u0 to update
-persistent u0
-if isempty(u0)
-	u0 = [140.0, 0., 0., 0.];
-end
-
-% u0 = [140.0, 0., 0., 0.];
+U(1,:) = [140.0, 0., 0., 0.];
 mb = 100;
 g = 9.81e-3;
 h0 = [0, 0, mb * g, 0, 0, 0];
-pddes = [0, 0, 10, 0,0,0];
 
-% Update
-u = wlControllerUpdate(single(u0), single(h0), single(pddes));
-
-% Convert to robot coords. u = [Vmean, uoffs, udiff, h2]. uoffs, udiff
-% normalized by Vmean
-drv_amp = u(1);
-drv_pch = drv_amp * u(2);
-drv_roll = drv_amp * u(3);
-
-u0 = u;
-
+for i = 2:Nt
+	if i > 100
+			pdotdes(3) = 20;
+	end
+	if i > 200
+			pdotdes(3) = 30;
+	end
+	if i > 300
+			pdotdes(3) = 40;
+	end
+	if i > 400
+			pdotdes(3) = 50;
+	end
+	U(i,:) = wlControllerUpdate(single(U(i-1,:)), single(h0), single(pdotdes));
 end
+
+% convert
+Vmean = U(:,1);
+uoffs = U(:,2);
+udiff = U(:,3);
+
+vleft = Vmean .* (1 + udiff) .* (1 + uoffs);
+vright = Vmean .* (1 - udiff) .* (1 + uoffs);
+
+drv_pch = Vmean .* uoffs;
+drv_amp = abs((vleft-vright))/2+min(vleft,vright);
+drv_roll = (vleft-vright)/4; 
+drv_bias = max(vleft,vright)+2*abs(drv_pch); % voltage
+
+subplot(2,1,1)
+hold all
+plot(Vmean)
+plot(drv_bias)
+plot(drv_amp)
+ylim([100,220])
+legend('Vmean','drv_bias','drv_amp')
+
+subplot(2,1,2)
+hold all
+plot(drv_roll)
+plot(drv_pch)
+ylim([-30,30])
+legend('drv_roll','drv_pch')
+
