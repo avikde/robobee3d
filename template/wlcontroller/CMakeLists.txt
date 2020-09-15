@@ -63,12 +63,16 @@ else(USEBLAS)
   set(SRC_CONTROLLER ${SRC_CONTROLLER} ${osqp_src})
   add_library(wlcontroller STATIC ${SRC_CONTROLLER})
 
-  add_executable(test ${CPPSRC_DIR}/main.cpp)
-  target_link_libraries(test PUBLIC wlcontroller)
+  # add_executable(test ${CPPSRC_DIR}/main.cpp)
+  # target_link_libraries(test PUBLIC wlcontroller)
   
   if(PYBIND)
     add_subdirectory(${PYBIND11_DIR} "pybind11")
     pybind11_add_module(wlqppy ${CMAKE_CURRENT_SOURCE_DIR}/pybind/wlqppy.cpp)
     target_link_libraries(wlqppy PRIVATE wlcontroller)
+
+    add_custom_command(TARGET wlqppy POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:wlqppy> ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMENT "Copied python binding")
   endif(PYBIND)
 endif(USEBLAS)
