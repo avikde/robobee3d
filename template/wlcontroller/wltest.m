@@ -1,5 +1,7 @@
 function wltest()
 
+clear mex
+
 % repeatedly call for a made-up pdes to test
 Nt = 500;
 U = zeros(Nt,4);
