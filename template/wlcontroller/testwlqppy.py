@@ -5,16 +5,24 @@ import matplotlib.pyplot as plt
 
 wl = WLController()
 
-pdotdes = [0, 0, 20, 0, 0, 0]
+pdotdes = [0, 0, 10, 0, 0, 0]
 mb = 100
 g = 9.81e-3
 h0 = [0, 0, mb * g, 0, 0, 0]
-u0 = [100.0, 0., 0., 0.]
+u0 = [140.0, 0., 0., 0.]
 
-Nt = 100
+Nt = 500
 U = np.zeros((Nt,4))
 U[0,:] = u0
 for i in range(1,Nt):
+    if i > 100:
+        pdotdes[2] = 20
+    if i > 200:
+        pdotdes[2] = 30
+    if i > 300:
+        pdotdes[2] = 40
+    if i > 400:
+        pdotdes[2] = 50
     U[i,:] = wl.update(U[i-1,:], h0, pdotdes)
 print(U[0,:])
 
@@ -31,7 +39,7 @@ drv_amp = np.abs((vleft-vright))/2 + np.minimum(vleft,vright)
 drv_roll = (vleft-vright)/4; 
 drv_bias = np.maximum(vleft,vright) + 2* np.abs(drv_pch) # voltage
 
-print(udiff, uoffs, drv_pch)
+# print(udiff, uoffs, drv_pch)
 
 fig, ax = plt.subplots(2)
 ax[0].plot(Vmean, label='Vmean')
