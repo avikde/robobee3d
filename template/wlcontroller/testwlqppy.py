@@ -50,15 +50,18 @@ drv_bias = np.maximum(vleft,vright) + 2* np.abs(drv_pch) # voltage
 
 fig, ax = plt.subplots(2)
 ax[0].plot(Vmean, label='Vmean')
-ax[0].plot(drv_bias, label='drv_bias')
-ax[0].plot(drv_amp, label='drv_amp')
+# ax[0].plot(drv_bias, label='drv_bias')
+# ax[0].plot(drv_amp, label='drv_amp')
 ax[0].set_ylim((100,220))
 ax[0].legend()
 
-ax[1].plot(drv_roll, label='drv_roll')
-ax[1].plot(drv_pch, label='drv_pch')
+# ax[1].plot(drv_roll, label='drv_roll')
+# ax[1].plot(drv_pch, label='drv_pch')
+# ax[1].set_ylim((-30,30))
+ax[1].plot(udiff, label='udiff')
+ax[1].plot(uoffs, label='uoffs')
+ax[1].set_ylim((-0.5,0.5))
 ax[1].axhline(0, alpha=0.3)
-ax[1].set_ylim((-30,30))
 ax[1].legend()
 
 plt.show()
