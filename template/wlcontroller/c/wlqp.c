@@ -29,7 +29,7 @@ void wlqpInit(WLQP_t *wlqp, float controlRate) {
 	wlqp->umin[2] = -0.2f;
 	wlqp->umin[3] = -0.1f;
 
-	wlqp->umax[0] = 160.0f;
+	wlqp->umax[0] = 240.0f;
 	wlqp->umax[1] = 0.5f;
 	wlqp->umax[2] = 0.2f;
 	wlqp->umax[3] = 0.1f;
