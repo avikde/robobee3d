@@ -82,7 +82,7 @@ class WaypointHover(RobobeeController):
         # NOTE: This is not actually used: need to put in wlcontroller.cpp or wlcontroller.c
         popts = np.load(wrenchMapPoptsFile)
 
-        self.wl = WLController()
+        self.wl = WLController(np.ravel(popts), 1000)
         self.u4 = [140.0,0.,0.,0.]
 
         # self.momentumController = self.manualMapping
@@ -94,22 +94,22 @@ class WaypointHover(RobobeeController):
     
     def momentumReference(self, q0, dq0, M0, pdes):
         """Used in the C version; returns pdotdes"""
-        # # Simple quadratic VF on momentum kpmom * ||p0 - pdes||^2
-        # kpmom = np.array([0,0,1,0.1,0.1,0.1])
-        # return kpmom * (pdes - M0 @ dq0)
-        # Here the u is Thrust,torques (quadrotor template)
-        pT = q0[:3]
-        Rb = Rotation.from_quat(q0[3:])
-        phiT = Rb.as_euler('xyz')
-        # https://github.com/avikde/robobee3d/pull/178
-        xA = np.hstack((pT - np.array([0,0,100]), phiT, dq0))
-        Dpi = np.block([[Rb.as_dcm(), np.zeros((3,3))], [np.zeros((3,3)), Rb.as_dcm()]]) @ np.linalg.inv(M0)
-        pddes = -Dpi.T @ self.S[6:,:] @ xA
-        # # Rotate
-        # bRw = Rotation.from_euler('z', phi0[2])
-        # pddes = np.hstack((bRw.apply(pddes[:3]), bRw.apply(pddes[3:])))
-        print(pddes)
-        return pddes
+        # Simple quadratic VF on momentum kpmom * ||p0 - pdes||^2
+        kpmom = np.array([0,0,1,0.1,0.1,0.1])
+        return kpmom * (pdes - M0 @ dq0)
+        # # Here the u is Thrust,torques (quadrotor template)
+        # pT = q0[:3]
+        # Rb = Rotation.from_quat(q0[3:])
+        # phiT = Rb.as_euler('xyz')
+        # # https://github.com/avikde/robobee3d/pull/178
+        # xA = np.hstack((pT - np.array([0,0,100]), phiT, dq0))
+        # Dpi = np.block([[Rb.as_dcm(), np.zeros((3,3))], [np.zeros((3,3)), Rb.as_dcm()]]) @ np.linalg.inv(M0)
+        # pddes = -Dpi.T @ self.S[6:,:] @ xA
+        # # # Rotate
+        # # bRw = Rotation.from_euler('z', phi0[2])
+        # # pddes = np.hstack((bRw.apply(pddes[:3]), bRw.apply(pddes[3:])))
+        # print(pddes)
+        # return pddes
 
     def wrenchLinWrapper(self, *args):
         t, qb, dqb, pdes = args
