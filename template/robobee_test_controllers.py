@@ -81,10 +81,6 @@ class WaypointHover(RobobeeController):
 
         # NOTE: This is not actually used: need to put in wlcontroller.cpp or wlcontroller.c
         popts = np.load(wrenchMapPoptsFile)
-        print(wrenchMapPoptsFile, '\npopts=\n', popts)
-        for vv in np.ravel(popts, order='C'):
-            print(vv,',',end='')
-        print()
 
         self.wl = WLController()
         self.u4 = [140.0,0.,0.,0.]
