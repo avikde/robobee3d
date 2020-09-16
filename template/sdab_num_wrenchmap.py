@@ -163,12 +163,12 @@ class FunApprox:
         # y = a0 + a1 * x + x^T * A2 * x
         return a1 + self.A2 @ xi
 
-def wrenchFromKinematics(kins, freq, params, kaerox=1, strokex=1):
+def wrenchFromKinematics(kins, freq, params, kaerox=1, strokex=1, wbias=np.zeros(6)):
     """Analytical prediction of average wrench from kinematics features. See w2d_template.nb."""
     if len(kins.shape) > 1:
         # apply to each row and return result
         N = kins.shape[0]
-        return np.array([wrenchFromKinematics(kins[i,:], freq[i], params, kaerox=kaerox, strokex=strokex) for i in range(N)])
+        return np.array([wrenchFromKinematics(kins[i,:], freq[i], params, kaerox=kaerox, strokex=strokex, wbias=wbias) for i in range(N)])
     
     # unpack params
     CD0 = robobee.CD0
@@ -209,7 +209,7 @@ def wrenchFromKinematics(kins, freq, params, kaerox=1, strokex=1):
     # Symmetry mapping right to left
     Symmw = np.array([1,-1,1,-1,1,-1])
 
-    return iwrencha(*ampls[0], 1 - dalpha) + Symmw * iwrencha(*ampls[1], 1 + dalpha)
+    return iwrencha(*ampls[0], 1 - dalpha) + Symmw * iwrencha(*ampls[1], 1 + dalpha) + np.asarray(wbias)
 
 def wrenchCompare(ws, ws2):
     fig, ax = plt.subplots(6)
@@ -252,7 +252,8 @@ if __name__ == "__main__":
 
     params = robobee.wparams.copy()
     params.update({'ycp': 7.5, 'AR': 4.5, 'R': 3})
-    ws = wrenchFromKinematics(kins, fs, params, kaerox=1.2, strokex=1.1)
+    # NOTE: check this bias
+    ws = wrenchFromKinematics(kins, fs, params, kaerox=1.2, strokex=1.1)#, wbias=[0,0,0,0,-3,0])
     
     # wrenchCompare(ws0, ws) # compare ws0 to ws
     # sys.exit()
@@ -264,7 +265,11 @@ if __name__ == "__main__":
 
     # Optimized param fits in each row for each component of the wrench
     popts = np.vstack([curve_fit(fa.f, xdata, ws[:,i], p0=np.ones(fa.nparams()))[0] for i in range(6)])
-    np.save('poptsEmp2.npy', popts)
+    print('popts row major = ',end='')
+    for vv in np.ravel(popts, order='C'):
+        print(vv, ',', end=' ')
+    print()
+    # np.save('poptsEmp2.npy', popts)
 
     def plotFitWi(ui1, ui2, wi, ax3d, ax):
         def lbl(ax):
