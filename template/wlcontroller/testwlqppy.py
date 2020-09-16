@@ -20,18 +20,18 @@ u0 = [140.0, 0., 0., 0.]
 Nt = 500
 U = np.zeros((Nt,4))
 Pddes = np.zeros((Nt,6))
-Pddes[0,:] = [0, 0, 0, 0, 0, 0]
+Pddes[0,:] = [0, 0, 1, 0, 0, 0]
 U[0,:] = u0
 for i in range(1,Nt):
     Pddes[i,:] = Pddes[i-1, :]
     if i > 100:
-        Pddes[i, 2] = 1
+        Pddes[i, 3] = 1
     if i > 200:
-        Pddes[i, 2] = 2
+        Pddes[i, 3] = -1
     if i > 300:
-        Pddes[i, 2] = 3
+        Pddes[i, 3] = 2
     if i > 400:
-        Pddes[i, 2] = 4
+        Pddes[i, 3] = -2
     U[i,:] = wl.update(U[i-1,:], h0, Pddes[i, :])
 print(U[0,:])
 
