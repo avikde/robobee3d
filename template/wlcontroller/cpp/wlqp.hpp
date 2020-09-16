@@ -37,7 +37,7 @@ public:
 
 protected:
   // u_t u0 = u_t::Zero(); 
-  u_t umin = u_t(90.0f, -0.5f, -0.2f, -0.1f), umax = u_t(160.0f, 0.5f, 0.2f, 0.1f);
+  u_t umin = u_t(90.0f, -0.5f, -0.2f, -0.1f), umax = u_t(220.0f, 0.5f, 0.2f, 0.1f);
   // QP bound *not* same as limit on u
   u_t U0;
   // Keep track of this
