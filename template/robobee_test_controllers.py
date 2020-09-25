@@ -105,8 +105,8 @@ class WaypointHover(RobobeeController):
         pos2err = p[0:2] - self.posdes[0:2]
         dpos2err = dp[0:2] - dposdes[:2]
         sdes[0:2] = -1e-4 * pos2err - 1e0 * dpos2err
-        if self.printCtr == 0:
-            print(self.posdes[:2], pos2err, self.pos2errI, sdes[:2],  -1e-1 * pos2err, - 1e-1 * dp[0:2],  - 1e0 * self.pos2errI)
+        # if self.printCtr == 0:
+        #     print(self.posdes[:2], pos2err, self.pos2errI, sdes[:2],  -1e-1 * pos2err, - 1e-1 * dp[0:2],  - 1e0 * self.pos2errI)
         sdes[0:2] = np.clip(sdes[0:2], -0.5 * np.ones(2), 0.5 * np.ones(2))
         fTorn = 10 * (s - sdes) + 1e3 * ds
         fTorn[2] = 0 # z element
