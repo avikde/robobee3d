@@ -93,10 +93,12 @@ class WaypointHover(RobobeeController):
         self.S = valuefunc.quadrotorS(9.81e-3, Qpos=[0,0,10,0.1,0.1,0.1], Qvel=[1,1,10,0.1,0.1,0.1], Rdiag=[1,1,1,1])
 
     def templateVF(self, p, dp, s, ds):
+        # TEST
+        self.posdes = np.array([0,0,100])
         # If we want to go to a certain position have to set sdes
         sdes = np.zeros(3)
-        # sdes[0:2] = np.clip(0.01 * (self.posdes[0:2] - qb[0:2]) - 1 * dqb[0:2], -0.5 * np.ones(2), 0.5 * np.ones(2))
-        fTorn = 3 * (s - sdes) + 1e2 * ds
+        sdes[0:2] = np.clip(1e-1 * (self.posdes[0:2] - p[0:2]) - 5e1 * dp[0:2], -0.3 * np.ones(2), 0.3 * np.ones(2))
+        fTorn = 10 * (s - sdes) + 1e3 * ds
         fTorn[2] = 0 # z element
 
         # for position z
