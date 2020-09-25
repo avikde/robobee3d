@@ -106,8 +106,13 @@ class WaypointHover(RobobeeController):
         ds = -Rb @ e3h @ omega
         fT = 3 * s + 1e2 * ds
         fT[2] = 0 # z element
-        fA = -e3h @ Rb.T @ fT
-        return np.hstack((np.zeros(3), fA))
+        fAorn = -e3h @ Rb.T @ fT
+        # for position z
+        p = q0[:3]
+        dp = dq0[:3]
+        fApos = 1e-1 * (self.posdes - p) - 1e1 * dp
+        fApos[:2] = np.array([0,0])
+        return np.hstack((fApos, fAorn))
 
         # # Here the u is Thrust,torques (quadrotor template)
         # pT = q0[:3]
