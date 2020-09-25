@@ -2,6 +2,7 @@ import osqp
 import numpy as np
 import scipy.sparse as sp
 from scipy.spatial.transform import Rotation
+np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
 def qpSetupDense(n, m):
     "Helper to set up a dense QP"
@@ -14,21 +15,36 @@ def qpSetupDense(n, m):
     model.setup(P=P, q=q, A=A, l=l, u=u, eps_rel=1e-4, eps_abs=1e-4, verbose=False)
     return model
 
-def mpcDirtran(m, N, dt, snom):
+def mpcDirtran(m, N, dt, snom, y0):
     """See https://github.com/avikde/robobee3d/pull/181.
     snom should be an N, shaped array"""
     nq = 2 #q = (p,s)
     nu = 2
+    ny = 2*nq
+    # For dirtran
+    nx = N * (ny + nu)
     assert len(snom) == N
     
-    Ad = np.eye(nq*2)
+    Ad = np.eye(ny)
     Ad[:nq, nq:] = dt * np.eye(nq)
-    Ad = sp.csc_matrix(Ad)
     # B(s0) function
     Bs = lambda s : np.array([[1/m * s, 0], [0, 1]])
-    Bds = lambda s : sp.csc_matrix(np.vstack((np.zeros((nq,nu)), Bs(s))))
+    Bds = lambda s : np.vstack((np.zeros((nq,nu)), Bs(s))) * dt
 
-    print(Ad, Bds(0.1))
+    # Construct dynamics constraint
+    A = np.zeros((N*ny, nx))
+    c = np.zeros(N*ny)
+    for k in range(N):
+        # x(k+1) = Ad*xk + Bd(sk)*uk
+        A[k*ny:(k+1)*ny, k*ny:(k+1)*ny] = np.eye(ny) # for x1...xN+1 on the LHS
+        if k > 0:
+            A[k*ny:(k+1)*ny, (k-1)*ny:(k)*ny] = -Ad # for -Ad*x(k-1)
+        A[k*ny:(k+1)*ny, (N*ny + k*nu):(N*ny + (k+1)*nu)] = -Bds(snom[k]) # -Bd(sk)
+        # only in the first eqn
+        if k == 0:
+            c[k*ny:(k+1)*ny] = Ad @ np.asarray(y0)
+    A = sp.csc_matrix(A)
+    print(A, c)
 
 if __name__ == "__main__":
     # # WLQP gen
@@ -40,4 +56,4 @@ if __name__ == "__main__":
     #     # No worries if python module failed to compile
     #     pass
 
-    mpcDirtran(100, 3, 2, [0.1, 0.2, 0.3])
+    mpcDirtran(100, 3, 2, [0.1, 0.2, 0.3], [1, 0.1, 0, 0])
