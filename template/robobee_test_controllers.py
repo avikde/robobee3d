@@ -91,13 +91,24 @@ class WaypointHover(RobobeeController):
         # For momentum reference. only need to get once for now for hover task
         # In this R (for quadrotors) weigh the pitch and yaw torques high
         self.S = valuefunc.quadrotorS(9.81e-3, Qpos=[0,0,10,0.1,0.1,0.1], Qvel=[1,1,10,0.1,0.1,0.1], Rdiag=[1,1,1,1])
+        self.printCtr = 0
+        self.pos2errI = np.zeros(2)
 
-    def templateVF(self, p, dp, s, ds):
+    def templateVF(self, t, p, dp, s, ds):
         # TEST
-        self.posdes = np.array([0,0,100])
+        self.posdes = np.array([50 * np.sin(1e-3 * t),0,100])
+        dposdes = np.array([50 * 1e-3 * np.cos(1e-3 * t),0,0])
+
+        self.printCtr = (self.printCtr + 1) % 100
         # If we want to go to a certain position have to set sdes
         sdes = np.zeros(3)
-        sdes[0:2] = np.clip(1e-1 * (self.posdes[0:2] - p[0:2]) - 5e1 * dp[0:2], -0.3 * np.ones(2), 0.3 * np.ones(2))
+        pos2err = p[0:2] - self.posdes[0:2]
+        dpos2err = dp[0:2] - dposdes[:2]
+        self.pos2errI += pos2err * 0.001 # FIXME: assuming dt=0.001
+        sdes[0:2] = -1e-2 * pos2err - 1e0 * dpos2err - 1e-3 * self.pos2errI # PID
+        if self.printCtr == 0:
+            print(self.posdes[:2], pos2err, self.pos2errI, sdes[:2],  -1e-1 * pos2err, - 1e-1 * dp[0:2],  - 1e0 * self.pos2errI)
+        sdes[0:2] = np.clip(sdes[0:2], -0.5 * np.ones(2), 0.5 * np.ones(2))
         fTorn = 10 * (s - sdes) + 1e3 * ds
         fTorn[2] = 0 # z element
 
@@ -107,7 +118,7 @@ class WaypointHover(RobobeeController):
 
         return fTpos, fTorn
     
-    def momentumReference(self, q0, dq0, M0, pdes):
+    def momentumReference(self, t, q0, dq0, M0, pdes):
         """Used in the C version; returns pdotdes"""
         # # Simple quadratic VF on momentum kpmom * ||p0 - pdes||^2 OLD WORKS
         # kpmom = np.array([0,0,1,0.1,0.1,0.1])
@@ -122,7 +133,7 @@ class WaypointHover(RobobeeController):
         s = Rb @ np.array([0,0,1])
         ds = -Rb @ e3h @ omega
         # Template controller
-        fTpos, fTorn = self.templateVF(p, dp, s, ds)
+        fTpos, fTorn = self.templateVF(t, p, dp, s, ds)
         fAorn = -e3h @ Rb.T @ fTorn
         return np.hstack((fTpos, fAorn))
 
@@ -144,7 +155,7 @@ class WaypointHover(RobobeeController):
         t, qb, dqb, pdes = args
 
         M0, h0 = dynamicsTerms(qb, dqb)
-        pdotdes = self.momentumReference(qb, dqb, M0, pdes)
+        pdotdes = self.momentumReference(t, qb, dqb, M0, pdes)
         self.u4 = self.wl.update(self.u4, h0, pdotdes)
 
         Vmean, uoffs, udiff, h2 = self.u4
