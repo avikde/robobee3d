@@ -14,7 +14,7 @@
 #include <workspace.h>
 #include <string.h>
 
-void wlqpInit(WLQP_t *wlqp) {
+void wlqpInit(WLQP_t *wlqp, float controlRate) {
 	int i, j;
 	// populate default values
 	for (i = 0; i < NW; ++i) {
@@ -29,15 +29,15 @@ void wlqpInit(WLQP_t *wlqp) {
 	wlqp->umin[2] = -0.2f;
 	wlqp->umin[3] = -0.1f;
 
-	wlqp->umax[0] = 160.0f;
+	wlqp->umax[0] = 240.0f;
 	wlqp->umax[1] = 0.5f;
 	wlqp->umax[2] = 0.2f;
 	wlqp->umax[3] = 0.1f;
 	// This is dumax
-	wlqp->U0[0] = 0.5f;
-	wlqp->U0[1] = 1e-3f;
-	wlqp->U0[2] = 1e-3f;
-	wlqp->U0[3] = 1e-3f;
+	wlqp->U0[0] = 5.0e3f / controlRate;
+	wlqp->U0[1] = 10.0f / controlRate;
+	wlqp->U0[2] = 10.0f / controlRate;
+	wlqp->U0[3] = 10.0f / controlRate;
 	
 	// Osqp init
 	OSQPWorkspace *work = &workspace;

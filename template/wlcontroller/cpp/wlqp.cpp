@@ -16,6 +16,11 @@ extern "C" {
 }
 // #include <iostream>
 
+WrenchLinQP::WrenchLinQP(float controlRate) {
+	U0 << 5.0e3f, 10, 10, 10;
+	U0 /= controlRate;
+}
+
 u_t WrenchLinQP::update(const u_t &u0, const w_t &h0, const w_t &pdotdes) {
 	// Momentum reference dynamics https://github.com/avikde/robobee3d/pull/166
 	auto w0 = wrenchMap(u0);

@@ -14,7 +14,7 @@
 
 class WLController : public WrenchLinQP {
 public:
-  WLController();
+  WLController(const Eigen::VectorXf &popts, float controlRate);
   w_t wrenchMap(const u_t &);
   dw_du_t wrenchJacMap(const u_t &);
 protected:

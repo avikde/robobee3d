@@ -1,10 +1,10 @@
 import time, subprocess, argparse
-import autograd.numpy as np
+import numpy as np
 import pybullet as p
 import robobee
 from robobee_test_controllers import OpenLoop, WaypointHover
 import viewlog
-np.set_printoptions(precision=2, suppress=True, linewidth=200)
+np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
 parser = argparse.ArgumentParser(description='Process some integers.')
 parser.add_argument('poptsFile', nargs='?', default='popts.npy')
@@ -16,7 +16,7 @@ args = parser.parse_args()
 bee = robobee.RobobeeSim(p.DIRECT if args.direct else p.GUI, slowDown=0, camLock=True, timestep=0.1, gui=0, filtfreq=0.16)
 # load robot
 startPos = [0,0,100]
-startOrientation = p.getQuaternionFromEuler(np.zeros(3))#[0.5,-0.5,0])
+startOrientation = p.getQuaternionFromEuler(np.zeros(3))#[0.5,-0.5,0])#
 subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.urdf"])
 bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=False)
 data = viewlog.initLog()
