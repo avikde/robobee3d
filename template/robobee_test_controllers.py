@@ -92,20 +92,19 @@ class WaypointHover(RobobeeController):
         # In this R (for quadrotors) weigh the pitch and yaw torques high
         self.S = valuefunc.quadrotorS(9.81e-3, Qpos=[0,0,10,0.1,0.1,0.1], Qvel=[1,1,10,0.1,0.1,0.1], Rdiag=[1,1,1,1])
         self.printCtr = 0
-        self.pos2errI = np.zeros(2)
 
     def templateVF(self, t, p, dp, s, ds):
         # TEST
-        self.posdes = np.array([50 * np.sin(1e-3 * t),0,100])
-        dposdes = np.array([50 * 1e-3 * np.cos(1e-3 * t),0,0])
+        trajomg = 5e-3
+        self.posdes = np.array([50 * np.sin(trajomg * t),0,100])
+        dposdes = np.array([50 * trajomg * np.cos(trajomg * t),0,0])
 
         self.printCtr = (self.printCtr + 1) % 100
         # If we want to go to a certain position have to set sdes
         sdes = np.zeros(3)
         pos2err = p[0:2] - self.posdes[0:2]
         dpos2err = dp[0:2] - dposdes[:2]
-        self.pos2errI += pos2err * 0.001 # FIXME: assuming dt=0.001
-        sdes[0:2] = -1e-4 * pos2err - 1e0 * dpos2err# - 1e-3 * self.pos2errI # PID
+        sdes[0:2] = -1e-4 * pos2err - 1e0 * dpos2err
         if self.printCtr == 0:
             print(self.posdes[:2], pos2err, self.pos2errI, sdes[:2],  -1e-1 * pos2err, - 1e-1 * dp[0:2],  - 1e0 * self.pos2errI)
         sdes[0:2] = np.clip(sdes[0:2], -0.5 * np.ones(2), 0.5 * np.ones(2))
