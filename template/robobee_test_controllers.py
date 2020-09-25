@@ -94,9 +94,21 @@ class WaypointHover(RobobeeController):
     
     def momentumReference(self, q0, dq0, M0, pdes):
         """Used in the C version; returns pdotdes"""
-        # Simple quadratic VF on momentum kpmom * ||p0 - pdes||^2
-        kpmom = np.array([0,0,1,0.1,0.1,0.1])
-        return kpmom * (pdes - M0 @ dq0)
+        # # Simple quadratic VF on momentum kpmom * ||p0 - pdes||^2 OLD WORKS
+        # kpmom = np.array([0,0,1,0.1,0.1,0.1])
+        # return kpmom * (pdes - M0 @ dq0)
+
+        # New try template VF. Only orientation control
+        e3h = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 0]])
+        Rb = Rotation.from_quat(q0[3:]).as_matrix()
+        omega = dq0[3:]
+        s = Rb @ np.array([0,0,1])
+        ds = -Rb @ e3h @ omega
+        fT = 3 * s + 1e2 * ds
+        fT[2] = 0 # z element
+        fA = -e3h @ Rb.T @ fT
+        return np.hstack((np.zeros(3), fA))
+
         # # Here the u is Thrust,torques (quadrotor template)
         # pT = q0[:3]
         # Rb = Rotation.from_quat(q0[3:])
