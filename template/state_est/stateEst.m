@@ -32,7 +32,7 @@ function [q,Rb,dq,nmeas] = stateEst(t, qvicon)
 	xhat = A * xhat;
 	P = A * P * A' + Q;
 	% group
-	%Rbhat = Rbhat + (Rbhat * skew(dqhat(3:5))) * dt;
+	Rbhat = Rbhat * expm(skew(omgfilt) * dt); % checked order; correct
 	% not guaranteed SO(3) after this
 	
 	% Measurement if the vicon data changed
@@ -53,10 +53,8 @@ function [q,Rb,dq,nmeas] = stateEst(t, qvicon)
 		Rbdot = (Rbv - Rbvprev) / dt;
 		Rbvprev = Rbv;
 		% body-frame ang vel
-		omgHat = Rbv' * Rbdot;
-		omgfilt = omgfilt + 0.1 * ([omgHat(3,2);omgHat(1,3);omgHat(2,1)] - omgfilt);
-% 		
-% 		eulprev = eulprev + lpfomega * ([omgHat(3,2);omgHat(1,3);omgHat(2,1)] - eulprev);
+		omgfilt = omgfilt + 0.1 * (unskew(Rbv' * Rbdot) - omgfilt);
+		
 % 		% vel
 % 		v = v + lpfv * ((qvicon(1:3) - pprev) * dt - v);
 % 		pprev = qvicon(1:3);
@@ -70,10 +68,15 @@ function [q,Rb,dq,nmeas] = stateEst(t, qvicon)
 	nmeas = nmeas1;
 	%TEST
 	xhat(10:12) = omgfilt;
+	Rb = Rbhat;
 end
 
-% function X = skew(v)
-% 	X=[0   -v(3)  v(2);
-% 	 v(3)    0  -v(1);
-% 	-v(2)    v(1)   0  ];
-% end
+function X = skew(v)
+	X=[0   -v(3)  v(2);
+	 v(3)    0  -v(1);
+	-v(2)    v(1)   0  ];
+end
+
+function v = unskew(X)
+	v = [X(3,2);X(1,3);X(2,1)];
+end
