@@ -1,34 +1,30 @@
-function [q,Rb,dq,nmeas] = stateEst(t, qvicon)
+function [p,Rb,dq,nmeas] = stateEst(t, qvicon)
 	% Low-pass filter
 	% persistent Rbprev Rbdot eulprev v pprev tprevM
-	persistent tprevP tprevM qvprev xhat Rbhat A Q R H P nmeas1 Rbvprev omgfilt
+	persistent tprevP tprevM qvprev xhat Rbhat A Q R H P nmeas1 Rbvprev omgfilt lpfomg lpfR
 	if isempty(tprevP)
 		%fprintf(1, 'Initializing\n')
-% 		Rbprev = eye(3);
-% 		Rbdot = zeros(3,3);
-% 		eulprev = zeros(3,1);
-% 		pprev = zeros(3,1);
-% 		v = zeros(3,1);
 		tprevM = 0;
 		tprevP = 0;
 		qvprev = zeros(6,1);
-		xhat = zeros(12,1);
+		xhat = zeros(6,1); % positions
 		Rbhat = eye(3);
 		Rbvprev = eye(3);
-		A = eye(12);
-		Q = 1e-1 * diag([0.1 0.1 0.1 1 1 1 100 100 100 1000 1000 1000]);
-		R = 1e2 * diag([0.1 0.1 0.1 1 1 1]);
-		H = [eye(6) zeros(6,6)];
-		P = eye(12);
+		A = eye(6);
+		Q = 1e-1 * diag([0.1 0.1 0.1 100 100 100]);
+		R = 1e2 * diag([0.1 0.1 0.1]);
+		H = [eye(3) zeros(3,3)];
+		P = eye(6);
 		nmeas1 = 0;
 		omgfilt = zeros(3,1);
+		lpfomg = 0.1;
+		lpfR = 0.3;
 	end
 	
 	% Prediction
 	dt = t - tprevP;
 	tprevP = t;
-	%size(A(7:12, 1:6))
-	A(1:6, 7:12) = dt * eye(6);
+	A(1:3, 4:6) = dt * eye(3);
 	xhat = A * xhat;
 	P = A * P * A' + Q;
 	% group
@@ -40,11 +36,11 @@ function [q,Rb,dq,nmeas] = stateEst(t, qvicon)
 		nmeas1 = nmeas1 + 1;
 		dt = t - tprevM;
 		
-		y = qvicon - H * xhat;
+		y = qvicon(1:3) - H * xhat;
 		S = H * P * H' + R;
 		K = P * H' / S;
 		xhat = xhat + K * y;
-		P = (eye(12) - K * H) * P;
+		P = (eye(6) - K * H) * P;
 		
 		qvprev = qvicon;
 		Rbv = eul2rotm(qvicon(4:6)', 'ZYZ');
@@ -53,22 +49,20 @@ function [q,Rb,dq,nmeas] = stateEst(t, qvicon)
 		Rbdot = (Rbv - Rbvprev) / dt;
 		Rbvprev = Rbv;
 		% body-frame ang vel
-		omgfilt = omgfilt + 0.1 * (unskew(Rbv' * Rbdot) - omgfilt);
+		omgfilt = omgfilt + lpfomg * (unskew(Rbv' * Rbdot) - omgfilt);
 		
-% 		% vel
-% 		v = v + lpfv * ((qvicon(1:3) - pprev) * dt - v);
-% 		pprev = qvicon(1:3);
+		% Correct orientation
+		errHat = -Rbv' * Rbhat + Rbhat' * Rbv;
+		Rbhat = Rbhat * expm(lpfR * errHat);
 		
 		tprevM = t;
 	end
 	
-	dq = xhat(7:12);
-	q = xhat(1:6);
-	Rb = eul2rotm(q(4:6)', 'ZYZ');
 	nmeas = nmeas1;
-	%TEST
-	xhat(10:12) = omgfilt;
+	% Outputs
 	Rb = Rbhat;
+	dq = [xhat(4:6); omgfilt];
+	p = xhat(1:3);
 end
 
 function X = skew(v)

@@ -3,7 +3,6 @@ set(0, 'DefaultLineLineWidth', 2)
 Np = size(yout, 1);
 
 % Run actual stateEst filter
-qfilt = zeros(Np, 6);
 dqfilt = zeros(Np, 6);
 
 % 
@@ -17,8 +16,7 @@ e3h = [0 -1 0; 1 0 0; 0 0 0];
 Rbprev = eye(3);
 for i=1:Np
 % Run actual stateEst filter
-	[q, Rbf, dq, nmeas] = stateEst(yout(i,1), yout(i,7:12)');
-	qfilt(i,:) = q;
+	[p, Rbf, dq, nmeas] = stateEst(yout(i,1), yout(i,7:12)');
 	dqfilt(i,:) = dq;
 	
 	% Get Rb from raw vicon
