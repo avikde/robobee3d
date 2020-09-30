@@ -65,7 +65,7 @@ function [q,Rb,dq,nmeas] = stateEst(t, qvicon)
 	
 	dq = xhat(7:12);
 	q = xhat(1:6);
-	Rb = eul2rotm(q(4:6)');
+	Rb = eul2rotm(q(4:6)', 'ZYZ');
 	nmeas = nmeas1;
 end
 
