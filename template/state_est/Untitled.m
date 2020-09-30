@@ -6,15 +6,9 @@ Np = size(yout, 1);
 qfilt = zeros(Np, 6);
 dqfilt = zeros(Np, 6);
 
-for i=1:Np
-	[q, Rb, dq, nmeas] = stateEst(yout(i,1), yout(i,7:12)');
-	qfilt(i,:) = q;
-	dqfilt(i,:) = dq;
-end
-nmeas/Nt * 10000 % approx vicon rate discarding nan
-
 % 
 s = zeros(Np,3);
+sf = zeros(Np,3);
 ds = zeros(Np,3);
 dsnum = zeros(Np,3);
 omgnum = zeros(Np,3); % from Rb WORKING
@@ -22,8 +16,15 @@ ww = zeros(Np, 3); % differentiate ZYZ angles NOT WORKING
 e3h = [0 -1 0; 1 0 0; 0 0 0];
 Rbprev = eye(3);
 for i=1:Np
+% Run actual stateEst filter
+	[q, Rbf, dq, nmeas] = stateEst(yout(i,1), yout(i,7:12)');
+	qfilt(i,:) = q;
+	dqfilt(i,:) = dq;
+	
+	% Get Rb from raw vicon
 	Rb = eul2rotm(yout(i,10:12), 'ZYZ');
 	s(i,:) = Rb * [0 0 1]';
+	sf(i,:) = Rbf * [0 0 1]';
 	if i > 1
 		dt = yout(i,1) - yout(i-1,1);
 		sdiff = (s(i,:) - s(i-1,:)) / dt;
@@ -39,6 +40,7 @@ for i=1:Np
 	ds(i,:) = -Rb * e3h * omgnum(i,:)';
 	Rbprev = Rb;
 end
+nmeas/Nt * 10000 % approx vicon rate discarding nan
 
 clf
 subplot(221)
@@ -59,12 +61,13 @@ legend('wx','wy','wz','fwx','fwy','fwz')
 
 subplot(223)
 hold all
-%plot(yout(:,1), s)
-%legend('sx','sy','sz')
-plot(yout(:,1), ww, '--')
-plot(yout(:,1), omgnum)
+plot(yout(:,1), s)
+plot(yout(:,1), sf, '--')
+legend('sx','sy','sz','sfx','sfy','sfz')
+% plot(yout(:,1), ww, '--')
+% plot(yout(:,1), omgnum)
+% legend('drx','dry','drz','ndrx','ndry','ndrz')
 hold off
-legend('drx','dry','drz','ndrx','ndry','ndrz')
 
 subplot(224)
 hold all
