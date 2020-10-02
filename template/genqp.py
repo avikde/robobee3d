@@ -33,12 +33,12 @@ def mpcDirtran(m, N, dt, snom, y0, Qfdiag, ydes, gms, umin, umax):
         [np.zeros((2,1)), np.eye(2)], 
         [np.zeros((1,1)), np.zeros((1,2))]])
     Bds = lambda s : np.vstack((np.zeros((nq,nu)), Bs(s))) * dt
-    cd = dt * np.reshape(np.array([0, 0, -gms, 0, 0, 0]), nq, 1)
+    cd = dt * np.hstack((np.zeros(6), np.array([0, 0, -gms, 0, 0, 0])))
 
     # Construct dynamics constraint
-    A = np.zeros((N*ny + nu, nx))
-    l = np.zeros(N*ny + nu)
-    u = np.zeros(N*ny + nu)
+    A = np.zeros((N*ny + N*nu, nx))
+    l = np.zeros(N*ny + N*nu)
+    u = np.zeros(N*ny + N*nu)
     for k in range(N):
         # x(k+1) = Ad*xk + Bd(sk)*uk
         A[k*ny:(k+1)*ny, k*ny:(k+1)*ny] = -np.eye(ny) # for -x1...xN+1 on the LHS
@@ -52,8 +52,9 @@ def mpcDirtran(m, N, dt, snom, y0, Qfdiag, ydes, gms, umin, umax):
             l[k*ny:(k+1)*ny] += -Ad @ np.asarray(y0)
             u[k*ny:(k+1)*ny] += -Ad @ np.asarray(y0)
     # Input limits
-    A[N*ny:,-nu:] = np.eye(nu)
-    l[-nu:] = np.tile(umin, (N,1))
+    A[N*ny:,-N*nu:] = np.eye(N*nu)
+    l[-N*nu:] = np.tile(umin, N)
+    u[-N*nu:] = np.tile(umax, N)
     A = sp.csc_matrix(A)
     # print(A, c)
 
