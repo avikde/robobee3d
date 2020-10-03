@@ -91,8 +91,26 @@ class UprightMPC:
         # update P
         self.P.data = np.asarray(Qfdiag) # replace the whole thing
 
+        # update A
+        A1nnz = N * self.ny + (N-1) * (self.ny + self.nq)
+        A1colnnz = 2*self.ny+self.nq
+        A2nnz = N * 5
+
         # To test dynamics constraint after need to update sparse csc_matrix
-        assert self.A.nnz == len(self.A.data), N*(2*self.ny+self.nu+self.nq+5) - (self.ny+self.nq)
+        assert self.A.nnz == A1nnz + A2nnz + N*self.nu
+        assert A1nnz == (N-1)*A1colnnz + self.ny
+
+        Axidxdt = [] # these indices should be filled with dt
+        dtlist = [1, 4, 7, 10, 13, 16]
+        for k in range(N-1):
+            Axidxdt += [A1colnnz * k + self.ny + i for i in dtlist]
+            
+        assert(len(Axidxdt) == 6 * (N-1))
+        
+        # update
+        self.A.data[Axidxdt].fill(dt)
+
+        print(self.A.data[self.ny:A1colnnz], Axidxdt)
         
     
     def dynamics(self, y, u, dt, g, m, ms, s0):
