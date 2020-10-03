@@ -76,13 +76,36 @@ class UprightMPC:
         # To test dynamics constraint after need to update sparse csc_matrix
         pass
     
-    def openLoopGen(self, N):
-        y0 = np.zeros(12)
-        ys = np.zeros((self.ny, N))
-        us = np.zeros((self.ny, N))
+    def dynamics(self, y, u, dt, g, m, s0):
+        # Not needed for optimization, just to check
+        q, dq = y[:6], y[6:12]
+        # s = q[3:]
+        uT = u[0] # thrust
+        uM = u[1:] # moment
+        ddq = np.hstack((-g/m * np.array([0,0,1]) + uT/m * np.asarray(s0), uM, 0))
+        dq1 = dq + dt * ddq
+        q1 = q + dt * dq
+        return np.hstack((q1, dq1))
 
-        # for k in range(N):
-        #     y
+    def dynamicsTest(self, N, dt, g, m, snom, y0):
+        ys = np.zeros((N, self.ny))
+        us = np.zeros((N, self.nu))
+        y0 = np.asarray(y0)
+
+        for k in range(N):
+            ys[k,:] = self.dynamics(y0, us[k,:], dt, g, m, snom[k])
+            y0 = ys[k,:]
+        
+        # reshape into an "x"
+        xtest = np.hstack((np.ravel(ys), np.ravel(us)))
+        # print(xtest.shape, up.nx)
+        e1 = self.A @ xtest - self.l
+        e2 = self.u - self.A @ xtest
+        Z = np.zeros(N*self.ny)
+        if np.allclose(e1[:N*self.ny], Z) and np.allclose(e2[:N*self.ny], Z):
+            print('Dynamics test passed')
+        else:
+            print('Dynamics test FAILED')
         
     def toOSQP(self):
         # osqp
@@ -93,11 +116,18 @@ class UprightMPC:
 if __name__ == "__main__":
     # # WLQP gen
     # prob = qpSetupDense(4,4)
+    N = 3
+    dt = 2.0
+    g = 9.81e-3
+    m = 100.0
+    umax = np.array([100.0, 100.0, 100.0])
+    umin = -umax
+    snom = [[0.1, 0.1, 1], [0.2, 0.1, 1], [0.3, 0.1, 1]]
+    y0 = [1, 0.2, 0.1, 0.1, 0.2, 0.9, 0, 0, 0, 0, 0, 0]
 
-    up = UprightMPC(3, 2, [[0.1, 0.1, 1], [0.2, 0.1, 1], [0.3, 0.1, 1], ], [1, 0.2, 0.1, 0.1, 0.2, 0.9, 0, 0, 0, 0, 0, 0], [1, 1, 1, 0.1, 0.1, 0.1, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3], [2, 0.2, 0.1, 0, 0, 1, 0, 0, 0, 0, 0, 0], -9.81e-3, 100, [-100, -100, -100], [100, 100, 100])
+    up = UprightMPC(N, dt, snom, y0, [1, 1, 1, 0.1, 0.1, 0.1, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3], [2, 0.2, 0.1, 0, 0, 1, 0, 0, 0, 0, 0, 0], g, m, umin, umax)
 
-
-    up.openLoopGen(3)
+    up.dynamicsTest(N, dt, g, m, snom, y0)
     
     # # codegen
     # try:
