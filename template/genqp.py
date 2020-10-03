@@ -72,6 +72,38 @@ class UprightMPC:
             self.P[-self.ny + i, -self.ny + i] = Qfdiag[i]
         self.P = sp.csc_matrix(self.P)
         self.q[-self.ny:] = -(np.asarray(Qfdiag) * np.asarray(ydes))
+
+        self.saveAxidx()
+    
+    def saveAxidx(self):
+        A1nnz = N * self.ny + (N-1) * (self.ny + self.nq)
+        A1colnnz = 2*self.ny+self.nq
+        A2nnz = N * 5
+        Arcolnnz = 8 # 5 for Bd, 3 for input limit I
+
+        # To test dynamics constraint after need to update sparse csc_matrix
+        assert self.A.nnz == A1nnz + A2nnz + N*self.nu
+        assert A1nnz == (N-1)*A1colnnz + self.ny
+
+        Axidxdt = [] # these indices should be filled with dt
+        dtlist = [1, 4, 7, 10, 13, 16]
+        for k in range(N-1):
+            Axidxdt += [A1colnnz * k + self.ny + i for i in dtlist]
+            
+        assert(len(Axidxdt) == 6 * (N-1))
+
+        Axidxs = [] # these indices should be filled with dt/m*s0
+        for k in range(N):
+            Axidxs += [A1nnz + Arcolnnz * k + i for i in range(3)]
+
+        Axidxms = [] # these indices should be filled with dt/ms
+        for k in range(N):
+            Axidxms += [A1nnz + Arcolnnz * k + i for i in [4, 6]]
+
+        # put together - store these
+        self.Axidx = Axidxdt + Axidxs + Axidxms
+        self.AxidxNdt = len(Axidxdt)
+        self.AxidxNms = len(Axidxms)
     
     def update(self, dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax):
         # TODO: Axidx, Pxidx make in init
@@ -92,33 +124,7 @@ class UprightMPC:
         self.P.data = np.asarray(Qfdiag) # replace the whole thing
 
         # update A
-        A1nnz = N * self.ny + (N-1) * (self.ny + self.nq)
-        A1colnnz = 2*self.ny+self.nq
-        A2nnz = N * 5
-        Arcolnnz = 8 # 5 for Bd, 3 for input limit I
-
-        # To test dynamics constraint after need to update sparse csc_matrix
-        assert self.A.nnz == A1nnz + A2nnz + N*self.nu
-        assert A1nnz == (N-1)*A1colnnz + self.ny
-
-        Axidxdt = [] # these indices should be filled with dt
-        dtlist = [1, 4, 7, 10, 13, 16]
-        for k in range(N-1):
-            Axidxdt += [A1colnnz * k + self.ny + i for i in dtlist]
-            
-        assert(len(Axidxdt) == 6 * (N-1))
-
-        Axidxs = [] # these indices should be filled with dt/m*s0
-        for k in range(N):
-            Axidxs += [A1nnz + Arcolnnz * k + i for i in range(3)]
-        
-        # update
-        self.A.data[Axidxdt] = np.full(len(Axidxdt), dt)
-        self.A.data[Axidxs] = dt/m*np.hstack(snom)
-        print(dt/m*np.hstack(snom))
-
-        print(self.A.data[Axidxs])
-        
+        self.A.data[self.Axidx] = np.hstack((np.full(self.AxidxNdt, dt), dt/m*np.hstack(snom), np.full(self.AxidxNms, dt/ms)))
     
     def dynamics(self, y, u, dt, g, m, ms, s0):
         # Not needed for optimization, just to check
@@ -164,7 +170,7 @@ if __name__ == "__main__":
     dt = 2.0
     g = 9.81e-3
     m = 100.0
-    ms = 1.0
+    ms = 123.0
     umax = np.array([100.0, 100.0, 100.0])
     umin = -umax
     snom = [[0.1, 0.1, 1], [0.2, 0.1, 1], [0.3, 0.1, 1]]
