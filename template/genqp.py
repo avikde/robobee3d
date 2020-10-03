@@ -106,7 +106,6 @@ class UprightMPC:
         self.AxidxNms = len(Axidxms)
     
     def update(self, dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax):
-        # TODO: Axidx, Pxidx make in init
         # should not need the arguments in constructor (just sets sparsity)
 
         # update l, u
