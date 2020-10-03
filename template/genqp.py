@@ -69,9 +69,9 @@ class UprightMPC:
         self.q = np.zeros(self.nx)
         # only final cost
         for i in range(self.ny):
-            self.P[self.nx - self.ny + i, self.nx - self.ny + i] = Qfdiag[i]
+            self.P[-self.ny + i, -self.ny + i] = Qfdiag[i]
         self.P = sp.csc_matrix(self.P)
-        self.q[-self.ny:] = -np.asarray(ydes)
+        self.q[-self.ny:] = -(np.asarray(Qfdiag) * np.asarray(ydes))
     
     def update(self, dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax):
         # TODO: Axidx, Pxidx make in init
@@ -84,6 +84,9 @@ class UprightMPC:
         y0pdt[:self.nq] += dt * y0pdt[self.nq:]
         self.l[:self.ny] -= y0pdt
         self.u[:self.ny] -= y0pdt
+
+        # update q
+        self.q[-self.ny:] = -(np.asarray(Qfdiag) * np.asarray(ydes))
 
         # To test dynamics constraint after need to update sparse csc_matrix
         print(self.A.nnz, len(self.A.data))
