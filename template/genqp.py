@@ -95,6 +95,7 @@ class UprightMPC:
         A1nnz = N * self.ny + (N-1) * (self.ny + self.nq)
         A1colnnz = 2*self.ny+self.nq
         A2nnz = N * 5
+        Arcolnnz = 8 # 5 for Bd, 3 for input limit I
 
         # To test dynamics constraint after need to update sparse csc_matrix
         assert self.A.nnz == A1nnz + A2nnz + N*self.nu
@@ -106,11 +107,17 @@ class UprightMPC:
             Axidxdt += [A1colnnz * k + self.ny + i for i in dtlist]
             
         assert(len(Axidxdt) == 6 * (N-1))
+
+        Axidxs = [] # these indices should be filled with dt/m*s0
+        for k in range(N):
+            Axidxs += [A1nnz + Arcolnnz * k + i for i in range(3)]
         
         # update
-        self.A.data[Axidxdt].fill(dt)
+        self.A.data[Axidxdt] = np.full(len(Axidxdt), dt)
+        self.A.data[Axidxs] = dt/m*np.hstack(snom)
+        print(dt/m*np.hstack(snom))
 
-        print(self.A.data[self.ny:A1colnnz], Axidxdt)
+        print(self.A.data[Axidxs])
         
     
     def dynamics(self, y, u, dt, g, m, ms, s0):
