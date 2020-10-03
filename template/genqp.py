@@ -20,19 +20,22 @@ class UprightMPC:
     nu = 3
     ny = 2*nq
 
-    def __init__(self, N, dt, snom, y0, Qfdiag, ydes, g, m, umin, umax):
+    def __init__(self, N, dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax):
         """See https://github.com/avikde/robobee3d/pull/181.
         snom should be an N, shaped array"""
         # For dirtran
         self.nx = N * (self.ny + self.nu)
         assert len(snom) == N
+
+        # # dummy values: will be updated in the QP
+        # dt = 2
         
         Ad = np.eye(self.ny)
         Ad[:self.nq, self.nq:] = dt * np.eye(self.nq)
         # B(s0) function
         Bs = lambda s : np.block([
             [1/m * np.reshape(s, (3,1)), np.zeros((3,2))], 
-            [np.zeros((2,1)), np.eye(2)], 
+            [np.zeros((2,1)), 1/ms * np.eye(2)], 
             [np.zeros((1,1)), np.zeros((1,2))]])
         Bds = lambda s : np.vstack((np.zeros((self.nq,self.nu)), Bs(s))) * dt
         cd = dt * np.hstack((np.zeros(6), np.array([0, 0, -g/m, 0, 0, 0])))
@@ -69,31 +72,31 @@ class UprightMPC:
         self.P = sp.csc_matrix(self.P)
         self.q[-self.ny:] = -np.asarray(ydes)
     
-    def update(self, dt, snom, y0, Qfdiag, ydes, gms, umin, umax):
+    def update(self, dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax):
         # TODO: Axidx, Pxidx make in init
         # should not need the arguments in constructor (just sets sparsity)
 
         # To test dynamics constraint after need to update sparse csc_matrix
-        pass
+        print(self.A.nnz, len(self.A.data))
     
-    def dynamics(self, y, u, dt, g, m, s0):
+    def dynamics(self, y, u, dt, g, m, ms, s0):
         # Not needed for optimization, just to check
         q, dq = y[:6], y[6:12]
         # s = q[3:]
         uT = u[0] # thrust
         uM = u[1:] # moment
-        ddq = np.hstack((-g/m * np.array([0,0,1]) + uT/m * np.asarray(s0), uM, 0))
+        ddq = np.hstack((-g/m * np.array([0,0,1]) + uT/m * np.asarray(s0), 1/ms * uM, 0))
         dq1 = dq + dt * ddq
         q1 = q + dt * dq
         return np.hstack((q1, dq1))
 
-    def dynamicsTest(self, N, dt, g, m, snom, y0):
+    def dynamicsTest(self, N, dt, g, m, ms, snom, y0):
         ys = np.zeros((N, self.ny))
-        us = np.zeros((N, self.nu))
+        us = np.random.rand(N, self.nu)
         y0 = np.asarray(y0)
 
         for k in range(N):
-            ys[k,:] = self.dynamics(y0, us[k,:], dt, g, m, snom[k])
+            ys[k,:] = self.dynamics(y0, us[k,:], dt, g, m, ms, snom[k])
             y0 = ys[k,:]
         
         # reshape into an "x"
@@ -105,7 +108,7 @@ class UprightMPC:
         if np.allclose(e1[:N*self.ny], Z) and np.allclose(e2[:N*self.ny], Z):
             print('Dynamics test passed')
         else:
-            print('Dynamics test FAILED')
+            print('Dynamics test FAILED', e1, e2)
         
     def toOSQP(self):
         # osqp
@@ -120,14 +123,19 @@ if __name__ == "__main__":
     dt = 2.0
     g = 9.81e-3
     m = 100.0
+    ms = 1.0
     umax = np.array([100.0, 100.0, 100.0])
     umin = -umax
     snom = [[0.1, 0.1, 1], [0.2, 0.1, 1], [0.3, 0.1, 1]]
     y0 = [1, 0.2, 0.1, 0.1, 0.2, 0.9, 0, 0, 0, 0, 0, 0]
+    Qfdiag = [1, 1, 1, 0.1, 0.1, 0.1, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3]
+    ydes = [2, 0.2, 0.1, 0, 0, 1, 0, 0, 0, 0, 0, 0]
 
-    up = UprightMPC(N, dt, snom, y0, [1, 1, 1, 0.1, 0.1, 0.1, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3], [2, 0.2, 0.1, 0, 0, 1, 0, 0, 0, 0, 0, 0], g, m, umin, umax)
+    up = UprightMPC(N, dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax)
 
-    up.dynamicsTest(N, dt, g, m, snom, y0)
+    up.update(dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax)
+
+    up.dynamicsTest(N, dt, g, m, ms, snom, y0)
     
     # # codegen
     # try:
