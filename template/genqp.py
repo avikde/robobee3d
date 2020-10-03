@@ -42,7 +42,7 @@ class UprightMPC:
         Bds = lambda s : np.vstack((np.zeros((self.nq,self.nu)), Bs(s))) * dt
 
         # Construct dynamics constraint
-        self.A = np.zeros((self.nx, self.nx))
+        self.A = np.zeros((self.nx, self.nx)) # number of rows coincidentally = nx; need not be
         self.l = np.zeros(self.nx)
         self.u = np.zeros(self.nx)
         for k in range(N):
@@ -88,8 +88,12 @@ class UprightMPC:
         # update q
         self.q[-self.ny:] = -(np.asarray(Qfdiag) * np.asarray(ydes))
 
+        # update P
+        self.P.data = np.asarray(Qfdiag) # replace the whole thing
+
         # To test dynamics constraint after need to update sparse csc_matrix
-        print(self.A.nnz, len(self.A.data))
+        assert self.A.nnz == len(self.A.data), N*(2*self.ny+self.nu+self.nq+5) - (self.ny+self.nq)
+        
     
     def dynamics(self, y, u, dt, g, m, ms, s0):
         # Not needed for optimization, just to check
