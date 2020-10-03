@@ -19,6 +19,8 @@ class UprightMPC:
     nq = 6 #q = (p,s)
     nu = 3
     ny = 2*nq
+    
+    cd = lambda self, g, m: dt * np.hstack((np.zeros(6), np.array([0, 0, -g/m, 0, 0, 0])))
 
     def __init__(self, N, dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax):
         """See https://github.com/avikde/robobee3d/pull/181.
@@ -38,7 +40,6 @@ class UprightMPC:
             [np.zeros((2,1)), 1/ms * np.eye(2)], 
             [np.zeros((1,1)), np.zeros((1,2))]])
         Bds = lambda s : np.vstack((np.zeros((self.nq,self.nu)), Bs(s))) * dt
-        cd = dt * np.hstack((np.zeros(6), np.array([0, 0, -g/m, 0, 0, 0])))
 
         # Construct dynamics constraint
         self.A = np.zeros((self.nx, self.nx))
@@ -51,7 +52,7 @@ class UprightMPC:
                 self.A[k*self.ny:(k+1)*self.ny, (k-1)*self.ny:(k)*self.ny] = Ad # for Ad*x(k-1)
             self.A[k*self.ny:(k+1)*self.ny, (N*self.ny + k*self.nu):(N*self.ny + (k+1)*self.nu)] = Bds(snom[k]) # Bd(sk)
 
-            self.l[k*self.ny:(k+1)*self.ny] = self.u[k*self.ny:(k+1)*self.ny] = -cd
+            self.l[k*self.ny:(k+1)*self.ny] = self.u[k*self.ny:(k+1)*self.ny] = -self.cd(g, m)
             # only in the first eqn
             if k == 0:
                 self.l[k*self.ny:(k+1)*self.ny] += -Ad @ np.asarray(y0)
@@ -75,6 +76,14 @@ class UprightMPC:
     def update(self, dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax):
         # TODO: Axidx, Pxidx make in init
         # should not need the arguments in constructor (just sets sparsity)
+
+        # update l, u
+        self.l = np.hstack((np.tile(-self.cd(g, m), N), np.tile(umin, N)))
+        self.u = np.hstack((np.tile(-self.cd(g, m), N), np.tile(umax, N)))
+        y0pdt = np.asarray(y0)
+        y0pdt[:self.nq] += dt * y0pdt[self.nq:]
+        self.l[:self.ny] -= y0pdt
+        self.u[:self.ny] -= y0pdt
 
         # To test dynamics constraint after need to update sparse csc_matrix
         print(self.A.nnz, len(self.A.data))
@@ -127,9 +136,9 @@ if __name__ == "__main__":
     umax = np.array([100.0, 100.0, 100.0])
     umin = -umax
     snom = [[0.1, 0.1, 1], [0.2, 0.1, 1], [0.3, 0.1, 1]]
-    y0 = [1, 0.2, 0.1, 0.1, 0.2, 0.9, 0, 0, 0, 0, 0, 0]
+    y0 = [1, 0.2, 0.1, 0.1, 0.2, 0.9, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
     Qfdiag = [1, 1, 1, 0.1, 0.1, 0.1, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3]
-    ydes = [2, 0.2, 0.1, 0, 0, 1, 0, 0, 0, 0, 0, 0]
+    ydes = [2, 0.2, 0.1, 0.4, 0.1, 1, 0.1, -0.1, -0.2, -0.3, -0.4, -0.5]
 
     up = UprightMPC(N, dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax)
 
