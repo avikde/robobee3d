@@ -126,8 +126,9 @@ class UprightMPC:
         # update A
         self.A.data[self.Axidx] = np.hstack((np.full(self.AxidxNdt, dt), dt/m*np.hstack(snom), np.full(self.AxidxNms, dt/ms)))
     
-    def dynamics(self, y, u, dt, g, m, ms, s0):
+    def dynamics(self, yi, u, dt, g, m, ms, s0):
         # Not needed for optimization, just to check
+        y = np.copy(yi)
         q, dq = y[:6], y[6:12]
         # s = q[3:]
         uT = u[0] # thrust
@@ -184,16 +185,18 @@ class UprightMPC:
             res = model.solve()
             # print(res.info.status)
 
-            utest = np.zeros(3)
-            xtest = np.hstack((self.dynamics(yy, utest, dt, g, m, ms, s0), utest))
-            obj = lambda x : 0.5 * x @ self.P @ x + self.q @ x
-            print(obj(res.x) - obj(xtest))
-
             xs[k,:] = res.x
             ys[k,:] = self.dynamics(yy, xs[k,self.N*self.ny : self.N*self.ny + self.nu], dt, g, m, ms, s0)
             # # normalize s
             # ys[k,3:6] /= np.linalg.norm(ys[k,3:6])
             yy = np.copy(ys[k,:])
+
+        utest = np.zeros(3)
+        xtest = np.hstack((self.dynamics(y0, utest, dt, g, m, ms, s0), utest))
+        utest2 = np.ones(3)
+        xtest2 = np.hstack((self.dynamics(y0, utest, dt, g, m, ms, s0), utest2))
+        obj = lambda x : 0.5 * x @ self.P @ x + self.q @ x
+        print(obj(xtest2), obj(xtest))
 
         print(y0)
         print(xs)
