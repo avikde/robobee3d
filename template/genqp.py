@@ -70,9 +70,9 @@ class UprightMPC:
         self.q = np.zeros(self.nx)
         # only final cost
         for i in range(self.ny):
-            self.P[-self.ny + i, -self.ny + i] = Qfdiag[i]
+            self.P[(N-1)*self.ny + i, (N-1)*self.ny + i] = Qfdiag[i]
         self.P = sp.csc_matrix(self.P)
-        self.q[-self.ny:] = -(np.asarray(Qfdiag) * np.asarray(ydes))
+        self.q[(N-1)*self.ny:N*self.ny] = -(np.asarray(Qfdiag) * np.asarray(ydes))
 
         self.saveAxidx()
     
@@ -118,7 +118,7 @@ class UprightMPC:
         self.u[:self.ny] -= y0pdt
 
         # update q
-        self.q[-self.ny:] = -(np.asarray(Qfdiag) * np.asarray(ydes))
+        self.q[(N-1)*self.ny:N*self.ny] = -(np.asarray(Qfdiag) * np.asarray(ydes))
 
         # update P
         self.P.data = np.asarray(Qfdiag) # replace the whole thing
@@ -170,7 +170,7 @@ class UprightMPC:
         model = self.toOSQP()
 
         ys = np.zeros((Nsim, self.ny))
-        us = np.zeros((Nsim, self.nu))
+        xs = np.zeros((Nsim, self.nx))
         y0 = np.asarray(y0)
         y0i = np.copy(y0)
 
@@ -185,14 +185,14 @@ class UprightMPC:
             res = model.solve()
             # print(res.info.status)
 
-            us[k,:] = res.x[self.N*self.ny : self.N*self.ny + self.nu]
-            ys[k,:] = self.dynamics(y0, us[k,:], dt, g, m, ms, s0)
+            xs[k,:] = res.x
+            ys[k,:] = self.dynamics(y0, xs[k,self.N*self.ny : self.N*self.ny + self.nu], dt, g, m, ms, s0)
             # normalize s
             ys[k,3:6] /= np.linalg.norm(ys[k,3:6])
             y0 = ys[k,:]
 
         print(y0i)
-        print(us)
+        print(xs)
         print(ys)
         # import matplotlib.pyplot as plt
         # fig, ax = plt.subplots(2)
