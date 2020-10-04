@@ -184,6 +184,11 @@ class UprightMPC:
             res = model.solve()
             # print(res.info.status)
 
+            utest = np.zeros(3)
+            xtest = np.hstack((self.dynamics(yy, utest, dt, g, m, ms, s0), utest))
+            obj = lambda x : 0.5 * x @ self.P @ x + self.q @ x
+            print(obj(res.x) - obj(xtest))
+
             xs[k,:] = res.x
             ys[k,:] = self.dynamics(yy, xs[k,self.N*self.ny : self.N*self.ny + self.nu], dt, g, m, ms, s0)
             # # normalize s
