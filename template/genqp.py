@@ -193,10 +193,10 @@ class UprightMPC:
 
         utest = np.zeros(3)
         xtest = np.hstack((self.dynamics(y0, utest, dt, g, m, ms, s0), utest))
-        utest2 = np.ones(3)
-        xtest2 = np.hstack((self.dynamics(y0, utest, dt, g, m, ms, s0), utest2))
+        utest2 = -100*np.ones(3)
+        xtest2 = np.hstack((self.dynamics(y0, utest2, dt, g, m, ms, s0), utest2))
         obj = lambda x : 0.5 * x @ self.P @ x + self.q @ x
-        print(obj(xtest2), obj(xtest))
+        print(obj(xtest2), obj(xtest), xtest2 - xtest)
 
         print(y0)
         print(xs)
@@ -214,8 +214,8 @@ if __name__ == "__main__":
     dt = 2.0
     g = 9.81e-3
     m = 100.0
-    ms = 123.0
-    umax = np.array([100.0, 100.0, 100.0])
+    ms = 1.0
+    umax = np.array([1000.0, 1000.0, 1000.0])
     umin = -umax
     snom = [[0.1, 0.1, 1]]#, [0.2, 0.1, 1], [0.3, 0.1, 1]]
     y0 = [1, 0.2, 0.1, 0.1, 0.2, 0.9, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
