@@ -178,7 +178,7 @@ class UprightMPC:
             s0 = yy[3:6]
             snom = [s0 for i in range(self.N)]
             # Update controller: copy out of update() for C version
-            self.update(dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax)
+            self.update(dt, snom, yy, Qfdiag, ydes, g, m, ms, umin, umax)
             # l,u update if needed
             model.update(Px=self.P.data, Ax_idx=np.asarray(self.Axidx), Ax=self.A.data[self.Axidx], q=self.q, l=self.l, u=self.u)
             res = model.solve()
@@ -186,8 +186,8 @@ class UprightMPC:
 
             xs[k,:] = res.x
             ys[k,:] = self.dynamics(yy, xs[k,self.N*self.ny : self.N*self.ny + self.nu], dt, g, m, ms, s0)
-            # normalize s
-            ys[k,3:6] /= np.linalg.norm(ys[k,3:6])
+            # # normalize s
+            # ys[k,3:6] /= np.linalg.norm(ys[k,3:6])
             yy = np.copy(ys[k,:])
 
         print(y0)
