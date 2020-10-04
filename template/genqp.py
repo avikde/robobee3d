@@ -171,12 +171,11 @@ class UprightMPC:
 
         ys = np.zeros((Nsim, self.ny))
         xs = np.zeros((Nsim, self.nx))
-        y0 = np.asarray(y0)
-        y0i = np.copy(y0)
+        yy = np.copy(y0)
 
         for k in range(Nsim):
             # traj: use current s
-            s0 = y0[3:6]
+            s0 = yy[3:6]
             snom = [s0 for i in range(self.N)]
             # Update controller: copy out of update() for C version
             self.update(dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax)
@@ -186,12 +185,12 @@ class UprightMPC:
             # print(res.info.status)
 
             xs[k,:] = res.x
-            ys[k,:] = self.dynamics(y0, xs[k,self.N*self.ny : self.N*self.ny + self.nu], dt, g, m, ms, s0)
+            ys[k,:] = self.dynamics(yy, xs[k,self.N*self.ny : self.N*self.ny + self.nu], dt, g, m, ms, s0)
             # normalize s
             ys[k,3:6] /= np.linalg.norm(ys[k,3:6])
-            y0 = ys[k,:]
+            yy = np.copy(ys[k,:])
 
-        print(y0i)
+        print(y0)
         print(xs)
         print(ys)
         # import matplotlib.pyplot as plt
@@ -219,7 +218,7 @@ if __name__ == "__main__":
     up.update(dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax)
     up.dynamicsTest(N, dt, g, m, ms, snom, y0)
 
-    up.controlTest(dt, y0, Qfdiag, m, ms, umin, umax, 1)
+    up.controlTest(dt, y0, Qfdiag, m, ms, umin, umax, 2)
     
     # # codegen
     # try:
