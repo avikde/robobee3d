@@ -172,6 +172,7 @@ class UprightMPC:
         ys = np.zeros((Nsim, self.ny))
         us = np.zeros((Nsim, self.nu))
         y0 = np.asarray(y0)
+        y0i = np.copy(y0)
 
         for k in range(Nsim):
             # traj: use current s
@@ -182,40 +183,43 @@ class UprightMPC:
             # l,u update if needed
             model.update(Px=self.P.data, Ax_idx=np.asarray(self.Axidx), Ax=self.A.data[self.Axidx], q=self.q, l=self.l, u=self.u)
             res = model.solve()
-            print(res.info.status)
+            # print(res.info.status)
 
             us[k,:] = res.x[self.N*self.ny : self.N*self.ny + self.nu]
             ys[k,:] = self.dynamics(y0, us[k,:], dt, g, m, ms, s0)
+            # normalize s
+            ys[k,3:6] /= np.linalg.norm(ys[k,3:6])
             y0 = ys[k,:]
 
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots(2)
-        ax[0].plot(ys[:,:3])
-        ax[1].plot(ys[:,3:6])
-        plt.show()
+        print(y0i)
+        print(us)
+        print(ys)
+        # import matplotlib.pyplot as plt
+        # fig, ax = plt.subplots(2)
+        # ax[0].plot(ys[:,:3])
+        # ax[1].plot(ys[:,3:6])
+        # plt.show()
 
 if __name__ == "__main__":
     # # WLQP gen
     # prob = qpSetupDense(4,4)
-    N = 3
+    N = 1
     dt = 2.0
     g = 9.81e-3
     m = 100.0
     ms = 123.0
     umax = np.array([100.0, 100.0, 100.0])
     umin = -umax
-    snom = [[0.1, 0.1, 1], [0.2, 0.1, 1], [0.3, 0.1, 1]]
+    snom = [[0.1, 0.1, 1]]#, [0.2, 0.1, 1], [0.3, 0.1, 1]]
     y0 = [1, 0.2, 0.1, 0.1, 0.2, 0.9, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
     Qfdiag = [1, 1, 1, 0.1, 0.1, 0.1, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3]
     ydes = [2, 0.2, 0.1, 0.4, 0.1, 1, 0.1, -0.1, -0.2, -0.3, -0.4, -0.5]
 
     up = UprightMPC(N, dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax)
-
     up.update(dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax)
-
     up.dynamicsTest(N, dt, g, m, ms, snom, y0)
 
-    up.controlTest(dt, y0, Qfdiag, m, ms, umin, umax, 50)
+    up.controlTest(dt, y0, Qfdiag, m, ms, umin, umax, 1)
     
     # # codegen
     # try:
