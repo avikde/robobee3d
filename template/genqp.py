@@ -26,6 +26,7 @@ class UprightMPC:
         """See https://github.com/avikde/robobee3d/pull/181.
         snom should be an N, shaped array"""
         # For dirtran
+        self.N = N
         self.nx = N * (self.ny + self.nu)
         assert len(snom) == N
 
@@ -161,6 +162,36 @@ class UprightMPC:
         model = osqp.OSQP()
         model.setup(P=self.P, q=self.q, A=self.A, l=self.l, u=self.u, eps_rel=1e-4, eps_abs=1e-4, verbose=False)
         return model
+    
+    def controlTest(self, dt, y0, Qfdiag, m, ms, umin, umax, Nsim):
+        # Hovering test
+        ydes = np.zeros(self.ny)
+        ydes[5] = 1
+        model = self.toOSQP()
+
+        ys = np.zeros((Nsim, self.ny))
+        us = np.zeros((Nsim, self.nu))
+        y0 = np.asarray(y0)
+
+        for k in range(N):
+            # traj: use current s
+            s0 = y0[3:6]
+            snom = [s0 for i in range(self.N)]
+            # Update controller: copy out of update() for C version
+            self.update(dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax)
+            # l,u update if needed
+            model.update(Px=self.P.data, Ax_idx=np.asarray(self.Axidx), Ax=self.A.data[self.Axidx], q=self.q, l=self.l, u=self.u)
+            res = model.solve()
+
+            us[k,:] = res.x[self.N*self.ny : self.N*self.ny + self.nu]
+            ys[k,:] = self.dynamics(y0, us[k,:], dt, g, m, ms, s0)
+            y0 = ys[k,:]
+
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(2)
+        ax[0].plot(ys[:,:3])
+        ax[1].plot(ys[:,3:6])
+        plt.show()
 
 if __name__ == "__main__":
     # # WLQP gen
@@ -182,6 +213,8 @@ if __name__ == "__main__":
     up.update(dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax)
 
     up.dynamicsTest(N, dt, g, m, ms, snom, y0)
+
+    up.controlTest(dt, y0, Qfdiag, m, ms, umin, umax, 10)
     
     # # codegen
     # try:
