@@ -112,7 +112,7 @@ class UprightMPC:
         # update l, u
         self.l = np.hstack((np.tile(-self.cd(g, m), N), np.tile(umin, N)))
         self.u = np.hstack((np.tile(-self.cd(g, m), N), np.tile(umax, N)))
-        y0pdt = np.asarray(y0)
+        y0pdt = np.asarray(np.copy(y0))
         y0pdt[:self.nq] += dt * y0pdt[self.nq:]
         self.l[:self.ny] -= y0pdt
         self.u[:self.ny] -= y0pdt
