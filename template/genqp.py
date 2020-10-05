@@ -124,7 +124,9 @@ class UprightMPC:
         self.P.data = np.asarray(Qfdiag) # replace the whole thing
 
         # update A
+        print("hi",np.hstack(snom))
         self.A.data[self.Axidx] = np.hstack((np.full(self.AxidxNdt, dt), dt/m*np.hstack(snom), np.full(self.AxidxNms, dt/ms)))
+        print("B0",self.A.toarray()[:self.ny, N*self.ny:N*self.ny+self.nu])
     
     def dynamics(self, yi, u, dt, g, m, ms, s0):
         # Not needed for optimization, just to check
@@ -181,7 +183,7 @@ class UprightMPC:
         snom = [s0 for i in range(self.N)]
 
         for k in range(Nsim):
-            print(snom)
+            # print(snom)
             # Update controller: copy out of update() for C version
             self.update(dt, snom, yy, Qfdiag, ydes, g, m, ms, umin, umax)
             # l,u update if needed
