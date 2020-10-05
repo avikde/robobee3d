@@ -203,6 +203,7 @@ class UprightMPC:
 
             # use previous solution
             snom = [xs[k,i*self.ny+3:i*self.ny+6] for i in range(self.N)]
+            ydes[3:6] = snom[-1] # FIXME: how to set this?
 
         # utest = np.zeros(3)
         # xtest = np.hstack((self.dynamics(y0, utest, dt, g, m, ms, s0), utest))
@@ -214,11 +215,11 @@ class UprightMPC:
         # print(y0)
         # print(xs)
         print(ys)
-        # import matplotlib.pyplot as plt
-        # fig, ax = plt.subplots(2)
-        # ax[0].plot(ys[:,:3])
-        # ax[1].plot(ys[:,3:6])
-        # plt.show()
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(2)
+        ax[0].plot(ys[:,:3])
+        ax[1].plot(ys[:,3:6])
+        plt.show()
 
 if __name__ == "__main__":
     # # WLQP gen
