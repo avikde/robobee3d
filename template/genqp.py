@@ -110,34 +110,32 @@ class UprightMPC:
             for k in range(self.N)])
         # print("B0",self.A.toarray()[:self.ny, N*self.ny:N*self.ny+self.nu])
     
-    def dynamics(self, yi, u, dt, g, m, ms, s0):
+    def dynamics(self, qi, u, dt, s0):
         # Not needed for optimization, just to check
-        y = np.copy(yi)
-        q, dq = y[:6], y[6:12]
+        q = np.copy(qi)
         # s = q[3:]
-        uT = u[0] # thrust
-        uM = u[1:] # moment
-        ddq = np.hstack((-g/m * np.array([0,0,1]) + uT/m * np.asarray(s0), 1/ms * uM, 0))
-        dq1 = dq + dt * ddq
+        vT = u[0] # thrust
+        vM = u[1:] # moment
+        dq = np.hstack((vT * np.asarray(s0), vM, np.dot(-np.asarray(s0[:2])/s0[2], vM)))
         q1 = q + dt * dq
-        return np.hstack((q1, dq1))
+        return q + dt * dq
 
-    def dynamicsTest(self, N, dt, g, m, ms, snom, y0):
-        ys = np.zeros((N, self.ny))
-        us = np.random.rand(N, self.nu)
-        y0 = np.asarray(y0)
+    def dynamicsTest(self, dt, snom, q0):
+        qs = np.zeros((self.N, self.nq))
+        us = np.random.rand(self.N, self.nu)
+        qq = np.copy(q0)
 
         for k in range(N):
-            ys[k,:] = self.dynamics(y0, us[k,:], dt, g, m, ms, snom[k])
-            y0 = ys[k,:]
+            qs[k,:] = self.dynamics(qq, us[k,:], dt, snom[k])
+            qq = qs[k,:]
         
         # reshape into an "x"
-        xtest = np.hstack((np.ravel(ys), np.ravel(us)))
+        xtest = np.hstack((np.ravel(qs), np.ravel(us)))
         # print(xtest.shape, up.nx)
         e1 = self.A @ xtest - self.l
         e2 = self.u - self.A @ xtest
-        Z = np.zeros(N*self.ny)
-        if np.allclose(e1[:N*self.ny], Z) and np.allclose(e2[:N*self.ny], Z):
+        Z = np.zeros(N*self.nq)
+        if np.allclose(e1[:N*self.nq], Z) and np.allclose(e2[:N*self.nq], Z):
             print('Dynamics test passed')
         else:
             print('Dynamics test FAILED', e1, e2)
@@ -221,7 +219,7 @@ if __name__ == "__main__":
 
     up = UprightMPC(N)
     up.update(q0, qdes, Qfdiag, Rdiag, smin, smax, dt, snom)
-    up.dynamicsTest(N, dt, g, m, ms, snom, y0)
+    up.dynamicsTest(dt, snom, q0)
 
     up.controlTest(dt, Qfdiag, m, ms, umin, umax, 10)
     
