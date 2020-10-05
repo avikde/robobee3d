@@ -124,9 +124,9 @@ class UprightMPC:
         self.P.data = np.asarray(Qfdiag) # replace the whole thing
 
         # update A
-        print("hi",np.hstack(snom))
+        # print("hi",np.hstack(snom))
         self.A.data[self.Axidx] = np.hstack((np.full(self.AxidxNdt, dt), dt/m*np.hstack(snom), np.full(self.AxidxNms, dt/ms)))
-        print("B0",self.A.toarray()[:self.ny, N*self.ny:N*self.ny+self.nu])
+        # print("B0",self.A.toarray()[:self.ny, N*self.ny:N*self.ny+self.nu])
     
     def dynamics(self, yi, u, dt, g, m, ms, s0):
         # Not needed for optimization, just to check
@@ -172,6 +172,10 @@ class UprightMPC:
         ydes[5] = 1 # sz
         y0 = np.copy(ydes)
         y0[0] = -1 # lower x
+        
+        # For lateral
+        ydes[3] = 1 # sx
+
         model = self.toOSQP()
 
         ys = np.zeros((Nsim, self.ny))
@@ -208,7 +212,7 @@ class UprightMPC:
         # print(obj(xtest2), obj(xtest), xtest2 - xtest)
 
         # print(y0)
-        print(xs)
+        # print(xs)
         print(ys)
         # import matplotlib.pyplot as plt
         # fig, ax = plt.subplots(2)
@@ -235,7 +239,7 @@ if __name__ == "__main__":
     up.update(dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax)
     up.dynamicsTest(N, dt, g, m, ms, snom, y0)
 
-    up.controlTest(dt, Qfdiag, m, ms, umin, umax, 1)
+    up.controlTest(dt, Qfdiag, m, ms, umin, umax, 10)
     
     # # codegen
     # try:
