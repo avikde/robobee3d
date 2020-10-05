@@ -169,17 +169,18 @@ class UprightMPC:
         ydes = np.zeros(self.ny)
         ydes[5] = 1 # sz
         y0 = np.copy(ydes)
-        y0[2] = -1 # lower z
+        y0[0] = -1 # lower x
         model = self.toOSQP()
 
         ys = np.zeros((Nsim, self.ny))
         xs = np.zeros((Nsim, self.nx))
         yy = np.copy(y0)
+        
+        # nominal s
+        s0 = [0.1,0,1]
+        snom = [s0 for i in range(self.N)]
 
         for k in range(Nsim):
-            # traj: use current s
-            s0 = yy[3:6]
-            snom = [s0 for i in range(self.N)]
             # Update controller: copy out of update() for C version
             self.update(dt, snom, yy, Qfdiag, ydes, g, m, ms, umin, umax)
             # l,u update if needed
@@ -193,6 +194,9 @@ class UprightMPC:
             # ys[k,3:6] /= np.linalg.norm(ys[k,3:6])
             yy = np.copy(ys[k,:])
 
+            # use previous solution
+            snom = [xs[k,i*self.ny+3:i*self.ny+6] for i in range(self.N)]
+
         # utest = np.zeros(3)
         # xtest = np.hstack((self.dynamics(y0, utest, dt, g, m, ms, s0), utest))
         # utest2 = -100*np.ones(3)
@@ -201,8 +205,8 @@ class UprightMPC:
         # print(obj(xtest2), obj(xtest), xtest2 - xtest)
 
         # print(y0)
-        # print(xs)
-        # print(ys)
+        # # print(xs)
+        print(ys)
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots(2)
         ax[0].plot(ys[:,:3])
@@ -212,16 +216,16 @@ class UprightMPC:
 if __name__ == "__main__":
     # # WLQP gen
     # prob = qpSetupDense(4,4)
-    N = 2
+    N = 3
     dt = 2.0
     g = 9.81e-3
     m = 100.0
     ms = 1.0
     umax = np.array([1000.0, 1000.0, 1000.0])
     umin = -umax
-    snom = [[0.1, 0.1, 1], [0.2, 0.1, 1]]#, [0.3, 0.1, 1]]
+    snom = [[0.1, 0.1, 1], [0.2, 0.1, 1], [0.3, 0.1, 1]]# Does not affect controlTest (only for initializing matrices)
     y0 = [1, 0.2, 0.1, 0.1, 0.2, 0.9, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
-    Qfdiag = [1, 1, 1, 0.1, 0.1, 0.1, 10, 10, 10, 1, 1, 1]
+    Qfdiag = [1, 1, 1, 1e-3, 1e-3, 1e-3, 1e-2, 1e-2, 1e-2, 1e-3, 1e-3, 1e-3]
     ydes = [2, 0.2, 0.1, 0.4, 0.1, 1, 0.1, -0.1, -0.2, -0.3, -0.4, -0.5]
 
     up = UprightMPC(N, dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax)
