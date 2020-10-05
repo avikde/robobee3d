@@ -68,11 +68,12 @@ class UprightMPC:
 
         # construct objective. 
         self.q = np.zeros(self.nx)
-        self.Pdiag = np.zeros(self.nx)
+        self.P = np.zeros((self.nx, self.nx))
         # final cost
-        self.Pdiag[(N-1)*self.nq : N*self.nq] = Qfdiag
+        np.fill_diagonal(self.P[(N-1)*self.nq : N*self.nq, (N-1)*self.nq : N*self.nq], Qfdiag)
         for k in range(N):
-            self.Pdiag[N*self.nq + k*self.nu : N*self.nq + (k+1)*self.nu] = Rdiag
+            np.fill_diagonal(self.P[N*self.nq + k*self.nu : N*self.nq + (k+1)*self.nu, N*self.nq + k*self.nu : N*self.nq + (k+1)*self.nu], Rdiag)
+        self.P = sp.csc_matrix(self.P)
         self.q[(N-1)*self.nq:N*self.nq] = -(np.asarray(Qfdiag) * np.asarray(qdes))
 
         self.saveAxidx()
@@ -88,26 +89,25 @@ class UprightMPC:
         # put together - store these. Should be filled with stacked Bi = dt*(sx,sy,sz,1,-sx/sz,1,-sy/sz)
         self.Axidx = range(A1nnz, A1nnz + A2nnz)
     
-    def update(self, dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax):
+    def update(self, q0, qdes, Qfdiag, Rdiag, smin, smax, dt, snom):
         # should not need the arguments in constructor (just sets sparsity)
 
         # update l, u
-        self.l = np.hstack((np.tile(-self.cd(g, m), N), np.tile(umin, N)))
-        self.u = np.hstack((np.tile(-self.cd(g, m), N), np.tile(umax, N)))
-        y0pdt = np.asarray(np.copy(y0))
-        y0pdt[:self.nq] += dt * y0pdt[self.nq:]
-        self.l[:self.ny] -= y0pdt
-        self.u[:self.ny] -= y0pdt
+        self.l[:self.nq] = self.u[:self.nq] = -np.asarray(q0)
+        self.l[N*self.nq:] = np.tile(smin, N)
+        self.u[N*self.nq:] = np.tile(smax, N)
 
         # update q
-        self.q[(N-1)*self.ny:N*self.ny] = -(np.asarray(Qfdiag) * np.asarray(ydes))
+        self.q[(N-1)*self.nq:N*self.nq] = -(np.asarray(Qfdiag) * np.asarray(qdes))
 
         # update P
-        self.P.data = np.asarray(Qfdiag) # replace the whole thing
+        self.P.data = np.hstack((Qfdiag, np.tile(Rdiag, self.N))) # replace the whole thing
 
         # update A
         # print("hi",np.hstack(snom))
-        self.A.data[self.Axidx] = np.hstack((np.full(self.AxidxNdt, dt), dt/m*np.hstack(snom), np.full(self.AxidxNms, dt/ms)))
+        self.A.data[self.Axidx] = np.hstack([
+            dt * np.array([snom[k][0],snom[k][1],snom[k][2],1,-snom[k][0]/snom[k][2],1,-snom[k][1]/snom[k][2]])
+            for k in range(self.N)])
         # print("B0",self.A.toarray()[:self.ny, N*self.ny:N*self.ny+self.nu])
     
     def dynamics(self, yi, u, dt, g, m, ms, s0):
@@ -211,15 +211,16 @@ if __name__ == "__main__":
     g = 9.81e-3
     m = 100.0
     ms = 1.0
-    umax = np.array([1000.0, 1000.0, 1000.0])
-    umin = -umax
+    smax = np.array([0.5,0.5,1.5])
+    smin = -smax
     snom = [[0.1, 0.1, 1], [0.2, 0.1, 1], [0.3, 0.1, 1]]# Does not affect controlTest (only for initializing matrices)
-    y0 = [1, 0.2, 0.1, 0.1, 0.2, 0.9, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
-    Qfdiag = [1, 1, 1, 1e-3, 1e-3, 1e-3, 1e-2, 1e-2, 1e-2, 1e-3, 1e-3, 1e-3]
-    ydes = [2, 0.2, 0.1, 0.4, 0.1, 1, 0.1, -0.1, -0.2, -0.3, -0.4, -0.5]
+    q0 = [1, 0.2, 0.1, 0.1, 0.2, 0.9]
+    qdes = [2, 0.2, 0.1, 0.4, 0.1, 1]
+    Qfdiag = [1, 1, 1, 1e-3, 1e-3, 1e-3]
+    Rdiag = [1.0, 1, 1]
 
     up = UprightMPC(N)
-    up.update(dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax)
+    up.update(q0, qdes, Qfdiag, Rdiag, smin, smax, dt, snom)
     up.dynamicsTest(N, dt, g, m, ms, snom, y0)
 
     up.controlTest(dt, Qfdiag, m, ms, umin, umax, 10)
