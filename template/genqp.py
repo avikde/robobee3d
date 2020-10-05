@@ -18,93 +18,75 @@ def qpSetupDense(n, m):
 class UprightMPC:
     nq = 6 #q = (p,s)
     nu = 3
-    ny = 2*nq
-    
-    cd = lambda self, g, m: dt * np.hstack((np.zeros(6), np.array([0, 0, -g/m, 0, 0, 0])))
 
-    def __init__(self, N, dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax):
+    def __init__(self, N):
         """See https://github.com/avikde/robobee3d/pull/181.
         snom should be an N, shaped array"""
         # For dirtran
         self.N = N
-        self.nx = N * (self.ny + self.nu)
-        assert len(snom) == N
+        self.nx = N * (self.nq + self.nu)
 
-        # # dummy values: will be updated in the QP
-        # dt = 2
-        
-        Ad = np.eye(self.ny)
-        Ad[:self.nq, self.nq:] = dt * np.eye(self.nq)
+        # dummy values: will be updated in the QP
+        dt = 2
+        snom = [np.ones(3) for k in range(N)]
+        smin = -np.ones(3)
+        smax = np.ones(3)
+        q0 = np.ones(self.nq)
+        Qfdiag = np.ones(self.nq)
+        Rdiag = np.ones(self.nu)
+        qdes = -np.ones(self.nq)
+
         # B(s0) function
         Bs = lambda s : np.block([
-            [1/m * np.reshape(s, (3,1)), np.zeros((3,2))], 
-            [np.zeros((2,1)), 1/ms * np.eye(2)], 
-            [np.zeros((1,1)), np.zeros((1,2))]])
-        Bds = lambda s : np.vstack((np.zeros((self.nq,self.nu)), Bs(s))) * dt
+            [np.reshape(s, (3,1)), np.zeros((3,2))], 
+            [np.zeros((2,1)), np.eye(2)], 
+            [np.zeros((1,1)), -s[:2]/s[2]]]) * dt
 
         # Construct dynamics constraint
-        self.A = np.zeros((self.nx, self.nx)) # number of rows coincidentally = nx; need not be
-        self.l = np.zeros(self.nx)
-        self.u = np.zeros(self.nx)
+        ncon = N * (self.nq + 3)
+        self.A = np.zeros((ncon, self.nx))
+        self.l = np.zeros(ncon)
+        self.u = np.zeros(ncon)
         for k in range(N):
-            # x(k+1) = Ad*xk + Bd(sk)*uk
-            self.A[k*self.ny:(k+1)*self.ny, k*self.ny:(k+1)*self.ny] = -np.eye(self.ny) # for -x1...xN+1 on the LHS
+            # q(k+1) = q(k) + Bd(sk)*vk
+            self.A[k*self.nq:(k+1)*self.nq, k*self.nq:(k+1)*self.nq] = -np.eye(self.nq) # for -q1...qN on the LHS
             if k > 0:
-                self.A[k*self.ny:(k+1)*self.ny, (k-1)*self.ny:(k)*self.ny] = Ad # for Ad*x(k-1)
-            self.A[k*self.ny:(k+1)*self.ny, (N*self.ny + k*self.nu):(N*self.ny + (k+1)*self.nu)] = Bds(snom[k]) # Bd(sk)
+                self.A[k*self.nq:(k+1)*self.nq, (k-1)*self.nq:(k)*self.nq] = np.eye(self.nq) # for q
+            self.A[k*self.nq:(k+1)*self.nq, (N*self.nq + k*self.nu):(N*self.nq + (k+1)*self.nu)] = Bs(snom[k]) # Bd(sk)
 
-            self.l[k*self.ny:(k+1)*self.ny] = self.u[k*self.ny:(k+1)*self.ny] = -self.cd(g, m)
             # only in the first eqn
             if k == 0:
-                self.l[k*self.ny:(k+1)*self.ny] += -Ad @ np.asarray(y0)
-                self.u[k*self.ny:(k+1)*self.ny] += -Ad @ np.asarray(y0)
-        # Input limits
-        self.A[N*self.ny:,-N*self.nu:] = np.eye(N*self.nu)
-        self.l[-N*self.nu:] = np.tile(umin, N)
-        self.u[-N*self.nu:] = np.tile(umax, N)
+                self.l[k*self.nq:(k+1)*self.nq] += -np.asarray(q0)
+                self.u[k*self.nq:(k+1)*self.nq] += -np.asarray(q0)
+
+            # s limits
+            self.A[(N*self.nq+3*k):(N*self.nq+(k+1)*3), (k)*self.nq:(k)*self.nq+3] = np.eye(3)
+            self.l[(N*self.nq+3*k):(N*self.nq+(k+1)*3)] = smin
+            self.u[(N*self.nq+3*k):(N*self.nq+(k+1)*3)] = smax
         self.A = sp.csc_matrix(self.A)
         # print(A, c)
 
         # construct objective. 
-        self.P = np.zeros((self.nx, self.nx))
         self.q = np.zeros(self.nx)
-        # only final cost
-        for i in range(self.ny):
-            self.P[(N-1)*self.ny + i, (N-1)*self.ny + i] = Qfdiag[i]
-        self.P = sp.csc_matrix(self.P)
-        self.q[(N-1)*self.ny:N*self.ny] = -(np.asarray(Qfdiag) * np.asarray(ydes))
+        self.Pdiag = np.zeros(self.nx)
+        # final cost
+        self.Pdiag[(N-1)*self.nq : N*self.nq] = Qfdiag
+        for k in range(N):
+            self.Pdiag[N*self.nq + k*self.nu : N*self.nq + (k+1)*self.nu] = Rdiag
+        self.q[(N-1)*self.nq:N*self.nq] = -(np.asarray(Qfdiag) * np.asarray(qdes))
 
         self.saveAxidx()
     
     def saveAxidx(self):
-        A1nnz = N * self.ny + (N-1) * (self.ny + self.nq)
-        A1colnnz = 2*self.ny+self.nq
-        A2nnz = N * 5
-        Arcolnnz = 8 # 5 for Bd, 3 for input limit I
+        A1nnz = (2*N-1) * self.nq + 3*N
+        Bnnz = 7
+        A2nnz = N * Bnnz
 
         # To test dynamics constraint after need to update sparse csc_matrix
-        assert self.A.nnz == A1nnz + A2nnz + N*self.nu
-        assert A1nnz == (N-1)*A1colnnz + self.ny
+        assert self.A.nnz == A1nnz + A2nnz
 
-        Axidxdt = [] # these indices should be filled with dt
-        dtlist = [1, 4, 7, 10, 13, 16]
-        for k in range(N-1):
-            Axidxdt += [A1colnnz * k + self.ny + i for i in dtlist]
-            
-        assert(len(Axidxdt) == 6 * (N-1))
-
-        Axidxs = [] # these indices should be filled with dt/m*s0
-        for k in range(N):
-            Axidxs += [A1nnz + Arcolnnz * k + i for i in range(3)]
-
-        Axidxms = [] # these indices should be filled with dt/ms
-        for k in range(N):
-            Axidxms += [A1nnz + Arcolnnz * k + i for i in [4, 6]]
-
-        # put together - store these
-        self.Axidx = Axidxdt + Axidxs + Axidxms
-        self.AxidxNdt = len(Axidxdt)
-        self.AxidxNms = len(Axidxms)
+        # put together - store these. Should be filled with stacked Bi = dt*(sx,sy,sz,1,-sx/sz,1,-sy/sz)
+        self.Axidx = range(A1nnz, A1nnz + A2nnz)
     
     def update(self, dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax):
         # should not need the arguments in constructor (just sets sparsity)
@@ -236,7 +218,7 @@ if __name__ == "__main__":
     Qfdiag = [1, 1, 1, 1e-3, 1e-3, 1e-3, 1e-2, 1e-2, 1e-2, 1e-3, 1e-3, 1e-3]
     ydes = [2, 0.2, 0.1, 0.4, 0.1, 1, 0.1, -0.1, -0.2, -0.3, -0.4, -0.5]
 
-    up = UprightMPC(N, dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax)
+    up = UprightMPC(N)
     up.update(dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax)
     up.dynamicsTest(N, dt, g, m, ms, snom, y0)
 
