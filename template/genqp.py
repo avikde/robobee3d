@@ -146,21 +146,21 @@ class UprightMPC:
         model.setup(P=self.P, q=self.q, A=self.A, l=self.l, u=self.u, eps_rel=1e-4, eps_abs=1e-4, verbose=False)
         return model
     
-    def controlTest(self, dt, Qfdiag, m, ms, umin, umax, Nsim):
+    def controlTest(self, dt, Qfdiag, Rdiag, smin, smax, Nsim):
         # Hovering test
-        ydes = np.zeros(self.ny)
-        ydes[5] = 1 # sz
-        y0 = np.copy(ydes)
-        y0[0] = -1 # lower x
+        qdes = np.zeros(self.nq)
+        qdes[5] = 1 # sz
+        q0 = np.copy(qdes)
+        q0[0] = -1 # lower x
         
         # For lateral
-        ydes[3] = 1 # sx
+        qdes[3] = 1 # sx
 
         model = self.toOSQP()
 
-        ys = np.zeros((Nsim, self.ny))
+        qs = np.zeros((Nsim, self.nq))
         xs = np.zeros((Nsim, self.nx))
-        yy = np.copy(y0)
+        qq = np.copy(q0)
         
         # nominal s
         s0 = [0.1,0,1]
@@ -169,21 +169,21 @@ class UprightMPC:
         for k in range(Nsim):
             # print(snom)
             # Update controller: copy out of update() for C version
-            self.update(dt, snom, yy, Qfdiag, ydes, g, m, ms, umin, umax)
+            self.update(qq, qdes, Qfdiag, Rdiag, smin, smax, dt, snom)
             # l,u update if needed
             model.update(Px=self.P.data, Ax_idx=np.asarray(self.Axidx), Ax=self.A.data[self.Axidx], q=self.q, l=self.l, u=self.u)
             res = model.solve()
-            # print(res.info.status)
+            print(res.info.status)
 
             xs[k,:] = res.x
-            ys[k,:] = self.dynamics(yy, xs[k,self.N*self.ny : self.N*self.ny + self.nu], dt, g, m, ms, yy[3:6])
+            qs[k,:] = self.dynamics(qq, xs[k,self.N*self.nq : self.N*self.nq + self.nu], dt, qq[3:6])
             # # normalize s
             # ys[k,3:6] /= np.linalg.norm(ys[k,3:6])
-            yy = np.copy(ys[k,:])
+            qq = np.copy(qs[k,:])
 
             # use previous solution
-            snom = [xs[k,i*self.ny+3:i*self.ny+6] for i in range(self.N)]
-            ydes[3:6] = snom[-1] # FIXME: how to set this?
+            snom = [xs[k,i*self.nq+3:i*self.nq+6] for i in range(self.N)]
+            qdes[3:6] = snom[-1] # FIXME: how to set this?
 
         # utest = np.zeros(3)
         # xtest = np.hstack((self.dynamics(y0, utest, dt, g, m, ms, s0), utest))
@@ -194,12 +194,12 @@ class UprightMPC:
 
         # print(y0)
         # print(xs)
-        print(ys)
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots(2)
-        ax[0].plot(ys[:,:3])
-        ax[1].plot(ys[:,3:6])
-        plt.show()
+        print(qs)
+        # import matplotlib.pyplot as plt
+        # fig, ax = plt.subplots(2)
+        # ax[0].plot(ys[:,:3])
+        # ax[1].plot(ys[:,3:6])
+        # plt.show()
 
 if __name__ == "__main__":
     # # WLQP gen
@@ -221,7 +221,7 @@ if __name__ == "__main__":
     up.update(q0, qdes, Qfdiag, Rdiag, smin, smax, dt, snom)
     up.dynamicsTest(dt, snom, q0)
 
-    up.controlTest(dt, Qfdiag, m, ms, umin, umax, 10)
+    up.controlTest(dt, Qfdiag, Rdiag, smin, smax, 10)
     
     # # codegen
     # try:
