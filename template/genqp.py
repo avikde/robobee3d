@@ -181,6 +181,7 @@ class UprightMPC:
         snom = [s0 for i in range(self.N)]
 
         for k in range(Nsim):
+            print(snom)
             # Update controller: copy out of update() for C version
             self.update(dt, snom, yy, Qfdiag, ydes, g, m, ms, umin, umax)
             # l,u update if needed
@@ -189,7 +190,7 @@ class UprightMPC:
             # print(res.info.status)
 
             xs[k,:] = res.x
-            ys[k,:] = self.dynamics(yy, xs[k,self.N*self.ny : self.N*self.ny + self.nu], dt, g, m, ms, s0)
+            ys[k,:] = self.dynamics(yy, xs[k,self.N*self.ny : self.N*self.ny + self.nu], dt, g, m, ms, yy[3:6])
             # # normalize s
             # ys[k,3:6] /= np.linalg.norm(ys[k,3:6])
             yy = np.copy(ys[k,:])
@@ -205,13 +206,13 @@ class UprightMPC:
         # print(obj(xtest2), obj(xtest), xtest2 - xtest)
 
         # print(y0)
-        # # print(xs)
+        print(xs)
         print(ys)
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots(2)
-        ax[0].plot(ys[:,:3])
-        ax[1].plot(ys[:,3:6])
-        plt.show()
+        # import matplotlib.pyplot as plt
+        # fig, ax = plt.subplots(2)
+        # ax[0].plot(ys[:,:3])
+        # ax[1].plot(ys[:,3:6])
+        # plt.show()
 
 if __name__ == "__main__":
     # # WLQP gen
@@ -232,7 +233,7 @@ if __name__ == "__main__":
     up.update(dt, snom, y0, Qfdiag, ydes, g, m, ms, umin, umax)
     up.dynamicsTest(N, dt, g, m, ms, snom, y0)
 
-    up.controlTest(dt, Qfdiag, m, ms, umin, umax, 10)
+    up.controlTest(dt, Qfdiag, m, ms, umin, umax, 1)
     
     # # codegen
     # try:
