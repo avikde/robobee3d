@@ -60,7 +60,7 @@ class UprightMPC:
                 self.u[k*self.nq:(k+1)*self.nq] += -np.asarray(q0)
 
             # s limits
-            self.A[(N*self.nq+3*k):(N*self.nq+(k+1)*3), (k)*self.nq:(k)*self.nq+3] = np.eye(3)
+            self.A[(N*self.nq+3*k):(N*self.nq+(k+1)*3), (k)*self.nq+3:(k)*self.nq+6] = np.eye(3)
             self.l[(N*self.nq+3*k):(N*self.nq+(k+1)*3)] = smin
             self.u[(N*self.nq+3*k):(N*self.nq+(k+1)*3)] = smax
         self.A = sp.csc_matrix(self.A)
@@ -173,7 +173,7 @@ class UprightMPC:
             # l,u update if needed
             model.update(Px=self.P.data, Ax_idx=np.asarray(self.Axidx), Ax=self.A.data[self.Axidx], q=self.q, l=self.l, u=self.u)
             res = model.solve()
-            print(res.info.status)
+            # print(res.info.status)
 
             xs[k,:] = res.x
             qs[k,:] = self.dynamics(qq, xs[k,self.N*self.nq : self.N*self.nq + self.nu], dt, qq[3:6])
@@ -193,12 +193,11 @@ class UprightMPC:
         # print(obj(xtest2), obj(xtest), xtest2 - xtest)
 
         # print(y0)
-        # print(xs)
         print(qs)
         # import matplotlib.pyplot as plt
         # fig, ax = plt.subplots(2)
-        # ax[0].plot(ys[:,:3])
-        # ax[1].plot(ys[:,3:6])
+        # ax[0].plot(qs[:,:3])
+        # ax[1].plot(qs[:,3:6])
         # plt.show()
 
 if __name__ == "__main__":
@@ -209,7 +208,7 @@ if __name__ == "__main__":
     g = 9.81e-3
     m = 100.0
     ms = 1.0
-    smax = np.array([0.5,0.5,1.5])
+    smax = np.array([0.5, 0.5, 1.5])
     smin = -smax
     snom = [[0.1, 0.1, 1], [0.2, 0.1, 1], [0.3, 0.1, 1]]# Does not affect controlTest (only for initializing matrices)
     q0 = [1, 0.2, 0.1, 0.1, 0.2, 0.9]
