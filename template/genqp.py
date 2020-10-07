@@ -185,7 +185,7 @@ class UprightMPC:
 
             # use previous solution
             snom = [xs[k,i*self.nq+3:i*self.nq+6] for i in range(self.N)]
-            # qdes[3:6] = snom[-1] # FIXME: how to set this?
+            qdes[3:6] = snom[-1] # FIXME: how to set this?
 
         # utest = np.zeros(3)
         # xtest = np.hstack((self.dynamics(y0, utest, dt, g, m, ms, s0), utest))
