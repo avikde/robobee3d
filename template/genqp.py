@@ -151,10 +151,11 @@ class UprightMPC:
         qdes = np.zeros(self.nq)
         qdes[5] = 1 # sz
         q0 = np.copy(qdes)
-        q0[0] = -1 # lower x
+        q0[2] = -1 # lower z
+        # q0[0] = -1 # lower x
         
-        # For lateral
-        qdes[3] = 1 # sx
+        # # For lateral
+        # qdes[3] = 1 # sx
 
         model = self.toOSQP()
 
@@ -163,7 +164,8 @@ class UprightMPC:
         qq = np.copy(q0)
         
         # nominal s
-        s0 = [0.1,0,1]
+        s0 = [0,0,1]
+        # s0 = [0.1,0,1]
         snom = [s0 for i in range(self.N)]
 
         for k in range(Nsim):
@@ -183,7 +185,7 @@ class UprightMPC:
 
             # use previous solution
             snom = [xs[k,i*self.nq+3:i*self.nq+6] for i in range(self.N)]
-            qdes[3:6] = snom[-1] # FIXME: how to set this?
+            # qdes[3:6] = snom[-1] # FIXME: how to set this?
 
         # utest = np.zeros(3)
         # xtest = np.hstack((self.dynamics(y0, utest, dt, g, m, ms, s0), utest))
