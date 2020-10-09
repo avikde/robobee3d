@@ -165,39 +165,43 @@ class UprightMPC:
         q0 = np.copy(qdes)
         q0[2] = -1 # lower z
         q0[0] = -1 # lower x
+        q0[1] = 0.5
         
         # For lateral
-        qdes[3] = 1 # sx
+        # qdes[3] = 1 # sx
 
         model = self.toOSQP()
 
         qs = np.zeros((Nsim, self.nq))
         xs = np.zeros((Nsim, self.nx))
+        us = np.zeros((Nsim, 3))
         qq = np.copy(q0)
         
         # nominal s
-        s0 = [0,0,1]
-        # s0 = [0.1,0,1]
-        snom = [s0 for i in range(self.N)]
+        snom = [[0,0,1] for i in range(self.N)]
+        vT0 = 0 # TODO: what to init at?
 
         for k in range(Nsim):
             # print(snom)
             # Update controller: copy out of update() for C version
-            self.update(qq, qdes, Qfdiag, Rdiag, smin, smax, dt, snom)
+            self.update(qq, qdes, Qfdiag, Rdiag, smin, smax, dt, snom, vT0)
             # l,u update if needed
             model.update(Px=self.P.data, Ax_idx=np.asarray(self.Axidx), Ax=self.A.data[self.Axidx], q=self.q, l=self.l, u=self.u)
             res = model.solve()
+            uu = xs[k,self.N*self.nq : self.N*self.nq + self.nu]
             # print(res.info.status)
 
             xs[k,:] = res.x
-            qs[k,:] = self.dynamics(qq, xs[k,self.N*self.nq : self.N*self.nq + self.nu], dt, qq[3:6])
-            # # normalize s
-            # ys[k,3:6] /= np.linalg.norm(ys[k,3:6])
+            qs[k,:] = self.dynamics(qq, uu, dt, qq[3:6], vT0)
+            # normalize s
+            qs[k,3:6] /= np.linalg.norm(qs[k,3:6])
             qq = np.copy(qs[k,:])
 
             # use previous solution
             snom = [xs[k,i*self.nq+3:i*self.nq+6] for i in range(self.N)]
-            qdes[3:6] = snom[-1] # FIXME: how to set this?
+            #qdes[3:6] = snom[-1] # FIXME: how to set this?
+            us[k,:] = uu + np.array([vT0,0,0])
+            vT0 += uu[0]
 
         # utest = np.zeros(3)
         # xtest = np.hstack((self.dynamics(y0, utest, dt, g, m, ms, s0), utest))
@@ -208,11 +212,15 @@ class UprightMPC:
 
         # print(y0)
         print(qs)
-        # import matplotlib.pyplot as plt
-        # fig, ax = plt.subplots(2)
-        # ax[0].plot(qs[:,:3])
-        # ax[1].plot(qs[:,3:6])
-        # plt.show()
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(3)
+        ax[0].plot(qs[:,:3])
+        ax[0].set_ylabel('q')
+        ax[1].plot(qs[:,3:6])
+        ax[1].set_ylabel('s')
+        ax[2].plot(us)
+        ax[2].set_ylabel('u')
+        plt.show()
 
 if __name__ == "__main__":
     # # WLQP gen
@@ -235,7 +243,7 @@ if __name__ == "__main__":
     up.update(q0, qdes, Qfdiag, Rdiag, smin, smax, dt, snom, vT0)
     up.dynamicsTest(dt, snom, q0, vT0)
 
-    up.controlTest(dt, Qfdiag, Rdiag, smin, smax, 10)
+    up.controlTest(dt, Qfdiag, Rdiag, smin, smax, 20)
     
     # # codegen
     # try:
