@@ -42,22 +42,25 @@ class UprightMPC:
             [np.zeros((2,1)), np.eye(2)], 
             [np.zeros((1,1)), -s[:2]/s[2]]]) * dt
 
+        # (I + dt*vT0*N)
+        A0 = np.eye(self.nq) + 1 * np.diag(np.ones(3), k=3) # using 1 for dt*vT0
+
         # Construct dynamics constraint
         ncon = N * (self.nq + 3)
         self.A = np.zeros((ncon, self.nx))
         self.l = np.zeros(ncon)
         self.u = np.zeros(ncon)
         for k in range(N):
-            # q(k+1) = q(k) + Bd(sk)*vk
+            # q(k+1) = Ad(vT0)*q(k) + Bd(sk)*vk
             self.A[k*self.nq:(k+1)*self.nq, k*self.nq:(k+1)*self.nq] = -np.eye(self.nq) # for -q1...qN on the LHS
             if k > 0:
-                self.A[k*self.nq:(k+1)*self.nq, (k-1)*self.nq:(k)*self.nq] = np.eye(self.nq) # for q
+                self.A[k*self.nq:(k+1)*self.nq, (k-1)*self.nq:(k)*self.nq] = A0 # for q
             self.A[k*self.nq:(k+1)*self.nq, (N*self.nq + k*self.nu):(N*self.nq + (k+1)*self.nu)] = Bs(snom[k]) # Bd(sk)
 
             # only in the first eqn
             if k == 0:
-                self.l[k*self.nq:(k+1)*self.nq] += -np.asarray(q0)
-                self.u[k*self.nq:(k+1)*self.nq] += -np.asarray(q0)
+                self.l[k*self.nq:(k+1)*self.nq] += -A0 @ q0
+                self.u[k*self.nq:(k+1)*self.nq] += -A0 @ q0
 
             # s limits
             self.A[(N*self.nq+3*k):(N*self.nq+(k+1)*3), (k)*self.nq+3:(k)*self.nq+6] = np.eye(3)
@@ -79,21 +82,27 @@ class UprightMPC:
         self.saveAxidx()
     
     def saveAxidx(self):
-        A1nnz = (2*N-1) * self.nq + 3*N
+        A1nnz = 18*N-9
         Bnnz = 7
         A2nnz = N * Bnnz
 
         # To test dynamics constraint after need to update sparse csc_matrix
         assert self.A.nnz == A1nnz + A2nnz
 
-        # put together - store these. Should be filled with stacked Bi = dt*(sx,sy,sz,1,-sx/sz,1,-sy/sz)
-        self.Axidx = range(A1nnz, A1nnz + A2nnz)
+        # put together - store these. 
+        idxdtvT0 = [[18*k + i for i in [7,11,15]] for k in range(N-1)]
+        idxdtvT0 = sum(idxdtvT0, []) # join the list of lists
+        # Should be filled with stacked Bi = dt*(sx,sy,sz,1,-sx/sz,1,-sy/sz)
+        idxBi = range(A1nnz, A1nnz + A2nnz)
+
+        self.Axidx = list(idxdtvT0) + list(idxBi)
     
-    def update(self, q0, qdes, Qfdiag, Rdiag, smin, smax, dt, snom):
+    def update(self, q0, qdes, Qfdiag, Rdiag, smin, smax, dt, snom, vT0):
         # should not need the arguments in constructor (just sets sparsity)
+        A0 = np.eye(self.nq) + dt * vT0 * np.diag(np.ones(3), k=3)
 
         # update l, u
-        self.l[:self.nq] = self.u[:self.nq] = -np.asarray(q0)
+        self.l[:self.nq] = self.u[:self.nq] = -A0 @ np.asarray(q0)
         self.l[N*self.nq:] = np.tile(smin, N)
         self.u[N*self.nq:] = np.tile(smax, N)
 
@@ -105,28 +114,31 @@ class UprightMPC:
 
         # update A
         # print("hi",np.hstack(snom))
-        self.A.data[self.Axidx] = np.hstack([
+        dtvT0data = np.full(3*(N-1), dt*vT0)
+        Bidata = np.hstack([
             dt * np.array([snom[k][0],snom[k][1],snom[k][2],1,-snom[k][0]/snom[k][2],1,-snom[k][1]/snom[k][2]])
             for k in range(self.N)])
+        self.A.data[self.Axidx] = np.hstack((dtvT0data, Bidata))
+
+        # print(self.A[:N*self.nq,:N*self.nq].toarray())
         # print("B0",self.A.toarray()[:self.ny, N*self.ny:N*self.ny+self.nu])
     
-    def dynamics(self, qi, u, dt, s0):
+    def dynamics(self, qi, u, dt, s0, vT0):
         # Not needed for optimization, just to check
         q = np.copy(qi)
-        # s = q[3:]
-        vT = u[0] # thrust
+        s = q[3:]
+        dvT = u[0] # delta thrust
         vM = u[1:] # moment
-        dq = np.hstack((vT * np.asarray(s0), vM, np.dot(-np.asarray(s0[:2])/s0[2], vM)))
-        q1 = q + dt * dq
+        dq = np.hstack((vT0 * s + dvT * np.asarray(s0), vM, np.dot(-np.asarray(s0[:2])/s0[2], vM)))
         return q + dt * dq
 
-    def dynamicsTest(self, dt, snom, q0):
+    def dynamicsTest(self, dt, snom, q0, vT0):
         qs = np.zeros((self.N, self.nq))
         us = np.random.rand(self.N, self.nu)
         qq = np.copy(q0)
 
         for k in range(N):
-            qs[k,:] = self.dynamics(qq, us[k,:], dt, snom[k])
+            qs[k,:] = self.dynamics(qq, us[k,:], dt, snom[k], vT0)
             qq = qs[k,:]
         
         # reshape into an "x"
@@ -152,10 +164,10 @@ class UprightMPC:
         qdes[5] = 1 # sz
         q0 = np.copy(qdes)
         q0[2] = -1 # lower z
-        # q0[0] = -1 # lower x
+        q0[0] = -1 # lower x
         
-        # # For lateral
-        # qdes[3] = 1 # sx
+        # For lateral
+        qdes[3] = 1 # sx
 
         model = self.toOSQP()
 
@@ -215,12 +227,13 @@ if __name__ == "__main__":
     snom = [[0.1, 0.1, 1], [0.2, 0.1, 1], [0.3, 0.1, 1]]# Does not affect controlTest (only for initializing matrices)
     q0 = [1, 0.2, 0.1, 0.1, 0.2, 0.9]
     qdes = [2, 0.2, 0.1, 0.4, 0.1, 1]
-    Qfdiag = [1, 1, 1, 1e-3, 1e-3, 1e-3]
+    Qfdiag = [10, 10, 10, 1e-3, 1e-3, 1e-3]
     Rdiag = [1.0, 1, 1]
+    vT0 = 1
 
     up = UprightMPC(N)
-    up.update(q0, qdes, Qfdiag, Rdiag, smin, smax, dt, snom)
-    up.dynamicsTest(dt, snom, q0)
+    up.update(q0, qdes, Qfdiag, Rdiag, smin, smax, dt, snom, vT0)
+    up.dynamicsTest(dt, snom, q0, vT0)
 
     up.controlTest(dt, Qfdiag, Rdiag, smin, smax, 10)
     
