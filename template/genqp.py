@@ -199,7 +199,7 @@ class UprightMPC:
 
             # use previous solution
             snom = [xs[k,i*self.nq+3:i*self.nq+6] for i in range(self.N)]
-            #qdes[3:6] = snom[-1] # FIXME: how to set this?
+            qdes[3:6] = snom[-1] # FIXME: how to set this?
             us[k,:] = uu + np.array([vT0,0,0])
             vT0 += uu[0]
 
@@ -232,18 +232,18 @@ if __name__ == "__main__":
     ms = 1.0
     smax = np.array([0.5, 0.5, 1.5])
     smin = -smax
-    snom = [[0.1, 0.1, 1], [0.2, 0.1, 1], [0.3, 0.1, 1]]# Does not affect controlTest (only for initializing matrices)
+    snom = [np.ones(3) for i in range(N)]
     q0 = [1, 0.2, 0.1, 0.1, 0.2, 0.9]
     qdes = [2, 0.2, 0.1, 0.4, 0.1, 1]
-    Qfdiag = [10, 10, 10, 1e-3, 1e-3, 1e-3]
-    Rdiag = [1.0, 1, 1]
+    Qfdiag = [100, 100, 1, 100,100,100]
+    Rdiag = [10.0, 50, 50]
     vT0 = 1
 
     up = UprightMPC(N)
     up.update(q0, qdes, Qfdiag, Rdiag, smin, smax, dt, snom, vT0)
     up.dynamicsTest(dt, snom, q0, vT0)
 
-    up.controlTest(dt, Qfdiag, Rdiag, smin, smax, 20)
+    up.controlTest(dt, Qfdiag, Rdiag, smin, smax, 50)
     
     # # codegen
     # try:
