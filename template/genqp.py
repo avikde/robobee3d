@@ -89,15 +89,15 @@ class UprightMPC:
         self.vT0 = 0 # TODO: what to init at?
     
     def saveAxidx(self):
-        A1nnz = 18*N-9
+        A1nnz = 18*self.N-9
         Bnnz = 7
-        A2nnz = N * Bnnz
+        A2nnz = self.N * Bnnz
 
         # To test dynamics constraint after need to update sparse csc_matrix
         assert self.A.nnz == A1nnz + A2nnz
 
         # put together - store these. 
-        idxdtvT0 = [[18*k + i for i in [7,11,15]] for k in range(N-1)]
+        idxdtvT0 = [[18*k + i for i in [7,11,15]] for k in range(self.N-1)]
         idxdtvT0 = sum(idxdtvT0, []) # join the list of lists
         # Should be filled with stacked Bi = dt*(sx,sy,sz,1,-sx/sz,1,-sy/sz)
         idxBi = range(A1nnz, A1nnz + A2nnz)
@@ -110,18 +110,18 @@ class UprightMPC:
 
         # update l, u
         self.l[:self.nq] = self.u[:self.nq] = -A0 @ np.asarray(q0)
-        self.l[N*self.nq:] = np.tile(smin, N)
-        self.u[N*self.nq:] = np.tile(smax, N)
+        self.l[self.N*self.nq:] = np.tile(smin, self.N)
+        self.u[self.N*self.nq:] = np.tile(smax, self.N)
 
         # update q
-        self.q[(N-1)*self.nq:N*self.nq] = -(np.asarray(Qfdiag) * np.asarray(qdes))
+        self.q[(self.N-1)*self.nq:self.N*self.nq] = -(np.asarray(Qfdiag) * np.asarray(qdes))
 
         # update P
         self.P.data = np.hstack((Qfdiag, np.tile(Rdiag, self.N))) # replace the whole thing
 
         # update A
         # print("hi",np.hstack(snom))
-        dtvT0data = np.full(3*(N-1), dt*vT0)
+        dtvT0data = np.full(3*(self.N-1), dt*vT0)
         Bidata = np.hstack([
             dt * np.array([snom[k][0],snom[k][1],snom[k][2],1,-snom[k][0]/snom[k][2],1,-snom[k][1]/snom[k][2]])
             for k in range(self.N)])
