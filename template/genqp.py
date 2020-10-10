@@ -240,7 +240,7 @@ if __name__ == "__main__":
     # # WLQP gen
     # prob = qpSetupDense(4,4)
     N = 3
-    dt = 2.0
+    dt = 3
     g = 9.81e-3
     m = 100.0
     ms = 1.0
@@ -257,7 +257,7 @@ if __name__ == "__main__":
     up.update(q0, qdes, Qfdiag, Rdiag, smin, smax, dt, snom, vT0)
     up.dynamicsTest(dt, snom, q0, vT0)
 
-    up.controlTest(dt, Qfdiag, Rdiag, smin, smax, 100, nonlin=True)
+    up.controlTest(dt, Qfdiag, Rdiag, smin, smax, 200, nonlin=True)
     
     # # codegen
     # try:
