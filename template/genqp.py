@@ -220,9 +220,6 @@ class UprightMPC:
             qs[k,3:6] /= np.linalg.norm(qs[k,3:6])
             qq = np.copy(qs[k,:])
 
-            # use previous solution
-            qdes[3:6] = self.snom[-1] # Choice of how to set this
-
         # utest = np.zeros(3)
         # xtest = np.hstack((self.dynamics(y0, utest, dt, g, m, ms, s0), utest))
         # utest2 = -100*np.ones(3)
@@ -256,7 +253,7 @@ if __name__ == "__main__":
     q0 = [1, 0.2, 0.1, 0.1, 0.2, 0.9]
     qdes = [2, 0.2, 0.1, 0.4, 0.1, 1]
     Qfdiag = [100, 100, 10, 100,100,100]
-    Rdiag = [10.0, 50, 50]
+    Rdiag = [100, 100, 100]
     vT0 = 1
 
     up = UprightMPC(N)
