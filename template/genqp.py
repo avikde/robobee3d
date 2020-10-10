@@ -81,6 +81,9 @@ class UprightMPC:
 
         self.saveAxidx()
         self.toOSQP()
+        self.resetNominal()
+
+    def resetNominal(self):
         # Nominal traj management
         self.snom = [[0,0,1] for i in range(self.N)]
         self.vT0 = 0 # TODO: what to init at?
@@ -133,6 +136,10 @@ class UprightMPC:
         if 'solved' not in res.info.status:
             print(res.info.status)
         uu = res.x[self.N*self.nq : self.N*self.nq + self.nu]
+        
+        # Nominal traj management
+        self.snom = [res.x[i*self.nq+3:i*self.nq+6] for i in range(self.N)]
+        self.vT0 += uu[0]
         return res.x, uu
     
     def dynamics(self, qi, u, dt, s0, vT0):
@@ -196,11 +203,13 @@ class UprightMPC:
         us = np.zeros((Nsim, 3))
         qq = np.copy(q0)
 
+        self.resetNominal()
+
         for k in range(Nsim):
             # print(snom)
             # Update controller: copy out of update() for C version
             xs[k,:], uu = self.update(qq, qdes, Qfdiag, Rdiag, smin, smax, dt, self.snom, self.vT0)
-            us[k,:] = uu + np.array([self.vT0,0,0])
+            us[k,:] = np.hstack((self.vT0, uu[1:]))
 
             if nonlin:
                 dqdt = self.dynamicsNLVF(qq, us[k,:]) # no local lin stuff
@@ -212,9 +221,7 @@ class UprightMPC:
             qq = np.copy(qs[k,:])
 
             # use previous solution
-            self.snom = [xs[k,i*self.nq+3:i*self.nq+6] for i in range(self.N)]
             qdes[3:6] = self.snom[-1] # Choice of how to set this
-            self.vT0 += uu[0]
 
         # utest = np.zeros(3)
         # xtest = np.hstack((self.dynamics(y0, utest, dt, g, m, ms, s0), utest))
