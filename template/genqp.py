@@ -80,6 +80,10 @@ class UprightMPC:
         self.q[(N-1)*self.nq:N*self.nq] = -(np.asarray(Qfdiag) * np.asarray(qdes))
 
         self.saveAxidx()
+        self.toOSQP()
+        # Nominal traj management
+        self.snom = [[0,0,1] for i in range(self.N)]
+        self.vT0 = 0 # TODO: what to init at?
     
     def saveAxidx(self):
         A1nnz = 18*N-9
@@ -122,6 +126,14 @@ class UprightMPC:
 
         # print(self.A[:N*self.nq,:N*self.nq].toarray())
         # print("B0",self.A.toarray()[:self.ny, N*self.ny:N*self.ny+self.nu])
+
+        # OSQP solve ---
+        self.model.update(Px=self.P.data, Ax_idx=np.asarray(self.Axidx), Ax=self.A.data[self.Axidx], q=self.q, l=self.l, u=self.u)
+        res = self.model.solve()
+        if 'solved' not in res.info.status:
+            print(res.info.status)
+        uu = res.x[self.N*self.nq : self.N*self.nq + self.nu]
+        return res.x, uu
     
     def dynamics(self, qi, u, dt, s0, vT0):
         # Not needed for optimization, just to check
@@ -161,9 +173,8 @@ class UprightMPC:
         
     def toOSQP(self):
         # osqp
-        model = osqp.OSQP()
-        model.setup(P=self.P, q=self.q, A=self.A, l=self.l, u=self.u, eps_rel=1e-4, eps_abs=1e-4, verbose=False)
-        return model
+        self.model = osqp.OSQP()
+        self.model.setup(P=self.P, q=self.q, A=self.A, l=self.l, u=self.u, eps_rel=1e-4, eps_abs=1e-4, verbose=False)
     
     def controlTest(self, dt, Qfdiag, Rdiag, smin, smax, tend, dtsim=0.5, nonlin=False):
         """Nonlin true means use nonlinear VF with small dtsim"""
@@ -178,44 +189,32 @@ class UprightMPC:
         # For lateral
         # qdes[3] = 1 # sx
 
-        model = self.toOSQP()
-
         Nsim = int(tend//dtsim if nonlin else tend//dt)
         tt = np.linspace(0, tend, num=Nsim)
         qs = np.zeros((Nsim, self.nq))
         xs = np.zeros((Nsim, self.nx))
         us = np.zeros((Nsim, 3))
         qq = np.copy(q0)
-        
-        # nominal s
-        snom = [[0,0,1] for i in range(self.N)]
-        vT0 = 0 # TODO: what to init at?
 
         for k in range(Nsim):
             # print(snom)
             # Update controller: copy out of update() for C version
-            self.update(qq, qdes, Qfdiag, Rdiag, smin, smax, dt, snom, vT0)
-            # l,u update if needed
-            model.update(Px=self.P.data, Ax_idx=np.asarray(self.Axidx), Ax=self.A.data[self.Axidx], q=self.q, l=self.l, u=self.u)
-            res = model.solve()
-            uu = xs[k,self.N*self.nq : self.N*self.nq + self.nu]
-            # print(res.info.status)
+            xs[k,:], uu = self.update(qq, qdes, Qfdiag, Rdiag, smin, smax, dt, self.snom, self.vT0)
+            us[k,:] = uu + np.array([self.vT0,0,0])
 
-            xs[k,:] = res.x
-            us[k,:] = uu + np.array([vT0,0,0])
             if nonlin:
                 dqdt = self.dynamicsNLVF(qq, us[k,:]) # no local lin stuff
                 qs[k,:] = qq + dtsim * dqdt
             else:
-                qs[k,:] = self.dynamics(qq, uu, dt, qq[3:6], vT0)
+                qs[k,:] = self.dynamics(qq, uu, dt, qq[3:6], self.vT0)
             # normalize s
             qs[k,3:6] /= np.linalg.norm(qs[k,3:6])
             qq = np.copy(qs[k,:])
 
             # use previous solution
-            snom = [xs[k,i*self.nq+3:i*self.nq+6] for i in range(self.N)]
-            qdes[3:6] = snom[-1] # Choice of how to set this
-            vT0 += uu[0]
+            self.snom = [xs[k,i*self.nq+3:i*self.nq+6] for i in range(self.N)]
+            qdes[3:6] = self.snom[-1] # Choice of how to set this
+            self.vT0 += uu[0]
 
         # utest = np.zeros(3)
         # xtest = np.hstack((self.dynamics(y0, utest, dt, g, m, ms, s0), utest))
