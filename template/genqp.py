@@ -132,6 +132,13 @@ class UprightMPC:
         dq = np.hstack((vT0 * s + dvT * np.asarray(s0), vM, np.dot(-np.asarray(s0[:2])/s0[2], vM)))
         return q + dt * dq
 
+    def dynamicsNLVF(self, q, u):
+        """For simulation nonlinear vector field. u is assumed to be full vT, vM"""
+        s = q[3:]
+        vT = u[0] # actual thrust
+        vM = u[1:] # moment
+        return np.hstack((vT * s, vM, np.dot(-np.asarray(s[:2])/s[2], vM)))
+
     def dynamicsTest(self, dt, snom, q0, vT0):
         qs = np.zeros((self.N, self.nq))
         us = np.random.rand(self.N, self.nu)
@@ -158,7 +165,8 @@ class UprightMPC:
         model.setup(P=self.P, q=self.q, A=self.A, l=self.l, u=self.u, eps_rel=1e-4, eps_abs=1e-4, verbose=False)
         return model
     
-    def controlTest(self, dt, Qfdiag, Rdiag, smin, smax, Nsim):
+    def controlTest(self, dt, Qfdiag, Rdiag, smin, smax, tend, dtsim=0.5, nonlin=False):
+        """Nonlin true means use nonlinear VF with small dtsim"""
         # Hovering test
         qdes = np.zeros(self.nq)
         qdes[5] = 1 # sz
@@ -172,6 +180,8 @@ class UprightMPC:
 
         model = self.toOSQP()
 
+        Nsim = int(tend//dtsim if nonlin else tend//dt)
+        tt = np.linspace(0, tend, num=Nsim)
         qs = np.zeros((Nsim, self.nq))
         xs = np.zeros((Nsim, self.nx))
         us = np.zeros((Nsim, 3))
@@ -192,15 +202,19 @@ class UprightMPC:
             # print(res.info.status)
 
             xs[k,:] = res.x
-            qs[k,:] = self.dynamics(qq, uu, dt, qq[3:6], vT0)
+            us[k,:] = uu + np.array([vT0,0,0])
+            if nonlin:
+                dqdt = self.dynamicsNLVF(qq, us[k,:]) # no local lin stuff
+                qs[k,:] = qq + dtsim * dqdt
+            else:
+                qs[k,:] = self.dynamics(qq, uu, dt, qq[3:6], vT0)
             # normalize s
             qs[k,3:6] /= np.linalg.norm(qs[k,3:6])
             qq = np.copy(qs[k,:])
 
             # use previous solution
             snom = [xs[k,i*self.nq+3:i*self.nq+6] for i in range(self.N)]
-            qdes[3:6] = snom[-1] # FIXME: how to set this?
-            us[k,:] = uu + np.array([vT0,0,0])
+            qdes[3:6] = snom[-1] # Choice of how to set this
             vT0 += uu[0]
 
         # utest = np.zeros(3)
@@ -211,14 +225,14 @@ class UprightMPC:
         # print(obj(xtest2), obj(xtest), xtest2 - xtest)
 
         # print(y0)
-        print(qs)
+        # print(qs)
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots(3)
-        ax[0].plot(qs[:,:3])
+        ax[0].plot(tt, qs[:,:3])
         ax[0].set_ylabel('q')
-        ax[1].plot(qs[:,3:6])
+        ax[1].plot(tt, qs[:,3:6])
         ax[1].set_ylabel('s')
-        ax[2].plot(us)
+        ax[2].plot(tt, us)
         ax[2].set_ylabel('u')
         plt.show()
 
@@ -243,7 +257,7 @@ if __name__ == "__main__":
     up.update(q0, qdes, Qfdiag, Rdiag, smin, smax, dt, snom, vT0)
     up.dynamicsTest(dt, snom, q0, vT0)
 
-    up.controlTest(dt, Qfdiag, Rdiag, smin, smax, 50)
+    up.controlTest(dt, Qfdiag, Rdiag, smin, smax, 100, nonlin=True)
     
     # # codegen
     # try:
