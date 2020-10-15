@@ -213,8 +213,9 @@ class UprightMPC:
 
         # Initial condition for anchor
         if simmodel == 2:
-            y0 = np.zeros(9) # p, dq
+            y0 = np.zeros(12) # p,"s", dq
             y0[:3] = np.array([-1, 0.5, -1])
+            y0[5] = 1
             Rb0 = np.eye(3)
             RRb = np.copy(Rb0)
         else:
@@ -237,6 +238,7 @@ class UprightMPC:
             # "Template projection"
             if simmodel == 2:
                 qT = np.hstack((yy[:3], RRb @ np.array([0,0,1]))) # p,s
+                # print(qT)
             else:
                 qT = yy
             # print(snom)
@@ -253,8 +255,8 @@ class UprightMPC:
 
             # Integrate dynamics
             if simmodel == 2:
-                p, RRb, dq = quadrotorNLDyn(yy[:3], RRb, yy[3:], uA, dtsim)
-                ys[k,:] = np.hstack((p, dq))
+                p, RRb, dq = quadrotorNLDyn(yy[:3], RRb, yy[6:12], uA, dtsim)
+                ys[k,:] = np.hstack((p, RRb[:,2], dq))
             elif simmodel == 1:
                 dydt = self.dynamicsNLVF(yy, uA) # no local lin stuff
                 ys[k,:] = yy + dtsim * dydt
@@ -306,7 +308,7 @@ if __name__ == "__main__":
     up.update(q0, qdes, Qfdiag, Rdiag, smin, smax, dt, snom, vT0)
     up.dynamicsTest(dt, snom, q0, vT0)
 
-    up.controlTest(dt, Qfdiag, Rdiag, smin, smax, 200, simmodel=1)
+    up.controlTest(dt, Qfdiag, Rdiag, smin, smax, 50, simmodel=2)
     
     # # codegen
     # try:
