@@ -214,7 +214,7 @@ class UprightMPC:
         # Initial condition for anchor
         if simmodel == 2:
             y0 = np.zeros(12) # p,"s", dq
-            y0[:3] = np.array([-1, 0.5, -1])
+            y0[:3] = np.array([0, 0, -1])
             y0[5] = 1
             Rb0 = np.eye(3)
             RRb = np.copy(Rb0)
@@ -237,19 +237,32 @@ class UprightMPC:
         for k in range(Nsim):
             # "Template projection"
             if simmodel == 2:
-                qT = np.hstack((yy[:3], RRb @ np.array([0,0,1]))) # p,s
+                qT = yy[:6] # p,s
                 # print(qT)
             else:
                 qT = yy
             # print(snom)
 
             # Update controller: copy out of update() for C version
-            xTs[k,:], uu = self.update(qT, qdes, Qfdiag, Rdiag, smin, smax, dt, self.snom, self.vT0)
+            if simmodel == 2:
+                # TODO: figure out why overwriting is required
+                self.snom = [yy[3:6] for i in range(self.N)]
+                self.vT0 = np.dot(yy[3:6], yy[6:9]) # vel along axis
+            try:
+                xTs[k,:], uu = self.update(qT, qdes, Qfdiag, Rdiag, smin, smax, dt, self.snom, self.vT0)
+            except:
+                print('Failed at',k)
+            # print(self.vT0)
             uTs[k,:] = np.hstack((self.vT0, uu[1:]))
 
             # Convert back to anchor
             if simmodel == 2:
-                uA = np.hstack((uTs[k,:], 0)) # yaw moment
+                vdes = uu # 
+                omegab = yy[9:12] # TODO: spatial to body?
+                vcur = np.hstack((np.dot(yy[3:6], yy[6:9]), omegab[:2]))
+                uA = np.hstack((np.array([100,100,100]) * (vdes - vcur), 0))
+                # print(uA)
+                # uA = np.array([1,0,0,0])
             else:
                 uA = uTs[k,:]
 
@@ -308,7 +321,7 @@ if __name__ == "__main__":
     up.update(q0, qdes, Qfdiag, Rdiag, smin, smax, dt, snom, vT0)
     up.dynamicsTest(dt, snom, q0, vT0)
 
-    up.controlTest(dt, Qfdiag, Rdiag, smin, smax, 50, simmodel=2)
+    up.controlTest(dt, Qfdiag, Rdiag, smin, smax, 100, simmodel=2)
     
     # # codegen
     # try:
