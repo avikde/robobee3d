@@ -188,37 +188,45 @@ class UprightMPC:
         # Hovering test
         qdes = np.zeros(self.nq)
         qdes[5] = 1 # sz
-        q0 = np.copy(qdes)
-        q0[2] = -1 # lower z
-        q0[0] = -1 # lower x
-        q0[1] = 0.5
+
+        # Initial condition for anchor
+        y0 = np.copy(qdes)
+        y0[2] = -1 # lower z
+        y0[0] = -1 # lower x
+        y0[1] = 0.5
         
         # For lateral
         # qdes[3] = 1 # sx
 
         Nsim = int(tend//dtsim if nonlin else tend//dt)
         tt = np.linspace(0, tend, num=Nsim)
-        qs = np.zeros((Nsim, self.nq))
-        xs = np.zeros((Nsim, self.nx))
-        us = np.zeros((Nsim, 3))
-        qq = np.copy(q0)
+        ys = np.zeros((Nsim, self.nq))
+        xTs = np.zeros((Nsim, self.nx))
+        uTs = np.zeros((Nsim, 3))
+        yy = np.copy(y0)
 
         self.resetNominal()
 
         for k in range(Nsim):
+            # "Template projection"
+            qT = yy
             # print(snom)
+
             # Update controller: copy out of update() for C version
-            xs[k,:], uu = self.update(qq, qdes, Qfdiag, Rdiag, smin, smax, dt, self.snom, self.vT0)
-            us[k,:] = np.hstack((self.vT0, uu[1:]))
+            xTs[k,:], uu = self.update(qT, qdes, Qfdiag, Rdiag, smin, smax, dt, self.snom, self.vT0)
+            uTs[k,:] = np.hstack((self.vT0, uu[1:]))
+
+            # Convert back to anchor
+            uA = uTs[k,:]
 
             if nonlin:
-                dqdt = self.dynamicsNLVF(qq, us[k,:]) # no local lin stuff
-                qs[k,:] = qq + dtsim * dqdt
+                dydt = self.dynamicsNLVF(yy, uA) # no local lin stuff
+                ys[k,:] = yy + dtsim * dydt
             else:
-                qs[k,:] = self.dynamics(qq, uu, dt, qq[3:6], self.vT0)
+                ys[k,:] = self.dynamics(yy, uA, dt, yy[3:6], self.vT0)
             # normalize s
-            qs[k,3:6] /= np.linalg.norm(qs[k,3:6])
-            qq = np.copy(qs[k,:])
+            ys[k,3:6] /= np.linalg.norm(ys[k,3:6])
+            yy = np.copy(ys[k,:])
 
         # utest = np.zeros(3)
         # xtest = np.hstack((self.dynamics(y0, utest, dt, g, m, ms, s0), utest))
@@ -231,11 +239,11 @@ class UprightMPC:
         # print(qs)
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots(3)
-        ax[0].plot(tt, qs[:,:3])
+        ax[0].plot(tt, ys[:,:3])
         ax[0].set_ylabel('q')
-        ax[1].plot(tt, qs[:,3:6])
+        ax[1].plot(tt, ys[:,3:6])
         ax[1].set_ylabel('s')
-        ax[2].plot(tt, us)
+        ax[2].plot(tt, uTs)
         ax[2].set_ylabel('u')
         plt.show()
 
