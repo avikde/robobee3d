@@ -2,6 +2,7 @@ import osqp
 import numpy as np
 import scipy.sparse as sp
 from scipy.spatial.transform import Rotation
+from scipy.linalg import expm
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
 def qpSetupDense(n, m):
@@ -14,6 +15,26 @@ def qpSetupDense(n, m):
     A = sp.csc_matrix(np.ones((m,n)))
     model.setup(P=P, q=q, A=A, l=l, u=u, eps_rel=1e-4, eps_abs=1e-4, verbose=False)
     return model
+
+skew = lambda v : np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+    
+def quadrotorNLVF(p, Rb, dq, u):
+    mb = 100
+    ib = 1000
+    omega = dq[3:6]
+    
+    dv = u[0] * Rb @ np.array([0,0,1]) / mb
+    domega = (-np.cross(omega, ib * omega) + u[1:4]) / ib
+
+    return np.hstack((dv, domega))
+
+def quadrotorNLDyn(p, Rb, dq, u, dt):
+    ddq = quadrotorNLVF(p, Rb, dq, u)
+    # Euler integrate
+    p = p + dt * dq[0:3]
+    Rb = Rb @ expm(skew(dq[3:6]) * dt)
+    dq = dq + dt * ddq
+    return p, Rb, dq
 
 class UprightMPC:
     nq = 6 #q = (p,s)
@@ -183,33 +204,41 @@ class UprightMPC:
         self.model = osqp.OSQP()
         self.model.setup(P=self.P, q=self.q, A=self.A, l=self.l, u=self.u, eps_rel=1e-4, eps_abs=1e-4, verbose=False)
     
-    def controlTest(self, dt, Qfdiag, Rdiag, smin, smax, tend, dtsim=0.5, nonlin=False):
-        """Nonlin true means use nonlinear VF with small dtsim"""
+    def controlTest(self, dt, Qfdiag, Rdiag, smin, smax, tend, dtsim=0.5, simmodel=0):
+        """simmodel=1 means use nonlinear VF with small dtsim.
+        simmodel=2 means second order quadrotor"""
         # Hovering test
         qdes = np.zeros(self.nq)
         qdes[5] = 1 # sz
 
         # Initial condition for anchor
-        y0 = np.copy(qdes)
-        y0[2] = -1 # lower z
-        y0[0] = -1 # lower x
-        y0[1] = 0.5
+        if simmodel == 2:
+            y0 = np.zeros(9) # p, dq
+            y0[:3] = np.array([-1, 0.5, -1])
+            Rb0 = np.eye(3)
+            RRb = np.copy(Rb0)
+        else:
+            y0 = np.copy(qdes)
+            y0[:3] = np.array([-1, 0.5, -1])
+        yy = np.copy(y0)
         
         # For lateral
         # qdes[3] = 1 # sx
 
-        Nsim = int(tend//dtsim if nonlin else tend//dt)
+        Nsim = int(tend//dtsim if simmodel > 0 else tend//dt)
         tt = np.linspace(0, tend, num=Nsim)
-        ys = np.zeros((Nsim, self.nq))
+        ys = np.zeros((Nsim, len(y0)))
         xTs = np.zeros((Nsim, self.nx))
         uTs = np.zeros((Nsim, 3))
-        yy = np.copy(y0)
 
         self.resetNominal()
 
         for k in range(Nsim):
             # "Template projection"
-            qT = yy
+            if simmodel == 2:
+                qT = np.hstack((yy[:3], RRb @ np.array([0,0,1]))) # p,s
+            else:
+                qT = yy
             # print(snom)
 
             # Update controller: copy out of update() for C version
@@ -217,15 +246,24 @@ class UprightMPC:
             uTs[k,:] = np.hstack((self.vT0, uu[1:]))
 
             # Convert back to anchor
-            uA = uTs[k,:]
+            if simmodel == 2:
+                uA = np.hstack((uTs[k,:], 0)) # yaw moment
+            else:
+                uA = uTs[k,:]
 
-            if nonlin:
+            # Integrate dynamics
+            if simmodel == 2:
+                p, RRb, dq = quadrotorNLDyn(yy[:3], RRb, yy[3:], uA, dtsim)
+                ys[k,:] = np.hstack((p, dq))
+            elif simmodel == 1:
                 dydt = self.dynamicsNLVF(yy, uA) # no local lin stuff
                 ys[k,:] = yy + dtsim * dydt
             else:
                 ys[k,:] = self.dynamics(yy, uA, dt, yy[3:6], self.vT0)
-            # normalize s
-            ys[k,3:6] /= np.linalg.norm(ys[k,3:6])
+
+            if simmodel < 2:
+                # normalize s
+                ys[k,3:6] /= np.linalg.norm(ys[k,3:6])
             yy = np.copy(ys[k,:])
 
         # utest = np.zeros(3)
@@ -268,7 +306,7 @@ if __name__ == "__main__":
     up.update(q0, qdes, Qfdiag, Rdiag, smin, smax, dt, snom, vT0)
     up.dynamicsTest(dt, snom, q0, vT0)
 
-    up.controlTest(dt, Qfdiag, Rdiag, smin, smax, 200, nonlin=True)
+    up.controlTest(dt, Qfdiag, Rdiag, smin, smax, 200, simmodel=1)
     
     # # codegen
     # try:
