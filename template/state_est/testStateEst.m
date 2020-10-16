@@ -1,5 +1,6 @@
 
-load('../../../../Dropbox (Personal)/harvard/micro/simulink/wlcontroller/teststateest.mat')
+%load('../../../../Dropbox (Personal)/harvard/micro/simulink/wlcontroller/teststateest.mat')
+load('../../../../Desktop/20200926_closedloop/p10_d0_2.mat')
 size(yout)
 
 %%
