@@ -25,17 +25,17 @@ def quadrotorNLVF(p, Rb, dq, u):
     omega = dq[3:6] # spatial velocity; omegahat = Rdot*R^T
     
     dv = u[0] * Rb @ np.array([0,0,1]) / mb
-    domega = (-0*np.cross(omega, ib * omega) + u[1:4]) / ib
+    domega = (-np.cross(omega, ib * omega) + u[1:4]) / ib
 
     return np.hstack((dv, domega))
 
 def quadrotorNLDyn(p, Rb, dq, u, dt):
     ddq = quadrotorNLVF(p, Rb, dq, u)
     # Euler integrate
-    p = p + dt * dq[0:3]
-    Rb = Rb @ expm(skew(dq[3:6]) * dt) # group stuff. need to confirm order
-    dq = dq + dt * ddq
-    return p, Rb, dq
+    p2 = p + dt * dq[0:3]
+    Rb2 = Rb @ expm(skew(dq[3:6]) * dt) # group stuff. need to confirm order
+    dq2 = dq + dt * ddq
+    return p2, Rb2, dq2
 
 class UprightMPC:
     nq = 6 #q = (p,s)
@@ -217,11 +217,12 @@ class UprightMPC:
             y0 = np.zeros(12) # p,"s", dq
             y0[:3] = np.array([-1, 0, -1])
             y0[5] = 1
-            Rb0 = np.eye(3)
+            # Rb0 = np.eye(3)
+            Rb0 = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]])
             RRb = np.copy(Rb0)
         else:
             y0 = np.copy(qdes)
-            y0[:3] = np.array([-1, 0.5, -1])
+            y0[:3] = np.array([-1, 0, -1])
         yy = np.copy(y0)
         
         # For lateral
@@ -266,7 +267,9 @@ class UprightMPC:
                 # print(omegaw, omegab)
                 # vcur = np.hstack((np.dot(yy[3:6], yy[6:9]), omegab[:2]))
                 # uA = np.hstack((np.array([100,10,10]) * (vdes - vcur), 0))
-                domgdes = 10*(np.hstack((uu[1:3],0)) - omegab)
+                omgdesW = np.hstack((uu[1:3],0))
+                omgdesB = unskew(RRb @ skew(omgdesW) @ RRb.T)
+                domgdes = 10*(omgdesB - omegab)
                 # print(uu, omgdes)
                 
                 # # Test
@@ -345,7 +348,7 @@ if __name__ == "__main__":
     up.update(q0, qdes, Qfdiag, Rdiag, smin, smax, dt, snom, vT0)
     up.dynamicsTest(dt, snom, q0, vT0)
 
-    up.controlTest(dt, Qfdiag, Rdiag, smin, smax, 100, simmodel=2)
+    up.controlTest(dt, Qfdiag, Rdiag, smin, smax, 60, simmodel=2)
     
     # # codegen
     # try:
