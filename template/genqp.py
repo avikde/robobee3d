@@ -214,7 +214,7 @@ class UprightMPC:
         # Initial condition for anchor
         if simmodel == 2:
             y0 = np.zeros(12) # p,"s", dq
-            y0[:3] = np.array([0, 0, -1])
+            y0[:3] = np.array([-1, 0, -1])
             y0[5] = 1
             Rb0 = np.eye(3)
             RRb = np.copy(Rb0)
@@ -258,9 +258,11 @@ class UprightMPC:
             # Convert back to anchor
             if simmodel == 2:
                 vdes = uu # 
-                omegab = yy[9:12] # TODO: spatial to body?
+                omegaw = yy[9:12]
+                omegabhat = RRb @ skew(omegaw) @ RRb.T
+                omegab = np.array([omegabhat[2,1], omegabhat[0,2], omegabhat[1,0]])
                 vcur = np.hstack((np.dot(yy[3:6], yy[6:9]), omegab[:2]))
-                uA = np.hstack((np.array([100,100,100]) * (vdes - vcur), 0))
+                uA = np.hstack((np.array([100,10,10]) * (vdes - vcur), 0))
                 # print(uA)
                 # uA = np.array([1,0,0,0])
             else:
