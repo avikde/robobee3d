@@ -259,21 +259,25 @@ class UprightMPC:
             # Convert back to anchor
             if simmodel == 2:
                 # Use MPC results and track the position/velocity
-                qdes = xTs[k,:6] # (p,s) of y1 (next)
+                # qdes = np.copy(xTs[k,:6]) # (p,s) of y1 (next) FIXME: uncommenting this link breaks stuff??
                 vdes = uu # vT, vM
                 omegaw = yy[9:12]
                 omegab = unskew(RRb @ skew(omegaw) @ RRb.T)
                 # print(omegaw, omegab)
-                vcur = np.hstack((np.dot(yy[3:6], yy[6:9]), omegab[:2]))
+                # vcur = np.hstack((np.dot(yy[3:6], yy[6:9]), omegab[:2]))
                 # uA = np.hstack((np.array([100,10,10]) * (vdes - vcur), 0))
+                domgdes = 10*(np.hstack((uu[1:3],0)) - omegab)
+                # print(uu, omgdes)
                 
-                # Test
-                e3h = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 0]])
-                dsdes = np.array([10*(0.1 - yy[3]),0,0])
-                omgdes = e3h @ RRb.T @ dsdes # sdot = -Rb e3h omega
-                uA = np.hstack((0, omgdes - 100 * omegab))
-                # print(uA)
-                # uA = np.array([1,0,0,0])
+                # # Test
+                # e3h = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 0]])
+                # dsdes = np.array([10*(0.1 - yy[3]),0,0])
+                # domgdes = e3h @ RRb.T @ dsdes # sdot = -Rb e3h omega
+                uA = np.hstack((
+                    100 * (uu[0] - np.dot(yy[3:6], yy[6:9])), 
+                    domgdes - 100 * omegab))
+                # # print(uA)
+                # # uA = np.array([1,0,0,0])
             else:
                 uA = uTs[k,:]
 
@@ -302,17 +306,22 @@ class UprightMPC:
         # print(y0)
         # print(qs)
         import matplotlib.pyplot as plt
-        fig, ax = plt.subplots(5 if simmodel>1 else 3)
+        if simmodel>1:
+            fig, ax = plt.subplots(3,2)
+            ax = ax.ravel()
+        else:
+            fig, ax = plt.subplots(3)
         ax[0].plot(tt, ys[:,:3])
         ax[0].set_ylabel('q')
         ax[1].plot(tt, ys[:,3:6])
         ax[1].set_ylabel('s')
         ax[2].plot(tt, uTs)
         ax[2].set_ylabel('u')
-        ax[3].plot(tt, ys[:,6:9])
-        ax[3].set_ylabel('v')
-        ax[4].plot(tt, ys[:,9:12])
-        ax[4].set_ylabel('omega')
+        if simmodel > 1:
+            ax[3].plot(tt, ys[:,6:9])
+            ax[3].set_ylabel('v')
+            ax[4].plot(tt, ys[:,9:12])
+            ax[4].set_ylabel('omega')
         plt.show()
 
 if __name__ == "__main__":
