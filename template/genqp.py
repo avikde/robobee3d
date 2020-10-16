@@ -17,14 +17,15 @@ def qpSetupDense(n, m):
     return model
 
 skew = lambda v : np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+unskew = lambda M : np.array([M[2,1], M[0,2], M[1,0]])
     
 def quadrotorNLVF(p, Rb, dq, u):
     mb = 100
     ib = 1000
-    omega = dq[3:6]
+    omega = dq[3:6] # spatial velocity; omegahat = Rdot*R^T
     
     dv = u[0] * Rb @ np.array([0,0,1]) / mb
-    domega = (-np.cross(omega, ib * omega) + u[1:4]) / ib
+    domega = (-0*np.cross(omega, ib * omega) + u[1:4]) / ib
 
     return np.hstack((dv, domega))
 
@@ -32,7 +33,7 @@ def quadrotorNLDyn(p, Rb, dq, u, dt):
     ddq = quadrotorNLVF(p, Rb, dq, u)
     # Euler integrate
     p = p + dt * dq[0:3]
-    Rb = Rb @ expm(skew(dq[3:6]) * dt)
+    Rb = Rb @ expm(skew(dq[3:6]) * dt) # group stuff. need to confirm order
     dq = dq + dt * ddq
     return p, Rb, dq
 
@@ -257,12 +258,16 @@ class UprightMPC:
 
             # Convert back to anchor
             if simmodel == 2:
-                vdes = uu # 
+                # e3h = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 0]])
+                # ornError = -e3h @ Rb.T @ 
+                vdes = np.array([0,0,10*(0.1 - yy[3])])#uu # 
                 omegaw = yy[9:12]
-                omegabhat = RRb @ skew(omegaw) @ RRb.T
-                omegab = np.array([omegabhat[2,1], omegabhat[0,2], omegabhat[1,0]])
+                omegab = unskew(RRb @ skew(omegaw) @ RRb.T)
+                # print(omegaw, omegab)
                 vcur = np.hstack((np.dot(yy[3:6], yy[6:9]), omegab[:2]))
-                uA = np.hstack((np.array([100,10,10]) * (vdes - vcur), 0))
+                # uA = np.hstack((np.array([100,10,10]) * (vdes - vcur), 0))
+                
+                uA = np.array([0,0,10*(0.1 - yy[3]) - 100 * omegab[1],0])
                 # print(uA)
                 # uA = np.array([1,0,0,0])
             else:
@@ -293,13 +298,17 @@ class UprightMPC:
         # print(y0)
         # print(qs)
         import matplotlib.pyplot as plt
-        fig, ax = plt.subplots(3)
+        fig, ax = plt.subplots(5 if simmodel>1 else 3)
         ax[0].plot(tt, ys[:,:3])
         ax[0].set_ylabel('q')
         ax[1].plot(tt, ys[:,3:6])
         ax[1].set_ylabel('s')
         ax[2].plot(tt, uTs)
         ax[2].set_ylabel('u')
+        ax[3].plot(tt, ys[:,6:9])
+        ax[3].set_ylabel('v')
+        ax[4].plot(tt, ys[:,9:12])
+        ax[4].set_ylabel('omega')
         plt.show()
 
 if __name__ == "__main__":
