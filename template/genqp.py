@@ -258,16 +258,20 @@ class UprightMPC:
 
             # Convert back to anchor
             if simmodel == 2:
-                # e3h = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 0]])
-                # ornError = -e3h @ Rb.T @ 
-                vdes = np.array([0,0,10*(0.1 - yy[3])])#uu # 
+                # Use MPC results and track the position/velocity
+                qdes = xTs[k,:6] # (p,s) of y1 (next)
+                vdes = uu # vT, vM
                 omegaw = yy[9:12]
                 omegab = unskew(RRb @ skew(omegaw) @ RRb.T)
                 # print(omegaw, omegab)
                 vcur = np.hstack((np.dot(yy[3:6], yy[6:9]), omegab[:2]))
                 # uA = np.hstack((np.array([100,10,10]) * (vdes - vcur), 0))
                 
-                uA = np.array([0,0,10*(0.1 - yy[3]) - 100 * omegab[1],0])
+                # Test
+                e3h = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 0]])
+                dsdes = np.array([10*(0.1 - yy[3]),0,0])
+                omgdes = e3h @ RRb.T @ dsdes # sdot = -Rb e3h omega
+                uA = np.hstack((0, omgdes - 100 * omegab))
                 # print(uA)
                 # uA = np.array([1,0,0,0])
             else:
