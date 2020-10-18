@@ -48,8 +48,42 @@ def initConstraint():
     
     return sp.csc_matrix(A)
 
-def updateConstraint(A, R):
-    pass
+def updateConstraint(A, dt, T0, s0s, Btaus):
+    # Left third
+    AxidxT0dt = []
+    n2 = 2*ny + 3 # nnz in each block col on the left
+    for k in range(N-2):
+        AxidxT0dt += [n2*k + i for i in [8,11,14]]
+
+    # Middle third
+    n1 = (2*N-1)*ny + (N-2)*3 # All the nnz in the left third
+    n2 = 3*ny # nnz in each of the first N-1 block cols in the middle third
+    Axidxdt = []
+    for k in range(N):
+        if k < N-1:
+            Axidxdt += [n1 + n2*k + i for i in [0,3,6,9,12,15]]
+        else:
+            Axidxdt += [n1 + n2*k + i for i in [0,2,4,6,8,10]]
+    
+    # Right third
+    n1 += 3*ny*(N-1) + 2*ny # all nnz in the left and middle third
+    n2 = 9 # nnz in each B0
+    Axidxs0 = []
+    AxidxBtau = []
+    for k in range(N):
+        Axidxs0 += [n1 + n2*k + i for i in range(3)]
+        AxidxBtau += [n1 + n2*k + 3 + i for i in range(6)]
+
+    # Last check
+    assert A.nnz == n1 + n2*N
+
+    # Update
+    A.data[AxidxT0dt] = dt*T0
+    A.data[Axidxdt] = dt
+    A.data[Axidxs0] = dt*np.hstack((s0s))
+    A.data[AxidxBtau] = dt*np.hstack([np.ravel(Btau,order='F') for Btau in Btaus])
+
+    # print(A[:,36:42].toarray())
 
 def testDynamicsConstraint():
     ys = np.zeros((N,ny))
@@ -83,9 +117,16 @@ def testDynamicsConstraint():
         yy = yy1
         dyy = dyy1
 
-    # TODO: stack
+    # stack
+    x = np.hstack((np.ravel(ys), np.ravel(dys), np.ravel(us)))
+    print(A @ x)
 
 if __name__ == "__main__":
+    T0 = 0.5
+    dt = 0.5
+    s0s = [[0.1,0.1,0.9] for i in range(N)]
+    Btaus = [np.full((3,2),1.123) for i in range(N)]
+
     A = initConstraint()
-    print(A)
+    updateConstraint(A, dt, T0, s0s, Btaus)
     testDynamicsConstraint()
