@@ -10,9 +10,9 @@ nx = N * (2*ny + nu)
 nc = 2*N*ny
 
 # Basic constituents of dynamics A0, B0 (only sparsity matters)
-def getA0(dtT0):
+def getA0(T0):
     A0 = np.zeros((6, 6))
-    A0[:3,3:] = dtT0*np.eye(3)
+    A0[:3,3:] = T0*np.eye(3)
     return A0
 
 def getB0(s0, Btau):
@@ -21,7 +21,7 @@ def getB0(s0, Btau):
         [np.zeros((3,1)), Btau]
     ])
     
-c0 = lambda dtg : np.array([0,0,-dtg,0,0,0])
+c0 = lambda g : np.array([0,0,-g,0,0,0])
 
 def initConstraint():
     # these will be updated
@@ -64,11 +64,11 @@ def updateConstraint(A, dt, T0, s0s, Btaus, y0, dy0, g):
     lu[:ny] = -y1
     for k in range(N):
         if k == 0:
-            lu[ny*N+k*ny : ny*N+(k+1)*ny] = -dy0 - getA0(dt*T0) @ y0 - c0(dt*g)
+            lu[ny*N+k*ny : ny*N+(k+1)*ny] = -dy0 - dt*getA0(T0) @ y0 - dt*c0(g)
         elif k == 1:
-            lu[ny*N+k*ny : ny*N+(k+1)*ny] = -getA0(dt*T0) @ y1 - c0(dt*g)
+            lu[ny*N+k*ny : ny*N+(k+1)*ny] = -dt*getA0(T0) @ y1 - dt*c0(g)
         else:
-            lu[ny*N+k*ny : ny*N+(k+1)*ny] = -c0(dt*g)
+            lu[ny*N+k*ny : ny*N+(k+1)*ny] = -dt*c0(g)
 
     # Left third
     AxidxT0dt = []
@@ -116,7 +116,7 @@ def openLoopX(dt, T0, s0s, Btaus, y0, dy0, g):
     dyk = np.copy(dy0)
     for k in range(N):
         # at k=0, yy=y0, 
-        dykp1 = dyk + (getA0(dt*T0) @ yk + getB0(s0s[k], Btaus[k]) @ us[k,:] + c0(dt*g)) # dy[k+1]
+        dykp1 = dyk + dt*(getA0(T0) @ yk + getB0(s0s[k], Btaus[k]) @ us[k,:] + c0(g)) # dy[k+1]
 
         dys[k,:] = dykp1
         ykp1 = yk + dt * dyk # y[k+1]
