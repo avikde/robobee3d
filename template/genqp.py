@@ -20,12 +20,11 @@ skew = lambda v : np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]
 unskew = lambda M : np.array([M[2,1], M[0,2], M[1,0]])
     
 def quadrotorNLVF(p, Rb, dq, u):
-    mb = 100
-    Ib = np.diagonal([1000,1000,1000])
+    Ib = np.diag([1000,1000,1000]) # u[0] is mass-specific
     omega = dq[3:6] # spatial velocity; omegahat = Rdot*R^T
     
-    dv = u[0] * Rb @ np.array([0,0,1]) / mb
-    domega = np.linalg.inv(Ib) @ (-np.cross(omega, Ib @ omega) + u[1:4])
+    dv = u[0] * Rb @ np.array([0,0,1])
+    domega = np.linalg.inv(Ib) @ (-np.cross(omega, Ib @ omega) + np.hstack((u[1:3], 0)))
 
     return np.hstack((dv, domega))
 
@@ -33,7 +32,9 @@ def quadrotorNLDyn(p, Rb, dq, u, dt):
     ddq = quadrotorNLVF(p, Rb, dq, u)
     # Euler integrate
     p2 = p + dt * dq[0:3]
-    Rb2 = Rb @ expm(skew(dq[3:6]) * dt) # group stuff. need to confirm order
+    omegawhat = skew(dq[3:6])
+    # omegawhat = Rb.T @ skew(dq[3:6]) @ Rb
+    Rb2 = Rb @ expm(omegawhat * dt) # group stuff. need to confirm order
     dq2 = dq + dt * ddq
     return p2, Rb2, dq2
 

@@ -173,10 +173,50 @@ class UprightMPC2():
     def update(self, T0sp, s0s, Btaus, y0, dy0, ydes, dydes):
         self.A, lu = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g)
         self.P, q = updateObjective(self.N, self.P, *self.Wts, ydes, dydes)
+        
+        # OSQP solve ---
+        self.model.update(Px=self.P.data, Ax=self.A.data, q=q, l=lu, u=lu)
+        res = self.model.solve()
+        if 'solved' not in res.info.status:
+            print(res.info.status)
+        return res.x
 
+def controlTest(mdl, tend, dtsim=0.5):
+    # Initial conditions
+    p = np.array([0, 0, -1])
+    Rb = np.eye(3)
+    dq = np.zeros(6)
+    
+    tt = np.arange(tend, step=dtsim)
+    Nt = len(tt)
 
-# def controlTest():
+    # for logging
+    ys = np.zeros((Nt, 12))
+    us = np.zeros((Nt, 3))
 
+    for ti in range(Nt):
+        u = np.array([1,0.1,0])
+        p, Rb, dq = quadrotorNLDyn(p, Rb, dq, u, dtsim)
+        ys[ti,:] = np.hstack((p, Rb[:,2], dq))
+        us[ti,:] = u
+    
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(3,2)
+    ax = ax.ravel()
+        
+    ax[0].plot(tt, ys[:,:3])
+    ax[0].set_ylabel('p')
+    ax[1].plot(tt, ys[:,3:6])
+    ax[1].set_ylabel('s')
+    ax[2].plot(tt, us)
+    ax[2].set_ylabel('u')
+    ax[3].plot(tt, ys[:,6:9])
+    ax[3].set_ylabel('v')
+    ax[4].plot(tt, ys[:,9:12])
+    ax[4].set_ylabel('omega')
+    fig.tight_layout()
+    plt.show()
 
 if __name__ == "__main__":
     T0 = 0.5
@@ -198,5 +238,5 @@ if __name__ == "__main__":
     up = UprightMPC2(N, dt, Qyr, Qyf, Qdyr, Qdyf, R, g)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
 
-    # controlTest()
+    controlTest(up, 50)
 
