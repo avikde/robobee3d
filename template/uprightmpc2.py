@@ -247,18 +247,18 @@ def controlTest(mdl, tend, dtsim=0.5):
 
 if __name__ == "__main__":
     T0 = 0.5
-    dt = 0.5
+    dt = 5
     N = 3
     s0s = [[0.1,0.1,0.9] for i in range(N)]
     Btaus = [np.full((3,2),1.123) for i in range(N)]
     y0 = np.random.rand(6)
     dy0 = np.random.rand(6)
     g = 9.81e-3
-    Qyr = np.array([1,1,1,1,1,1])
-    Qyf = np.array([1,1,1,1,1,1])
-    Qdyr = np.array([1,1,1,1,1,1])
-    Qdyf = np.array([1,1,1,1,1,1])
-    R = np.array([1,1,1])
+    Qyr = np.array([10,10,10,1e-3,1e-3,1e-3])
+    Qyf = np.array([10,10,10,1e-3,1e-3,1e-3])
+    Qdyr = np.array([1e-3,1e-3,1e-3,1e-3,1e-3,1e-3])
+    Qdyf = np.array([1e-3,1e-3,1e-3,1e-3,1e-3,1e-3])
+    R = np.array([1e-1,1e-1,1e-1])
     ydes = np.zeros_like(y0)
     dydes = np.zeros_like(y0)
 

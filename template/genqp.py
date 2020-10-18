@@ -24,7 +24,7 @@ Ib = np.diag([1000,1000,1000]) # u[0] is mass-specific
 def quadrotorNLVF(p, Rb, dq, u):
     omega = dq[3:6] # spatial velocity; omegahat = Rdot*R^T
     
-    dv = u[0] * Rb @ np.array([0,0,1])
+    dv = u[0] * Rb @ np.array([0,0,1]) - np.array([0, 0, 9.81e-3])
     domega = np.linalg.inv(Ib) @ (-np.cross(omega, Ib @ omega) + np.hstack((u[1:3], 0)))
 
     return np.hstack((dv, domega))
