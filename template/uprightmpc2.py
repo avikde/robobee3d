@@ -8,10 +8,26 @@ N = 3
 nx = N * (2*ny + nu)
 nc = 2*N*ny
 
+# Basic constituents of dynamics A0, B0 (only sparsity matters)
+def getA0(dtT0):
+    A0 = np.zeros((6, 6))
+    A0[:3,3:] = dtT0*np.eye(3)
+    return A0
+
+def getB0(s0, Btau):
+    return np.block([
+        [np.reshape(s0, (3,1)),np.zeros((3,2))],
+        [np.zeros((3,1)), Btau]
+    ])
+    
+c0 = lambda dtg : np.array([0,0,-dtg,0,0,0])
+
 def initConstraint():
     # these will be updated
     T0 = 1
     dt = 1
+    s0 = np.ones(3)
+    Btau = np.ones((3,2))
 
     A = np.zeros((nc, nx))
     # l = np.zeros(nc)
@@ -22,14 +38,6 @@ def initConstraint():
     n2 = 2*N*ny
     # rows of A broken up:
     nc1 = N*ny
-
-    # Basic constituents of dynamics A0, B0 (only sparsity matters)
-    B0 = np.block([
-        [np.ones((3,1)),np.zeros((3,2))],
-        [np.zeros((3,1)),np.ones((3,2))]
-    ])
-    A0 = np.zeros((6, 6))
-    A0[:3,3:] = np.eye(3)
     
     for k in range(N):
         # ykp1 = yk + dt*dyk equations
@@ -40,15 +48,27 @@ def initConstraint():
         
         # dykp1 equation
         A[nc1 + k*ny:nc1 + (k+1)*ny, n1 + k*ny:n1 + (k+1)*ny] = -np.eye(ny)
-        A[nc1 + k*ny:nc1 + (k+1)*ny, n2 + k*nu:n2 + (k+1)*nu] = B0
+        A[nc1 + k*ny:nc1 + (k+1)*ny, n2 + k*nu:n2 + (k+1)*nu] = getB0(s0, Btau)
         if k>0:
             A[nc1 + k*ny:nc1 + (k+1)*ny, n1 + (k-1)*ny:n1 + (k)*ny] = np.eye(ny)
         if k>1:
-            A[nc1 + k*ny:nc1 + (k+1)*ny, (k-2)*ny:(k-1)*ny] = A0
+            A[nc1 + k*ny:nc1 + (k+1)*ny, (k-2)*ny:(k-1)*ny] = getA0(T0*dt)
     
     return sp.csc_matrix(A)
 
-def updateConstraint(A, dt, T0, s0s, Btaus):
+def updateConstraint(A, dt, T0, s0s, Btaus, y0, dy0, g):
+    # Update vector
+    lu = np.zeros(nc)
+    y1 = y0 + dt * dy0
+    lu[:ny] = -y1
+    for k in range(N):
+        if k == 0:
+            lu[ny*N+k*ny : ny*N+(k+1)*ny] = -dy0 - getA0(dt*T0) @ y0 - c0(dt*g)
+        elif k == 1:
+            lu[ny*N+k*ny : ny*N+(k+1)*ny] = -getA0(dt*T0) @ y1 - c0(dt*g)
+        else:
+            lu[ny*N+k*ny : ny*N+(k+1)*ny] = -c0(dt*g)
+
     # Left third
     AxidxT0dt = []
     n2 = 2*ny + 3 # nnz in each block col on the left
@@ -84,32 +104,19 @@ def updateConstraint(A, dt, T0, s0s, Btaus):
     A.data[AxidxBtau] = dt*np.hstack([np.ravel(Btau,order='F') for Btau in Btaus])
 
     # print(A[:,36:42].toarray())
+    return A, lu
 
-def testDynamicsConstraint():
+def openLoopX(dt, T0, s0s, Btaus, y0, dy0, g):
     ys = np.zeros((N,ny))
     dys = np.zeros((N,ny))
     us = np.random.rand(N,nu)
-
-    y0 = np.random.rand(ny)
-    dy0 = np.random.rand(ny)
-    T0 = 1
-    dt = 1
-    
-    # Basic constituents of dynamics A0, B0 (only sparsity matters)
-    B0 = np.block([
-        [np.ones((3,1)),np.zeros((3,2))],
-        [np.zeros((3,1)),np.ones((3,2))]
-    ])
-    A0 = np.zeros((6, 6))
-    A0[:3,3:] = np.eye(3)
-    c0 = np.ones(ny) # FIXME:
 
     y1 = y0 + dt * dy0
     yy = np.copy(y1)
     dyy = np.copy(dy0)
     for k in range(N):
         yy1 = yy + dt * dyy
-        dyy1 = dyy + (A0 @ yy + B0 @ us[k,:] + c0)
+        dyy1 = dyy + (getA0(dt*T0) @ yy + getB0(s0s[k], Btaus[k]) @ us[k,:] + c0(dt*g))
 
         dys[k,:] = dyy1
         ys[k,:] = yy1
@@ -118,15 +125,20 @@ def testDynamicsConstraint():
         dyy = dyy1
 
     # stack
-    x = np.hstack((np.ravel(ys), np.ravel(dys), np.ravel(us)))
-    print(A @ x)
+    return np.hstack((np.ravel(ys), np.ravel(dys), np.ravel(us)))
 
 if __name__ == "__main__":
     T0 = 0.5
     dt = 0.5
     s0s = [[0.1,0.1,0.9] for i in range(N)]
     Btaus = [np.full((3,2),1.123) for i in range(N)]
+    y0 = np.random.rand(ny)
+    dy0 = np.random.rand(ny)
+    g = 9.81e-3
 
     A = initConstraint()
-    updateConstraint(A, dt, T0, s0s, Btaus)
-    testDynamicsConstraint()
+    A, lu = updateConstraint(A, dt, T0, s0s, Btaus, y0, dy0, g)
+    # Test
+    xtest = openLoopX(dt, T0, s0s, Btaus, y0, dy0, g)
+    print(A @ xtest - lu)
+
