@@ -190,7 +190,7 @@ class UprightMPC2():
     
     def update2(self, p0, R0, dq0, pdes):
         # At current state
-        s0 = R0[:,2]
+        s0 = np.copy(R0[:,2])
         s0s = [s0 for i in range(self.N)]
         Btau = (-R0 @ e3h @ self.Ibi)[:,:2] # no yaw torque
         Btaus = [Btau for i in range(self.N)]
@@ -204,11 +204,12 @@ class UprightMPC2():
 
         return np.hstack((self.T0, utilde[1:]))
 
-def controlTest(mdl, tend, dtsim=0.5):
+def controlTest(mdl, tend, dtsim=0.2):
     # Initial conditions
     p = np.array([0, 0, -1])
     Rb = np.eye(3)
     dq = np.zeros(6)
+    dq[0] = 0.1
     pdes = np.zeros(3)
     
     tt = np.arange(tend, step=dtsim)
@@ -247,17 +248,17 @@ def controlTest(mdl, tend, dtsim=0.5):
 
 if __name__ == "__main__":
     T0 = 0.5
-    dt = 5
+    dt = 2
     N = 3
     s0s = [[0.1,0.1,0.9] for i in range(N)]
     Btaus = [np.full((3,2),1.123) for i in range(N)]
     y0 = np.random.rand(6)
     dy0 = np.random.rand(6)
     g = 9.81e-3
-    Qyr = np.array([10,10,10,1e-3,1e-3,1e-3])
-    Qyf = np.array([10,10,10,1e-3,1e-3,1e-3])
-    Qdyr = np.array([1e-3,1e-3,1e-3,1e-3,1e-3,1e-3])
-    Qdyf = np.array([1e-3,1e-3,1e-3,1e-3,1e-3,1e-3])
+    Qyr = np.array([100,100,10,1e1,1e1,1e1])
+    Qyf = np.array([10,10,10,1e1,1e1,1e1])
+    Qdyr = np.array([1e3,1e3,1e3,1e0,1e0,1e0])
+    Qdyf = np.array([1e3,1e3,1e3,1e0,1e0,1e0])
     R = np.array([1e-1,1e-1,1e-1])
     ydes = np.zeros_like(y0)
     dydes = np.zeros_like(y0)
@@ -265,5 +266,5 @@ if __name__ == "__main__":
     up = UprightMPC2(N, dt, Qyr, Qyf, Qdyr, Qdyf, R, g)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
 
-    controlTest(up, 50)
+    controlTest(up, 100)
 
