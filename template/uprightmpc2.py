@@ -2,12 +2,10 @@ import osqp
 import numpy as np
 import scipy.sparse as sp
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
+from genqp import quadrotorNLDyn
 
 ny = 6
 nu = 3
-N = 3
-nx = N * (2*ny + nu)
-nc = 2*N*ny
 
 # Basic constituents of dynamics A0, B0 (only sparsity matters)
 def getA0(T0):
@@ -23,7 +21,7 @@ def getB0(s0, Btau):
     
 c0 = lambda g : np.array([0,0,-g,0,0,0])
 
-def initConstraint():
+def initConstraint(N, nx, nc):
     # these will be updated
     T0 = 1
     dt = 1
@@ -56,7 +54,9 @@ def initConstraint():
     
     return sp.csc_matrix(A), sp.csc_matrix(P)
 
-def updateConstraint(A, dt, T0, s0s, Btaus, y0, dy0, g):
+def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g):
+    nc = A.shape[0]
+
     # Update vector
     lu = np.zeros(nc)
     y1 = y0 + dt * dy0
@@ -106,7 +106,7 @@ def updateConstraint(A, dt, T0, s0s, Btaus, y0, dy0, g):
     # print(A[:,36:42].toarray())
     return A, lu
 
-def updateObjective(P, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes):
+def updateObjective(N, P, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes):
     P.data = np.hstack((
         np.hstack([Qyr for k in range(N-1)]),
         Qyf,
@@ -119,11 +119,11 @@ def updateObjective(P, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes):
         -Qyf*ydes,
         np.hstack([-Qdyr*dydes for k in range(N-1)]),
         -Qdyf*dydes,
-        np.zeros(N*nu)
+        np.zeros(N*len(R))
     ))
     return P, q
 
-def openLoopX(dt, T0, s0s, Btaus, y0, dy0, g):
+def openLoopX(N, dt, T0, s0s, Btaus, y0, dy0, g):
     ys = np.zeros((N,ny))
     dys = np.zeros((N,ny))
     us = np.random.rand(N,nu)
@@ -147,26 +147,56 @@ def openLoopX(dt, T0, s0s, Btaus, y0, dy0, g):
     # print(ys, x)
     return x
 
+class UprightMPC2():
+    def __init__(self, N, dt, Qyr, Qyf, Qdyr, Qdyf, R, g):
+        self.N = N
+
+        nx = self.N * (2*ny + nu)
+        nc = 2*self.N*ny
+
+        self.A, self.P = initConstraint(N, nx, nc)
+
+        self.dt = dt
+        self.Wts = [Qyr, Qyf, Qdyr, Qdyf, R]
+        self.g = g
+
+        # Create OSQP
+        self.model = osqp.OSQP()
+        self.model.setup(P=self.P, A=self.A, l=np.zeros(nc), eps_rel=1e-4, eps_abs=1e-4, verbose=False)
+
+    def testDyn(self, T0sp, s0s, Btaus, y0, dy0):
+        # Test
+        self.A, lu = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g)
+        xtest = openLoopX(self.N, self.dt, T0, s0s, Btaus, y0, dy0, self.g)
+        print(self.A @ xtest - lu)
+    
+    def update(self, T0sp, s0s, Btaus, y0, dy0, ydes, dydes):
+        self.A, lu = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g)
+        self.P, q = updateObjective(self.N, self.P, *self.Wts, ydes, dydes)
+
+
+# def controlTest():
+
+
 if __name__ == "__main__":
     T0 = 0.5
     dt = 0.5
+    N = 3
     s0s = [[0.1,0.1,0.9] for i in range(N)]
     Btaus = [np.full((3,2),1.123) for i in range(N)]
-    y0 = np.random.rand(ny)
-    dy0 = np.random.rand(ny)
+    y0 = np.random.rand(6)
+    dy0 = np.random.rand(6)
     g = 9.81e-3
     Qyr = np.array([1,1,1,1,1,1])
     Qyf = np.array([1,1,1,1,1,1])
     Qdyr = np.array([1,1,1,1,1,1])
     Qdyf = np.array([1,1,1,1,1,1])
     R = np.array([1,1,1])
-    ydes = np.zeros(ny)
-    dydes = np.zeros(ny)
+    ydes = np.zeros_like(y0)
+    dydes = np.zeros_like(y0)
 
-    A, P = initConstraint()
-    A, lu = updateConstraint(A, dt, T0, s0s, Btaus, y0, dy0, g)
-    # # Test
-    # xtest = openLoopX(dt, T0, s0s, Btaus, y0, dy0, g)
-    # print(A @ xtest - lu)
-    P, q = updateObjective(P, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes)
+    up = UprightMPC2(N, dt, Qyr, Qyf, Qdyr, Qdyf, R, g)
+    up.testDyn(T0, s0s, Btaus, y0, dy0)
+
+    # controlTest()
 

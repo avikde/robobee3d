@@ -21,11 +21,11 @@ unskew = lambda M : np.array([M[2,1], M[0,2], M[1,0]])
     
 def quadrotorNLVF(p, Rb, dq, u):
     mb = 100
-    ib = 1000
+    Ib = np.diagonal([1000,1000,1000])
     omega = dq[3:6] # spatial velocity; omegahat = Rdot*R^T
     
     dv = u[0] * Rb @ np.array([0,0,1]) / mb
-    domega = (-np.cross(omega, ib * omega) + u[1:4]) / ib
+    domega = np.linalg.inv(Ib) @ (-np.cross(omega, Ib @ omega) + u[1:4])
 
     return np.hstack((dv, domega))
 
