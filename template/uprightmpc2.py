@@ -1,6 +1,7 @@
 import osqp
 import numpy as np
 import scipy.sparse as sp
+np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
 ny = 6
 nu = 3
@@ -115,8 +116,8 @@ def openLoopX(dt, T0, s0s, Btaus, y0, dy0, g):
     yy = np.copy(y1)
     dyy = np.copy(dy0)
     for k in range(N):
-        yy1 = yy + dt * dyy
         dyy1 = dyy + (getA0(dt*T0) @ yy + getB0(s0s[k], Btaus[k]) @ us[k,:] + c0(dt*g))
+        yy1 = yy + dt * dyy1
 
         dys[k,:] = dyy1
         ys[k,:] = yy1
@@ -125,7 +126,9 @@ def openLoopX(dt, T0, s0s, Btaus, y0, dy0, g):
         dyy = dyy1
 
     # stack
-    return np.hstack((np.ravel(ys), np.ravel(dys), np.ravel(us)))
+    x = np.hstack((np.ravel(ys), np.ravel(dys), np.ravel(us)))
+    # print(ys, x)
+    return x
 
 if __name__ == "__main__":
     T0 = 0.5
