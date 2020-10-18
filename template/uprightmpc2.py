@@ -112,18 +112,19 @@ def openLoopX(dt, T0, s0s, Btaus, y0, dy0, g):
     dys = np.zeros((N,ny))
     us = np.random.rand(N,nu)
 
-    y1 = y0 + dt * dy0
-    yy = np.copy(y1)
-    dyy = np.copy(dy0)
+    yk = np.copy(y0)
+    dyk = np.copy(dy0)
     for k in range(N):
-        dyy1 = dyy + (getA0(dt*T0) @ yy + getB0(s0s[k], Btaus[k]) @ us[k,:] + c0(dt*g))
-        yy1 = yy + dt * dyy1
+        # at k=0, yy=y0, 
+        dykp1 = dyk + (getA0(dt*T0) @ yk + getB0(s0s[k], Btaus[k]) @ us[k,:] + c0(dt*g)) # dy[k+1]
 
-        dys[k,:] = dyy1
-        ys[k,:] = yy1
+        dys[k,:] = dykp1
+        ykp1 = yk + dt * dyk # y[k+1]
+        ys[k,:] = ykp1 + dt * dykp1 # y[k+2]
 
-        yy = yy1
-        dyy = dyy1
+        # For next k
+        yk = np.copy(ykp1)
+        dyk = np.copy(dykp1)
 
     # stack
     x = np.hstack((np.ravel(ys), np.ravel(dys), np.ravel(us)))
