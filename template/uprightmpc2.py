@@ -31,8 +31,7 @@ def initConstraint():
     Btau = np.ones((3,2))
 
     A = np.zeros((nc, nx))
-    # l = np.zeros(nc)
-    # u = np.zeros(nc)
+    P = np.eye(nx) # Q, R stacked
 
     # cols of A are broken up like this (partition nx)
     n1 = N*ny
@@ -55,7 +54,7 @@ def initConstraint():
         if k>1:
             A[nc1 + k*ny:nc1 + (k+1)*ny, (k-2)*ny:(k-1)*ny] = getA0(T0*dt)
     
-    return sp.csc_matrix(A)
+    return sp.csc_matrix(A), sp.csc_matrix(P)
 
 def updateConstraint(A, dt, T0, s0s, Btaus, y0, dy0, g):
     # Update vector
@@ -107,6 +106,23 @@ def updateConstraint(A, dt, T0, s0s, Btaus, y0, dy0, g):
     # print(A[:,36:42].toarray())
     return A, lu
 
+def updateObjective(P, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes):
+    P.data = np.hstack((
+        np.hstack([Qyr for k in range(N-1)]),
+        Qyf,
+        np.hstack([Qdyr for k in range(N-1)]),
+        Qdyf,
+        np.hstack([R for k in range(N)])
+    ))
+    q = np.hstack((
+        np.hstack([-Qyr*ydes for k in range(N-1)]),
+        -Qyf*ydes,
+        np.hstack([-Qdyr*dydes for k in range(N-1)]),
+        -Qdyf*dydes,
+        np.zeros(N*nu)
+    ))
+    return P, q
+
 def openLoopX(dt, T0, s0s, Btaus, y0, dy0, g):
     ys = np.zeros((N,ny))
     dys = np.zeros((N,ny))
@@ -139,10 +155,18 @@ if __name__ == "__main__":
     y0 = np.random.rand(ny)
     dy0 = np.random.rand(ny)
     g = 9.81e-3
+    Qyr = np.array([1,1,1,1,1,1])
+    Qyf = np.array([1,1,1,1,1,1])
+    Qdyr = np.array([1,1,1,1,1,1])
+    Qdyf = np.array([1,1,1,1,1,1])
+    R = np.array([1,1,1])
+    ydes = np.zeros(ny)
+    dydes = np.zeros(ny)
 
-    A = initConstraint()
+    A, P = initConstraint()
     A, lu = updateConstraint(A, dt, T0, s0s, Btaus, y0, dy0, g)
-    # Test
-    xtest = openLoopX(dt, T0, s0s, Btaus, y0, dy0, g)
-    print(A @ xtest - lu)
+    # # Test
+    # xtest = openLoopX(dt, T0, s0s, Btaus, y0, dy0, g)
+    # print(A @ xtest - lu)
+    P, q = updateObjective(P, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes)
 
