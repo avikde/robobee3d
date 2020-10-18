@@ -2,7 +2,7 @@ import osqp
 import numpy as np
 import scipy.sparse as sp
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
-from genqp import quadrotorNLDyn
+from genqp import quadrotorNLDyn, skew, Ib
 
 ny = 6
 nu = 3
@@ -20,6 +20,8 @@ def getB0(s0, Btau):
     ])
     
 c0 = lambda g : np.array([0,0,-g,0,0,0])
+
+e3h = skew([0,0,1])
 
 def initConstraint(N, nx, nc):
     # these will be updated
@@ -164,6 +166,10 @@ class UprightMPC2():
         self.model = osqp.OSQP()
         self.model.setup(P=self.P, A=self.A, l=np.zeros(nc), eps_rel=1e-4, eps_abs=1e-4, verbose=False)
 
+        # Manage linearization point
+        self.T0 = 0 # mass-specific thrust
+        self.Ibi = np.linalg.inv(Ib)
+
     def testDyn(self, T0sp, s0s, Btaus, y0, dy0):
         # Test
         self.A, lu = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g)
@@ -179,13 +185,31 @@ class UprightMPC2():
         res = self.model.solve()
         if 'solved' not in res.info.status:
             print(res.info.status)
+
         return res.x
+    
+    def update2(self, p0, R0, dq0, pdes):
+        # At current state
+        s0 = R0[:,2]
+        s0s = [s0 for i in range(self.N)]
+        Btau = (-R0 @ e3h @ self.Ibi)[:,:2] # no yaw torque
+        Btaus = [Btau for i in range(self.N)]
+
+        ydes = np.hstack((pdes, 0, 0, 1))
+        dydes = np.zeros(6)
+
+        self.prevsol = self.update(self.T0, s0s, Btaus, np.hstack((p0, s0)), dq0, ydes, dydes)
+        utilde = self.prevsol[2*ny*self.N : 2*ny*self.N+nu]
+        self.T0 += utilde[0]
+
+        return np.hstack((self.T0, utilde[1:]))
 
 def controlTest(mdl, tend, dtsim=0.5):
     # Initial conditions
     p = np.array([0, 0, -1])
     Rb = np.eye(3)
     dq = np.zeros(6)
+    pdes = np.zeros(3)
     
     tt = np.arange(tend, step=dtsim)
     Nt = len(tt)
@@ -195,7 +219,10 @@ def controlTest(mdl, tend, dtsim=0.5):
     us = np.zeros((Nt, 3))
 
     for ti in range(Nt):
-        u = np.array([1,0.1,0])
+        # Call controller
+        u = mdl.update2(p, Rb, dq, pdes)
+        # u = np.array([1,0.1,0])
+
         p, Rb, dq = quadrotorNLDyn(p, Rb, dq, u, dtsim)
         ys[ti,:] = np.hstack((p, Rb[:,2], dq))
         us[ti,:] = u
