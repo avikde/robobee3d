@@ -5,7 +5,7 @@ from scipy.spatial.transform import Rotation
 from ca6dynamics import dynamicsTerms
 from wlqppy import WLController
 import valuefunc
-from genqp import UprightMPC
+from uprightmpc2 import UprightMPC2
 
 class WaveformGenerator(object):
     """A simple waveform generator that keeps track of phase"""
@@ -95,7 +95,20 @@ class WaypointHover(RobobeeController):
         self.printCtr = 0
 
         # upright MPC
-        self.umpc = UprightMPC(3)
+        dt = 5
+        N = 3
+        g = 9.81e-3
+        ws = 1e1
+        womg = 1e3
+        wpr = 1
+        wpf = 5
+        wvr = 1e3
+        wvf = 2e3
+        wthrust = 1e-1
+        wmom = 1e-2
+        smin = np.array([-2,-2,0.5])
+        smax = np.array([2,2,1.5])
+        self.up = UprightMPC2(N, dt, g, smin, smax, ws, womg, wpr, wpf, wvr, wvf, wthrust, wmom)
 
     def templateVF(self, t, p, dp, s, ds):
         # TEST
@@ -135,27 +148,17 @@ class WaypointHover(RobobeeController):
         dp = dq0[:3]
         s = Rb @ np.array([0,0,1])
         ds = -Rb @ e3h @ omega
-        # # Template controller <- LATEST
-        # fTpos, fTorn = self.templateVF(t, p, dp, s, ds)
-        # fAorn = -e3h @ Rb.T @ fTorn
-        # return np.hstack((fTpos, fAorn))
 
         # Upright MPC
         self.posdes = np.array([50,0,100])
-        # constant
-        smax = np.array([0.5, 0.5, 1.5])
-        smin = -smax
-        Qfdiag = [100, 100, 10, 100,100,100]
-        Rdiag = [10.0, 50, 50]
-        dt = 3
-        # Get vdes from kinematic model MPC
-        qM = np.hstack((p, s))
-        _, vM = self.umpc.update(qM, np.hstack((self.posdes, 0, 0, 1)), Qfdiag, Rdiag, smin, smax, dt, self.umpc.snom, self.umpc.vT0)
-        vM[0] = self.umpc.vT0
-        dqdesMPC = self.umpc.dynamicsNLVF(qM, vM)
-        # track with qdddes
-        ddqdesT = np.array([1, 1, 1, 1, 1, 1]) * (dqdesMPC - dq0)
-        return np.hstack((ddqdesT[:3], -e3h @ Rb.T @ ddqdesT[3:]))
+        dpdes = np.zeros(3)
+        u = self.up.update2(p, Rb, dq0, self.posdes, dpdes)
+        # TODO: 
+
+        # Template controller <- LATEST
+        fTpos, fTorn = self.templateVF(t, p, dp, s, ds)
+        fAorn = -e3h @ Rb.T @ fTorn
+        return np.hstack((fTpos, fAorn))
 
         # # Here the u is Thrust,torques (quadrotor template)
         # pT = q0[:3]
