@@ -5,6 +5,7 @@ from scipy.spatial.transform import Rotation
 from ca6dynamics import dynamicsTerms
 from wlqppy import WLController
 import valuefunc
+from genqp import UprightMPC
 
 class WaveformGenerator(object):
     """A simple waveform generator that keeps track of phase"""
@@ -93,6 +94,9 @@ class WaypointHover(RobobeeController):
         self.S = valuefunc.quadrotorS(9.81e-3, Qpos=[0,0,10,0.1,0.1,0.1], Qvel=[1,1,10,0.1,0.1,0.1], Rdiag=[1,1,1,1])
         self.printCtr = 0
 
+        # upright MPC
+        self.umpc = UprightMPC(3)
+
     def templateVF(self, t, p, dp, s, ds):
         # TEST
         trajomg = 5e-3
@@ -123,7 +127,7 @@ class WaypointHover(RobobeeController):
         # kpmom = np.array([0,0,1,0.1,0.1,0.1])
         # return kpmom * (pdes - M0 @ dq0)
 
-        # New try template VF. Only orientation control
+        # New try template VF
         e3h = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 0]])
         Rb = Rotation.from_quat(q0[3:]).as_matrix()
         omega = dq0[3:]
@@ -131,10 +135,27 @@ class WaypointHover(RobobeeController):
         dp = dq0[:3]
         s = Rb @ np.array([0,0,1])
         ds = -Rb @ e3h @ omega
-        # Template controller
-        fTpos, fTorn = self.templateVF(t, p, dp, s, ds)
-        fAorn = -e3h @ Rb.T @ fTorn
-        return np.hstack((fTpos, fAorn))
+        # # Template controller <- LATEST
+        # fTpos, fTorn = self.templateVF(t, p, dp, s, ds)
+        # fAorn = -e3h @ Rb.T @ fTorn
+        # return np.hstack((fTpos, fAorn))
+
+        # Upright MPC
+        self.posdes = np.array([50,0,100])
+        # constant
+        smax = np.array([0.5, 0.5, 1.5])
+        smin = -smax
+        Qfdiag = [100, 100, 10, 100,100,100]
+        Rdiag = [10.0, 50, 50]
+        dt = 3
+        # Get vdes from kinematic model MPC
+        qM = np.hstack((p, s))
+        _, vM = self.umpc.update(qM, np.hstack((self.posdes, 0, 0, 1)), Qfdiag, Rdiag, smin, smax, dt, self.umpc.snom, self.umpc.vT0)
+        vM[0] = self.umpc.vT0
+        dqdesMPC = self.umpc.dynamicsNLVF(qM, vM)
+        # track with qdddes
+        ddqdesT = np.array([1, 1, 1, 1, 1, 1]) * (dqdesMPC - dq0)
+        return np.hstack((ddqdesT[:3], -e3h @ Rb.T @ ddqdesT[3:]))
 
         # # Here the u is Thrust,torques (quadrotor template)
         # pT = q0[:3]
