@@ -1,6 +1,7 @@
 import osqp
 import numpy as np
 import scipy.sparse as sp
+from scipy.spatial.transform import Rotation
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 from genqp import quadrotorNLDyn, skew, Ib
 
@@ -206,8 +207,9 @@ class UprightMPC2():
 
 def reactiveController(p, Rb, dq, pdes):
     # FIXME: copied from other file
-    sdes = np.clip(1e0 * (pdes - p) - 1e3 * dq[:3], np.full(3, -0.3), np.full(3, 0.3))
-    sdes[2] = 1
+    # sdes = np.clip(1e0 * (pdes - p) - 1e3 * dq[:3], np.full(3, -0.3), np.full(3, 0.3))
+    # sdes[2] = 1
+    sdes = np.array([0,0,1])
     omega = dq[3:]
     dp = dq[:3]
     s = Rb[:,2]
@@ -222,7 +224,7 @@ def reactiveController(p, Rb, dq, pdes):
 def controlTest(mdl, tend, dtsim=0.2):
     # Initial conditions
     p = np.array([0, 0, -1])
-    Rb = np.eye(3)
+    Rb = Rotation.from_euler('xyz', np.ones(3)).as_matrix()
     dq = np.zeros(6)
     dq[0] = 0.1
     pdes = np.zeros(3)

@@ -33,8 +33,8 @@ def quadrotorNLDyn(p, Rb, dq, u, dt):
     ddq = quadrotorNLVF(p, Rb, dq, u)
     # Euler integrate
     p2 = p + dt * dq[0:3]
-    # omegawhat = skew(dq[3:6])
-    omegawhat = Rb @ skew(dq[3:6]) @ Rb.T
+    omegawhat = skew(dq[3:6])
+    # omegawhat = Rb @ skew(dq[3:6]) @ Rb.T
     Rb2 = Rb @ expm(omegawhat * dt) # group stuff. need to confirm order
     dq2 = dq + dt * ddq
     return p2, Rb2, dq2
