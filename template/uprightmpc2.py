@@ -213,11 +213,12 @@ class UprightMPC2():
         s0s = [s0 for i in range(self.N)]
         Btau = (-R0 @ e3h @ self.Ibi)[:,:2] # no yaw torque
         Btaus = [Btau for i in range(self.N)]
+        ds0 = -R0 @ e3h @ dq0[3:6]
 
         ydes = np.hstack((pdes, 0, 0, 1))
         dydes = np.hstack((dpdes, 0, 0, 0))
 
-        self.prevsol = self.update(self.T0, s0s, Btaus, np.hstack((p0, s0)), dq0, ydes, dydes)
+        self.prevsol = self.update(self.T0, s0s, Btaus, np.hstack((p0, s0)), np.hstack((dq0[:3], ds0)), ydes, dydes)
         utilde = self.prevsol[2*ny*self.N : 2*ny*self.N+nu]
         self.T0 += utilde[0]
 
