@@ -233,7 +233,8 @@ def reactiveController(p, Rb, dq, pdes):
     fAorn = -e3h @ Rb.T @ fTorn
     return np.hstack((fz, fAorn[:2]))
 
-def controlTest(mdl, tend, dtsim=0.2):
+def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0):
+    """trajFreq in Hz, trajAmp in mm"""
     # Initial conditions
     p = np.array([0, 0, -1])
     Rb = Rotation.from_euler('xyz', np.ones(3)).as_matrix()
@@ -247,16 +248,20 @@ def controlTest(mdl, tend, dtsim=0.2):
     # for logging
     ys = np.zeros((Nt, 12))
     us = np.zeros((Nt, 3))
+    pdess = np.zeros((Nt, 3))
 
     for ti in range(Nt):
+        # Traj to follow
+        pdes[0] = trajAmp * np.sin(2 * np.pi * trajFreq * 1e-3 * tt[ti])
+
         # Call controller
-        u = mdl.update2(p, Rb, dq, pdes)
+        u = mdl.update2(p, Rb, dq, pdes) if useMPC else reactiveController(p, Rb, dq, pdes)
         # u = np.array([1,0.1,0])
-        # u = reactiveController(p, Rb, dq, pdes)
 
         p, Rb, dq = quadrotorNLDyn(p, Rb, dq, u, dtsim)
         ys[ti,:] = np.hstack((p, Rb[:,2], dq))
         us[ti,:] = u
+        pdess[ti,:] = pdes
     
     import matplotlib.pyplot as plt
 
@@ -264,14 +269,19 @@ def controlTest(mdl, tend, dtsim=0.2):
     ax = ax.ravel()
         
     ax[0].plot(tt, ys[:,:3])
+    ax[0].plot(tt, pdess[:,0], 'k--', alpha=0.3)
     ax[0].set_ylabel('p')
     ax[1].plot(tt, ys[:,3:6])
+    ax[1].axhline(y=0, color='k', alpha=0.3)
     ax[1].set_ylabel('s')
     ax[2].plot(tt, us)
+    ax[2].axhline(y=0, color='k', alpha=0.3)
     ax[2].set_ylabel('u')
     ax[3].plot(tt, ys[:,6:9])
+    ax[3].axhline(y=0, color='k', alpha=0.3)
     ax[3].set_ylabel('v')
     ax[4].plot(tt, ys[:,9:12])
+    ax[4].axhline(y=0, color='k', alpha=0.3)
     ax[4].set_ylabel('omega')
     fig.tight_layout()
     plt.show()
@@ -310,5 +320,5 @@ if __name__ == "__main__":
     up = UprightMPC2(N, dt, Qyr, Qyf, Qdyr, Qdyf, R, g, smin, smax)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
 
-    controlTest(up, 1000)
+    controlTest(up, 1000, useMPC=True, trajAmp=50, trajFreq=1)
 
