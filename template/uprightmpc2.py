@@ -278,7 +278,7 @@ def controlTest(mdl, tend, dtsim=0.2):
 
 if __name__ == "__main__":
     T0 = 0.5
-    dt = 2
+    dt = 5
     N = 3
     s0s = [[0.1,0.1,0.9] for i in range(N)]
     Btaus = [np.full((3,2),1.123) for i in range(N)]
@@ -310,5 +310,5 @@ if __name__ == "__main__":
     up = UprightMPC2(N, dt, Qyr, Qyf, Qdyr, Qdyf, R, g, smin, smax)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
 
-    controlTest(up, 2000)
+    controlTest(up, 1000)
 
