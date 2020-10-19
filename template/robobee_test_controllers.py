@@ -153,6 +153,7 @@ class WaypointHover(RobobeeController):
         self.posdes = np.array([0,0,150])
         dpdes = np.zeros(3)
         ddqdes = self.up.updateGetAccdes(p, Rb, dq0, self.posdes, dpdes)
+        ddqdes[:3] = Rb.T @ ddqdes[:3] # Convert to body frame?
         pdotdes = M0 @ ddqdes
         # print(pdotdes)
         return pdotdes
