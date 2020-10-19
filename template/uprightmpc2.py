@@ -161,7 +161,7 @@ def openLoopX(N, dt, T0, s0s, Btaus, y0, dy0, g):
     return x
 
 class UprightMPC2():
-    def __init__(self, N, dt, g, smin, smax, ws, womg, wpr, wpf, wvr, wvf, wthrust, wmom):
+    def __init__(self, N, dt, g, smin, smax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom):
         self.N = N
 
         nx = self.N * (2*ny + nu)
@@ -171,8 +171,8 @@ class UprightMPC2():
 
         Qyr = np.hstack((np.full(3,wpr), np.full(3,ws)))
         Qyf = np.hstack((np.full(3,wpf), np.full(3,ws)))
-        Qdyr = np.hstack((np.full(3,wvr), np.full(3,womg)))
-        Qdyf = np.hstack((np.full(3,wvf), np.full(3,womg)))
+        Qdyr = np.hstack((np.full(3,wvr), np.full(3,wds)))
+        Qdyf = np.hstack((np.full(3,wvf), np.full(3,wds)))
         R = np.hstack((wthrust,np.full(2,wmom)))
 
         self.dt = dt
@@ -308,7 +308,7 @@ if __name__ == "__main__":
 
     # weights
     ws = 1e1
-    womg = 1e3
+    wds = 1e3
     wpr = 1
     wpf = 5
     wvr = 1e3
@@ -321,7 +321,7 @@ if __name__ == "__main__":
     smin = np.array([-2,-2,0.5])
     smax = np.array([2,2,1.5])
 
-    up = UprightMPC2(N, dt, g, smin, smax, ws, womg, wpr, wpf, wvr, wvf, wthrust, wmom)
+    up = UprightMPC2(N, dt, g, smin, smax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
 
     controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
