@@ -19,7 +19,7 @@ def qpSetupDense(n, m):
 skew = lambda v : np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
 unskew = lambda M : np.array([M[2,1], M[0,2], M[1,0]])
     
-Ib = np.diag([1000,1000,1000]) # u[0] is mass-specific
+Ib = np.diag([3333,3333,1000]) # u[0] is mass-specific
 
 def quadrotorNLVF(p, Rb, dq, u):
     omega = dq[3:6] # spatial velocity; omegahat = Rdot*R^T

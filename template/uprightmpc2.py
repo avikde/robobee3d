@@ -308,7 +308,7 @@ if __name__ == "__main__":
     wvr = 1e3
     wvf = 2e3
     wthrust = 1e-1
-    wmom = 1e-1
+    wmom = 1e-2
 
     Qyr = np.hstack((np.full(3,wpr), np.full(3,ws)))
     Qyf = np.hstack((np.full(3,wpf), np.full(3,ws)))
