@@ -213,16 +213,27 @@ class UprightMPC2():
         s0s = [s0 for i in range(self.N)]
         Btau = (-R0 @ e3h @ self.Ibi)[:,:2] # no yaw torque
         Btaus = [Btau for i in range(self.N)]
-        ds0 = -R0 @ e3h @ dq0[3:6]
+        ds0 = -R0 @ e3h @ dq0[3:6] # omegaB
 
+        y0 = np.hstack((p0, s0))
+        dy0 = np.hstack((dq0[:3], ds0))
         ydes = np.hstack((pdes, 0, 0, 1))
         dydes = np.hstack((dpdes, 0, 0, 0))
 
-        self.prevsol = self.update(self.T0, s0s, Btaus, np.hstack((p0, s0)), np.hstack((dq0[:3], ds0)), ydes, dydes)
+        self.prevsol = self.update(self.T0, s0s, Btaus, y0, dy0, ydes, dydes)
         utilde = self.prevsol[2*ny*self.N : 2*ny*self.N+nu]
         self.T0 += utilde[0]
 
         return np.hstack((self.T0, utilde[1:]))
+    
+    def updateGetAccdes(self, p0, R0, dq0, pdes, dpdes):
+        # Version of above that computes the desired body frame acceleration
+        self.update2(p0, R0, dq0, pdes, dpdes)
+        dy1des = self.prevsol[ny*self.N : ny*self.N+ny] # from horiz
+        # Coordinate change for the velocity
+        bTw = lambda dq : np.hstack((R0.T @ dq[:3], dq[3:6]))
+        dq1des = np.hstack((dy1des[:3], e3h @ R0.T @ dy1des[3:6])) # NOTE omegaz is lost
+        return (bTw(dq1des) - bTw(dq0)) / self.dt
 
 def reactiveController(p, Rb, dq, pdes):
     # FIXME: copied from other file

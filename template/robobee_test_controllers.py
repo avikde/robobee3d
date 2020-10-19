@@ -152,7 +152,7 @@ class WaypointHover(RobobeeController):
         # Upright MPC
         self.posdes = np.array([50,0,100])
         dpdes = np.zeros(3)
-        u = self.up.update2(p, Rb, dq0, self.posdes, dpdes)
+        ddqdes = self.up.updateGetAccdes(p, Rb, dq0, self.posdes, dpdes)
         # TODO: 
 
         # Template controller <- LATEST
