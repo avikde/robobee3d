@@ -226,14 +226,17 @@ class UprightMPC2():
 
         return np.hstack((self.T0, utilde[1:]))
     
-    def updateGetAccdes(self, p0, R0, dq0, pdes, dpdes):
-        # Version of above that computes the desired body frame acceleration
-        self.update2(p0, R0, dq0, pdes, dpdes)
+    def getAccDes(self, R0, dq0):
         dy1des = self.prevsol[ny*self.N : ny*self.N+ny] # from horiz
         # Coordinate change for the velocity
         bTw = lambda dq : np.hstack((R0.T @ dq[:3], dq[3:6]))
         dq1des = np.hstack((dy1des[:3], e3h @ R0.T @ dy1des[3:6])) # NOTE omegaz is lost
         return (bTw(dq1des) - bTw(dq0)) / self.dt
+    
+    def updateGetAccdes(self, p0, R0, dq0, pdes, dpdes):
+        # Version of above that computes the desired body frame acceleration
+        self.update2(p0, R0, dq0, pdes, dpdes)
+        return self.getAccDes(R0, dq0)
 
 def reactiveController(p, Rb, dq, pdes):
     # FIXME: copied from other file
