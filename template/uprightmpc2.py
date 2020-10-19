@@ -207,9 +207,9 @@ class UprightMPC2():
 
 def reactiveController(p, Rb, dq, pdes):
     # FIXME: copied from other file
-    # sdes = np.clip(1e0 * (pdes - p) - 1e3 * dq[:3], np.full(3, -0.3), np.full(3, 0.3))
-    # sdes[2] = 1
-    sdes = np.array([0,0,1])
+    sdes = np.clip(1e-3 * (pdes - p) - 5e-1 * dq[:3], np.full(3, -0.5), np.full(3, 0.5))
+    sdes[2] = 1
+    # sdes = np.array([0,0,1])
     omega = dq[3:]
     dp = dq[:3]
     s = Rb[:,2]
@@ -284,5 +284,5 @@ if __name__ == "__main__":
     up = UprightMPC2(N, dt, Qyr, Qyf, Qdyr, Qdyf, R, g)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
 
-    controlTest(up, 1000)
+    controlTest(up, 2000)
 
