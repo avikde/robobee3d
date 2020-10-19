@@ -285,18 +285,18 @@ if __name__ == "__main__":
     y0 = np.random.rand(6)
     dy0 = np.random.rand(6)
     g = 9.81e-3
-    Qyr = np.array([100,100,10,1e1,1e1,1e1])
+    Qyr = np.array([10,10,10,1e1,1e1,1e1])
     Qyf = np.array([10,10,10,1e1,1e1,1e1])
-    Qdyr = np.array([1e3,1e3,1e3,1e0,1e0,1e0])
-    Qdyf = np.array([1e3,1e3,1e3,1e0,1e0,1e0])
+    Qdyr = np.array([1e3,1e3,1e3,1e3,1e3,1e3])
+    Qdyf = np.array([1e3,1e3,1e3,1e3,1e3,1e3])
     R = np.array([1e-1,1e-1,1e-1])
     ydes = np.zeros_like(y0)
     dydes = np.zeros_like(y0)
-    smin = np.array([-10,-10,0.5])
-    smax = np.array([10,10,1.5])
+    smin = np.array([-2,-2,0.5])
+    smax = np.array([2,2,1.5])
 
     up = UprightMPC2(N, dt, Qyr, Qyf, Qdyr, Qdyf, R, g, smin, smax)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
 
-    controlTest(up, 200)
+    controlTest(up, 300)
 
