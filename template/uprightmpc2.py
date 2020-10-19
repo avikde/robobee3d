@@ -228,10 +228,11 @@ class UprightMPC2():
     
     def getAccDes(self, R0, dq0):
         dy1des = self.prevsol[ny*self.N : ny*self.N+ny] # from horiz
-        # Coordinate change for the velocity
-        bTw = lambda dq : np.hstack((R0.T @ dq[:3], dq[3:6]))
+        # # Coordinate change for the velocity
+        # bTw = lambda dq : np.hstack((R0.T @ dq[:3], dq[3:6]))
         dq1des = np.hstack((dy1des[:3], e3h @ R0.T @ dy1des[3:6])) # NOTE omegaz is lost
-        return (bTw(dq1des) - bTw(dq0)) / self.dt
+        # return (bTw(dq1des) - bTw(dq0)) / self.dt
+        return (dq1des - dq0) / self.dt # return in world frame
     
     def updateGetAccdes(self, p0, R0, dq0, pdes, dpdes):
         # Version of above that computes the desired body frame acceleration
@@ -273,6 +274,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0):
     pdess = np.zeros((Nt, 3))
 
     trajOmg = 2 * np.pi * trajFreq * 1e-3 # to KHz, then to rad/ms
+    ddqdes = None # test integrate ddq sim below
 
     for ti in range(Nt):
         # Traj to follow
@@ -280,10 +282,15 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0):
         dpdes[0] = trajAmp * trajOmg * np.cos(trajOmg * tt[ti])
 
         # Call controller
-        u = mdl.update2(p, Rb, dq, pdes, dpdes) if useMPC else reactiveController(p, Rb, dq, pdes)
+        if useMPC:
+            u = mdl.update2(p, Rb, dq, pdes, dpdes)
+            # # Alternate simulation by integrating accDes
+            # ddqdes = mdl.getAccDes(Rb, dq)
+        else:
+            reactiveController(p, Rb, dq, pdes)
         # u = np.array([1,0.1,0])
 
-        p, Rb, dq = quadrotorNLDyn(p, Rb, dq, u, dtsim)
+        p, Rb, dq = quadrotorNLDyn(p, Rb, dq, u, dtsim, ddq=ddqdes)
         ys[ti,:] = np.hstack((p, Rb[:,2], dq))
         us[ti,:] = u
         pdess[ti,:] = pdes

@@ -29,8 +29,9 @@ def quadrotorNLVF(p, Rb, dq, u):
 
     return np.hstack((dv, domega))
 
-def quadrotorNLDyn(p, Rb, dq, u, dt):
-    ddq = quadrotorNLVF(p, Rb, dq, u)
+def quadrotorNLDyn(p, Rb, dq, u, dt, ddq=None):
+    if ddq is None:
+        ddq = quadrotorNLVF(p, Rb, dq, u)
     # Euler integrate
     p2 = p + dt * dq[0:3]
     omegawhat = skew(dq[3:6])
