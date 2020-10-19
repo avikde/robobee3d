@@ -285,11 +285,19 @@ if __name__ == "__main__":
     y0 = np.random.rand(6)
     dy0 = np.random.rand(6)
     g = 9.81e-3
-    Qyr = np.array([10,10,10,1e1,1e1,1e1])
-    Qyf = np.array([10,10,10,1e1,1e1,1e1])
-    Qdyr = np.array([1e3,1e3,1e3,1e3,1e3,1e3])
-    Qdyf = np.array([1e3,1e3,1e3,1e3,1e3,1e3])
-    R = np.array([1e-1,1e-1,1e-1])
+
+    # weights
+    ws = 1e1
+    womg = 1e3
+    wv = 1e3
+    wmom = 1e-1
+
+    Qyr = np.hstack((10,10,10, np.full(3,ws)))
+    Qyf = np.hstack((50,50,10, np.full(3,ws)))
+    Qdyr = np.hstack((np.full(3,wv), np.full(3,womg)))
+    Qdyf = np.hstack((np.full(3,wv), np.full(3,womg)))
+    R = np.hstack((1e-1,np.full(2,wmom)))
+    
     ydes = np.zeros_like(y0)
     dydes = np.zeros_like(y0)
     smin = np.array([-2,-2,0.5])
@@ -298,5 +306,5 @@ if __name__ == "__main__":
     up = UprightMPC2(N, dt, Qyr, Qyf, Qdyr, Qdyf, R, g, smin, smax)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
 
-    controlTest(up, 300)
+    controlTest(up, 1000)
 
