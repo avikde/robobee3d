@@ -38,7 +38,8 @@ def initConstraint(N, nx, nc):
     n1 = N*ny
     n2 = 2*N*ny
     # rows of A broken up:
-    nc1 = N*ny
+    nc1 = N*ny # after this; yddot dynamics
+    nc2 = 2*N*ny # after this; s lims
     
     for k in range(N):
         # ykp1 = yk + dt*dyk equations
@@ -54,32 +55,41 @@ def initConstraint(N, nx, nc):
             A[nc1 + k*ny:nc1 + (k+1)*ny, n1 + (k-1)*ny:n1 + (k)*ny] = np.eye(ny)
         if k>1:
             A[nc1 + k*ny:nc1 + (k+1)*ny, (k-2)*ny:(k-1)*ny] = getA0(T0*dt)
+        
+        # s lim
+        A[nc2+3*k : nc2+3*(k+1), k*ny+3:(k+1)*ny] = np.eye(3)
     
     return sp.csc_matrix(A), sp.csc_matrix(P)
 
-def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g):
+def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, smin, smax):
     nc = A.shape[0]
 
     # Update vector
-    lu = np.zeros(nc)
+    l = np.zeros(nc)
     y1 = y0 + dt * dy0
-    lu[:ny] = -y1
+    l[:ny] = -y1
     for k in range(N):
         if k == 0:
-            lu[ny*N+k*ny : ny*N+(k+1)*ny] = -dy0 - dt*getA0(T0) @ y0 - dt*c0(g)
+            l[ny*N+k*ny : ny*N+(k+1)*ny] = -dy0 - dt*getA0(T0) @ y0 - dt*c0(g)
         elif k == 1:
-            lu[ny*N+k*ny : ny*N+(k+1)*ny] = -dt*getA0(T0) @ y1 - dt*c0(g)
+            l[ny*N+k*ny : ny*N+(k+1)*ny] = -dt*getA0(T0) @ y1 - dt*c0(g)
         else:
-            lu[ny*N+k*ny : ny*N+(k+1)*ny] = -dt*c0(g)
+            l[ny*N+k*ny : ny*N+(k+1)*ny] = -dt*c0(g)
+    # copy for dynamics
+    u = np.copy(l)
+    # s lims
+    for k in range(N):
+        l[2*N*ny+3*k:2*N*ny+3*(k+1)] = smin
+        u[2*N*ny+3*k:2*N*ny+3*(k+1)] = smax
 
     # Left third
     AxidxT0dt = []
-    n2 = 2*ny + 3 # nnz in each block col on the left
+    n2 = 2*ny + 6 # nnz in each block col on the left
     for k in range(N-2):
-        AxidxT0dt += [n2*k + i for i in [8,11,14]]
+        AxidxT0dt += [n2*k + i for i in [8,12,16]]
 
     # Middle third
-    n1 = (2*N-1)*ny + (N-2)*3 # All the nnz in the left third
+    n1 = (2*N-1)*ny + (N-2)*3 + 3*N # All the nnz in the left third
     n2 = 3*ny # nnz in each of the first N-1 block cols in the middle third
     Axidxdt = []
     for k in range(N):
@@ -106,8 +116,8 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g):
     A.data[Axidxs0] = dt*np.hstack((s0s))
     A.data[AxidxBtau] = dt*np.hstack([np.ravel(Btau,order='F') for Btau in Btaus])
 
-    # print(A[:,36:42].toarray())
-    return A, lu
+    # print(A[:,:6].toarray())
+    return A, l, u
 
 def updateObjective(N, P, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes):
     P.data = np.hstack((
@@ -151,17 +161,19 @@ def openLoopX(N, dt, T0, s0s, Btaus, y0, dy0, g):
     return x
 
 class UprightMPC2():
-    def __init__(self, N, dt, Qyr, Qyf, Qdyr, Qdyf, R, g):
+    def __init__(self, N, dt, Qyr, Qyf, Qdyr, Qdyf, R, g, smin, smax):
         self.N = N
 
         nx = self.N * (2*ny + nu)
-        nc = 2*self.N*ny
+        nc = 2*self.N*ny + 3*self.N
 
         self.A, self.P = initConstraint(N, nx, nc)
 
         self.dt = dt
         self.Wts = [Qyr, Qyf, Qdyr, Qdyf, R]
         self.g = g
+        self.smin = smin
+        self.smax = smax
 
         # Create OSQP
         self.model = osqp.OSQP()
@@ -173,16 +185,16 @@ class UprightMPC2():
 
     def testDyn(self, T0sp, s0s, Btaus, y0, dy0):
         # Test
-        self.A, lu = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g)
+        self.A, l, u = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.smin, self.smax)
         xtest = openLoopX(self.N, self.dt, T0, s0s, Btaus, y0, dy0, self.g)
-        print(self.A @ xtest - lu)
+        print((self.A @ xtest - l)[:2*self.N*ny])
     
     def update(self, T0sp, s0s, Btaus, y0, dy0, ydes, dydes):
-        self.A, lu = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g)
+        self.A, l, u = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.smin, self.smax)
         self.P, q = updateObjective(self.N, self.P, *self.Wts, ydes, dydes)
         
         # OSQP solve ---
-        self.model.update(Px=self.P.data, Ax=self.A.data, q=q, l=lu, u=lu)
+        self.model.update(Px=self.P.data, Ax=self.A.data, q=q, l=l, u=u)
         res = self.model.solve()
         if 'solved' not in res.info.status:
             print(res.info.status)
@@ -238,9 +250,9 @@ def controlTest(mdl, tend, dtsim=0.2):
 
     for ti in range(Nt):
         # Call controller
-        # u = mdl.update2(p, Rb, dq, pdes)
+        u = mdl.update2(p, Rb, dq, pdes)
         # u = np.array([1,0.1,0])
-        u = reactiveController(p, Rb, dq, pdes)
+        # u = reactiveController(p, Rb, dq, pdes)
 
         p, Rb, dq = quadrotorNLDyn(p, Rb, dq, u, dtsim)
         ys[ti,:] = np.hstack((p, Rb[:,2], dq))
@@ -280,9 +292,11 @@ if __name__ == "__main__":
     R = np.array([1e-1,1e-1,1e-1])
     ydes = np.zeros_like(y0)
     dydes = np.zeros_like(y0)
+    smin = np.array([-10,-10,0.5])
+    smax = np.array([10,10,1.5])
 
-    up = UprightMPC2(N, dt, Qyr, Qyf, Qdyr, Qdyf, R, g)
+    up = UprightMPC2(N, dt, Qyr, Qyf, Qdyr, Qdyf, R, g, smin, smax)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
 
-    controlTest(up, 2000)
+    controlTest(up, 200)
 
