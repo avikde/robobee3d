@@ -150,15 +150,17 @@ class WaypointHover(RobobeeController):
         ds = -Rb @ e3h @ omega
 
         # Upright MPC
-        self.posdes = np.array([50,0,100])
+        self.posdes = np.array([0,0,150])
         dpdes = np.zeros(3)
         ddqdes = self.up.updateGetAccdes(p, Rb, dq0, self.posdes, dpdes)
-        # TODO: 
+        pdotdes = M0 @ ddqdes
+        # print(pdotdes)
+        return pdotdes
 
-        # Template controller <- LATEST
-        fTpos, fTorn = self.templateVF(t, p, dp, s, ds)
-        fAorn = -e3h @ Rb.T @ fTorn
-        return np.hstack((fTpos, fAorn))
+        # # Template controller <- LATEST
+        # fTpos, fTorn = self.templateVF(t, p, dp, s, ds)
+        # fAorn = -e3h @ Rb.T @ fTorn
+        # return np.hstack((fTpos, fAorn))
 
         # # Here the u is Thrust,torques (quadrotor template)
         # pT = q0[:3]
