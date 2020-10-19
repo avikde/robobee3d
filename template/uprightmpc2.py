@@ -204,6 +204,21 @@ class UprightMPC2():
 
         return np.hstack((self.T0, utilde[1:]))
 
+def reactiveController(p, Rb, dq, pdes):
+    # FIXME: copied from other file
+    sdes = np.clip(1e0 * (pdes - p) - 1e3 * dq[:3], np.full(3, -0.3), np.full(3, 0.3))
+    sdes[2] = 1
+    omega = dq[3:]
+    dp = dq[:3]
+    s = Rb[:,2]
+    ds = -Rb @ e3h @ omega
+    # Template controller <- LATEST
+    fz = 1e-1 * (pdes[2] - p[2]) - 1e0 * dq[2]
+    fTorn = 1e0 * (s - sdes) + 1e2 * ds
+    fTorn[2] = 0
+    fAorn = -e3h @ Rb.T @ fTorn
+    return np.hstack((fz, fAorn[:2]))
+
 def controlTest(mdl, tend, dtsim=0.2):
     # Initial conditions
     p = np.array([0, 0, -1])
@@ -221,8 +236,9 @@ def controlTest(mdl, tend, dtsim=0.2):
 
     for ti in range(Nt):
         # Call controller
-        u = mdl.update2(p, Rb, dq, pdes)
+        # u = mdl.update2(p, Rb, dq, pdes)
         # u = np.array([1,0.1,0])
+        u = reactiveController(p, Rb, dq, pdes)
 
         p, Rb, dq = quadrotorNLDyn(p, Rb, dq, u, dtsim)
         ys[ti,:] = np.hstack((p, Rb[:,2], dq))
@@ -266,5 +282,5 @@ if __name__ == "__main__":
     up = UprightMPC2(N, dt, Qyr, Qyf, Qdyr, Qdyf, R, g)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
 
-    controlTest(up, 100)
+    controlTest(up, 1000)
 
