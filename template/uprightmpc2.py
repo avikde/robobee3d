@@ -292,12 +292,12 @@ if __name__ == "__main__":
     wv = 1e3
     wmom = 1e-1
 
-    Qyr = np.hstack((10,10,10, np.full(3,ws)))
-    Qyf = np.hstack((50,50,10, np.full(3,ws)))
+    Qyr = np.hstack((1,1,1, np.full(3,ws)))
+    Qyf = np.hstack((5,5,5, np.full(3,ws)))
     Qdyr = np.hstack((np.full(3,wv), np.full(3,womg)))
-    Qdyf = np.hstack((np.full(3,wv), np.full(3,womg)))
+    Qdyf = np.hstack((1.5*np.full(3,wv), np.full(3,womg)))
     R = np.hstack((1e-1,np.full(2,wmom)))
-    
+
     ydes = np.zeros_like(y0)
     dydes = np.zeros_like(y0)
     smin = np.array([-2,-2,0.5])
@@ -306,5 +306,5 @@ if __name__ == "__main__":
     up = UprightMPC2(N, dt, Qyr, Qyf, Qdyr, Qdyf, R, g, smin, smax)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
 
-    controlTest(up, 1000)
+    controlTest(up, 2000)
 
