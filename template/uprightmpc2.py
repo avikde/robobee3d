@@ -201,7 +201,7 @@ class UprightMPC2():
 
         return res.x
     
-    def update2(self, p0, R0, dq0, pdes):
+    def update2(self, p0, R0, dq0, pdes, dpdes):
         # At current state
         s0 = np.copy(R0[:,2])
         s0s = [s0 for i in range(self.N)]
@@ -209,7 +209,7 @@ class UprightMPC2():
         Btaus = [Btau for i in range(self.N)]
 
         ydes = np.hstack((pdes, 0, 0, 1))
-        dydes = np.zeros(6)
+        dydes = np.hstack((dpdes, 0, 0, 0))
 
         self.prevsol = self.update(self.T0, s0s, Btaus, np.hstack((p0, s0)), dq0, ydes, dydes)
         utilde = self.prevsol[2*ny*self.N : 2*ny*self.N+nu]
@@ -241,6 +241,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0):
     dq = np.zeros(6)
     dq[0] = 0.1
     pdes = np.zeros(3)
+    dpdes = np.zeros(3)
     
     tt = np.arange(tend, step=dtsim)
     Nt = len(tt)
@@ -250,12 +251,15 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0):
     us = np.zeros((Nt, 3))
     pdess = np.zeros((Nt, 3))
 
+    trajOmg = 2 * np.pi * trajFreq * 1e-3 # to KHz, then to rad/ms
+
     for ti in range(Nt):
         # Traj to follow
-        pdes[0] = trajAmp * np.sin(2 * np.pi * trajFreq * 1e-3 * tt[ti])
+        pdes[0] = trajAmp * np.sin(trajOmg * tt[ti])
+        dpdes[0] = trajAmp * trajOmg * np.cos(trajOmg * tt[ti])
 
         # Call controller
-        u = mdl.update2(p, Rb, dq, pdes) if useMPC else reactiveController(p, Rb, dq, pdes)
+        u = mdl.update2(p, Rb, dq, pdes, dpdes) if useMPC else reactiveController(p, Rb, dq, pdes)
         # u = np.array([1,0.1,0])
 
         p, Rb, dq = quadrotorNLDyn(p, Rb, dq, u, dtsim)
@@ -320,5 +324,5 @@ if __name__ == "__main__":
     up = UprightMPC2(N, dt, Qyr, Qyf, Qdyr, Qdyf, R, g, smin, smax)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
 
-    controlTest(up, 1000, useMPC=True, trajAmp=50, trajFreq=1)
+    controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
 
