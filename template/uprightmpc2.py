@@ -289,14 +289,18 @@ if __name__ == "__main__":
     # weights
     ws = 1e1
     womg = 1e3
-    wv = 1e3
+    wpr = 1
+    wpf = 5
+    wvr = 1e3
+    wvf = 2e3
+    wthrust = 1e-1
     wmom = 1e-1
 
-    Qyr = np.hstack((1,1,1, np.full(3,ws)))
-    Qyf = np.hstack((5,5,5, np.full(3,ws)))
-    Qdyr = np.hstack((np.full(3,wv), np.full(3,womg)))
-    Qdyf = np.hstack((1.5*np.full(3,wv), np.full(3,womg)))
-    R = np.hstack((1e-1,np.full(2,wmom)))
+    Qyr = np.hstack((np.full(3,wpr), np.full(3,ws)))
+    Qyf = np.hstack((np.full(3,wpf), np.full(3,ws)))
+    Qdyr = np.hstack((np.full(3,wvr), np.full(3,womg)))
+    Qdyf = np.hstack((np.full(3,wvf), np.full(3,womg)))
+    R = np.hstack((wthrust,np.full(2,wmom)))
 
     ydes = np.zeros_like(y0)
     dydes = np.zeros_like(y0)
