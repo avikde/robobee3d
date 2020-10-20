@@ -6,9 +6,9 @@ from scipy.spatial.transform import Rotation
 from ca6dynamics import M
 
 def initLog():
-    return {'t': [], 'q': [], 'dq': [], 'u': [], 'pdes': []}
+    return {'t': [], 'q': [], 'dq': [], 'u': [], 'accdes': []}
 
-def appendLog(data, t, q, dq, u, pdes):
+def appendLog(data, t, q, dq, u, accdes):
     """rot can be any scipy rotation type"""
     lastT = -np.inf if len(data['t']) == 0 else data['t'][-1]
     if t - lastT >= 0.999:
@@ -16,7 +16,7 @@ def appendLog(data, t, q, dq, u, pdes):
         data['q'].append(np.copy(q))
         data['dq'].append(np.copy(dq))
         data['u'].append(np.copy(u))
-        data['pdes'].append(np.copy(pdes))
+        data['accdes'].append(np.copy(accdes))
     return data
 
 def saveLog(f1, data):
@@ -54,7 +54,8 @@ def defaultPlots(data, ca6log=False):
     qb = data['q'][:,-7:]
     dqb = data['dq'][:,-6:]
 
-    fig, ax = plt.subplots(6)
+    fig, ax = plt.subplots(3,2)
+    ax = ax.ravel()
     ax[0].plot(data['t'], qb[:,:3])
     ax[0].set_ylabel('pos [mm]')
 
@@ -62,11 +63,11 @@ def defaultPlots(data, ca6log=False):
     ax[1].plot(data['t'], eul)
     ax[1].set_ylabel('orn [rad]')
 
-    ax[2].plot(data['t'], data['pdes'][:,2], 'k--', alpha=0.3, label='des')
-    actMom = (M @ dqb.T).T
-    ax[2].plot(data['t'], actMom[:,2], label='act')
-    ax[2].set_ylabel('Momentum')
-    ax[2].legend()
+    ax[2].plot(data['t'], data['accdes'][:,:3])
+    # actMom = (M @ dqb.T).T
+    # ax[2].plot(data['t'], actMom[:,2], label='act')
+    ax[2].set_ylabel('Accdes pos')
+    # ax[2].legend()
 
     if ca6log:
         ax[3].plot(data['t'], data['u'][:,[0,3]])
@@ -96,6 +97,7 @@ def defaultPlots(data, ca6log=False):
         # ax[6].set_ylabel('Pitch')
 
     ax[-1].set_xlabel('Time [ms]')
+    fig.tight_layout()
 
 if __name__ == "__main__":
     data, ca6log = getData("")
