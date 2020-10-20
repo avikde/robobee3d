@@ -82,9 +82,9 @@ class WaypointHover(RobobeeController):
         ws = 1e1
         wds = 1e3
         wpr = 1
-        wpf = 5
-        wvr = 1e3
-        wvf = 2e3
+        wpf = 3
+        wvr = 2e3
+        wvf = 4e3
         wthrust = 1e-1
         wmom = 1e-2
         smin = np.array([-2,-2,0.5])
@@ -132,22 +132,17 @@ class WaypointHover(RobobeeController):
         s = Rb @ np.array([0,0,1])
         ds = -Rb @ e3h @ omega
 
-        # # Upright MPC
-        # self.posdes = np.array([0,0,150])
-        # dpdes = np.zeros(3)
-        # ddqdes = self.up.updateGetAccdes(p, Rb, dq0, self.posdes, dpdes)
-        # ddqdes[:3] = Rb.T @ ddqdes[:3] # Convert to body frame?
-        # pdotdes = M0 @ ddqdes
-        # # print(pdotdes)
-        # return pdotdes
+        # Upright MPC
+        self.posdes = np.array([0,0,150])
+        dpdes = np.zeros(3)
+        ddqdes = self.up.updateGetAccdes(p, Rb, dq0, self.posdes, dpdes)
+        ddqdes[:3] = Rb.T @ ddqdes[:3] # Convert to body frame?
+        return ddqdes
 
-        # Template controller <- LATEST
-        # uquad = reactiveController(p, Rb, np.asarray(dq0), np.array([0,0,150]),kpos=[1e-3,5e-1], kz=[1e-3,2e-1], ks=[0.3e-3,0.3e0])
-        # ddqquad = quadrotorNLVF(p, Rb, dq0, uquad)
-        # return ddqquad#np.hstack((0, 0, ureac[0], 0))
-        fTpos, fTorn = self.templateVF(t, p, dp, s, ds)
-        fAorn = -e3h @ Rb.T @ fTorn
-        return np.hstack((fTpos, fAorn))
+        # # Template controller <- LATEST
+        # fTpos, fTorn = self.templateVF(t, p, dp, s, ds)
+        # fAorn = -e3h @ Rb.T @ fTorn
+        # return np.hstack((fTpos, fAorn))
 
         # # Here the u is Thrust,torques (quadrotor template)
         # pT = q0[:3]
