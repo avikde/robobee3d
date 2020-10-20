@@ -263,13 +263,17 @@ def reactiveController(p, Rb, dq, pdes):
     fAorn = -e3h @ Rb.T @ fTorn
     return np.hstack((fz, fAorn[:2]))
 
-def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0):
+def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascentIC=False):
     """trajFreq in Hz, trajAmp in mm"""
     # Initial conditions
-    p = np.array([0, 0, -1])
-    Rb = Rotation.from_euler('xyz', np.ones(3)).as_matrix()
     dq = np.zeros(6)
     dq[0] = 0.1
+    if ascentIC:
+        p = np.array([0, 0, -50])
+        Rb = np.eye(3)
+    else:
+        p = np.array([0, 0, -1])
+        Rb = Rotation.from_euler('xyz', np.ones(3)).as_matrix()
     pdes = np.zeros(3)
     dpdes = np.zeros(3)
     
@@ -353,10 +357,15 @@ if __name__ == "__main__":
     dydes = np.zeros_like(y0)
     smin = np.array([-2,-2,0.5])
     smax = np.array([2,2,1.5])
-    TtoWmax = 3 # thrust-to-weight
+    TtoWmax = 2 # thrust-to-weight
 
     up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
 
-    controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
+    # # Hover
+    # controlTest(up, 500, useMPC=True)
+    # Ascent
+    controlTest(up, 500, useMPC=True, ascentIC=True)
+    # # Traj
+    # controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
 
