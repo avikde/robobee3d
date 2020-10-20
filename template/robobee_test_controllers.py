@@ -81,10 +81,11 @@ class WaypointHover(RobobeeController):
         g = 9.81e-3
         ws = 0.5e2
         wds = 5e3
-        wpr = 1.5e-1
-        wpf = 3e-1
-        wvr = 1.5e3
-        wvf = 3e3
+        #1.5,3 works for a x-axis traj (body frame), but the robot rolls more so need 1,2 for a y-axis traj
+        wpr = 1e-1
+        wpf = 2e-1
+        wvr = 1e3
+        wvf = 2e3
         wthrust = 1e-1
         wmom = 1e-2
         smin = np.array([-2,-2,0.5])
@@ -138,10 +139,12 @@ class WaypointHover(RobobeeController):
         trajAmp = 100
         trajFreq = 1
         trajOmg = 2 * np.pi * trajFreq * 1e-3 # to KHz, then to rad/ms
-        self.posdes[0] = trajAmp * np.sin(trajOmg * t)
-        dpdes[0] = trajAmp * trajOmg * np.cos(trajOmg * t)
+        # self.posdes[0] = trajAmp * np.sin(trajOmg * t)
+        # dpdes[0] = trajAmp * trajOmg * np.cos(trajOmg * t)
         self.posdes[2] = 100 + 0.1*t
         dpdes[2] = 0.1
+        self.posdes[1] = trajAmp * (1 - np.cos(trajOmg * t))
+        dpdes[1] = trajAmp * trajOmg * np.sin(trajOmg * t)
 
         ddqdes = self.up.updateGetAccdes(p, Rb, dq0, self.posdes, dpdes)
         # ddqdes[:3] = Rb.T @ ddqdes[:3] # Convert to body frame?

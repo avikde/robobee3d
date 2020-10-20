@@ -58,8 +58,9 @@ def defaultPlots(data, ca6log=False):
     fig, ax = plt.subplots(4,2)
     ax = ax.ravel()
     ax[0].plot(data['t'], qb[:,:3])
-    ax[0].plot(data['t'], data['posdes'][:,0], 'k--')
-    ax[0].plot(data['t'], data['posdes'][:,2], 'k--')
+    ax[0].plot(data['t'], data['posdes'][:,0], 'b--')
+    ax[0].plot(data['t'], data['posdes'][:,1], 'r--')
+    ax[0].plot(data['t'], data['posdes'][:,2], 'g--')
     ax[0].set_ylabel('pos [mm]')
 
     s = np.zeros((len(t), 3))
