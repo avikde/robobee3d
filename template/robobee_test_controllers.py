@@ -82,8 +82,8 @@ class WaypointHover(RobobeeController):
         ws = 0.5e2
         wds = 5e3
         #1.5,3 works for a x-axis traj (body frame), but the robot rolls more so need 1,2 for a y-axis traj
-        wpr = 1e-1
-        wpf = 2e-1
+        wpr = 5e-2
+        wpf = 1e-1
         wvr = 1e3
         wvf = 2e3
         wthrust = 1e-1
@@ -136,11 +136,11 @@ class WaypointHover(RobobeeController):
         # Upright MPC
         self.posdes = np.array([0,0,100])
         dpdes = np.zeros(3)
-        trajAmp = 100
+        trajAmp = 50
         trajFreq = 1
         trajOmg = 2 * np.pi * trajFreq * 1e-3 # to KHz, then to rad/ms
-        # self.posdes[0] = trajAmp * np.sin(trajOmg * t)
-        # dpdes[0] = trajAmp * trajOmg * np.cos(trajOmg * t)
+        self.posdes[0] = trajAmp * np.sin(trajOmg * t)
+        dpdes[0] = trajAmp * trajOmg * np.cos(trajOmg * t)
         self.posdes[2] = 100 + 0.1*t
         dpdes[2] = 0.1
         self.posdes[1] = trajAmp * (1 - np.cos(trajOmg * t))
