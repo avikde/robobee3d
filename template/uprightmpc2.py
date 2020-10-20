@@ -267,13 +267,13 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     """trajFreq in Hz, trajAmp in mm"""
     # Initial conditions
     dq = np.zeros(6)
-    dq[0] = 0.1
     if ascentIC:
         p = np.array([0, 0, -50])
         Rb = np.eye(3)
     else:
         p = np.array([0, 0, -1])
         Rb = Rotation.from_euler('xyz', np.ones(3)).as_matrix()
+        dq[0] = 0.1
     pdes = np.zeros(3)
     dpdes = np.zeros(3)
     
@@ -284,6 +284,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     ys = np.zeros((Nt, 12))
     us = np.zeros((Nt, 3))
     pdess = np.zeros((Nt, 3))
+    accdess = np.zeros((Nt,6))
 
     trajOmg = 2 * np.pi * trajFreq * 1e-3 # to KHz, then to rad/ms
     ddqdes = None # test integrate ddq sim below
@@ -296,8 +297,9 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
         # Call controller
         if useMPC:
             u = mdl.update2(p, Rb, dq, pdes, dpdes)
+            accdess[ti,:] = mdl.getAccDes(Rb, dq)
             # # Alternate simulation by integrating accDes
-            # ddqdes = mdl.getAccDes(Rb, dq)
+            # ddqdes = accdess[ti,:]
         else:
             reactiveController(p, Rb, dq, pdes)
         # u = np.array([1,0.1,0])
@@ -309,7 +311,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots(3,2)
+    fig, ax = plt.subplots(4,2)
     ax = ax.ravel()
         
     ax[0].plot(tt, ys[:,:3])
@@ -330,6 +332,12 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     ax[5].plot(tt, ys[:,9:12])
     ax[5].axhline(y=0, color='k', alpha=0.3)
     ax[5].set_ylabel('omega')
+    ax[6].plot(tt, accdess[:,:3])
+    ax[6].axhline(y=0, color='k', alpha=0.3)
+    ax[6].set_ylabel('accdes pos')
+    ax[7].plot(tt, accdess[:,3:])
+    ax[7].axhline(y=0, color='k', alpha=0.3)
+    ax[7].set_ylabel('accdes ang')
     fig.tight_layout()
     plt.show()
 
