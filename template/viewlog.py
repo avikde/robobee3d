@@ -59,6 +59,7 @@ def defaultPlots(data, ca6log=False):
     ax = ax.ravel()
     ax[0].plot(data['t'], qb[:,:3])
     ax[0].plot(data['t'], data['posdes'][:,0], 'k--')
+    ax[0].plot(data['t'], data['posdes'][:,2], 'k--')
     ax[0].set_ylabel('pos [mm]')
 
     s = np.zeros((len(t), 3))
