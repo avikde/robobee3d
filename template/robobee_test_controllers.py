@@ -79,8 +79,8 @@ class WaypointHover(RobobeeController):
         dt = 5
         N = 3
         g = 9.81e-3
-        ws = 1e2
-        wds = 1e4
+        ws = 0.5e2
+        wds = 1e3
         wpr = 1e-1
         wpf = 2e-1
         wvr = 1e3
