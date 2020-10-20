@@ -82,8 +82,8 @@ class WaypointHover(RobobeeController):
         ws = 0.5e2
         wds = 5e3
         #1.5,3 works for a x-axis traj (body frame), but the robot rolls more so need 1,2 for a y-axis traj
-        wpr = 5e-2
-        wpf = 1e-1
+        wpr = 1e-1
+        wpf = 2e-2
         wvr = 1e3
         wvf = 2e3
         wthrust = 1e-1
