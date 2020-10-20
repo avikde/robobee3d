@@ -40,6 +40,7 @@ def initConstraint(N, nx, nc):
     # rows of A broken up:
     nc1 = N*ny # after this; yddot dynamics
     nc2 = 2*N*ny # after this; s lims
+    nc3 = 2*N*ny + 3*N # after this; thrust lims
     
     for k in range(N):
         # ykp1 = yk + dt*dyk equations
@@ -58,10 +59,12 @@ def initConstraint(N, nx, nc):
         
         # s lim
         A[nc2+3*k : nc2+3*(k+1), k*ny+3:(k+1)*ny] = np.eye(3)
+        # thrust lim
+        A[nc3+k, n2+3*k] = 1
     
     return sp.csc_matrix(A), sp.csc_matrix(P)
 
-def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, smin, smax):
+def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, smin, smax, Tmax):
     nc = A.shape[0]
 
     # Update vector
@@ -81,6 +84,10 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, smin, smax):
     for k in range(N):
         l[2*N*ny+3*k:2*N*ny+3*(k+1)] = smin
         u[2*N*ny+3*k:2*N*ny+3*(k+1)] = smax
+    # thrust lims
+    for k in range(N):
+        l[2*N*ny+3*N+k] = -T0
+        u[2*N*ny+3*N+k] = Tmax-T0
 
     # Left third
     AxidxT0dt = []
@@ -100,12 +107,12 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, smin, smax):
     
     # Right third
     n1 += 3*ny*(N-1) + 2*ny # all nnz in the left and middle third
-    n2 = 9 # nnz in each B0
+    n2 = 10 # nnz in each B0 + 1 for thrust lim
     Axidxs0 = []
     AxidxBtau = []
     for k in range(N):
         Axidxs0 += [n1 + n2*k + i for i in range(3)]
-        AxidxBtau += [n1 + n2*k + 3 + i for i in range(6)]
+        AxidxBtau += [n1 + n2*k + 4 + i for i in range(6)]
 
     # Last check
     assert A.nnz == n1 + n2*N
@@ -116,7 +123,7 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, smin, smax):
     A.data[Axidxs0] = dt*np.hstack((s0s))
     A.data[AxidxBtau] = dt*np.hstack([np.ravel(Btau,order='F') for Btau in Btaus])
 
-    # print(A[:,:6].toarray())
+    # print(A[:,2*N*ny:2*N*ny+6].toarray())
     return A, l, u
 
 def updateObjective(N, P, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes):
@@ -161,11 +168,11 @@ def openLoopX(N, dt, T0, s0s, Btaus, y0, dy0, g):
     return x
 
 class UprightMPC2():
-    def __init__(self, N, dt, g, smin, smax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom):
+    def __init__(self, N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom):
         self.N = N
 
         nx = self.N * (2*ny + nu)
-        nc = 2*self.N*ny + 3*self.N
+        nc = 2*self.N*ny + 4*self.N
 
         self.A, self.P = initConstraint(N, nx, nc)
 
@@ -180,6 +187,7 @@ class UprightMPC2():
         self.g = g
         self.smin = smin
         self.smax = smax
+        self.Tmax = TtoWmax * g # use thrust-to-weight ratio to set max specific thrust
 
         # Create OSQP
         self.model = osqp.OSQP()
@@ -191,12 +199,12 @@ class UprightMPC2():
 
     def testDyn(self, T0sp, s0s, Btaus, y0, dy0):
         # Test
-        self.A, l, u = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.smin, self.smax)
+        self.A, l, u = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.smin, self.smax, self.Tmax)
         xtest = openLoopX(self.N, self.dt, T0, s0s, Btaus, y0, dy0, self.g)
         print((self.A @ xtest - l)[:2*self.N*ny])
     
     def update(self, T0sp, s0s, Btaus, y0, dy0, ydes, dydes):
-        self.A, l, u = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.smin, self.smax)
+        self.A, l, u = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.smin, self.smax, self.Tmax)
         self.P, q = updateObjective(self.N, self.P, *self.Wts, ydes, dydes)
         
         # OSQP solve ---
@@ -306,15 +314,18 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0):
     ax[1].plot(tt, ys[:,3:6])
     ax[1].axhline(y=0, color='k', alpha=0.3)
     ax[1].set_ylabel('s')
-    ax[2].plot(tt, us)
+    ax[2].plot(tt, us[:,0])
     ax[2].axhline(y=0, color='k', alpha=0.3)
-    ax[2].set_ylabel('u')
-    ax[3].plot(tt, ys[:,6:9])
+    ax[2].set_ylabel('Sp. thrust')
+    ax[3].plot(tt, us[:,1:])
     ax[3].axhline(y=0, color='k', alpha=0.3)
-    ax[3].set_ylabel('v')
-    ax[4].plot(tt, ys[:,9:12])
+    ax[3].set_ylabel('Moments')
+    ax[4].plot(tt, ys[:,6:9])
     ax[4].axhline(y=0, color='k', alpha=0.3)
-    ax[4].set_ylabel('omega')
+    ax[4].set_ylabel('v')
+    ax[5].plot(tt, ys[:,9:12])
+    ax[5].axhline(y=0, color='k', alpha=0.3)
+    ax[5].set_ylabel('omega')
     fig.tight_layout()
     plt.show()
 
@@ -342,8 +353,9 @@ if __name__ == "__main__":
     dydes = np.zeros_like(y0)
     smin = np.array([-2,-2,0.5])
     smax = np.array([2,2,1.5])
+    TtoWmax = 3 # thrust-to-weight
 
-    up = UprightMPC2(N, dt, g, smin, smax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
+    up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
 
     controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
