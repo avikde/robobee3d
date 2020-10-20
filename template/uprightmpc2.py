@@ -247,9 +247,9 @@ class UprightMPC2():
         self.update2(p0, R0, dq0, pdes, dpdes)
         return self.getAccDes(R0, dq0)
 
-def reactiveController(p, Rb, dq, pdes):
-    # FIXME: copied from other file
-    sdes = np.clip(1e-3 * (pdes - p) - 5e-1 * dq[:3], np.full(3, -0.5), np.full(3, 0.5))
+def reactiveController(p, Rb, dq, pdes, kpos=[1e-3,5e-1], kz=[1e-1,1e0], ks=[1e0,1e2]):
+    # Pakpong-style reactive controller
+    sdes = np.clip(kpos[0] * (pdes - p) - kpos[1] * dq[:3], np.full(3, -0.5), np.full(3, 0.5))
     sdes[2] = 1
     # sdes = np.array([0,0,1])
     omega = dq[3:]
@@ -257,8 +257,8 @@ def reactiveController(p, Rb, dq, pdes):
     s = Rb[:,2]
     ds = -Rb @ e3h @ omega
     # Template controller <- LATEST
-    fz = 1e-1 * (pdes[2] - p[2]) - 1e0 * dq[2]
-    fTorn = 1e0 * (s - sdes) + 1e2 * ds
+    fz = kz[0] * (pdes[2] - p[2]) - kz[1] * dq[2]
+    fTorn = ks[0] * (s - sdes) + ks[1] * ds
     fTorn[2] = 0
     fAorn = -e3h @ Rb.T @ fTorn
     return np.hstack((fz, fAorn[:2]))
