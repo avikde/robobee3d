@@ -92,7 +92,7 @@ class WaypointHover(RobobeeController):
         TtoWmax = 3
         self.up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
 
-    def templateVF(self, t, p, dp, s, ds, kpos=[1e-4,1e0], kz=[1e-1,1e1], ks=[10,1e3]):
+    def templateVF(self, t, p, dp, s, ds, kpos=[1e-3,5e-1], kz=[1e-3,2e-1], ks=[0.3e-3,0.3e0]):
         # TEST
         trajomg = 5e-3
         # self.posdes = np.array([50 * np.sin(trajomg * t),0,100])
@@ -142,9 +142,9 @@ class WaypointHover(RobobeeController):
         # return pdotdes
 
         # Template controller <- LATEST
-        # uquad = reactiveController(p, Rb, np.asarray(dq0), np.array([0,0,150]))
+        # uquad = reactiveController(p, Rb, np.asarray(dq0), np.array([0,0,150]),kpos=[1e-3,5e-1], kz=[1e-3,2e-1], ks=[0.3e-3,0.3e0])
         # ddqquad = quadrotorNLVF(p, Rb, dq0, uquad)
-        # return 1e-3*ddqquad#np.hstack((0, 0, ureac[0], 0))
+        # return ddqquad#np.hstack((0, 0, ureac[0], 0))
         fTpos, fTorn = self.templateVF(t, p, dp, s, ds)
         fAorn = -e3h @ Rb.T @ fTorn
         return np.hstack((fTpos, fAorn))
@@ -168,7 +168,7 @@ class WaypointHover(RobobeeController):
 
         M0, h0 = dynamicsTerms(qb, dqb)
         self.accdes = self.accReference(t, qb, dqb)
-        self.u4 = self.wl.update(self.u4, h0, self.accdes)
+        self.u4 = self.wl.update(self.u4, h0, M0 @ self.accdes)
 
         Vmean, uoffs, udiff, h2 = self.u4
         # # test

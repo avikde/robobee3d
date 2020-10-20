@@ -301,7 +301,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
             # # Alternate simulation by integrating accDes
             # ddqdes = accdess[ti,:]
         else:
-            reactiveController(p, Rb, dq, pdes)
+            u = reactiveController(p, Rb, dq, pdes)
         # u = np.array([1,0.1,0])
 
         p, Rb, dq = quadrotorNLDyn(p, Rb, dq, u, dtsim, ddq=ddqdes)
