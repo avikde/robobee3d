@@ -92,7 +92,7 @@ class WaypointHover(RobobeeController):
         TtoWmax = 3
         self.up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
 
-    def templateVF(self, t, p, dp, s, ds):
+    def templateVF(self, t, p, dp, s, ds, kpos=[1e-4,1e0], kz=[1e-1,1e1], ks=[10,1e3]):
         # TEST
         trajomg = 5e-3
         # self.posdes = np.array([50 * np.sin(trajomg * t),0,100])
@@ -104,15 +104,15 @@ class WaypointHover(RobobeeController):
         sdes = np.zeros(3)
         pos2err = p[0:2] - self.posdes[0:2]
         dpos2err = dp[0:2] - dposdes[:2]
-        sdes[0:2] = -1e-4 * pos2err - 1e0 * dpos2err
+        sdes[0:2] = -kpos[0] * pos2err - kpos[1] * dpos2err
         # if self.printCtr == 0:
         #     print(self.posdes[:2], pos2err, self.pos2errI, sdes[:2],  -1e-1 * pos2err, - 1e-1 * dp[0:2],  - 1e0 * self.pos2errI)
         sdes[0:2] = np.clip(sdes[0:2], -0.5 * np.ones(2), 0.5 * np.ones(2))
-        fTorn = 10 * (s - sdes) + 1e3 * ds
+        fTorn = ks[0] * (s - sdes) + ks[1] * ds
         fTorn[2] = 0 # z element
 
         # for position z
-        fTpos = 1e-1 * (self.posdes - p) - 1e1 * dp
+        fTpos = kz[0] * (self.posdes - p) - kz[1] * dp
         fTpos[:2] = np.array([0,0])
 
         return fTpos, fTorn
