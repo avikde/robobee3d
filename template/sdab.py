@@ -45,7 +45,7 @@ try:
         controller.posdes = traj(bee.simt)
         tau = controller.update(*ss)
         # Also log the 4-dim u
-        data = viewlog.appendLog(data, *ss, np.hstack((tau, controller.u4)), controller.pdes) # log
+        data = viewlog.appendLog(data, *ss, np.hstack((tau, controller.u4)), controller.accdes, controller.posdes) # log
         
         bee.update(tau)#, testF=[P('testFL'), P('testFR')])
 

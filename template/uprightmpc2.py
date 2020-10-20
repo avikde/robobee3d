@@ -40,6 +40,7 @@ def initConstraint(N, nx, nc):
     # rows of A broken up:
     nc1 = N*ny # after this; yddot dynamics
     nc2 = 2*N*ny # after this; s lims
+    nc3 = 2*N*ny + 3*N # after this; thrust lims
     
     for k in range(N):
         # ykp1 = yk + dt*dyk equations
@@ -58,10 +59,12 @@ def initConstraint(N, nx, nc):
         
         # s lim
         A[nc2+3*k : nc2+3*(k+1), k*ny+3:(k+1)*ny] = np.eye(3)
+        # thrust lim
+        A[nc3+k, n2+3*k] = 1
     
     return sp.csc_matrix(A), sp.csc_matrix(P)
 
-def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, smin, smax):
+def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, smin, smax, Tmax):
     nc = A.shape[0]
 
     # Update vector
@@ -81,6 +84,10 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, smin, smax):
     for k in range(N):
         l[2*N*ny+3*k:2*N*ny+3*(k+1)] = smin
         u[2*N*ny+3*k:2*N*ny+3*(k+1)] = smax
+    # thrust lims
+    for k in range(N):
+        l[2*N*ny+3*N+k] = -T0
+        u[2*N*ny+3*N+k] = Tmax-T0
 
     # Left third
     AxidxT0dt = []
@@ -100,12 +107,12 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, smin, smax):
     
     # Right third
     n1 += 3*ny*(N-1) + 2*ny # all nnz in the left and middle third
-    n2 = 9 # nnz in each B0
+    n2 = 10 # nnz in each B0 + 1 for thrust lim
     Axidxs0 = []
     AxidxBtau = []
     for k in range(N):
         Axidxs0 += [n1 + n2*k + i for i in range(3)]
-        AxidxBtau += [n1 + n2*k + 3 + i for i in range(6)]
+        AxidxBtau += [n1 + n2*k + 4 + i for i in range(6)]
 
     # Last check
     assert A.nnz == n1 + n2*N
@@ -116,7 +123,7 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, smin, smax):
     A.data[Axidxs0] = dt*np.hstack((s0s))
     A.data[AxidxBtau] = dt*np.hstack([np.ravel(Btau,order='F') for Btau in Btaus])
 
-    # print(A[:,:6].toarray())
+    # print(A[:,2*N*ny:2*N*ny+6].toarray())
     return A, l, u
 
 def updateObjective(N, P, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes):
@@ -161,19 +168,26 @@ def openLoopX(N, dt, T0, s0s, Btaus, y0, dy0, g):
     return x
 
 class UprightMPC2():
-    def __init__(self, N, dt, Qyr, Qyf, Qdyr, Qdyf, R, g, smin, smax):
+    def __init__(self, N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom):
         self.N = N
 
         nx = self.N * (2*ny + nu)
-        nc = 2*self.N*ny + 3*self.N
+        nc = 2*self.N*ny + 4*self.N
 
         self.A, self.P = initConstraint(N, nx, nc)
+
+        Qyr = np.hstack((np.full(3,wpr), np.full(3,ws)))
+        Qyf = np.hstack((np.full(3,wpf), np.full(3,ws)))
+        Qdyr = np.hstack((np.full(3,wvr), np.full(3,wds)))
+        Qdyf = np.hstack((np.full(3,wvf), np.full(3,wds)))
+        R = np.hstack((wthrust,np.full(2,wmom)))
 
         self.dt = dt
         self.Wts = [Qyr, Qyf, Qdyr, Qdyf, R]
         self.g = g
         self.smin = smin
         self.smax = smax
+        self.Tmax = TtoWmax * g # use thrust-to-weight ratio to set max specific thrust
 
         # Create OSQP
         self.model = osqp.OSQP()
@@ -185,12 +199,12 @@ class UprightMPC2():
 
     def testDyn(self, T0sp, s0s, Btaus, y0, dy0):
         # Test
-        self.A, l, u = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.smin, self.smax)
+        self.A, l, u = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.smin, self.smax, self.Tmax)
         xtest = openLoopX(self.N, self.dt, T0, s0s, Btaus, y0, dy0, self.g)
         print((self.A @ xtest - l)[:2*self.N*ny])
     
     def update(self, T0sp, s0s, Btaus, y0, dy0, ydes, dydes):
-        self.A, l, u = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.smin, self.smax)
+        self.A, l, u = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.smin, self.smax, self.Tmax)
         self.P, q = updateObjective(self.N, self.P, *self.Wts, ydes, dydes)
         
         # OSQP solve ---
@@ -207,19 +221,35 @@ class UprightMPC2():
         s0s = [s0 for i in range(self.N)]
         Btau = (-R0 @ e3h @ self.Ibi)[:,:2] # no yaw torque
         Btaus = [Btau for i in range(self.N)]
+        ds0 = -R0 @ e3h @ dq0[3:6] # omegaB
 
+        y0 = np.hstack((p0, s0))
+        dy0 = np.hstack((dq0[:3], ds0))
         ydes = np.hstack((pdes, 0, 0, 1))
         dydes = np.hstack((dpdes, 0, 0, 0))
 
-        self.prevsol = self.update(self.T0, s0s, Btaus, np.hstack((p0, s0)), dq0, ydes, dydes)
+        self.prevsol = self.update(self.T0, s0s, Btaus, y0, dy0, ydes, dydes)
         utilde = self.prevsol[2*ny*self.N : 2*ny*self.N+nu]
         self.T0 += utilde[0]
 
         return np.hstack((self.T0, utilde[1:]))
+    
+    def getAccDes(self, R0, dq0):
+        dy1des = self.prevsol[ny*self.N : ny*self.N+ny] # from horiz
+        # # Coordinate change for the velocity
+        # bTw = lambda dq : np.hstack((R0.T @ dq[:3], dq[3:6]))
+        dq1des = np.hstack((dy1des[:3], e3h @ R0.T @ dy1des[3:6])) # NOTE omegaz is lost
+        # return (bTw(dq1des) - bTw(dq0)) / self.dt
+        return (dq1des - dq0) / self.dt # return in world frame
+    
+    def updateGetAccdes(self, p0, R0, dq0, pdes, dpdes):
+        # Version of above that computes the desired body frame acceleration
+        self.update2(p0, R0, dq0, pdes, dpdes)
+        return self.getAccDes(R0, dq0)
 
-def reactiveController(p, Rb, dq, pdes):
-    # FIXME: copied from other file
-    sdes = np.clip(1e-3 * (pdes - p) - 5e-1 * dq[:3], np.full(3, -0.5), np.full(3, 0.5))
+def reactiveController(p, Rb, dq, pdes, kpos=[1e-3,5e-1], kz=[1e-1,1e0], ks=[1e0,1e2]):
+    # Pakpong-style reactive controller
+    sdes = np.clip(kpos[0] * (pdes - p) - kpos[1] * dq[:3], np.full(3, -0.5), np.full(3, 0.5))
     sdes[2] = 1
     # sdes = np.array([0,0,1])
     omega = dq[3:]
@@ -227,19 +257,23 @@ def reactiveController(p, Rb, dq, pdes):
     s = Rb[:,2]
     ds = -Rb @ e3h @ omega
     # Template controller <- LATEST
-    fz = 1e-1 * (pdes[2] - p[2]) - 1e0 * dq[2]
-    fTorn = 1e0 * (s - sdes) + 1e2 * ds
+    fz = kz[0] * (pdes[2] - p[2]) - kz[1] * dq[2]
+    fTorn = ks[0] * (s - sdes) + ks[1] * ds
     fTorn[2] = 0
     fAorn = -e3h @ Rb.T @ fTorn
     return np.hstack((fz, fAorn[:2]))
 
-def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0):
+def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascentIC=False):
     """trajFreq in Hz, trajAmp in mm"""
     # Initial conditions
-    p = np.array([0, 0, -1])
-    Rb = Rotation.from_euler('xyz', np.ones(3)).as_matrix()
     dq = np.zeros(6)
-    dq[0] = 0.1
+    if ascentIC:
+        p = np.array([0, 0, -50])
+        Rb = np.eye(3)
+    else:
+        p = np.array([0, 0, 0])
+        Rb = Rotation.from_euler('xyz', [0.5,-0.5,0]).as_matrix()
+        # dq[0] = 0.1
     pdes = np.zeros(3)
     dpdes = np.zeros(3)
     
@@ -250,8 +284,10 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0):
     ys = np.zeros((Nt, 12))
     us = np.zeros((Nt, 3))
     pdess = np.zeros((Nt, 3))
+    accdess = np.zeros((Nt,6))
 
     trajOmg = 2 * np.pi * trajFreq * 1e-3 # to KHz, then to rad/ms
+    ddqdes = None # test integrate ddq sim below
 
     for ti in range(Nt):
         # Traj to follow
@@ -259,17 +295,23 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0):
         dpdes[0] = trajAmp * trajOmg * np.cos(trajOmg * tt[ti])
 
         # Call controller
-        u = mdl.update2(p, Rb, dq, pdes, dpdes) if useMPC else reactiveController(p, Rb, dq, pdes)
+        if useMPC:
+            u = mdl.update2(p, Rb, dq, pdes, dpdes)
+            accdess[ti,:] = mdl.getAccDes(Rb, dq)
+            # # Alternate simulation by integrating accDes
+            # ddqdes = accdess[ti,:]
+        else:
+            u = reactiveController(p, Rb, dq, pdes)
         # u = np.array([1,0.1,0])
 
-        p, Rb, dq = quadrotorNLDyn(p, Rb, dq, u, dtsim)
+        p, Rb, dq = quadrotorNLDyn(p, Rb, dq, u, dtsim, ddq=ddqdes)
         ys[ti,:] = np.hstack((p, Rb[:,2], dq))
         us[ti,:] = u
         pdess[ti,:] = pdes
     
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots(3,2)
+    fig, ax = plt.subplots(4,2)
     ax = ax.ravel()
         
     ax[0].plot(tt, ys[:,:3])
@@ -278,15 +320,24 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0):
     ax[1].plot(tt, ys[:,3:6])
     ax[1].axhline(y=0, color='k', alpha=0.3)
     ax[1].set_ylabel('s')
-    ax[2].plot(tt, us)
+    ax[2].plot(tt, us[:,0])
     ax[2].axhline(y=0, color='k', alpha=0.3)
-    ax[2].set_ylabel('u')
-    ax[3].plot(tt, ys[:,6:9])
+    ax[2].set_ylabel('Sp. thrust')
+    ax[3].plot(tt, us[:,1:])
     ax[3].axhline(y=0, color='k', alpha=0.3)
-    ax[3].set_ylabel('v')
-    ax[4].plot(tt, ys[:,9:12])
+    ax[3].set_ylabel('Moments')
+    ax[4].plot(tt, ys[:,6:9])
     ax[4].axhline(y=0, color='k', alpha=0.3)
-    ax[4].set_ylabel('omega')
+    ax[4].set_ylabel('v')
+    ax[5].plot(tt, ys[:,9:12])
+    ax[5].axhline(y=0, color='k', alpha=0.3)
+    ax[5].set_ylabel('omega')
+    ax[6].plot(tt, accdess[:,:3])
+    ax[6].axhline(y=0, color='k', alpha=0.3)
+    ax[6].set_ylabel('accdes pos')
+    ax[7].plot(tt, accdess[:,3:])
+    ax[7].axhline(y=0, color='k', alpha=0.3)
+    ax[7].set_ylabel('accdes ang')
     fig.tight_layout()
     plt.show()
 
@@ -302,27 +353,27 @@ if __name__ == "__main__":
 
     # weights
     ws = 1e1
-    womg = 1e3
+    wds = 1e3
     wpr = 1
     wpf = 5
     wvr = 1e3
     wvf = 2e3
     wthrust = 1e-1
-    wmom = 1e-1
-
-    Qyr = np.hstack((np.full(3,wpr), np.full(3,ws)))
-    Qyf = np.hstack((np.full(3,wpf), np.full(3,ws)))
-    Qdyr = np.hstack((np.full(3,wvr), np.full(3,womg)))
-    Qdyf = np.hstack((np.full(3,wvf), np.full(3,womg)))
-    R = np.hstack((wthrust,np.full(2,wmom)))
+    wmom = 1e-2
 
     ydes = np.zeros_like(y0)
     dydes = np.zeros_like(y0)
     smin = np.array([-2,-2,0.5])
     smax = np.array([2,2,1.5])
+    TtoWmax = 2 # thrust-to-weight
 
-    up = UprightMPC2(N, dt, Qyr, Qyf, Qdyr, Qdyf, R, g, smin, smax)
+    up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
 
+    # # Hover
+    # controlTest(up, 500, useMPC=True)
+    # # Ascent
+    # controlTest(up, 500, useMPC=True, ascentIC=True)
+    # Traj
     controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
 

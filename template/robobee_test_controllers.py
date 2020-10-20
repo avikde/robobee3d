@@ -5,7 +5,8 @@ from scipy.spatial.transform import Rotation
 from ca6dynamics import dynamicsTerms
 from wlqppy import WLController
 import valuefunc
-from genqp import UprightMPC
+from uprightmpc2 import UprightMPC2, reactiveController
+from genqp import quadrotorNLVF
 
 class WaveformGenerator(object):
     """A simple waveform generator that keeps track of phase"""
@@ -52,32 +53,13 @@ class OpenLoop(RobobeeController):
         w = self.wf.update(t, self.P('freq'))
         return np.array([1 + udiff, 1 - udiff]) * umean * (w + uoffs)
 
-def positionControllerPakpongLike(posdes, qb, dqb):
-    """Unified interface for a controller that spits out desired momentum"""
-    Rb = Rotation.from_quat(qb[3:7])
-    omega = dqb[3:6]
-
-    Rm = Rb.as_matrix()
-    zdes = np.array([0.,0.,1.]) # desired z vector
-    # upright controller
-    zdes[0:2] = np.clip(0.01 * (posdes[0:2] - qb[0:2]) - 1 * dqb[0:2], -0.5 * np.ones(2), 0.5 * np.ones(2))
-    # zdes /= np.linalg.norm(zdes)
-
-    ornError = np.array([
-        [Rm[0,1], Rm[1,1], Rm[2,1]], 
-        [-Rm[0,0], -Rm[1,0], -Rm[2,0]], 
-        [0,0,0]]) @ zdes # Pakpong (2013) (6)
-    Iomegades = -1e2*ornError - 1e3*omega
-    
-    return np.hstack((0, 0, 0.01 * (posdes[2] - qb[2]), Iomegades))
-
 class WaypointHover(RobobeeController):
     """Simplified version of Pakpong (2013). u = [Vmean, uoffs, udiff, h2]"""
-    def __init__(self, wrenchMapPoptsFile, constPdes=None, useh2=True):
+    def __init__(self, wrenchMapPoptsFile, constdqdes=None, useh2=True):
         super(WaypointHover, self).__init__({'freq': (0, 0.3, 0.16)})
         self.wf = WaveformGenerator()
         self.posdes = np.array([0.,0.,100.])
-        self.constPdes = constPdes
+        self.constdqdes = constdqdes
         self.useh2 = useh2
 
         # NOTE: This is not actually used: need to put in wlcontroller.cpp or wlcontroller.c
@@ -86,76 +68,87 @@ class WaypointHover(RobobeeController):
         self.wl = WLController(np.ravel(popts), 1000)
         self.u4 = [140.0,0.,0.,0.]
 
-        # self.momentumController = self.manualMapping
-        self.momentumController = self.wrenchLinWrapper
-        self.positionController = positionControllerPakpongLike
-        # For momentum reference. only need to get once for now for hover task
+        # self.accController = self.manualMapping
+        self.accController = self.wrenchLinWrapper
+        # For acc reference. only need to get once for now for hover task
         # In this R (for quadrotors) weigh the pitch and yaw torques high
         self.S = valuefunc.quadrotorS(9.81e-3, Qpos=[0,0,10,0.1,0.1,0.1], Qvel=[1,1,10,0.1,0.1,0.1], Rdiag=[1,1,1,1])
         self.printCtr = 0
 
         # upright MPC
-        self.umpc = UprightMPC(3)
+        dt = 5
+        N = 3
+        g = 9.81e-3
+        ws = 0.5e2
+        wds = 5e3
+        #1.5,3 works for a x-axis traj (body frame), but the robot rolls more so need 1,2 for a y-axis traj
+        wpr = 1e-1
+        wpf = 2e-2
+        wvr = 1e3
+        wvf = 2e3
+        wthrust = 1e-1
+        wmom = 1e-2
+        smin = np.array([-2,-2,0.5])
+        smax = np.array([2,2,1.5])
+        TtoWmax = 3
+        self.up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
 
-    def templateVF(self, t, p, dp, s, ds):
+    def templateVF(self, t, p, dp, s, ds, posdes, dposdes, kpos=[0.5e-3,5e-1], kz=[1e-3,2e-1], ks=[4e-3,0.3e0]):
         # TEST
-        trajomg = 5e-3
-        self.posdes = np.array([50 * np.sin(trajomg * t),0,100])
-        dposdes = np.array([50 * trajomg * np.cos(trajomg * t),0,0])
-
         self.printCtr = (self.printCtr + 1) % 100
         # If we want to go to a certain position have to set sdes
         sdes = np.zeros(3)
-        pos2err = p[0:2] - self.posdes[0:2]
+        pos2err = p[0:2] - posdes[0:2]
         dpos2err = dp[0:2] - dposdes[:2]
-        sdes[0:2] = -1e-4 * pos2err - 1e0 * dpos2err
+        sdes[0:2] = -kpos[0] * pos2err - kpos[1] * dpos2err
         # if self.printCtr == 0:
         #     print(self.posdes[:2], pos2err, self.pos2errI, sdes[:2],  -1e-1 * pos2err, - 1e-1 * dp[0:2],  - 1e0 * self.pos2errI)
         sdes[0:2] = np.clip(sdes[0:2], -0.5 * np.ones(2), 0.5 * np.ones(2))
-        fTorn = 10 * (s - sdes) + 1e3 * ds
+        fTorn = ks[0] * (s - sdes) + ks[1] * ds
         fTorn[2] = 0 # z element
 
         # for position z
-        fTpos = 1e-1 * (self.posdes - p) - 1e1 * dp
+        fTpos = kz[0] * (posdes - p) - kz[1] * dp
         fTpos[:2] = np.array([0,0])
 
         return fTpos, fTorn
     
-    def momentumReference(self, t, q0, dq0, M0, pdes):
-        """Used in the C version; returns pdotdes"""
-        # # Simple quadratic VF on momentum kpmom * ||p0 - pdes||^2 OLD WORKS
-        # kpmom = np.array([0,0,1,0.1,0.1,0.1])
-        # return kpmom * (pdes - M0 @ dq0)
+    def accReference(self, t, q0, dq0):
+        """Used in the C version; returns accdes"""
+        # # Simple quadratic VF on vel kp * ||dq0 - dqdes||^2 OLD WORKS
+        # kdq = np.array([0,0,1,0.1,0.1,0.1])
+        # return kdq * (dqdes - dq0)
 
         # New try template VF
         e3h = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 0]])
         Rb = Rotation.from_quat(q0[3:]).as_matrix()
+        p = np.asarray(q0[:3])
         omega = dq0[3:]
-        p = q0[:3]
         dp = dq0[:3]
         s = Rb @ np.array([0,0,1])
         ds = -Rb @ e3h @ omega
-        # # Template controller <- LATEST
-        # fTpos, fTorn = self.templateVF(t, p, dp, s, ds)
-        # fAorn = -e3h @ Rb.T @ fTorn
-        # return np.hstack((fTpos, fAorn))
+
+        self.posdes = np.array([0,0,100])
+        dpdes = np.zeros(3)
+        trajAmp = 80
+        trajFreq = 1
+        trajOmg = 2 * np.pi * trajFreq * 1e-3 # to KHz, then to rad/ms
+        self.posdes[0] = trajAmp * np.sin(trajOmg * t)
+        dpdes[0] = trajAmp * trajOmg * np.cos(trajOmg * t)
+        self.posdes[2] = 100 + 0.1*t
+        dpdes[2] = 0.1
+        self.posdes[1] = trajAmp * (1 - np.cos(trajOmg * t))
+        dpdes[1] = trajAmp * trajOmg * np.sin(trajOmg * t)
 
         # Upright MPC
-        self.posdes = np.array([50,0,100])
-        # constant
-        smax = np.array([0.5, 0.5, 1.5])
-        smin = -smax
-        Qfdiag = [100, 100, 10, 100,100,100]
-        Rdiag = [10.0, 50, 50]
-        dt = 3
-        # Get vdes from kinematic model MPC
-        qM = np.hstack((p, s))
-        _, vM = self.umpc.update(qM, np.hstack((self.posdes, 0, 0, 1)), Qfdiag, Rdiag, smin, smax, dt, self.umpc.snom, self.umpc.vT0)
-        vM[0] = self.umpc.vT0
-        dqdesMPC = self.umpc.dynamicsNLVF(qM, vM)
-        # track with qdddes
-        ddqdesT = np.array([1, 1, 1, 1, 1, 1]) * (dqdesMPC - dq0)
-        return np.hstack((ddqdesT[:3], -e3h @ Rb.T @ ddqdesT[3:]))
+        ddqdes = self.up.updateGetAccdes(p, Rb, dq0, self.posdes, dpdes)
+        # ddqdes[:3] = Rb.T @ ddqdes[:3] # Convert to body frame?
+        return ddqdes
+
+        # # Template controller <- LATEST
+        # fTpos, fTorn = self.templateVF(t, p, dp, s, ds, self.posdes, dpdes)
+        # fAorn = -e3h @ Rb.T @ fTorn
+        # return np.hstack((fTpos, fAorn))
 
         # # Here the u is Thrust,torques (quadrotor template)
         # pT = q0[:3]
@@ -172,11 +165,11 @@ class WaypointHover(RobobeeController):
         # return pddes
 
     def wrenchLinWrapper(self, *args):
-        t, qb, dqb, pdes = args
+        t, qb, dqb = args
 
         M0, h0 = dynamicsTerms(qb, dqb)
-        pdotdes = self.momentumReference(t, qb, dqb, M0, pdes)
-        self.u4 = self.wl.update(self.u4, h0, pdotdes)
+        self.accdes = self.accReference(t, qb, dqb)
+        self.u4 = self.wl.update(self.u4, h0, M0 @ self.accdes)
 
         Vmean, uoffs, udiff, h2 = self.u4
         # # test
@@ -197,9 +190,8 @@ class WaypointHover(RobobeeController):
         # unpack
         qb = q[-7:]
         dqb = dq[-6:]
-        # momentum-based control
-        self.pdes = self.constPdes if self.constPdes is not None else self.positionController(self.posdes, qb, dqb)
-        return self.momentumController(t, qb, dqb, self.pdes)
+        # control
+        return self.accController(t, qb, dqb)
         
     def manualMapping(self, t, qb, dqb, pdes):
         """Low level mapping to torques. Can be replaced"""
