@@ -54,7 +54,7 @@ def defaultPlots(data, ca6log=False):
     qb = data['q'][:,-7:]
     dqb = data['dq'][:,-6:]
 
-    fig, ax = plt.subplots(3,2)
+    fig, ax = plt.subplots(4,2)
     ax = ax.ravel()
     ax[0].plot(data['t'], qb[:,:3])
     ax[0].set_ylabel('pos [mm]')
@@ -64,36 +64,37 @@ def defaultPlots(data, ca6log=False):
         s[i,:] = Rotation.from_quat(qb[i,3:]).as_matrix()[:,2]
     ax[1].plot(data['t'], s)
     ax[1].set_ylabel('s')
-    # eul = Rotation.from_quat(qb[:,3:]).as_euler('xyz')
-    # ax[1].plot(data['t'], eul)
-    # ax[1].set_ylabel('orn [rad]')
+    eul = Rotation.from_quat(qb[:,3:]).as_euler('xyz')
+    ax[2].plot(data['t'], eul)
+    ax[2].set_ylabel('orn [rad]')
 
-    # ax[2].plot(data['t'], data['accdes'][:,:3])
-    ax[2].plot(data['t'], data['accdes'][:,3:])
+    ax[3].plot(data['t'], data['accdes'][:,:3])
+    ax[3].set_ylabel('Accdes pos')
+    ax[4].plot(data['t'], data['accdes'][:,3:])
+    ax[4].set_ylabel('Accdes ang')
     # actMom = (M @ dqb.T).T
     # ax[2].plot(data['t'], actMom[:,2], label='act')
-    ax[2].set_ylabel('Accdes ang')
     # ax[2].legend()
 
     if ca6log:
-        ax[3].plot(data['t'], data['u'][:,[0,3]])
-        ax[3].set_ylabel('u1')
+        ax[5].plot(data['t'], data['u'][:,[0,3]])
+        ax[5].set_ylabel('u1')
         # ca6 log
-        ax[4].plot(data['t'], data['u'][:,[1,4]])
-        ax[4].set_ylabel('u2')
-        ax[5].plot(data['t'], data['u'][:,[2,5]])
-        ax[5].set_ylabel('u3')
+        ax[6].plot(data['t'], data['u'][:,[1,4]])
+        ax[6].set_ylabel('u2')
+        ax[7].plot(data['t'], data['u'][:,[2,5]])
+        ax[7].set_ylabel('u3')
     else:
-        ax[3].plot(data['t'], dqb[:,3:])
-        ax[3].set_ylabel('Omega')
+        ax[5].plot(data['t'], dqb[:,3:])
+        ax[5].set_ylabel('Omega')
         # Inputs
-        ax[4].plot(t, data['u'][:,2]) # Vmean
-        ax[4].set_ylabel('Vmean')
-        ax[5].plot(t, data['u'][:,3], label='offs')
-        ax[5].plot(t, data['u'][:,4], label='diff')
-        ax[5].plot(t, data['u'][:,5], label='h2')
-        ax[5].set_ylabel('u')
-        ax[5].legend()
+        ax[6].plot(t, data['u'][:,2]) # Vmean
+        ax[6].set_ylabel('Vmean')
+        ax[7].plot(t, data['u'][:,3], label='offs')
+        ax[7].plot(t, data['u'][:,4], label='diff')
+        ax[7].plot(t, data['u'][:,5], label='h2')
+        ax[7].set_ylabel('u')
+        ax[7].legend()
         # # plot wing states
         # qw = data['q'][:,:4]
         # dqw = data['dq'][:,:4]

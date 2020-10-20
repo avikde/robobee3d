@@ -16,7 +16,7 @@ args = parser.parse_args()
 bee = robobee.RobobeeSim(p.DIRECT if args.direct else p.GUI, slowDown=0, camLock=True, timestep=0.1, gui=0, filtfreq=0.16)
 # load robot
 startPos = [0,0,100]
-startOrientation = p.getQuaternionFromEuler([0.5,-0.5,0])#np.zeros(3))#
+startOrientation = p.getQuaternionFromEuler([0.3,-0.3,0])#np.zeros(3))#
 subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.urdf"])
 bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=False)
 data = viewlog.initLog()
