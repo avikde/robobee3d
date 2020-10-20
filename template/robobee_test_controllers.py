@@ -80,11 +80,11 @@ class WaypointHover(RobobeeController):
         N = 3
         g = 9.81e-3
         ws = 0.5e2
-        wds = 1e3
-        wpr = 1e-1
-        wpf = 2e-1
-        wvr = 1e3
-        wvf = 2e3
+        wds = 2e3
+        wpr = 1.5e-1
+        wpf = 3e-1
+        wvr = 1.5e3
+        wvf = 3e3
         wthrust = 1e-1
         wmom = 1e-2
         smin = np.array([-2,-2,0.5])
@@ -135,7 +135,7 @@ class WaypointHover(RobobeeController):
         # Upright MPC
         self.posdes = np.array([0,0,100])
         dpdes = np.zeros(3)
-        trajAmp = 80
+        trajAmp = 90
         trajFreq = 1
         trajOmg = 2 * np.pi * trajFreq * 1e-3 # to KHz, then to rad/ms
         self.posdes[0] = trajAmp * np.sin(trajOmg * t)
