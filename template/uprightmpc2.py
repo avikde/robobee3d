@@ -370,10 +370,10 @@ if __name__ == "__main__":
     up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
 
-    # Hover
-    controlTest(up, 500, useMPC=True)
+    # # Hover
+    # controlTest(up, 500, useMPC=True)
     # # Ascent
     # controlTest(up, 500, useMPC=True, ascentIC=True)
-    # # Traj
-    # controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
+    # Traj
+    controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
 

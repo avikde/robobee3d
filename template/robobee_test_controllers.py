@@ -135,6 +135,10 @@ class WaypointHover(RobobeeController):
         # Upright MPC
         self.posdes = np.array([0,0,100])
         dpdes = np.zeros(3)
+        trajAmp = 50
+        trajOmg = 2 * np.pi * 0.5 * 1e-3 # to KHz, then to rad/ms
+        self.posdes[0] = trajAmp * np.sin(trajOmg * t)
+        dpdes[0] = trajAmp * trajOmg * np.cos(trajOmg * t)
         ddqdes = self.up.updateGetAccdes(p, Rb, dq0, self.posdes, dpdes)
         # ddqdes[:3] = Rb.T @ ddqdes[:3] # Convert to body frame?
         # ddqdes[2] = 0

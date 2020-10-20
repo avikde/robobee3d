@@ -6,9 +6,9 @@ from scipy.spatial.transform import Rotation
 from ca6dynamics import M
 
 def initLog():
-    return {'t': [], 'q': [], 'dq': [], 'u': [], 'accdes': []}
+    return {'t': [], 'q': [], 'dq': [], 'u': [], 'accdes': [], 'posdes': []}
 
-def appendLog(data, t, q, dq, u, accdes):
+def appendLog(data, t, q, dq, u, accdes, posdes):
     """rot can be any scipy rotation type"""
     lastT = -np.inf if len(data['t']) == 0 else data['t'][-1]
     if t - lastT >= 0.999:
@@ -17,6 +17,7 @@ def appendLog(data, t, q, dq, u, accdes):
         data['dq'].append(np.copy(dq))
         data['u'].append(np.copy(u))
         data['accdes'].append(np.copy(accdes))
+        data['posdes'].append(np.copy(posdes))
     return data
 
 def saveLog(f1, data):
@@ -57,6 +58,7 @@ def defaultPlots(data, ca6log=False):
     fig, ax = plt.subplots(4,2)
     ax = ax.ravel()
     ax[0].plot(data['t'], qb[:,:3])
+    ax[0].plot(data['t'], data['posdes'][:,0], 'k--')
     ax[0].set_ylabel('pos [mm]')
 
     s = np.zeros((len(t), 3))
