@@ -82,9 +82,9 @@ class WaypointHover(RobobeeController):
         ws = 1e2
         wds = 1e4
         wpr = 1e-1
-        wpf = 3e-1
-        wvr = 2e3
-        wvf = 4e3
+        wpf = 2e-1
+        wvr = 1e3
+        wvf = 2e3
         wthrust = 1e-1
         wmom = 1e-2
         smin = np.array([-2,-2,0.5])
