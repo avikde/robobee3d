@@ -59,14 +59,20 @@ def defaultPlots(data, ca6log=False):
     ax[0].plot(data['t'], qb[:,:3])
     ax[0].set_ylabel('pos [mm]')
 
-    eul = Rotation.from_quat(qb[:,3:]).as_euler('xyz')
-    ax[1].plot(data['t'], eul)
-    ax[1].set_ylabel('orn [rad]')
+    s = np.zeros((len(t), 3))
+    for i in range(len(t)):
+        s[i,:] = Rotation.from_quat(qb[i,3:]).as_matrix()[:,2]
+    ax[1].plot(data['t'], s)
+    ax[1].set_ylabel('s')
+    # eul = Rotation.from_quat(qb[:,3:]).as_euler('xyz')
+    # ax[1].plot(data['t'], eul)
+    # ax[1].set_ylabel('orn [rad]')
 
-    ax[2].plot(data['t'], data['accdes'][:,:3])
+    # ax[2].plot(data['t'], data['accdes'][:,:3])
+    ax[2].plot(data['t'], data['accdes'][:,3:])
     # actMom = (M @ dqb.T).T
     # ax[2].plot(data['t'], actMom[:,2], label='act')
-    ax[2].set_ylabel('Accdes pos')
+    ax[2].set_ylabel('Accdes ang')
     # ax[2].legend()
 
     if ca6log:

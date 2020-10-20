@@ -271,9 +271,9 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
         p = np.array([0, 0, -50])
         Rb = np.eye(3)
     else:
-        p = np.array([0, 0, -1])
-        Rb = Rotation.from_euler('xyz', np.ones(3)).as_matrix()
-        dq[0] = 0.1
+        p = np.array([0, 0, 0])
+        Rb = Rotation.from_euler('xyz', [0.5,-0.5,0]).as_matrix()
+        # dq[0] = 0.1
     pdes = np.zeros(3)
     dpdes = np.zeros(3)
     
@@ -370,10 +370,10 @@ if __name__ == "__main__":
     up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
 
-    # # Hover
-    # controlTest(up, 500, useMPC=True)
-    # Ascent
-    controlTest(up, 500, useMPC=True, ascentIC=True)
+    # Hover
+    controlTest(up, 500, useMPC=True)
+    # # Ascent
+    # controlTest(up, 500, useMPC=True, ascentIC=True)
     # # Traj
     # controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
 
