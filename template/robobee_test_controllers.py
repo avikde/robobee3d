@@ -93,17 +93,12 @@ class WaypointHover(RobobeeController):
         TtoWmax = 3
         self.up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
 
-    def templateVF(self, t, p, dp, s, ds, kpos=[0.5e-3,5e-1], kz=[1e-3,2e-1], ks=[4e-3,0.3e0]):
+    def templateVF(self, t, p, dp, s, ds, posdes, dposdes, kpos=[0.5e-3,5e-1], kz=[1e-3,2e-1], ks=[4e-3,0.3e0]):
         # TEST
-        trajomg = 5e-3
-        # self.posdes = np.array([50 * np.sin(trajomg * t),0,100])
-        self.posdes = np.array([0,0,150])
-        dposdes = np.array([50 * trajomg * np.cos(trajomg * t),0,0])
-
         self.printCtr = (self.printCtr + 1) % 100
         # If we want to go to a certain position have to set sdes
         sdes = np.zeros(3)
-        pos2err = p[0:2] - self.posdes[0:2]
+        pos2err = p[0:2] - posdes[0:2]
         dpos2err = dp[0:2] - dposdes[:2]
         sdes[0:2] = -kpos[0] * pos2err - kpos[1] * dpos2err
         # if self.printCtr == 0:
@@ -113,7 +108,7 @@ class WaypointHover(RobobeeController):
         fTorn[2] = 0 # z element
 
         # for position z
-        fTpos = kz[0] * (self.posdes - p) - kz[1] * dp
+        fTpos = kz[0] * (posdes - p) - kz[1] * dp
         fTpos[:2] = np.array([0,0])
 
         return fTpos, fTorn
@@ -133,7 +128,6 @@ class WaypointHover(RobobeeController):
         s = Rb @ np.array([0,0,1])
         ds = -Rb @ e3h @ omega
 
-        # Upright MPC
         self.posdes = np.array([0,0,100])
         dpdes = np.zeros(3)
         trajAmp = 80
@@ -146,13 +140,13 @@ class WaypointHover(RobobeeController):
         self.posdes[1] = trajAmp * (1 - np.cos(trajOmg * t))
         dpdes[1] = trajAmp * trajOmg * np.sin(trajOmg * t)
 
+        # Upright MPC
         ddqdes = self.up.updateGetAccdes(p, Rb, dq0, self.posdes, dpdes)
         # ddqdes[:3] = Rb.T @ ddqdes[:3] # Convert to body frame?
-        # ddqdes[2] = 0
         return ddqdes
 
         # # Template controller <- LATEST
-        # fTpos, fTorn = self.templateVF(t, p, dp, s, ds)
+        # fTpos, fTorn = self.templateVF(t, p, dp, s, ds, self.posdes, dpdes)
         # fAorn = -e3h @ Rb.T @ fTorn
         # return np.hstack((fTpos, fAorn))
 
