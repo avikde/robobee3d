@@ -390,7 +390,8 @@ if __name__ == "__main__":
     cl, cu, cq = upc.vectors()
     # print(uquad, Rb.T @ p)
     up.update2(p, Rb, dq, pdes, dpdes)
-    print(up.l, cl)
+    print((cl - up.l))
+    print((cu - up.u))
 
     # # # Hover
     # # controlTest(up, 500, useMPC=True)

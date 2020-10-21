@@ -15,9 +15,16 @@
 #include <stdio.h>
 #include <string.h>
 
+static void PRINTVEC(const float *y, int sz) {
+	for (int i = 0; i < sz; ++i) {
+		printf("%.2f,", y[i]);
+	}
+	printf("\n");
+}
+
 void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], const float smax[/* 3 */], float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, const float Ib[/* 3 */], int maxIter) {
 	up->dt = dt;
-	up->g = dt;
+	up->g = g;
 	up->Tmax = TtoWmax * g;
 	// Weights
 	for (int i = 0; i < 3; ++i) {
@@ -58,28 +65,25 @@ static void umpcUpdate1(UprightMPC_t *up, float T0sp, const float s0s[/* 3*N */]
 
 }
 
-// Return the ith element of (A0*y), where A0 = (I + dt*N)
+// Return the ith element of (A0*y), where A0 = (dt*N)
 static float A0_times_i(const UprightMPC_t *up, const float y[/* ny */], int i) {
-	float ret = y[i];
-	if (i < 3)
-		ret += up->dt * y[i + 3];
-	return ret;
+	return (i < 3) ? up->T0 * y[i + 3] : 0;
 }
 
 // Same s0, Btau for each k (that's what ended up happening in python anyway)
 static void umpcUpdateConstraint(UprightMPC_t *up, const float s0[/*  */], const float Btau[/*  */], const float y0[/*  */], const float dy0[/*  */]) {
 	static float y1[UMPC_NY];
-
-	// Some initial calculations ----
+	
+	// Update vector ---
+	for (int i = 0; i < UMPC_N * UMPC_NY; ++i) {
+		up->l[i] = 0;
+	}
 	// y1 = y0 + dt * dy0
 	for (int i = 0; i < UMPC_NY; ++i) {
 		y1[i] = y0[i] + up->dt * dy0[i];
 		// l[:ny] = -y1
 		up->l[i] = -y1[i];
 	}
-	
-	// Update vector ---
-	memset(up->l, 0, UMPC_NX * sizeof(float));
 	// Dynamics constraints
 	for (int k = 0; k < UMPC_N; ++k) {
 		float *pk = &up->l[UMPC_NY * (UMPC_N + k)];
@@ -92,6 +96,10 @@ static void umpcUpdateConstraint(UprightMPC_t *up, const float s0[/*  */], const
 				pk[i] = -up->dt * up->c0[i];
 			}
 		}
+	}
+	// copy for dynamics
+	for (int i = 0; i < 2 * UMPC_N * UMPC_NY; ++i) {
+		up->u[i] = up->l[i];
 	}
 	// s lims
 	for (int k = 0; k < UMPC_N; ++k) {
@@ -110,8 +118,6 @@ static void umpcUpdateConstraint(UprightMPC_t *up, const float s0[/*  */], const
 
 	// Update matrix ---TODO:
 	
-	// copy for dynamics
-	memcpy(up->u, up->l, UMPC_NC * sizeof(float));
 }
 
 void umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]) {
@@ -131,10 +137,7 @@ void umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], c
 	}
 
 	// TODO:
-	// for (int i = 0; i < 9; ++i) {
-	// 	printf("%.2f ", R0[i]);
-	// }
-	// printf("\n");
+	// PRINTVEC(R0, 9);
 	// matMult(uquad, R0, p0, 3, 1, 3, 1.0f, 1, 0);
 
 	umpcUpdateConstraint(up, NULL, NULL, y0, dy0);
