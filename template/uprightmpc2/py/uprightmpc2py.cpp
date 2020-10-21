@@ -19,6 +19,8 @@ namespace py = pybind11;
 
 typedef Eigen::Matrix<float, 6, 1> Vec6_t;
 typedef std::tuple<Eigen::Vector3f, Vec6_t> uacc_t;
+typedef Eigen::Map<const Eigen::MatrixXf> MCMatX;
+typedef Eigen::Map<Eigen::MatrixXf> MMatX;
 
 // Wrapper for the C implementation
 class UprightMPC2 {
@@ -39,11 +41,16 @@ public:
 
 // Wrapper for matrix multiply - use Eigen for it
 extern "C" void matMult(float *C, const float *A, const float *B, const int m, const int n, const int k, const float alpha, int AT, int BT) {
-	auto opA = Eigen::Map<const Eigen::MatrixXf>(A, m, k);
-	auto opB = Eigen::Map<const Eigen::MatrixXf>(B, k, n);
-	auto opC = Eigen::Map<Eigen::MatrixXf>(C, m, n);
-	// TODO: transposes
-	opC = alpha * opA * opB;
+	auto opC = MMatX(C, m, n);
+	if (AT == 0 && BT == 0) {
+		opC = alpha * MCMatX(A, m, k) * MCMatX(B, k, n);
+	} else if (AT == 0 && BT == 1) {
+		opC = alpha * MCMatX(A, m, k) * MCMatX(B, n, k).transpose();
+	} else if (AT == 1 && BT == 0) {
+		opC = alpha * MCMatX(A, k, m).transpose() * MCMatX(B, k, n);
+	} else {
+		opC = alpha * MCMatX(A, k, m).transpose() * MCMatX(B, n, k).transpose();
+	}
 }
 
 PYBIND11_MODULE(uprightmpc2py, m) {

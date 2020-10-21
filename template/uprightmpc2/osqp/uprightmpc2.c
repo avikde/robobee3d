@@ -27,5 +27,5 @@ void umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], c
 	// 	printf("%.2f ", R0[i]);
 	// }
 	// printf("\n");
-	matMult(uquad, R0, p0, 3, 1, 3, 1.0f, 0, 0);
+	matMult(uquad, R0, p0, 3, 1, 3, 1.0f, 1, 0);
 }

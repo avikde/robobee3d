@@ -384,7 +384,7 @@ if __name__ == "__main__":
     pdes = np.zeros(3)
     dpdes = np.zeros(3)
     uquad, accdes = upc.update(p, Rb, dq, pdes, dpdes)
-    print(uquad, Rb, Rb @ p)
+    print(uquad, Rb.T @ p)
 
     # up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
     # up.testDyn(T0, s0s, Btaus, y0, dy0)
