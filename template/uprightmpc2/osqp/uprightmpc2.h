@@ -18,7 +18,10 @@ extern "C" {
 // The matMult function must be defined somewhere - dependent on C++ or C
 
 typedef struct {
-	float dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wthrust, wmom;
+	float dt, g, Tmax;
+  // Weights
+  float Qyr[6], Qyf[6], Qdyr[6], Qdyf[6], R[3];
+  // Limits
   float smin[3], smax[3];
 } UprightMPC_t;
 

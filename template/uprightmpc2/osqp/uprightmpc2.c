@@ -18,7 +18,25 @@ static void uprightMPCUpdate(UprightMPC_t *up, float T0sp, const float s0s[/* 3*
 
 
 void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], const float smax[/* 3 */], float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom) {
-
+	up->dt = dt;
+	up->g = dt;
+	up->Tmax = TtoWmax * g;
+	// Weights
+	for (int i = 0; i < 3; ++i) {
+		up->Qyr[i] = wpr;
+		up->Qyf[i] = wpf;
+		up->Qyr[3 + i] = up->Qyf[3 + i] = ws;
+		up->Qdyr[i] = wvr;
+		up->Qdyf[i] = wvf;
+		up->Qdyr[3 + i] = up->Qdyf[3 + i] = wds;
+	}
+	up->R[0] = wthrust;
+	up->R[1] = up->R[2] = wmom;
+	// Limits
+	for (int i = 0; i < 3; ++i) {
+		up->smin[i] = smin[i];
+		up->smax[i] = smax[i];
+	}
 }
 
 void umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 6 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]) {
