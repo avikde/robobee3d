@@ -44,6 +44,10 @@ void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], co
 	for (int i = 0; i < 3; ++i) {
 		up->Ibi[i] = Ib[i];
 	}
+	// skew(e3) entered in col major order
+	memset(up->e3h, 0, 9 * sizeof(float));
+	up->e3h[1] = 1;
+	up->e3h[3] = -1;
 
 	// OSQP
 	osqp_update_max_iter(&workspace, maxIter);
@@ -62,7 +66,8 @@ static float A0_times_i(const UprightMPC_t *up, const float y[/* ny */], int i) 
 	return ret;
 }
 
-static void umpcUpdateConstraint(UprightMPC_t *up, float T0, const float s0s[/*  */], const float Btaus[/*  */], const float y0[/*  */], const float dy0[/*  */]) {
+// Same s0, Btau for each k (that's what ended up happening in python anyway)
+static void umpcUpdateConstraint(UprightMPC_t *up, const float s0[/*  */], const float Btau[/*  */], const float y0[/*  */], const float dy0[/*  */]) {
 	static float y1[UMPC_NY];
 
 	// Some initial calculations ----
@@ -99,8 +104,8 @@ static void umpcUpdateConstraint(UprightMPC_t *up, float T0, const float s0s[/* 
 	}
 	// thrust lims
 	for (int k = 0; k < UMPC_N; ++k) {
-		up->l[2*UMPC_N*UMPC_NY + 3*UMPC_N + k] = -T0;
-		up->u[2*UMPC_N*UMPC_NY + 3*UMPC_N + k] = up->Tmax - T0;
+		up->l[2*UMPC_N*UMPC_NY + 3*UMPC_N + k] = -up->T0;
+		up->u[2*UMPC_N*UMPC_NY + 3*UMPC_N + k] = up->Tmax - up->T0;
 	}
 
 	// Update matrix ---TODO:
@@ -109,11 +114,28 @@ static void umpcUpdateConstraint(UprightMPC_t *up, float T0, const float s0s[/* 
 	memcpy(up->u, up->l, UMPC_NC * sizeof(float));
 }
 
-void umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 6 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]) {
+void umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]) {
+	static float s0[3], ds0[3], y0[UMPC_NY], dy0[UMPC_NY], ydes[UMPC_NY], dydes[UMPC_NY], dummy3[3];
+
+	// Compute some states
+	memcpy(s0, &R0[6], 3 * sizeof(float)); // column major R0, and want third col
+	// ds0 = -R0 @ e3h @ dq0[3:6] # omegaB
+	matMult(dummy3, up->e3h, &dq0[3], 3, 1, 3, 1.0f, 0, 0);
+	matMult(ds0, R0, dummy3, 3, 1, 3, -1.0f, 0, 0);
+	
+	for (int i = 0; i < UMPC_NY; ++i) {
+		// y0 = np.hstack((p0, s0))
+		y0[i] = i < 3 ? p0[i] : s0[i - 3];
+		// dy0 = np.hstack((dq0[:3], ds0))
+		dy0[i] = i < 3 ? dq0[i] : ds0[i - 3];
+	}
+
 	// TODO:
 	// for (int i = 0; i < 9; ++i) {
 	// 	printf("%.2f ", R0[i]);
 	// }
 	// printf("\n");
-	matMult(uquad, R0, p0, 3, 1, 3, 1.0f, 1, 0);
+	// matMult(uquad, R0, p0, 3, 1, 3, 1.0f, 1, 0);
+
+	umpcUpdateConstraint(up, NULL, NULL, y0, dy0);
 }

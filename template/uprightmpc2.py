@@ -212,11 +212,11 @@ class UprightMPC2():
         print((self.A @ xtest - l)[:2*self.N*ny])
     
     def update(self, T0sp, s0s, Btaus, y0, dy0, ydes, dydes):
-        self.A, l, u = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.smin, self.smax, self.Tmax)
-        self.P, q = updateObjective(self.N, self.P, *self.Wts, ydes, dydes)
+        self.A, self.l, self.u = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.smin, self.smax, self.Tmax)
+        self.P, self.q = updateObjective(self.N, self.P, *self.Wts, ydes, dydes)
         
         # OSQP solve ---
-        self.model.update(Px=self.P.data, Ax=self.A.data, q=q, l=l, u=u)
+        self.model.update(Px=self.P.data, Ax=self.A.data, q=self.q, l=self.l, u=self.u)
         res = self.model.solve()
         if 'solved' not in res.info.status:
             print(res.info.status)
@@ -375,6 +375,9 @@ if __name__ == "__main__":
     smax = np.array([2,2,1.5])
     TtoWmax = 2 # thrust-to-weight
 
+    up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
+    # up.testDyn(T0, s0s, Btaus, y0, dy0)
+
     # FIXME: test
     upc = UprightMPC2C(dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib.diagonal(), 40)
     p = np.random.rand(3)
@@ -384,10 +387,10 @@ if __name__ == "__main__":
     pdes = np.zeros(3)
     dpdes = np.zeros(3)
     uquad, accdes = upc.update(p, Rb, dq, pdes, dpdes)
-    print(uquad, Rb.T @ p)
-
-    # up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
-    # up.testDyn(T0, s0s, Btaus, y0, dy0)
+    cl, cu, cq = upc.vectors()
+    # print(uquad, Rb.T @ p)
+    up.update2(p, Rb, dq, pdes, dpdes)
+    print(up.l, cl)
 
     # # # Hover
     # # controlTest(up, 500, useMPC=True)

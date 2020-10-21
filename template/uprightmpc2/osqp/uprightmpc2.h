@@ -32,6 +32,7 @@ typedef struct {
   float smin[3], smax[3];
   // Other params
   float Ibi[3]; // inertia inv
+  float e3h[3*3]; // constant matrix skew(e3)
   // Workspace
   float l[UMPC_NC], u[UMPC_NC], q[UMPC_NX];
   float c0[UMPC_NY];
