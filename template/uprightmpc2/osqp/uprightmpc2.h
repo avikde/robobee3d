@@ -17,15 +17,24 @@ extern "C" {
 
 // The matMult function must be defined somewhere - dependent on C++ or C
 
+// Must be changed along with the autogen code
+#define UMPC_N 3
+#define UMPC_NY 6
+#define UMPC_NU 3
+#define UMPC_NX (UMPC_N*(2*UMPC_NY + UMPC_NU))
+#define UMPC_NC (2*UMPC_N*UMPC_NY + 4*UMPC_N)
+
 typedef struct {
 	float dt, g, Tmax;
   // Weights
   float Qyr[6], Qyf[6], Qdyr[6], Qdyf[6], R[3];
   // Limits
   float smin[3], smax[3];
+  // Workspace
+  float l[UMPC_NC], u[UMPC_NC], q[UMPC_NX];
 } UprightMPC_t;
 
-void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], const float smax[/* 3 */], float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom);
+void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], const float smax[/* 3 */], float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, int maxIter);
 
 void umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 6 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]);
 
