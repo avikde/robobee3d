@@ -32,6 +32,7 @@ typedef struct {
   float smin[3], smax[3];
   // Workspace
   float l[UMPC_NC], u[UMPC_NC], q[UMPC_NX];
+  float c0[UMPC_NY];
 } UprightMPC_t;
 
 void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], const float smax[/* 3 */], float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, int maxIter);
