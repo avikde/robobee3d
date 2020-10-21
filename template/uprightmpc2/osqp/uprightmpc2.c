@@ -61,10 +61,6 @@ void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], co
 	osqp_update_check_termination(&workspace, 0);
 }
 
-static void umpcUpdate1(UprightMPC_t *up, float T0sp, const float s0s[/* 3*N */], const float Btaus[/*  */], const float y0[/* 6 */], const float dy0[/* 6 */]) {
-
-}
-
 // Return the ith element of (A0*y), where A0 = (dt*N)
 static float A0_times_i(const UprightMPC_t *up, const float y[/* ny */], int i) {
 	return (i < 3) ? up->T0 * y[i + 3] : 0;
@@ -120,14 +116,15 @@ static void umpcUpdateConstraint(UprightMPC_t *up, const float s0[/*  */], const
 	
 }
 
-void umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]) {
+int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]) {
 	static float s0[3], ds0[3], y0[UMPC_NY], dy0[UMPC_NY], ydes[UMPC_NY], dydes[UMPC_NY], dummy3[3];
+	static float dy1des[UMPC_NY], dq1des[UMPC_NY];
 
 	// Compute some states
 	memcpy(s0, &R0[6], 3 * sizeof(float)); // column major R0, and want third col
 	// ds0 = -R0 @ e3h @ dq0[3:6] # omegaB
-	matMult(dummy3, up->e3h, &dq0[3], 3, 1, 3, 1.0f, 0, 0);
-	matMult(ds0, R0, dummy3, 3, 1, 3, -1.0f, 0, 0);
+	matMult(dummy3, up->e3h, &dq0[3], 3, 1, 3, 1.0f, 0, 0); // d3h*omegaB
+	matMult(ds0, R0, dummy3, 3, 1, 3, -1.0f, 0, 0); // -R0*d3h*omegaB
 	
 	for (int i = 0; i < UMPC_NY; ++i) {
 		// y0 = np.hstack((p0, s0))
@@ -136,9 +133,32 @@ void umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], c
 		dy0[i] = i < 3 ? dq0[i] : ds0[i - 3];
 	}
 
-	// TODO:
-	// PRINTVEC(R0, 9);
-	// matMult(uquad, R0, p0, 3, 1, 3, 1.0f, 1, 0);
-
 	umpcUpdateConstraint(up, NULL, NULL, y0, dy0);
+	// updateObjective(self.N, self.P, *self.Wts, ydes, dydes) TODO"
+
+	// Update
+	osqp_update_bounds(&workspace, up->l, up->u);
+	osqp_update_lin_cost(&workspace, up->q);
+	int ret = osqp_solve(&workspace);
+
+	// copy solution
+	for (int i = 0; i < UMPC_NU; ++i) {
+		uquad[i] = workspace.solution->x[2*UMPC_NY*UMPC_N + i];
+	}
+	up->T0 += uquad[0];
+	uquad[0] = up->T0;
+
+	for (int i = 0; i < UMPC_NY; ++i) {
+		dy1des[i] = workspace.solution->x[UMPC_NY*UMPC_N + i];
+		if (i < 3)
+			dq1des[i] = dy1des[i];
+	}
+	matMult(dummy3, R0, &dy1des[3], 3, 1, 3, 1.0f, 1, 0); // R0^T*s1des
+	matMult(&dq1des[3], up->e3h, dummy3, 3, 1, 3, 1.0f, 0, 0); // e3h*R0^T*s1des
+
+	for (int i = 0; i < UMPC_NY; ++i) {
+		accdes[i] = (dq1des[i] - dq0[i]) / up->dt;
+	}
+
+	return ret;
 }
