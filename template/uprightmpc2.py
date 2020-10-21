@@ -4,6 +4,7 @@ import scipy.sparse as sp
 from scipy.spatial.transform import Rotation
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 from genqp import quadrotorNLDyn, skew, Ib
+from uprightmpc2py import UprightMPC2C # C version
 
 ny = 6
 nu = 3
@@ -374,13 +375,24 @@ if __name__ == "__main__":
     smax = np.array([2,2,1.5])
     TtoWmax = 2 # thrust-to-weight
 
-    up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
-    up.testDyn(T0, s0s, Btaus, y0, dy0)
+    # FIXME: test
+    upc = UprightMPC2C(dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
+    p = np.zeros(3)
+    Rb = np.eye(3)
+    dq = np.zeros(6)
+    dq = np.zeros(6)
+    pdes = np.zeros(3)
+    dpdes = np.zeros(3)
+    uquad, accdes = upc.update(p, Rb, dq, pdes, dpdes)
+    print(uquad, accdes)
 
-    # # Hover
-    # controlTest(up, 500, useMPC=True)
-    # # Ascent
-    # controlTest(up, 500, useMPC=True, ascentIC=True)
-    # Traj
-    controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
+    # up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
+    # up.testDyn(T0, s0s, Btaus, y0, dy0)
+
+    # # # Hover
+    # # controlTest(up, 500, useMPC=True)
+    # # # Ascent
+    # # controlTest(up, 500, useMPC=True, ascentIC=True)
+    # # Traj
+    # controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
 
