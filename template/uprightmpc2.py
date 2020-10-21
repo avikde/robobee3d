@@ -196,6 +196,13 @@ class UprightMPC2():
         # Manage linearization point
         self.T0 = 0 # mass-specific thrust
         self.Ibi = np.linalg.inv(Ib)
+        
+    def codegen(self, dirname='uprightmpc2/osqp'):
+        try:
+            self.model.codegen(dirname, project_type='', force_rewrite=True, parameters='matrices', FLOAT=True, LONG=False)
+        except:
+            # No worries if python module failed to compile
+            pass
 
     def testDyn(self, T0sp, s0s, Btaus, y0, dy0):
         # Test
