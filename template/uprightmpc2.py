@@ -377,14 +377,14 @@ if __name__ == "__main__":
 
     # FIXME: test
     upc = UprightMPC2C(dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
-    p = np.zeros(3)
-    Rb = np.eye(3)
+    p = np.random.rand(3)
+    Rb = np.random.rand(3, 3)
     dq = np.zeros(6)
     dq = np.zeros(6)
     pdes = np.zeros(3)
     dpdes = np.zeros(3)
     uquad, accdes = upc.update(p, Rb, dq, pdes, dpdes)
-    print(uquad, accdes)
+    print(uquad, Rb, Rb @ p)
 
     # up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
     # up.testDyn(T0, s0s, Btaus, y0, dy0)
