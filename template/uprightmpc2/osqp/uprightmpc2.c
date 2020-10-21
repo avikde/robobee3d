@@ -15,7 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 
-void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], const float smax[/* 3 */], float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, int maxIter) {
+void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], const float smax[/* 3 */], float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, const float Ib[/* 3 */], int maxIter) {
 	up->dt = dt;
 	up->g = dt;
 	up->Tmax = TtoWmax * g;
@@ -40,6 +40,10 @@ void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], co
 	for (int i = 0; i < UMPC_NY; ++i) {
 		up->c0[i] = i == 2 ? -up->g : 0;
 	}
+	up->T0 = 0;
+	for (int i = 0; i < 3; ++i) {
+		up->Ibi[i] = Ib[i];
+	}
 
 	// OSQP
 	osqp_update_max_iter(&workspace, maxIter);
@@ -60,7 +64,6 @@ static float A0_times_i(const UprightMPC_t *up, const float y[/* ny */], int i) 
 
 static void umpcUpdateConstraint(UprightMPC_t *up, float T0, const float s0s[/*  */], const float Btaus[/*  */], const float y0[/*  */], const float dy0[/*  */]) {
 	static float y1[UMPC_NY];
-	// NOTE 
 
 	// Some initial calculations ----
 	// y1 = y0 + dt * dy0
@@ -99,6 +102,8 @@ static void umpcUpdateConstraint(UprightMPC_t *up, float T0, const float s0s[/* 
 		up->l[2*UMPC_N*UMPC_NY + 3*UMPC_N + k] = -T0;
 		up->u[2*UMPC_N*UMPC_NY + 3*UMPC_N + k] = up->Tmax - T0;
 	}
+
+	// Update matrix ---TODO:
 	
 	// copy for dynamics
 	memcpy(up->u, up->l, UMPC_NC * sizeof(float));

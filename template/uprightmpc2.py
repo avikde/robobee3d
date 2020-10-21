@@ -376,7 +376,7 @@ if __name__ == "__main__":
     TtoWmax = 2 # thrust-to-weight
 
     # FIXME: test
-    upc = UprightMPC2C(dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, 40)
+    upc = UprightMPC2C(dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib.diagonal(), 40)
     p = np.random.rand(3)
     Rb = np.random.rand(3, 3)
     dq = np.zeros(6)
