@@ -23,7 +23,7 @@
 // 	printf("\n");
 // }
 
-void umpcInit(UprightMPC_t *up, float dt, float g, float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, const float Ib[/* 3 */], int maxIter) {
+void umpcInit(UprightMPC_t *up, float dt, float g, float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, float mb, const float Ib[/* 3 */], const float umin[/* 4 */], const float umax[/* 4 */], const float dumax[/* 4 */], int maxIter) {
 	static float Ibi[9];
 	int i, k, n1, n2, offs;
 
@@ -42,9 +42,11 @@ void umpcInit(UprightMPC_t *up, float dt, float g, float TtoWmax, float ws, floa
 	up->R[0] = wthrust;
 	up->R[1] = up->R[2] = wmom;
 	// Limits
-	for (i = 0; i < 3; ++i) {
-		up->smin[i] = smin[i];
-		up->smax[i] = smax[i];
+	for (i = 0; i < WLQP_NU; ++i) {
+		up->u0[i] = 0;
+		up->umin[i] = umin[i];
+		up->umax[i] = umax[i];
+		up->dumax[i] = dumax[i];
 	}
 
 	// Other updates
@@ -172,9 +174,16 @@ static void umpcUpdateConstraint(UprightMPC_t *up, const float s0[/*  */], const
 		up->u[2*UMPC_N*UMPC_NY + k] = up->Tmax - up->T0;
 	}
 	// Delta-u input (rate) limits
-	for (i = 0; i < 4; ++i) {
-		up->l[2*UMPC_N*UMPC_NY + UMPC_N + i] = 0;//delUL[i];
-		up->u[2*UMPC_N*UMPC_NY + UMPC_N + i] = 0;//delUU[i];
+	float *delUL = &up->l[2*UMPC_N*UMPC_NY + UMPC_N];
+	float *delUU = &up->u[2*UMPC_N*UMPC_NY + UMPC_N];
+	for (i = 0; i < WLQP_NU; ++i) {
+		delUL[i] = -up->dumax[i];
+		delUU[i] = up->dumax[i];
+		// Cannot decrease if at limit and vice versa
+		if (up->u0[i] < up->umin[i])
+			delUL[i] = 0;
+		else if (up->u0[i] > up->umax[i])
+			delUU[i] = 0;
 	}
 
 	// Update matrix ---
@@ -287,10 +296,10 @@ int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], co
 UprightMPC_t _up;
 int _inited = 0;
 
-void umpcS(float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 6 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */], float dt, float g, const float smin[/* 3 */], const float smax[/* 3 */], float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, const float Ib[/* 3 */], int maxIter) {
-	if (_inited == 0) {
-		umpcInit(&_up, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib, maxIter);
-		_inited = 1;
-	}
-	umpcUpdate(&_up, uquad, accdes, p0, R0, dq0, pdes, dpdes);
-}
+// void umpcS(float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 6 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */], float dt, float g, const float smin[/* 3 */], const float smax[/* 3 */], float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, const float Ib[/* 3 */], int maxIter) {
+// 	if (_inited == 0) {
+// 		umpcInit(&_up, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib, maxIter);
+// 		_inited = 1;
+// 	}
+// 	umpcUpdate(&_up, uquad, accdes, p0, R0, dq0, pdes, dpdes);
+// }

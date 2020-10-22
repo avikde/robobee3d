@@ -21,8 +21,9 @@ extern "C" {
 #define UMPC_N 3
 #define UMPC_NY 6
 #define UMPC_NU 3
-#define UMPC_NX (UMPC_N*(2*UMPC_NY + UMPC_NU) + 4)
-#define UMPC_NC (2*UMPC_N*UMPC_NY + UMPC_N + 4)
+#define WLQP_NU 4
+#define UMPC_NX (UMPC_N*(2*UMPC_NY + UMPC_NU) + WLQP_NU)
+#define UMPC_NC (2*UMPC_N*UMPC_NY + UMPC_N + WLQP_NU)
 #define UMPC_nAdata 48 // depends on N, printed out in python script
 
 typedef struct {
@@ -41,9 +42,12 @@ typedef struct {
   int Ax_idx[UMPC_nAdata], nAxT0dt, nAxdt;
   float c0[UMPC_NY];
   float T0;
+  // WLQP stuff
+  float u0[WLQP_NU], umin[WLQP_NU], umax[WLQP_NU], dumax[WLQP_NU];
+  float M0[6*6];
 } UprightMPC_t;
 
-void umpcInit(UprightMPC_t *up, float dt, float g, float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, const float Ib[/* 3 */], int maxIter);
+void umpcInit(UprightMPC_t *up, float dt, float g, float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, float mb, const float Ib[/* 3 */], const float umin[/* 4 */], const float umax[/* 4 */], const float dumax[/* 4 */], int maxIter);
 
 int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 6 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]);
 
