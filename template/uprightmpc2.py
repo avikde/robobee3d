@@ -397,7 +397,7 @@ if __name__ == "__main__":
     print((cu - up.u))
     print((cq - up.q))
     print((cP - up.P.data))
-    print((cAidx- up.Axidx))
+    print((cAdata - up.A.data[up.Axidx]))
 
     # # # Hover
     # # controlTest(up, 500, useMPC=True)

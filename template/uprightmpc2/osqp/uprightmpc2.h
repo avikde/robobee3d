@@ -32,13 +32,13 @@ typedef struct {
   // Limits
   float smin[3], smax[3];
   // Other params
-  float Ibi[3]; // inertia inv
   float e3h[3*3]; // constant matrix skew(e3)
+  float e3hIbi[3*3]; // e3h*Ibi
   // Workspace
   float l[UMPC_NC], u[UMPC_NC], q[UMPC_NX];
   float Px_data[UMPC_NX]; // all diagonal elements (checked size of Pdata_i=NX)
   float Ax_data[UMPC_nAdata];
-  int Ax_idx[UMPC_nAdata];
+  int Ax_idx[UMPC_nAdata], nAxT0dt, nAxdt;
   float c0[UMPC_NY];
   float T0;
 } UprightMPC_t;

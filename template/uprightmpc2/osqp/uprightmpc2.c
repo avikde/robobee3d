@@ -23,6 +23,7 @@ static void PRINTVEC(const float *y, int sz) {
 }
 
 void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], const float smax[/* 3 */], float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, const float Ib[/* 3 */], int maxIter) {
+	static float Ibi[9];
 	up->dt = dt;
 	up->g = g;
 	up->Tmax = TtoWmax * g;
@@ -48,13 +49,20 @@ void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], co
 		up->c0[i] = i == 2 ? -up->g : 0;
 	}
 	up->T0 = 0;
-	for (int i = 0; i < 3; ++i) {
-		up->Ibi[i] = Ib[i];
-	}
+
 	// skew(e3) entered in col major order
 	memset(up->e3h, 0, 9 * sizeof(float));
 	up->e3h[1] = 1;
 	up->e3h[3] = -1;
+
+	// e3h*Ibi calculation
+	for (int i = 0; i < 9; ++i) {
+		Ibi[i] = 0;
+	}
+	Ibi[0] = 1.0f / Ib[0];
+	Ibi[4] = 1.0f / Ib[1];
+	Ibi[8] = 1.0f / Ib[2];
+	matMult(up->e3hIbi, up->e3h, Ibi, 3, 3, 3, 1.0f, 0, 0); // e3h*Ibi
 
 	for (int i = 0; i < UMPC_NX; ++i) {
 		up->q[i] = 0;
@@ -73,6 +81,7 @@ void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], co
 		up->Ax_idx[offs+2] = n2*k + 16;
 		offs += 3;
 	}
+	up->nAxT0dt = offs;
 
 	// Middle third, dt
 	int n1 = (2*UMPC_N-1)*UMPC_NY + (UMPC_N-2)*3 + 3*UMPC_N; // All the nnz in the left third
@@ -94,6 +103,7 @@ void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], co
 		}
 		offs += 6;
 	}
+	up->nAxdt = offs;
 
 	// Right third
 	n1 += 3*UMPC_NY*(UMPC_N-1) + 2*UMPC_NY; // All the nnz in the left, middle third
@@ -167,8 +177,23 @@ static void umpcUpdateConstraint(UprightMPC_t *up, const float s0[/*  */], const
 		up->u[2*UMPC_N*UMPC_NY + 3*UMPC_N + k] = up->Tmax - up->T0;
 	}
 
-	// Update matrix ---TODO:
-	
+	// Update matrix ---
+	for (int i = 0; i < up->nAxdt; ++i) {
+		up->Ax_data[i] = i < up->nAxT0dt ? up->dt * up->T0 : up->dt;
+	}
+	int offs = up->nAxdt;
+	for (int k = 0; k < UMPC_N; ++k) {
+		for (int i = 0; i < 3; ++i) {
+			up->Ax_data[offs + i] = up->dt * s0[i];
+		}
+		offs += 3;
+	}
+	for (int k = 0; k < UMPC_N; ++k) {
+		for (int i = 0; i < 6; ++i) {
+			up->Ax_data[offs + i] = up->dt * Btau[i];
+		}
+		offs += 6;
+	}
 }
 
 static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const float dydes[/* 6 */]) {
@@ -198,14 +223,16 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 }
 
 int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]) {
-	static float s0[3], ds0[3], y0[UMPC_NY], dy0[UMPC_NY], ydes[UMPC_NY], dydes[UMPC_NY], dummy3[3];
+	static float s0[3], ds0[3], y0[UMPC_NY], dy0[UMPC_NY], ydes[UMPC_NY], dydes[UMPC_NY], dummy[9], Btau[9];
 	static float dy1des[UMPC_NY], dq1des[UMPC_NY];
 
 	// Compute some states
 	memcpy(s0, &R0[6], 3 * sizeof(float)); // column major R0, and want third col
 	// ds0 = -R0 @ e3h @ dq0[3:6] # omegaB
-	matMult(dummy3, up->e3h, &dq0[3], 3, 1, 3, 1.0f, 0, 0); // d3h*omegaB
-	matMult(ds0, R0, dummy3, 3, 1, 3, -1.0f, 0, 0); // -R0*d3h*omegaB
+	matMult(dummy, up->e3h, &dq0[3], 3, 1, 3, 1.0f, 0, 0); // e3h*omegaB
+	matMult(ds0, R0, dummy, 3, 1, 3, -1.0f, 0, 0); // -R0*e3h*omegaB
+	// Btau = (-R0 @ e3h @ self.Ibi)[:,:2]
+	matMult(Btau, R0, up->e3hIbi, 3, 3, 3, -1.0f, 0, 0); // -R0*e3h*Ibi; col major => can take first 6 elems
 	
 	for (int i = 0; i < UMPC_NY; ++i) {
 		// y0 = np.hstack((p0, s0))
@@ -223,7 +250,7 @@ int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], co
 	ydes[5] = 1;
 	dydes[3] = dydes[4] = dydes[5] = 0;
 
-	umpcUpdateConstraint(up, NULL, NULL, y0, dy0);
+	umpcUpdateConstraint(up, s0, Btau, y0, dy0);
 	updateObjective(up, ydes, dydes);
 
 	// Update
@@ -243,8 +270,8 @@ int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], co
 		if (i < 3)
 			dq1des[i] = dy1des[i];
 	}
-	matMult(dummy3, R0, &dy1des[3], 3, 1, 3, 1.0f, 1, 0); // R0^T*s1des
-	matMult(&dq1des[3], up->e3h, dummy3, 3, 1, 3, 1.0f, 0, 0); // e3h*R0^T*s1des
+	matMult(dummy, R0, &dy1des[3], 3, 1, 3, 1.0f, 1, 0); // R0^T*s1des
+	matMult(&dq1des[3], up->e3h, dummy, 3, 1, 3, 1.0f, 0, 0); // e3h*R0^T*s1des
 
 	for (int i = 0; i < UMPC_NY; ++i) {
 		accdes[i] = (dq1des[i] - dq0[i]) / up->dt;
