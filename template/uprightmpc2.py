@@ -35,6 +35,11 @@ def initConstraint(N, nx, nc):
 
     A = np.zeros((nc, nx))
     P = np.eye(nx) # Q, R stacked
+    # Dense blocks for WLQP
+    P[N*ny:N*ny+ny,N*ny:N*ny+ny] = np.ones((ny,ny))
+    P[N*ny:N*ny+ny,N*(2*ny+nu):N*(2*ny+nu)+4] = np.ones((ny,4))
+    P[N*(2*ny+nu):N*(2*ny+nu)+4,N*ny:N*ny+ny] = np.ones((4,ny))
+    P[N*(2*ny+nu):N*(2*ny+nu)+4,N*(2*ny+nu):N*(2*ny+nu)+4] = np.ones((4,4))
 
     # cols of A are broken up like this (partition nx)
     n1 = N*ny
@@ -133,24 +138,39 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, Tmax, delUL, delUU):
     # print(A[:,2*N*ny:2*N*ny+6].toarray())
     return A, l, u, Axidx
 
-def updateObjective(N, P, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes):
-    P.data = np.hstack((
+def getUpperTriang(P):
+    n = P.shape[0]
+    Pdata = np.zeros(n*(n+1)//2)
+    kk = 0
+    for j in range(n):
+        for i in range(j+1):
+            Pdata[kk] = P[i,j]
+            kk += 1
+    return Pdata
+
+def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0m, M0T0dt):
+    # w0m = w0 - h0 - M0*dq0/dt
+    Pdata = np.hstack((
         np.hstack([Qyr for k in range(N-1)]),
         Qyf,
-        np.hstack([Qdyr for k in range(N-1)]),
+        getUpperTriang(np.diag(Qdyr) + M0T0dt.T @ np.diag(Qw) @ M0T0dt),# dy1,dy1 block upper triang
+        np.hstack([Qdyr for k in range(N-2)]),
         Qdyf,
         np.hstack([R for k in range(N)]),
-        np.zeros(4)
+        (-M0T0dt.T @ np.diag(Qw) @ dwdu).ravel(order='F'), # dy1,delu block
+        getUpperTriang(dwdu.T @ np.diag(Qw) @ dwdu),# delu,delu block upper triang
     ))
+
     q = np.hstack((
         np.hstack([-Qyr*ydes for k in range(N-1)]),
         -Qyf*ydes,
         np.hstack([-Qdyr*dydes for k in range(N-1)]),
         -Qdyf*dydes,
         np.zeros(N*len(R)),
-        np.zeros(4)
+        dwdu.T @ (Qw * w0m)
     ))
-    return P, q
+    q[N*ny:(N+1)*ny] -= M0T0dt.T @ (Qw * w0m)
+    return Pdata, q
 
 def openLoopX(N, dt, T0, s0s, Btaus, y0, dy0, g):
     ys = np.zeros((N,ny))
@@ -177,7 +197,7 @@ def openLoopX(N, dt, T0, s0s, Btaus, y0, dy0, g):
     return x
 
 class UprightMPC2():
-    def __init__(self, N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, u0, umin, umax, dumax, controlRate):
+    def __init__(self, N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, umin, umax, dumax, mb, Ib, Qw, controlRate):
         self.N = N
 
         nx = self.N * (2*ny + nu) + 4
@@ -202,13 +222,14 @@ class UprightMPC2():
 
         # Manage linearization point
         self.T0 = 0 # mass-specific thrust
-        self.Ibi = np.linalg.inv(Ib)
+        self.Ibi = np.diag(1/Ib)
+        self.M0 = np.hstack((mb,mb,mb,Ib))
 
         # WLQP state
-        self.u0 = u0
         self.umin = umin
         self.umax = umax
         self.dumax = dumax / controlRate
+        self.Qw = Qw
         
     def codegen(self, dirname='uprightmpc2/osqp'):
         try:
@@ -223,7 +244,7 @@ class UprightMPC2():
         xtest = openLoopX(self.N, self.dt, T0, s0s, Btaus, y0, dy0, self.g)
         print((self.A @ xtest - l)[:2*self.N*ny])
     
-    def update1(self, T0sp, s0s, Btaus, y0, dy0, ydes, dydes):
+    def update1(self, T0sp, s0s, Btaus, y0, dy0, ydes, dydes, dwdu0, w0m, M0T0dt):
         # WLQP Delta-u limit
         delUL = -self.dumax
         delUU = self.dumax
@@ -235,17 +256,17 @@ class UprightMPC2():
                 delUU[i] = 0
         # Update
         self.A, self.l, self.u, self.Axidx = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.Tmax, delUL, delUU)
-        self.P, self.q = updateObjective(self.N, self.P, *self.Wts, ydes, dydes)
+        self.Pdata, self.q = updateObjective(self.N, *self.Wts, ydes, dydes, self.Qw, dwdu0, w0m, M0T0dt)
         
         # OSQP solve ---
-        self.model.update(Px=self.P.data, Ax=self.A.data, q=self.q, l=self.l, u=self.u)
+        self.model.update(Px=self.Pdata, Ax=self.A.data, q=self.q, l=self.l, u=self.u)
         res = self.model.solve()
         if 'solved' not in res.info.status:
             print(res.info.status)
 
         return res.x
     
-    def update2(self, p0, R0, dq0, pdes, dpdes):
+    def update2(self, p0, R0, dq0, pdes, dpdes, dwdu0, w0):
         # At current state
         s0 = np.copy(R0[:,2])
         s0s = [s0 for i in range(self.N)]
@@ -258,7 +279,13 @@ class UprightMPC2():
         ydes = np.hstack((pdes, 0, 0, 1))
         dydes = np.hstack((dpdes, 0, 0, 0))
 
-        self.prevsol = self.update1(self.T0, s0s, Btaus, y0, dy0, ydes, dydes)
+        h0 = np.hstack((R0.T @ np.array([0, 0, self.M0[0] * g]), np.zeros(3)))
+        w0m = w0 - h0 - (self.M0 * dq0) / self.dt
+        T0 = np.eye(6)
+        T0[3:,3:] = e3h @ R0.T
+        M0T0dt = np.diag(self.M0) @ T0 / self.dt
+
+        self.prevsol = self.update1(self.T0, s0s, Btaus, y0, dy0, ydes, dydes, dwdu0, w0m, M0T0dt)
         utilde = self.prevsol[2*ny*self.N : 2*ny*self.N+nu]
         self.T0 += utilde[0]
 
@@ -272,9 +299,9 @@ class UprightMPC2():
         # return (bTw(dq1des) - bTw(dq0)) / self.dt
         return (dq1des - dq0) / self.dt # return in world frame
     
-    def update(self, p0, R0, dq0, pdes, dpdes):
+    def update(self, p0, R0, dq0, pdes, dpdes, dwdu0=np.ones((6,4)), w0=np.ones(6)):
         # Version of above that computes the desired body frame acceleration
-        u = self.update2(p0, R0, dq0, pdes, dpdes)
+        u = self.update2(p0, R0, dq0, pdes, dpdes, dwdu0, w0)
         return u, self.getAccDes(R0, dq0)
 
 def reactiveController(p, Rb, dq, pdes, kpos=[1e-3,5e-1], kz=[1e-1,1e0], ks=[1e0,1e2]):
@@ -395,6 +422,8 @@ if __name__ == "__main__":
     wthrust = 1e-1
     wmom = 1e-2
     # WLQP inputs
+    mb = 100
+    Qw = np.zeros(6)
     u0 = np.array([120,0,0,0])
     umin = np.array([90, -0.5, -0.2, -0.1])
     umax = np.array([240, 0.5, 0.2, 0.1])
@@ -405,7 +434,7 @@ if __name__ == "__main__":
     dydes = np.zeros_like(y0)
     TtoWmax = 2 # thrust-to-weight
 
-    up = UprightMPC2(N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, u0, umin, umax, dumax, controlRate)
+    up = UprightMPC2(N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, umin, umax, dumax, mb, Ib.diagonal(), Qw, controlRate)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
     # # C version can be tested too
     # upc = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib.diagonal(), 10)
