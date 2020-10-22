@@ -20,7 +20,7 @@ def.Options.language = 'C';
 
 legacy_code('sfcn_cmex_generate', def);
 
-%
+%a
 
 %legacy_code('compile', def);
 %legacy_code('slblock_generate', def);
