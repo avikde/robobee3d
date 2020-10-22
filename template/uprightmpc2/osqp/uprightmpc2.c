@@ -116,6 +116,10 @@ static void umpcUpdateConstraint(UprightMPC_t *up, const float s0[/*  */], const
 	
 }
 
+static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const float dydes[/* 6 */]) {
+
+}
+
 int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]) {
 	static float s0[3], ds0[3], y0[UMPC_NY], dy0[UMPC_NY], ydes[UMPC_NY], dydes[UMPC_NY], dummy3[3];
 	static float dy1des[UMPC_NY], dq1des[UMPC_NY];
@@ -131,10 +135,19 @@ int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], co
 		y0[i] = i < 3 ? p0[i] : s0[i - 3];
 		// dy0 = np.hstack((dq0[:3], ds0))
 		dy0[i] = i < 3 ? dq0[i] : ds0[i - 3];
+		// position parts of ydes
+		if (i < 3) {
+			ydes[i] = pdes[i];
+			dydes[i] = dpdes[i];
+		}
 	}
+	// s parts of ydes
+	ydes[3] = ydes[4] = 0;
+	ydes[5] = 1;
+	dydes[3] = dydes[4] = dydes[5] = 0;
 
 	umpcUpdateConstraint(up, NULL, NULL, y0, dy0);
-	// updateObjective(self.N, self.P, *self.Wts, ydes, dydes) TODO"
+	updateObjective(up, ydes, dydes);
 
 	// Update
 	osqp_update_bounds(&workspace, up->l, up->u);
