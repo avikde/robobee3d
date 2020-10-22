@@ -63,7 +63,55 @@ void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], co
 		up->l[i] = up->u[i] = 0;
 	}
 
-	// OSQP
+	// Ax idx ---
+	// Left third, T0*dt
+	int offs = 0;
+	int n2 = 2*UMPC_NY + 6; // nnz in each block col on the left
+	for (int k = 0; k < UMPC_N-2; ++k) {
+		up->Ax_idx[offs+0] = n2*k + 8;
+		up->Ax_idx[offs+1] = n2*k + 12;
+		up->Ax_idx[offs+2] = n2*k + 16;
+		offs += 3;
+	}
+
+	// Middle third, dt
+	int n1 = (2*UMPC_N-1)*UMPC_NY + (UMPC_N-2)*3 + 3*UMPC_N; // All the nnz in the left third
+	n2 = 3*UMPC_NY; // nnz in each of the first N-1 block cols in the middle third
+	for (int k = 0; k < UMPC_N; ++k) {
+		up->Ax_idx[offs+0] = n1 + n2*k + 0;
+		if (k < UMPC_N-1) {
+			up->Ax_idx[offs+1] = n1 + n2*k + 3;
+			up->Ax_idx[offs+2] = n1 + n2*k + 6;
+			up->Ax_idx[offs+3] = n1 + n2*k + 9;
+			up->Ax_idx[offs+4] = n1 + n2*k + 12;
+			up->Ax_idx[offs+5] = n1 + n2*k + 15;
+		} else {
+			up->Ax_idx[offs+1] = n1 + n2*k + 2;
+			up->Ax_idx[offs+2] = n1 + n2*k + 4;
+			up->Ax_idx[offs+3] = n1 + n2*k + 6;
+			up->Ax_idx[offs+4] = n1 + n2*k + 8;
+			up->Ax_idx[offs+5] = n1 + n2*k + 10;
+		}
+		offs += 6;
+	}
+
+	// Right third
+	n1 += 3*UMPC_NY*(UMPC_N-1) + 2*UMPC_NY; // All the nnz in the left, middle third
+	n2 = 10; // nnz in each B0 + 1 for thrust lim
+	// s0
+	for (int k = 0; k < UMPC_N; ++k) {
+		for (int i = 0; i < 3; ++i)
+			up->Ax_idx[offs+i] = n1 + n2*k + i;
+		offs += 3;
+	}
+	// Btau
+	for (int k = 0; k < UMPC_N; ++k) {
+		for (int i = 0; i < 6; ++i)
+			up->Ax_idx[offs+i] = n1 + n2*k + 4 + i;
+		offs += 6;
+	}
+
+	// OSQP ---
 	osqp_update_max_iter(&workspace, maxIter);
 	osqp_update_check_termination(&workspace, 0);
 }

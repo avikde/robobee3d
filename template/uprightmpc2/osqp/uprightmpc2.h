@@ -23,7 +23,7 @@ extern "C" {
 #define UMPC_NU 3
 #define UMPC_NX (UMPC_N*(2*UMPC_NY + UMPC_NU))
 #define UMPC_NC (2*UMPC_N*UMPC_NY + 4*UMPC_N)
-#define UMPC_nAdata 120 // copied from workspace.c for now
+#define UMPC_nAdata 48 // depends on N, printed out in python script
 
 typedef struct {
 	float dt, g, Tmax;

@@ -124,8 +124,11 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, smin, smax, Tmax):
     A.data[Axidxs0] = dt*np.hstack((s0s))
     A.data[AxidxBtau] = dt*np.hstack([np.ravel(Btau,order='F') for Btau in Btaus])
 
+    Axidx = np.hstack((AxidxT0dt, Axidxdt, Axidxs0, AxidxBtau))
+    # print("nAdata =",len(self.Axidx))
+
     # print(A[:,2*N*ny:2*N*ny+6].toarray())
-    return A, l, u
+    return A, l, u, Axidx
 
 def updateObjective(N, P, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes):
     P.data = np.hstack((
@@ -207,12 +210,12 @@ class UprightMPC2():
 
     def testDyn(self, T0sp, s0s, Btaus, y0, dy0):
         # Test
-        self.A, l, u = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.smin, self.smax, self.Tmax)
+        self.A, l, u, Axidx = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.smin, self.smax, self.Tmax)
         xtest = openLoopX(self.N, self.dt, T0, s0s, Btaus, y0, dy0, self.g)
         print((self.A @ xtest - l)[:2*self.N*ny])
     
     def update(self, T0sp, s0s, Btaus, y0, dy0, ydes, dydes):
-        self.A, self.l, self.u = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.smin, self.smax, self.Tmax)
+        self.A, self.l, self.u, self.Axidx = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.smin, self.smax, self.Tmax)
         self.P, self.q = updateObjective(self.N, self.P, *self.Wts, ydes, dydes)
         
         # OSQP solve ---
@@ -394,6 +397,7 @@ if __name__ == "__main__":
     print((cu - up.u))
     print((cq - up.q))
     print((cP - up.P.data))
+    print((cAidx- up.Axidx))
 
     # # # Hover
     # # controlTest(up, 500, useMPC=True)
