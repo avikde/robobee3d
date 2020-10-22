@@ -23,7 +23,10 @@ typedef Eigen::Map<const Eigen::MatrixXf> MCMatX;
 typedef Eigen::Map<Eigen::MatrixXf> MMatX;
 typedef Eigen::Matrix<float, UMPC_NX, 1> Vecx_t;
 typedef Eigen::Matrix<float, UMPC_NC, 1> Vecc_t;
+typedef Eigen::Matrix<float, UMPC_nAdata, 1> Adatax_t;
+typedef Eigen::Array<int, UMPC_nAdata, 1> Adatai_t;
 typedef std::tuple<Vecc_t, Vecc_t, Vecx_t> uvecs_t;
+typedef std::tuple<Vecx_t, Adatax_t, Adatai_t> umats_t;
 
 // Wrapper for the C implementation
 class UprightMPC2 {
@@ -45,6 +48,9 @@ public:
 	uvecs_t vectors() {
 		return std::make_tuple(Eigen::Map<Vecc_t>(umpc.l), Eigen::Map<Vecc_t>(umpc.u), Eigen::Map<Vecx_t>(umpc.q));
 	}
+	umats_t matrices() {
+		return std::make_tuple(Eigen::Map<Vecx_t>(umpc.Px_data), Eigen::Map<Adatax_t>(umpc.Ax_data), Eigen::Map<Adatai_t>(umpc.Ax_idx));
+	}
 };
 
 // Wrapper for matrix multiply - use Eigen for it
@@ -65,5 +71,6 @@ PYBIND11_MODULE(uprightmpc2py, m) {
 	py::class_<UprightMPC2>(m, "UprightMPC2C")
 	.def(py::init<float /* dt */, float /* g */, const Eigen::Vector3f &/* smin */, const Eigen::Vector3f &/* smax */, float /* TtoWmax */, float /* ws */, float /* wds */, float /* wpr */, float /* wpf */, float /* wvr */, float /* wvf */, float /* wthrust */, float /* wmom */, const Eigen::Vector3f &, int>())
 	.def("update", &UprightMPC2::update)
-	.def("vectors", &UprightMPC2::vectors);
+	.def("vectors", &UprightMPC2::vectors)
+	.def("matrices", &UprightMPC2::matrices);
 }

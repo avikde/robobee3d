@@ -23,6 +23,7 @@ extern "C" {
 #define UMPC_NU 3
 #define UMPC_NX (UMPC_N*(2*UMPC_NY + UMPC_NU))
 #define UMPC_NC (2*UMPC_N*UMPC_NY + 4*UMPC_N)
+#define UMPC_nAdata 120 // copied from workspace.c for now
 
 typedef struct {
 	float dt, g, Tmax;
@@ -35,6 +36,9 @@ typedef struct {
   float e3h[3*3]; // constant matrix skew(e3)
   // Workspace
   float l[UMPC_NC], u[UMPC_NC], q[UMPC_NX];
+  float Px_data[UMPC_NX]; // all diagonal elements (checked size of Pdata_i=NX)
+  float Ax_data[UMPC_nAdata];
+  int Ax_idx[UMPC_nAdata];
   float c0[UMPC_NY];
   float T0;
 } UprightMPC_t;

@@ -387,11 +387,13 @@ if __name__ == "__main__":
     dpdes = np.random.rand(3)
     uquad, accdes = upc.update(p, Rb, dq, pdes, dpdes)
     cl, cu, cq = upc.vectors()
+    cP, cAdata, cAidx = upc.matrices()
     # print(uquad, Rb.T @ p)
     up.update2(p, Rb, dq, pdes, dpdes)
     print((cl - up.l))
     print((cu - up.u))
     print((cq - up.q))
+    print((cP - up.P.data))
 
     # # # Hover
     # # controlTest(up, 500, useMPC=True)

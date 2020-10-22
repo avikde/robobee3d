@@ -124,21 +124,29 @@ static void umpcUpdateConstraint(UprightMPC_t *up, const float s0[/*  */], const
 }
 
 static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const float dydes[/* 6 */]) {
-	// q ---
+	// q, P diag ---
 	int offs = 0;
 	for (int k = 0; k < UMPC_N; ++k) {
 		for (int i = 0; i < UMPC_NY; ++i) {
-			up->q[offs + i] = -(k == UMPC_N-1 ? up->Qyf[i] : up->Qyr[i]) * ydes[i];
+			up->Px_data[offs + i] = k == UMPC_N-1 ? up->Qyf[i] : up->Qyr[i];
+			up->q[offs + i] = -up->Px_data[offs + i] * ydes[i];
 		}
 		offs += UMPC_NY;
 	}
 	for (int k = 0; k < UMPC_N; ++k) {
 		for (int i = 0; i < UMPC_NY; ++i) {
-			up->q[offs + i] = -(k == UMPC_N-1 ? up->Qdyf[i] : up->Qdyr[i]) * dydes[i];
+			up->Px_data[offs + i] = k == UMPC_N-1 ? up->Qdyf[i] : up->Qdyr[i];
+			up->q[offs + i] = -up->Px_data[offs + i] * dydes[i];
 		}
 		offs += UMPC_NY;
 	}
-	// Last rows remain 0
+	for (int k = 0; k < UMPC_N; ++k) {
+		for (int i = 0; i < UMPC_NU; ++i) {
+			up->Px_data[offs + i] = up->R[i];
+			// Last rows of q remain 0
+		}
+		offs += UMPC_NU;
+	}
 }
 
 int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]) {
