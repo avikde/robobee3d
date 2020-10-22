@@ -5,6 +5,7 @@ from scipy.spatial.transform import Rotation
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 from genqp import quadrotorNLDyn, skew, Ib
 from uprightmpc2py import UprightMPC2C # C version
+from time import perf_counter
 
 ny = 6
 nu = 3
@@ -214,7 +215,7 @@ class UprightMPC2():
         xtest = openLoopX(self.N, self.dt, T0, s0s, Btaus, y0, dy0, self.g)
         print((self.A @ xtest - l)[:2*self.N*ny])
     
-    def update(self, T0sp, s0s, Btaus, y0, dy0, ydes, dydes):
+    def update1(self, T0sp, s0s, Btaus, y0, dy0, ydes, dydes):
         self.A, self.l, self.u, self.Axidx = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.smin, self.smax, self.Tmax)
         self.P, self.q = updateObjective(self.N, self.P, *self.Wts, ydes, dydes)
         
@@ -239,7 +240,7 @@ class UprightMPC2():
         ydes = np.hstack((pdes, 0, 0, 1))
         dydes = np.hstack((dpdes, 0, 0, 0))
 
-        self.prevsol = self.update(self.T0, s0s, Btaus, y0, dy0, ydes, dydes)
+        self.prevsol = self.update1(self.T0, s0s, Btaus, y0, dy0, ydes, dydes)
         utilde = self.prevsol[2*ny*self.N : 2*ny*self.N+nu]
         self.T0 += utilde[0]
 
@@ -253,10 +254,10 @@ class UprightMPC2():
         # return (bTw(dq1des) - bTw(dq0)) / self.dt
         return (dq1des - dq0) / self.dt # return in world frame
     
-    def updateGetAccdes(self, p0, R0, dq0, pdes, dpdes):
+    def update(self, p0, R0, dq0, pdes, dpdes):
         # Version of above that computes the desired body frame acceleration
-        self.update2(p0, R0, dq0, pdes, dpdes)
-        return self.getAccDes(R0, dq0)
+        u = self.update2(p0, R0, dq0, pdes, dpdes)
+        return u, self.getAccDes(R0, dq0)
 
 def reactiveController(p, Rb, dq, pdes, kpos=[1e-3,5e-1], kz=[1e-1,1e0], ks=[1e0,1e2]):
     # Pakpong-style reactive controller
@@ -300,6 +301,8 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     trajOmg = 2 * np.pi * trajFreq * 1e-3 # to KHz, then to rad/ms
     ddqdes = None # test integrate ddq sim below
 
+    avgTime = 0.0
+
     for ti in range(Nt):
         # Traj to follow
         pdes[0] = trajAmp * np.sin(trajOmg * tt[ti])
@@ -307,8 +310,9 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
 
         # Call controller
         if useMPC:
-            u = mdl.update2(p, Rb, dq, pdes, dpdes)
-            accdess[ti,:] = mdl.getAccDes(Rb, dq)
+            t1 = perf_counter()
+            u, accdess[ti,:] = mdl.update(p, Rb, dq, pdes, dpdes)
+            avgTime += 0.01 * (perf_counter() - t1 - avgTime)
             # # Alternate simulation by integrating accDes
             # ddqdes = accdess[ti,:]
         else:
@@ -319,6 +323,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
         ys[ti,:] = np.hstack((p, Rb[:,2], dq))
         us[ti,:] = u
         pdess[ti,:] = pdes
+    print("Time (ms):", avgTime * 1e3)
     
     import matplotlib.pyplot as plt
 
@@ -379,30 +384,13 @@ if __name__ == "__main__":
     TtoWmax = 2 # thrust-to-weight
 
     up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
-    # up.testDyn(T0, s0s, Btaus, y0, dy0)
+    up.testDyn(T0, s0s, Btaus, y0, dy0)
+    # C version can be tested too
+    upc = UprightMPC2C(dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib.diagonal(), 10)
 
-    # FIXME: test
-    upc = UprightMPC2C(dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib.diagonal(), 40)
-    p = np.random.rand(3)
-    Rb = np.random.rand(3, 3)
-    dq = np.random.rand(6)
-    pdes = np.random.rand(3)
-    dpdes = np.random.rand(3)
-    uquad, accdes = upc.update(p, Rb, dq, pdes, dpdes)
-    cl, cu, cq = upc.vectors()
-    cP, cAdata, cAidx = upc.matrices()
-    # print(uquad, Rb.T @ p)
-    up.update2(p, Rb, dq, pdes, dpdes)
-    print((cl - up.l))
-    print((cu - up.u))
-    print((cq - up.q))
-    print((cP - up.P.data))
-    print((cAdata - up.A.data[up.Axidx]))
-
-    # # # Hover
-    # # controlTest(up, 500, useMPC=True)
-    # # # Ascent
-    # # controlTest(up, 500, useMPC=True, ascentIC=True)
-    # # Traj
-    # controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
-
+    # # Hover
+    # controlTest(up, 500, useMPC=True)
+    # # Ascent
+    # controlTest(up, 500, useMPC=True, ascentIC=True)
+    # Traj
+    controlTest(upc, 2000, useMPC=True, trajAmp=50, trajFreq=1)
