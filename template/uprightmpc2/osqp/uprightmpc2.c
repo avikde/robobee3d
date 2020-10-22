@@ -56,6 +56,13 @@ void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], co
 	up->e3h[1] = 1;
 	up->e3h[3] = -1;
 
+	for (int i = 0; i < UMPC_NX; ++i) {
+		up->q[i] = 0;
+	}
+	for (int i = 0; i < UMPC_NC; ++i) {
+		up->l[i] = up->u[i] = 0;
+	}
+
 	// OSQP
 	osqp_update_max_iter(&workspace, maxIter);
 	osqp_update_check_termination(&workspace, 0);
@@ -117,7 +124,21 @@ static void umpcUpdateConstraint(UprightMPC_t *up, const float s0[/*  */], const
 }
 
 static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const float dydes[/* 6 */]) {
-
+	// q ---
+	int offs = 0;
+	for (int k = 0; k < UMPC_N; ++k) {
+		for (int i = 0; i < UMPC_NY; ++i) {
+			up->q[offs + i] = -(k == UMPC_N-1 ? up->Qyf[i] : up->Qyr[i]) * ydes[i];
+		}
+		offs += UMPC_NY;
+	}
+	for (int k = 0; k < UMPC_N; ++k) {
+		for (int i = 0; i < UMPC_NY; ++i) {
+			up->q[offs + i] = -(k == UMPC_N-1 ? up->Qdyf[i] : up->Qdyr[i]) * dydes[i];
+		}
+		offs += UMPC_NY;
+	}
+	// Last rows remain 0
 }
 
 int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]) {
