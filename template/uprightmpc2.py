@@ -133,7 +133,7 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, Tmax, delUL, delUU):
     A.data[AxidxBtau] = dt*np.hstack([np.ravel(Btau,order='F') for Btau in Btaus])
 
     Axidx = np.hstack((AxidxT0dt, Axidxdt, Axidxs0, AxidxBtau))
-    # print("nAdata =",len(self.Axidx))
+    # print("nAdata =",len(Axidx))
 
     # print(A[:,2*N*ny:2*N*ny+6].toarray())
     return A, l, u, Axidx

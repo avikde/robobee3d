@@ -23,7 +23,7 @@
 // 	printf("\n");
 // }
 
-void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], const float smax[/* 3 */], float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, const float Ib[/* 3 */], int maxIter) {
+void umpcInit(UprightMPC_t *up, float dt, float g, float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, const float Ib[/* 3 */], int maxIter) {
 	static float Ibi[9];
 	int i, k, n1, n2, offs;
 
@@ -75,19 +75,19 @@ void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], co
 	}
 
 	// Ax idx ---
-	// Left third, T0*dt
+	// Left 1/4, T0*dt
 	offs = 0;
-	n2 = 2*UMPC_NY + 6; // nnz in each block col on the left
+	n2 = 2*UMPC_NY + 3; // nnz in each block col on the left
 	for (k = 0; k < UMPC_N-2; ++k) {
 		up->Ax_idx[offs+0] = n2*k + 8;
-		up->Ax_idx[offs+1] = n2*k + 12;
-		up->Ax_idx[offs+2] = n2*k + 16;
+		up->Ax_idx[offs+1] = n2*k + 11;
+		up->Ax_idx[offs+2] = n2*k + 14;
 		offs += 3;
 	}
 	up->nAxT0dt = offs;
 
-	// Middle third, dt
-	n1 = (2*UMPC_N-1)*UMPC_NY + (UMPC_N-2)*3 + 3*UMPC_N; // All the nnz in the left third
+	// Middle 2/4, dt
+	n1 = (2*UMPC_N-1)*UMPC_NY + (UMPC_N-2)*3; // All the nnz in the left third
 	n2 = 3*UMPC_NY; // nnz in each of the first N-1 block cols in the middle third
 	for (k = 0; k < UMPC_N; ++k) {
 		up->Ax_idx[offs+0] = n1 + n2*k + 0;
@@ -108,7 +108,7 @@ void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], co
 	}
 	up->nAxdt = offs;
 
-	// Right third
+	// Right 3/4
 	n1 += 3*UMPC_NY*(UMPC_N-1) + 2*UMPC_NY; // All the nnz in the left, middle third
 	n2 = 10; // nnz in each B0 + 1 for thrust lim
 	// s0
@@ -166,19 +166,15 @@ static void umpcUpdateConstraint(UprightMPC_t *up, const float s0[/*  */], const
 	for (i = 0; i < 2 * UMPC_N * UMPC_NY; ++i) {
 		up->u[i] = up->l[i];
 	}
-	// s lims
-	for (k = 0; k < UMPC_N; ++k) {
-		float *pl = &up->l[2*UMPC_N*UMPC_NY + 3*k];
-		float *pu = &up->u[2*UMPC_N*UMPC_NY + 3*k];
-		for (i = 0; i < 3; ++i) {
-			pl[i] = up->smin[i];
-			pu[i] = up->smax[i];
-		}
-	}
 	// thrust lims
 	for (k = 0; k < UMPC_N; ++k) {
-		up->l[2*UMPC_N*UMPC_NY + 3*UMPC_N + k] = -up->T0;
-		up->u[2*UMPC_N*UMPC_NY + 3*UMPC_N + k] = up->Tmax - up->T0;
+		up->l[2*UMPC_N*UMPC_NY + k] = -up->T0;
+		up->u[2*UMPC_N*UMPC_NY + k] = up->Tmax - up->T0;
+	}
+	// Delta-u input (rate) limits
+	for (i = 0; i < 4; ++i) {
+		up->l[2*UMPC_N*UMPC_NY + UMPC_N + i] = 0;//delUL[i];
+		up->u[2*UMPC_N*UMPC_NY + UMPC_N + i] = 0;//delUU[i];
 	}
 
 	// Update matrix ---
