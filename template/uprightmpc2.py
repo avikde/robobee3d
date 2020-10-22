@@ -379,8 +379,8 @@ if __name__ == "__main__":
 
     ydes = np.zeros_like(y0)
     dydes = np.zeros_like(y0)
-    smin = np.array([-2,-2,0.5])
-    smax = np.array([2,2,1.5])
+    smin = np.full(3, -10000)
+    smax = np.full(3, 10000)
     TtoWmax = 2 # thrust-to-weight
 
     up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)

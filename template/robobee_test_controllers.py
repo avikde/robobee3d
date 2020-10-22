@@ -89,8 +89,8 @@ class WaypointHover(RobobeeController):
         wvf = 2e3
         wthrust = 1e-1
         wmom = 1e-2
-        smin = np.array([-2,-2,0.5])
-        smax = np.array([2,2,1.5])
+        smin = np.full(3, -10000)
+        smax = np.full(3, 10000)
         TtoWmax = 3
         # self.up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
         self.up = UprightMPC2C(dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib.diagonal(), 10)
