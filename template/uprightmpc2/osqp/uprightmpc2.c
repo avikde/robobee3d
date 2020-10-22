@@ -256,6 +256,7 @@ int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], co
 	// Update
 	osqp_update_bounds(&workspace, up->l, up->u);
 	osqp_update_lin_cost(&workspace, up->q);
+	osqp_update_P_A(&workspace, up->Px_data, OSQP_NULL, UMPC_NX, up->Ax_data, up->Ax_idx, UMPC_nAdata);
 	int ret = osqp_solve(&workspace);
 
 	// copy solution
