@@ -15,13 +15,13 @@
 #include <stdio.h>
 #include <string.h>
 
-static void PRINTVEC(const float *y, int sz) {
-	int i;
-	for (i = 0; i < sz; ++i) {
-		printf("%.2f,", y[i]);
-	}
-	printf("\n");
-}
+// static void PRINTVEC(const float *y, int sz) {
+// 	int i;
+// 	for (i = 0; i < sz; ++i) {
+// 		printf("%.2f,", y[i]);
+// 	}
+// 	printf("\n");
+// }
 
 void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], const float smax[/* 3 */], float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, const float Ib[/* 3 */], int maxIter) {
 	static float Ibi[9];
