@@ -5,8 +5,9 @@ from scipy.spatial.transform import Rotation
 from ca6dynamics import dynamicsTerms
 from wlqppy import WLController
 import valuefunc
-from uprightmpc2 import UprightMPC2, reactiveController
-from genqp import quadrotorNLVF
+from uprightmpc2 import reactiveController#UprightMPC2, 
+from uprightmpc2py import UprightMPC2C # C version
+from genqp import quadrotorNLVF, Ib
 
 class WaveformGenerator(object):
     """A simple waveform generator that keeps track of phase"""
@@ -91,7 +92,8 @@ class WaypointHover(RobobeeController):
         smin = np.array([-2,-2,0.5])
         smax = np.array([2,2,1.5])
         TtoWmax = 3
-        self.up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
+        # self.up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
+        self.up = UprightMPC2C(dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib.diagonal(), 10)
 
     def templateVF(self, t, p, dp, s, ds, posdes, dposdes, kpos=[0.5e-3,5e-1], kz=[1e-3,2e-1], ks=[4e-3,0.3e0]):
         # TEST
@@ -141,7 +143,7 @@ class WaypointHover(RobobeeController):
         dpdes[1] = trajAmp * trajOmg * np.sin(trajOmg * t)
 
         # Upright MPC
-        ddqdes = self.up.updateGetAccdes(p, Rb, dq0, self.posdes, dpdes)
+        _, ddqdes = self.up.update(p, Rb, dq0, self.posdes, dpdes)
         # ddqdes[:3] = Rb.T @ ddqdes[:3] # Convert to body frame?
         return ddqdes
 
