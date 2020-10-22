@@ -177,7 +177,7 @@ def openLoopX(N, dt, T0, s0s, Btaus, y0, dy0, g):
     return x
 
 class UprightMPC2():
-    def __init__(self, N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom):
+    def __init__(self, N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, u0, umin, umax, dumax, controlRate):
         self.N = N
 
         nx = self.N * (2*ny + nu) + 4
@@ -203,6 +203,12 @@ class UprightMPC2():
         # Manage linearization point
         self.T0 = 0 # mass-specific thrust
         self.Ibi = np.linalg.inv(Ib)
+
+        # WLQP state
+        self.u0 = u0
+        self.umin = umin
+        self.umax = umax
+        self.dumax = dumax / controlRate
         
     def codegen(self, dirname='uprightmpc2/osqp'):
         try:
@@ -218,9 +224,16 @@ class UprightMPC2():
         print((self.A @ xtest - l)[:2*self.N*ny])
     
     def update1(self, T0sp, s0s, Btaus, y0, dy0, ydes, dydes):
-        # TODO:
-        delUL = np.zeros(4)
-        delUU = np.zeros(4)
+        # WLQP Delta-u limit
+        delUL = -self.dumax
+        delUU = self.dumax
+        # Input limits
+        for i in range(4):
+            if u0[i] < self.umin[i]:
+                delUL[i] = 0
+            elif u0[i] > self.umax[i]:
+                delUU[i] = 0
+        # Update
         self.A, self.l, self.u, self.Axidx = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.Tmax, delUL, delUU)
         self.P, self.q = updateObjective(self.N, self.P, *self.Wts, ydes, dydes)
         
@@ -381,12 +394,18 @@ if __name__ == "__main__":
     wvf = 2e3
     wthrust = 1e-1
     wmom = 1e-2
+    # WLQP inputs
+    u0 = np.array([120,0,0,0])
+    umin = np.array([90, -0.5, -0.2, -0.1])
+    umax = np.array([240, 0.5, 0.2, 0.1])
+    dumax = np.array([5e3, 10, 10, 10]) # /s
+    controlRate = 1000
 
     ydes = np.zeros_like(y0)
     dydes = np.zeros_like(y0)
     TtoWmax = 2 # thrust-to-weight
 
-    up = UprightMPC2(N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
+    up = UprightMPC2(N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, u0, umin, umax, dumax, controlRate)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
     # # C version can be tested too
     # upc = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib.diagonal(), 10)
