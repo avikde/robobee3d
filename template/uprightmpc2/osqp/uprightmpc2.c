@@ -280,3 +280,15 @@ int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], co
 
 	return ret;
 }
+
+// S function ---
+UprightMPC_t _up;
+int _inited = 0;
+
+void umpcS(float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 6 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */], float dt, float g, const float smin[/* 3 */], const float smax[/* 3 */], float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, const float Ib[/* 3 */], int maxIter) {
+	if (_inited == 0) {
+		umpcInit(&_up, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib, maxIter);
+		_inited = 1;
+	}
+	umpcUpdate(&_up, uquad, accdes, p0, R0, dq0, pdes, dpdes);
+}

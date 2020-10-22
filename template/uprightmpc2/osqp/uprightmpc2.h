@@ -47,6 +47,34 @@ void umpcInit(UprightMPC_t *up, float dt, float g, const float smin[/* 3 */], co
 
 int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 6 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]);
 
+/**
+ * @brief For simulink RT, a single function with a bunch of arguments
+ * 
+ * @param uquad y1
+ * @param accdes y2
+ * @param p0 u1
+ * @param R0 u2
+ * @param dq0 u3
+ * @param pdes u4
+ * @param dpdes u5
+ * @param dt u6
+ * @param g u7
+ * @param smin u8 
+ * @param smax u9
+ * @param TtoWmax u10
+ * @param ws u11
+ * @param wds u12
+ * @param wpr u13
+ * @param wpf u14
+ * @param wvr u15
+ * @param wvf u16
+ * @param wthrust u17 
+ * @param wmom u18
+ * @param Ib u19
+ * @param maxIter u20
+ */
+void umpcS(float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 6 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */], float dt, float g, const float smin[/* 3 */], const float smax[/* 3 */], float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, const float Ib[/* 3 */], int maxIter);
+
 #ifdef __cplusplus
 }
 #endif
