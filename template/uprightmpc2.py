@@ -39,10 +39,11 @@ def initConstraint(N, nx, nc):
     # cols of A are broken up like this (partition nx)
     n1 = N*ny
     n2 = 2*N*ny
+    n3 = 2*N*ny + nu*N
     # rows of A broken up:
     nc1 = N*ny # after this; yddot dynamics
-    nc2 = 2*N*ny # after this; s lims
-    nc3 = 2*N*ny + 3*N # after this; thrust lims
+    nc2 = 2*N*ny # after this; thrust lims
+    nc3 = 2*N*ny + N # after this; Delta-u lims
     
     for k in range(N):
         # ykp1 = yk + dt*dyk equations
@@ -59,14 +60,15 @@ def initConstraint(N, nx, nc):
         if k>1:
             A[nc1 + k*ny:nc1 + (k+1)*ny, (k-2)*ny:(k-1)*ny] = getA0(T0*dt)
         
-        # s lim
-        A[nc2+3*k : nc2+3*(k+1), k*ny+3:(k+1)*ny] = np.eye(3)
         # thrust lim
-        A[nc3+k, n2+3*k] = 1
+        A[nc2+k, n2+3*k] = 1
+    
+    # Delta-u WLQP rate limit constraint
+    A[nc3:nc3+4, n3:n3+4] = np.eye(4)
     
     return sp.csc_matrix(A), sp.csc_matrix(P)
 
-def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, smin, smax, Tmax):
+def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, Tmax, delUL, delUU):
     nc = A.shape[0]
 
     # Update vector
@@ -82,23 +84,22 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, smin, smax, Tmax):
             l[ny*N+k*ny : ny*N+(k+1)*ny] = -dt*c0(g)
     # copy for dynamics
     u = np.copy(l)
-    # s lims
-    for k in range(N):
-        l[2*N*ny+3*k:2*N*ny+3*(k+1)] = smin
-        u[2*N*ny+3*k:2*N*ny+3*(k+1)] = smax
     # thrust lims
     for k in range(N):
-        l[2*N*ny+3*N+k] = -T0
-        u[2*N*ny+3*N+k] = Tmax-T0
+        l[2*N*ny+k] = -T0
+        u[2*N*ny+k] = Tmax-T0
+    # Delta-u input (rate) limits
+    l[2*N*ny+N:2*N*ny+N+4] = delUL
+    u[2*N*ny+N:2*N*ny+N+4] = delUU
 
-    # Left third
+    # Left 1/4
     AxidxT0dt = []
-    n2 = 2*ny + 6 # nnz in each block col on the left
+    n2 = 2*ny + 3 # nnz in each block col on the left
     for k in range(N-2):
-        AxidxT0dt += [n2*k + i for i in [8,12,16]]
+        AxidxT0dt += [n2*k + i for i in [8,11,14]]
 
-    # Middle third
-    n1 = (2*N-1)*ny + (N-2)*3 + 3*N # All the nnz in the left third
+    # Middle 2/4
+    n1 = (2*N-1)*ny + (N-2)*3 # All the nnz in the left third
     n2 = 3*ny # nnz in each of the first N-1 block cols in the middle third
     Axidxdt = []
     for k in range(N):
@@ -107,7 +108,7 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, smin, smax, Tmax):
         else:
             Axidxdt += [n1 + n2*k + i for i in [0,2,4,6,8,10]]
     
-    # Right third
+    # Right 3/4
     n1 += 3*ny*(N-1) + 2*ny # all nnz in the left and middle third
     n2 = 10 # nnz in each B0 + 1 for thrust lim
     Axidxs0 = []
@@ -115,9 +116,10 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, smin, smax, Tmax):
     for k in range(N):
         Axidxs0 += [n1 + n2*k + i for i in range(3)]
         AxidxBtau += [n1 + n2*k + 4 + i for i in range(6)]
+    # No need to update rightmost
 
     # Last check
-    assert A.nnz == n1 + n2*N
+    assert A.nnz == n1 + n2*N + 4
 
     # Update
     A.data[AxidxT0dt] = dt*T0
@@ -137,14 +139,16 @@ def updateObjective(N, P, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes):
         Qyf,
         np.hstack([Qdyr for k in range(N-1)]),
         Qdyf,
-        np.hstack([R for k in range(N)])
+        np.hstack([R for k in range(N)]),
+        np.zeros(4)
     ))
     q = np.hstack((
         np.hstack([-Qyr*ydes for k in range(N-1)]),
         -Qyf*ydes,
         np.hstack([-Qdyr*dydes for k in range(N-1)]),
         -Qdyf*dydes,
-        np.zeros(N*len(R))
+        np.zeros(N*len(R)),
+        np.zeros(4)
     ))
     return P, q
 
@@ -168,16 +172,16 @@ def openLoopX(N, dt, T0, s0s, Btaus, y0, dy0, g):
         dyk = np.copy(dykp1)
 
     # stack
-    x = np.hstack((np.ravel(ys), np.ravel(dys), np.ravel(us)))
+    x = np.hstack((np.ravel(ys), np.ravel(dys), np.ravel(us), np.zeros(4)))
     # print(ys, x)
     return x
 
 class UprightMPC2():
-    def __init__(self, N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom):
+    def __init__(self, N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom):
         self.N = N
 
-        nx = self.N * (2*ny + nu)
-        nc = 2*self.N*ny + 4*self.N
+        nx = self.N * (2*ny + nu) + 4
+        nc = 2*self.N*ny + self.N + 4
 
         self.A, self.P = initConstraint(N, nx, nc)
 
@@ -190,8 +194,6 @@ class UprightMPC2():
         self.dt = dt
         self.Wts = [Qyr, Qyf, Qdyr, Qdyf, R]
         self.g = g
-        self.smin = smin
-        self.smax = smax
         self.Tmax = TtoWmax * g # use thrust-to-weight ratio to set max specific thrust
 
         # Create OSQP
@@ -211,12 +213,15 @@ class UprightMPC2():
 
     def testDyn(self, T0sp, s0s, Btaus, y0, dy0):
         # Test
-        self.A, l, u, Axidx = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.smin, self.smax, self.Tmax)
+        self.A, l, u, Axidx = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.Tmax, np.zeros(4), np.zeros(4))
         xtest = openLoopX(self.N, self.dt, T0, s0s, Btaus, y0, dy0, self.g)
         print((self.A @ xtest - l)[:2*self.N*ny])
     
     def update1(self, T0sp, s0s, Btaus, y0, dy0, ydes, dydes):
-        self.A, self.l, self.u, self.Axidx = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.smin, self.smax, self.Tmax)
+        # TODO:
+        delUL = np.zeros(4)
+        delUU = np.zeros(4)
+        self.A, self.l, self.u, self.Axidx = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.Tmax, delUL, delUU)
         self.P, self.q = updateObjective(self.N, self.P, *self.Wts, ydes, dydes)
         
         # OSQP solve ---
@@ -379,18 +384,16 @@ if __name__ == "__main__":
 
     ydes = np.zeros_like(y0)
     dydes = np.zeros_like(y0)
-    smin = np.full(3, -10000)
-    smax = np.full(3, 10000)
     TtoWmax = 2 # thrust-to-weight
 
-    up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
+    up = UprightMPC2(N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
-    # C version can be tested too
-    upc = UprightMPC2C(dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib.diagonal(), 10)
+    # # C version can be tested too
+    # upc = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib.diagonal(), 10)
 
     # # Hover
     # controlTest(up, 500, useMPC=True)
     # # Ascent
     # controlTest(up, 500, useMPC=True, ascentIC=True)
     # Traj
-    controlTest(upc, 2000, useMPC=True, trajAmp=50, trajFreq=1)
+    controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
