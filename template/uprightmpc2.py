@@ -230,6 +230,8 @@ class UprightMPC2():
         self.umax = umax
         self.dumax = dumax / controlRate
         self.Qw = Qw
+        # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3]
+        self.u0 = np.zeros(4)
         
     def codegen(self, dirname='uprightmpc2/osqp'):
         try:
@@ -250,9 +252,9 @@ class UprightMPC2():
         delUU = self.dumax
         # Input limits
         for i in range(4):
-            if u0[i] < self.umin[i]:
+            if self.u0[i] < self.umin[i]:
                 delUL[i] = 0
-            elif u0[i] > self.umax[i]:
+            elif self.u0[i] > self.umax[i]:
                 delUU[i] = 0
         # Update
         self.A, self.l, self.u, self.Axidx = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.Tmax, delUL, delUU)
@@ -289,6 +291,10 @@ class UprightMPC2():
         utilde = self.prevsol[2*ny*self.N : 2*ny*self.N+nu]
         self.T0 += utilde[0]
 
+        # WLQP update u0
+        delu = self.prevsol[(2*ny + nu)*self.N:]
+        self.u0 += delu
+
         return np.hstack((self.T0, utilde[1:]))
     
     def getAccDes(self, R0, dq0):
@@ -299,7 +305,10 @@ class UprightMPC2():
         # return (bTw(dq1des) - bTw(dq0)) / self.dt
         return (dq1des - dq0) / self.dt # return in world frame
     
-    def update(self, p0, R0, dq0, pdes, dpdes, dwdu0=np.ones((6,4)), w0=np.ones(6)):
+    def update(self, p0, R0, dq0, pdes, dpdes):
+        # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3]
+        w0 = np.hstack((0,0,self.u0))
+        dwdu0 = np.vstack((np.zeros((2,4)), np.eye(4)))
         # Version of above that computes the desired body frame acceleration
         u = self.update2(p0, R0, dq0, pdes, dpdes, dwdu0, w0)
         return u, self.getAccDes(R0, dq0)
@@ -424,10 +433,13 @@ if __name__ == "__main__":
     # WLQP inputs
     mb = 100
     Qw = np.zeros(6)
-    u0 = np.array([120,0,0,0])
-    umin = np.array([90, -0.5, -0.2, -0.1])
-    umax = np.array([240, 0.5, 0.2, 0.1])
-    dumax = np.array([5e3, 10, 10, 10]) # /s
+    # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3]
+    # umin = np.array([0, -0.5, -0.2, -0.1])
+    # umax = np.array([10, 0.5, 0.2, 0.1])
+    # dumax = np.array([10, 10, 10, 10]) # /s
+    umin = -100000 * np.ones(4)# FIXME: get nonconvex with Qw = ones(6)
+    umax = 100000 * np.ones(4)
+    dumax = 100000 * np.ones(4) # /s
     controlRate = 1000
 
     ydes = np.zeros_like(y0)
