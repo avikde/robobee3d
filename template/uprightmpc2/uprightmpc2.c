@@ -346,10 +346,10 @@ int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], co
 UprightMPC_t _up;
 int _inited = 0;
 
-// void umpcS(float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 6 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */], float dt, float g, const float smin[/* 3 */], const float smax[/* 3 */], float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, const float Ib[/* 3 */], int maxIter) {
-// 	if (_inited == 0) {
-// 		umpcInit(&_up, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib, maxIter);
-// 		_inited = 1;
-// 	}
-// 	umpcUpdate(&_up, uquad, accdes, p0, R0, dq0, pdes, dpdes);
-// }
+void umpcS(float uquad_y1[/* 3 */], float accdes_y2[/* 6 */], const float p0_u1[/* 3 */], const float R0_u2[/* 9 */], const float dq0_u3[/* 6 */], const float pdes_u4[/* 3 */], const float dpdes_u5[/* 3 */], float dt_u6, float g_u7, float TtoWmax_u8, float ws_u9, float wds_u10, float wpr_u11, float wpf_u12, float wvr_u13, float wvf_u14, float wthrust_u15, float wmom_u16, float mb_u17, const float Ib_u18[/* 3 */], const float umin_u19[/* 4 */], const float umax_u20[/* 4 */], const float dumax_u21[/* 4 */], const float Qw_u22[/* 6 */], float controlRate_u23, int maxIter_u24) {
+	if (_inited == 0) {
+		umpcInit(&_up, dt_u6, g_u7, TtoWmax_u8, ws_u9, wds_u10, wpr_u11, wpf_u12, wvr_u13, wvf_u14, wthrust_u15, wmom_u16, mb_u17, Ib_u18, umin_u19, umax_u20, dumax_u21, Qw_u22, controlRate_u23, maxIter_u24);
+		_inited = 1;
+	}
+	umpcUpdate(&_up, uquad_y1, accdes_y2, p0_u1, R0_u2, dq0_u3, pdes_u4, dpdes_u5);
+}
