@@ -37,7 +37,7 @@ def initConstraint(N, nx, nc):
     P = np.eye(nx) # Q, R stacked
     # Dense blocks for WLQP
     P[N*ny:N*ny+ny,N*ny:N*ny+ny] = np.ones((ny,ny))
-    # P[N*ny:N*ny+ny,N*(2*ny+nu):N*(2*ny+nu)+4] = np.ones((ny,4))
+    # P[N*ny:N*ny+ny,N*(2*ny+nu):N*(2*ny+nu)+4] = np.reshape(np.arange(24),(6,4),order='F')
     # P[N*(2*ny+nu):N*(2*ny+nu)+4,N*ny:N*ny+ny] = np.ones((4,ny))
     P[N*(2*ny+nu):N*(2*ny+nu)+4,N*(2*ny+nu):N*(2*ny+nu)+4] = np.ones((4,4))
 
@@ -159,7 +159,7 @@ def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0t, M0t)
         np.hstack([R for k in range(N)]),
         # (-M0t.T @ Qw @ dwdu).ravel(order='F'), # dy1,delu block FIXME:
         # (np.zeros((6,4))).ravel(order='F'), # dy1,delu block
-        getUpperTriang(dwdu.T @ Qw @ dwdu),# delu,delu block upper triang
+        getUpperTriang(np.eye(4)),#getUpperTriang(dwdu.T @ Qw @ dwdu),# delu,delu block upper triang
     ))
 
     q = np.hstack((
@@ -168,7 +168,7 @@ def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0t, M0t)
         np.hstack([-Qdyr*dydes for k in range(N-1)]), # added on to below
         -Qdyf*dydes,
         np.zeros(N*len(R)),
-        dwdu.T @ Qw @ w0t
+        -np.arange(4)#dwdu.T @ Qw @ w0t
     ))
     # print(q.shape)
     # abort
@@ -236,7 +236,7 @@ class UprightMPC2():
         # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3]
         self.u0 = np.zeros(4)
         
-    def codegen(self, dirname='uprightmpc2/osqp'):
+    def codegen(self, dirname='uprightmpc2/gen'):
         try:
             self.model.codegen(dirname, project_type='', force_rewrite=True, parameters='matrices', FLOAT=True, LONG=False)
         except:
@@ -372,7 +372,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
         if useMPC:
             t1 = perf_counter()
             u, accdess[ti,:] = mdl.update(p, Rb, dq, pdes, dpdes)
-            wlqpus[ti,:] = mdl.u0#mdl.prevsol[-4:]
+            wlqpus[ti,:] = mdl.prevsol[-4:] #mdl.u0#
             avgTime += 0.01 * (perf_counter() - t1 - avgTime)
             # # Alternate simulation by integrating accDes
             # ddqdes = accdess[ti,:]
@@ -451,7 +451,7 @@ if __name__ == "__main__":
     # dumax = np.array([10, 10, 10, 10]) # /s
     umin = -100000 * np.ones(4)
     umax = 100000 * np.ones(4)
-    dumax = 1000 * np.ones(4) # /s
+    dumax = 100000 * np.ones(4) # /s
     controlRate = 1000
 
     ydes = np.zeros_like(y0)
