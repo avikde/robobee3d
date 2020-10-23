@@ -148,7 +148,7 @@ def getUpperTriang(P):
             kk += 1
     return Pdata
 
-def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0m, M0t):
+def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0t, M0t):
     # Block diag components - see notes
     Pdata = np.hstack((
         np.hstack([Qyr for k in range(N-1)]),
@@ -167,7 +167,7 @@ def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0m, M0t)
         np.hstack([-Qdyr*dydes for k in range(N-1)]), # added on to below
         -Qdyf*dydes,
         np.zeros(N*len(R)),
-        dwdu.T @ Qw @ w0m
+        dwdu.T @ Qw @ w0t
     ))
     q[N*ny:(N+1)*ny] -= M0t.T @ Qw @ w0t
     return Pdata, q
@@ -353,6 +353,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     us = np.zeros((Nt, 3))
     pdess = np.zeros((Nt, 3))
     accdess = np.zeros((Nt,6))
+    delus = np.zeros((Nt,4))
 
     trajOmg = 2 * np.pi * trajFreq * 1e-3 # to KHz, then to rad/ms
     ddqdes = None # test integrate ddq sim below
@@ -368,6 +369,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
         if useMPC:
             t1 = perf_counter()
             u, accdess[ti,:] = mdl.update(p, Rb, dq, pdes, dpdes)
+            delus[ti,:] = mdl.prevsol[-4:]
             avgTime += 0.01 * (perf_counter() - t1 - avgTime)
             # # Alternate simulation by integrating accDes
             # ddqdes = accdess[ti,:]
@@ -380,10 +382,12 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
         us[ti,:] = u
         pdess[ti,:] = pdes
     print("Time (ms):", avgTime * 1e3)
+
+    print(delus)
     
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots(4,2)
+    fig, ax = plt.subplots(3,3)
     ax = ax.ravel()
         
     ax[0].plot(tt, ys[:,:3])
@@ -410,6 +414,8 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     ax[7].plot(tt, accdess[:,3:])
     ax[7].axhline(y=0, color='k', alpha=0.3)
     ax[7].set_ylabel('accdes ang')
+    ax[8].plot(tt, delus)
+    ax[8].set_ylabel('delu')
     fig.tight_layout()
     plt.show()
 
@@ -434,14 +440,15 @@ if __name__ == "__main__":
     wmom = 1e-2
     # WLQP inputs
     mb = 100
-    Qw = np.hstack((np.zeros(2), np.ones(4)))
-    # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3]
+    # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3].
+    # Setting first 2 elements of Qw -> 0 => should not affect objective as longs as dumax does not constrain.
+    Qw = np.hstack((np.zeros(2), 1e-3*np.ones(4)))
     # umin = np.array([0, -0.5, -0.2, -0.1])
     # umax = np.array([10, 0.5, 0.2, 0.1])
     # dumax = np.array([10, 10, 10, 10]) # /s
     umin = -100000 * np.ones(4)
     umax = 100000 * np.ones(4)
-    dumax = 100000 * np.ones(4) # /s
+    dumax = 100 * np.ones(4) # /s
     controlRate = 1000
 
     ydes = np.zeros_like(y0)
@@ -470,4 +477,4 @@ if __name__ == "__main__":
     # # Ascent
     # controlTest(up, 500, useMPC=True, ascentIC=True)
     # Traj
-    controlTest(upc, 2000, useMPC=True, trajAmp=50, trajFreq=1)
+    controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
