@@ -37,8 +37,8 @@ def initConstraint(N, nx, nc):
     P = np.eye(nx) # Q, R stacked
     # Dense blocks for WLQP
     P[N*ny:N*ny+ny,N*ny:N*ny+ny] = np.ones((ny,ny))
-    P[N*ny:N*ny+ny,N*(2*ny+nu):N*(2*ny+nu)+4] = np.ones((ny,4))
-    P[N*(2*ny+nu):N*(2*ny+nu)+4,N*ny:N*ny+ny] = np.ones((4,ny))
+    # P[N*ny:N*ny+ny,N*(2*ny+nu):N*(2*ny+nu)+4] = np.ones((ny,4))
+    # P[N*(2*ny+nu):N*(2*ny+nu)+4,N*ny:N*ny+ny] = np.ones((4,ny))
     P[N*(2*ny+nu):N*(2*ny+nu)+4,N*(2*ny+nu):N*(2*ny+nu)+4] = np.ones((4,4))
 
     # cols of A are broken up like this (partition nx)
@@ -138,15 +138,15 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, Tmax, delUL, delUU):
     # print(A[:,2*N*ny:2*N*ny+6].toarray())
     return A, l, u, Axidx
 
-def getUpperTriang(P):
-    n = P.shape[0]
-    Pdata = np.zeros(n*(n+1)//2)
+def getUpperTriang(P1):
+    n = P1.shape[0]
+    P1data = np.zeros(n*(n+1)//2)
     kk = 0
     for j in range(n):
         for i in range(j+1):
-            Pdata[kk] = P[i,j]
+            P1data[kk] = P1[i,j]
             kk += 1
-    return Pdata
+    return P1data
 
 def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0t, M0t):
     # Block diag components - see notes
@@ -158,8 +158,8 @@ def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0t, M0t)
         Qdyf,
         np.hstack([R for k in range(N)]),
         # (-M0t.T @ Qw @ dwdu).ravel(order='F'), # dy1,delu block FIXME:
-        (np.zeros((6,4))).ravel(order='F'), # dy1,delu block
-        getUpperTriang(dwdu.T @ Qw @ dwdu),# delu,delu block upper triang
+        # (np.zeros((6,4))).ravel(order='F'), # dy1,delu block
+        getUpperTriang(np.eye(4)),#dwdu.T @ Qw @ dwdu),# delu,delu block upper triang
     ))
 
     q = np.hstack((
@@ -168,8 +168,10 @@ def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0t, M0t)
         np.hstack([-Qdyr*dydes for k in range(N-1)]), # added on to below
         -Qdyf*dydes,
         np.zeros(N*len(R)),
-        dwdu.T @ Qw @ (-np.arange(6))
+        -np.arange(4)#dwdu.T @ Qw @ (-np.arange(6))
     ))
+    # print(q.shape)
+    # abort
     # q[N*ny:(N+1)*ny] -= M0t.T @ Qw @ w0t
     return Pdata, q
 
@@ -413,7 +415,9 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     ax[7].plot(tt, accdess[:,3:])
     ax[7].axhline(y=0, color='k', alpha=0.3)
     ax[7].set_ylabel('accdes ang')
-    ax[8].plot(tt, delus)
+    ax[8].plot(tt, delus[:,:2])
+    ax[8].plot(tt, delus[:,2:],'--')
+    ax[8].legend(('0','1','2','3'))
     ax[8].set_ylabel('delu')
     fig.tight_layout()
     plt.show()
@@ -476,4 +480,4 @@ if __name__ == "__main__":
     # # Ascent
     # controlTest(up, 500, useMPC=True, ascentIC=True)
     # Traj
-    controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
+    controlTest(up, 500, useMPC=True, trajAmp=50, trajFreq=1)
