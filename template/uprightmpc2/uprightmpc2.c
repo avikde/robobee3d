@@ -277,7 +277,7 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 		offsP += 1;
 	}
 	// delu,delu block upper triang
-	for (int i = 0; i < 4*4; ++i)
+	for (i = 0; i < 4*4; ++i)
 		dummy44[i] = 0; // TODO: dwdu.T @ np.diag(Qw) @ dwdu
 	offsP += getUpperTriang(&up->Px_data[offsP], dummy44, 4);
 }
