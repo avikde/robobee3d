@@ -23,10 +23,11 @@ typedef Eigen::Map<const Eigen::MatrixXf> MCMatX;
 typedef Eigen::Map<Eigen::MatrixXf> MMatX;
 typedef Eigen::Matrix<float, UMPC_NX, 1> Vecx_t;
 typedef Eigen::Matrix<float, UMPC_NC, 1> Vecc_t;
+typedef Eigen::Matrix<float, UMPC_nPdata, 1> Pdatax_t;
 typedef Eigen::Matrix<float, UMPC_nAdata, 1> Adatax_t;
 typedef Eigen::Array<int, UMPC_nAdata, 1> Adatai_t;
 typedef std::tuple<Vecc_t, Vecc_t, Vecx_t> uvecs_t;
-typedef std::tuple<Vecx_t, Adatax_t, Adatai_t> umats_t;
+typedef std::tuple<Pdatax_t, Adatax_t, Adatai_t> umats_t;
 
 // Wrapper for the C implementation
 class UprightMPC2 {
@@ -49,7 +50,7 @@ public:
 		return std::make_tuple(Eigen::Map<Vecc_t>(umpc.l), Eigen::Map<Vecc_t>(umpc.u), Eigen::Map<Vecx_t>(umpc.q));
 	}
 	umats_t matrices() {
-		return std::make_tuple(Eigen::Map<Vecx_t>(umpc.Px_data), Eigen::Map<Adatax_t>(umpc.Ax_data), Eigen::Map<Adatai_t>(umpc.Ax_idx));
+		return std::make_tuple(Eigen::Map<Pdatax_t>(umpc.Px_data), Eigen::Map<Adatax_t>(umpc.Ax_data), Eigen::Map<Adatai_t>(umpc.Ax_idx));
 	}
 };
 

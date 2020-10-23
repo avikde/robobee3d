@@ -25,6 +25,7 @@ extern "C" {
 #define UMPC_NX (UMPC_N*(2*UMPC_NY + UMPC_NU) + WLQP_NU)
 #define UMPC_NC (2*UMPC_N*UMPC_NY + UMPC_N + WLQP_NU)
 #define UMPC_nAdata 48 // depends on N, printed out in python script
+#define UMPC_nPdata 94 // depends on N, printed out in python script
 
 typedef struct {
 	float dt, g, Tmax;
@@ -37,7 +38,7 @@ typedef struct {
   float e3hIbi[3*3]; // e3h*Ibi
   // Workspace
   float l[UMPC_NC], u[UMPC_NC], q[UMPC_NX];
-  float Px_data[UMPC_NX]; // all diagonal elements (checked size of Pdata_i=NX)
+  float Px_data[UMPC_nPdata];
   float Ax_data[UMPC_nAdata];
   int Ax_idx[UMPC_nAdata], nAxT0dt, nAxdt;
   float c0[UMPC_NY];

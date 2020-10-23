@@ -461,8 +461,7 @@ if __name__ == "__main__":
     cl, cu, cq = upc.vectors()
     cP, cAdata, cAidx = upc.matrices()
     up.update(p, R, dq, pdes, dpdes)
-    print(up.l - cl)
-    print(up.u - cu)
+    print(up.Pdata - cP)
 
     # # Hover
     # controlTest(up, 500, useMPC=True)
