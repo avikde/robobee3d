@@ -94,8 +94,8 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, Tmax, delUL, delUU):
         l[2*N*ny+k] = -T0
         u[2*N*ny+k] = Tmax-T0
     # Delta-u input (rate) limits
-    l[2*N*ny+N:2*N*ny+N+4] = delUL
-    u[2*N*ny+N:2*N*ny+N+4] = delUU
+    l[2*N*ny+N:2*N*ny+N+4] = -10*np.ones(4)#delUL FIXME:
+    u[2*N*ny+N:2*N*ny+N+4] = 10*np.ones(4)#delUU FIXME:
 
     # Left 1/4
     AxidxT0dt = []
@@ -153,11 +153,12 @@ def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0t, M0t)
     Pdata = np.hstack((
         np.hstack([Qyr for k in range(N-1)]),
         Qyf,
-        getUpperTriang(np.diag(Qdyr) + M0t.T @ Qw @ M0t),# dy1,dy1 block upper triang
+        getUpperTriang(np.diag(Qdyr)),# + M0t.T @ Qw @ M0t),# dy1,dy1 block upper triang FIXME:
         np.hstack([Qdyr for k in range(N-2)]),
         Qdyf,
         np.hstack([R for k in range(N)]),
-        (-M0t.T @ Qw @ dwdu).ravel(order='F'), # dy1,delu block
+        # (-M0t.T @ Qw @ dwdu).ravel(order='F'), # dy1,delu block FIXME:
+        (np.zeros((6,4))).ravel(order='F'), # dy1,delu block
         getUpperTriang(dwdu.T @ Qw @ dwdu),# delu,delu block upper triang
     ))
 
@@ -167,9 +168,9 @@ def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0t, M0t)
         np.hstack([-Qdyr*dydes for k in range(N-1)]), # added on to below
         -Qdyf*dydes,
         np.zeros(N*len(R)),
-        dwdu.T @ Qw @ w0t
+        dwdu.T @ Qw @ (-np.arange(6))
     ))
-    q[N*ny:(N+1)*ny] -= M0t.T @ Qw @ w0t
+    # q[N*ny:(N+1)*ny] -= M0t.T @ Qw @ w0t
     return Pdata, q
 
 def openLoopX(N, dt, T0, s0s, Btaus, y0, dy0, g):
@@ -295,7 +296,7 @@ class UprightMPC2():
 
         # WLQP update u0
         delu = self.prevsol[(2*ny + nu)*self.N:]
-        self.u0 += delu
+        # self.u0 += delu FIXME:
 
         return np.hstack((self.T0, utilde[1:]))
     
@@ -382,8 +383,6 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
         us[ti,:] = u
         pdess[ti,:] = pdes
     print("Time (ms):", avgTime * 1e3)
-
-    print(delus)
     
     import matplotlib.pyplot as plt
 
@@ -442,7 +441,7 @@ if __name__ == "__main__":
     mb = 100
     # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3].
     # Setting first 2 elements of Qw -> 0 => should not affect objective as longs as dumax does not constrain.
-    Qw = np.hstack((np.zeros(2), 1e-3*np.ones(4)))
+    Qw = np.hstack((np.zeros(2), np.ones(4)))
     # umin = np.array([0, -0.5, -0.2, -0.1])
     # umax = np.array([10, 0.5, 0.2, 0.1])
     # dumax = np.array([10, 10, 10, 10]) # /s
