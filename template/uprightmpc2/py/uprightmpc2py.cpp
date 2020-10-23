@@ -33,8 +33,8 @@ class UprightMPC2 {
 public:
 	UprightMPC_t umpc;
 
-	UprightMPC2(float dt, float g, float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, float mb, const Eigen::Vector3f &Ib, const Eigen::Vector4f &umin, const Eigen::Vector4f &umax, const Eigen::Vector4f &dumax, const Vec6_t &Qw, int maxIter) {
-		umpcInit(&umpc, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.data(), umin.data(), umax.data(), dumax.data(), Qw.data(), maxIter);
+	UprightMPC2(float dt, float g, float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, float mb, const Eigen::Vector3f &Ib, const Eigen::Vector4f &umin, const Eigen::Vector4f &umax, const Eigen::Vector4f &dumax, const Vec6_t &Qw, float controlRate, int maxIter) {
+		umpcInit(&umpc, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.data(), umin.data(), umax.data(), dumax.data(), Qw.data(), controlRate, maxIter);
 	}
 
 	uacc_t update(const Eigen::Vector3f &p0, const Eigen::Matrix3f &R0, const Vec6_t &dq0, const Eigen::Vector3f &pdes, const Eigen::Vector3f &dpdes) {
@@ -69,7 +69,7 @@ extern "C" void matMult(float *C, const float *A, const float *B, const int m, c
 
 PYBIND11_MODULE(uprightmpc2py, m) {
 	py::class_<UprightMPC2>(m, "UprightMPC2C")
-	.def(py::init<float /* dt */, float /* g */, float /* TtoWmax */, float /* ws */, float /* wds */, float /* wpr */, float /* wpf */, float /* wvr */, float /* wvf */, float /* wthrust */, float /* wmom */, float /* mb */, const Eigen::Vector3f &/* Ib */, const Eigen::Vector4f &/* umin */, const Eigen::Vector4f &/* umax */, const Eigen::Vector4f &/* dumax */, const Vec6_t &/* Qw */, int /* maxIter */>())
+	.def(py::init<float /* dt */, float /* g */, float /* TtoWmax */, float /* ws */, float /* wds */, float /* wpr */, float /* wpf */, float /* wvr */, float /* wvf */, float /* wthrust */, float /* wmom */, float /* mb */, const Eigen::Vector3f &/* Ib */, const Eigen::Vector4f &/* umin */, const Eigen::Vector4f &/* umax */, const Eigen::Vector4f &/* dumax */, const Vec6_t &/* Qw */, float, int /* maxIter */>())
 	.def("update", &UprightMPC2::update)
 	.def("vectors", &UprightMPC2::vectors)
 	.def("matrices", &UprightMPC2::matrices);

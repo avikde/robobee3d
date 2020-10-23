@@ -449,7 +449,20 @@ if __name__ == "__main__":
     up = UprightMPC2(N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, umin, umax, dumax, mb, Ib.diagonal(), Qw, controlRate)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
     # # C version can be tested too
-    upc = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, 10)
+    upc = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 10)
+
+    # FIXME: test
+    p = np.random.rand(3)
+    R = np.random.rand(3, 3)
+    dq = np.random.rand(6)
+    pdes = np.random.rand(3)
+    dpdes = np.random.rand(3)
+    upc.update(p, R, dq, pdes, dpdes)
+    cl, cu, cq = upc.vectors()
+    cP, cAdata, cAidx = upc.matrices()
+    up.update(p, R, dq, pdes, dpdes)
+    print(up.l - cl)
+    print(up.u - cu)
 
     # # Hover
     # controlTest(up, 500, useMPC=True)

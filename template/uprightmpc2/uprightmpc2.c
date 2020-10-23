@@ -23,7 +23,7 @@
 // 	printf("\n");
 // }
 
-void umpcInit(UprightMPC_t *up, float dt, float g, float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, float mb, const float Ib[/* 3 */], const float umin[/* 4 */], const float umax[/* 4 */], const float dumax[/* 4 */], const float Qw[/* 6 */], int maxIter) {
+void umpcInit(UprightMPC_t *up, float dt, float g, float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, float mb, const float Ib[/* 3 */], const float umin[/* 4 */], const float umax[/* 4 */], const float dumax[/* 4 */], const float Qw[/* 6 */], float controlRate, int maxIter) {
 	static float Ibi[9];
 	int i, k, n1, n2, offs;
 
@@ -46,7 +46,7 @@ void umpcInit(UprightMPC_t *up, float dt, float g, float TtoWmax, float ws, floa
 		up->u0[i] = 0;
 		up->umin[i] = umin[i];
 		up->umax[i] = umax[i];
-		up->dumax[i] = dumax[i];
+		up->dumax[i] = dumax[i] / controlRate;
 	}
 
 	// Other updates
