@@ -94,8 +94,8 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, Tmax, delUL, delUU):
         l[2*N*ny+k] = -T0
         u[2*N*ny+k] = Tmax-T0
     # Delta-u input (rate) limits
-    l[2*N*ny+N:2*N*ny+N+4] = -10*np.ones(4)#delUL FIXME:
-    u[2*N*ny+N:2*N*ny+N+4] = 10*np.ones(4)#delUU FIXME:
+    l[2*N*ny+N:2*N*ny+N+4] = delUL
+    u[2*N*ny+N:2*N*ny+N+4] = delUU
 
     # Left 1/4
     AxidxT0dt = []
@@ -159,7 +159,7 @@ def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0t, M0t)
         np.hstack([R for k in range(N)]),
         # (-M0t.T @ Qw @ dwdu).ravel(order='F'), # dy1,delu block FIXME:
         # (np.zeros((6,4))).ravel(order='F'), # dy1,delu block
-        getUpperTriang(np.eye(4)),#dwdu.T @ Qw @ dwdu),# delu,delu block upper triang
+        getUpperTriang(dwdu.T @ Qw @ dwdu),# delu,delu block upper triang
     ))
 
     q = np.hstack((
@@ -168,7 +168,7 @@ def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0t, M0t)
         np.hstack([-Qdyr*dydes for k in range(N-1)]), # added on to below
         -Qdyf*dydes,
         np.zeros(N*len(R)),
-        -np.arange(4)#dwdu.T @ Qw @ (-np.arange(6))
+        dwdu.T @ Qw @ w0t
     ))
     # print(q.shape)
     # abort
@@ -251,8 +251,8 @@ class UprightMPC2():
     
     def update1(self, T0sp, s0s, Btaus, y0, dy0, ydes, dydes, dwdu0, w0t, M0t):
         # WLQP Delta-u limit
-        delUL = -self.dumax
-        delUU = self.dumax
+        delUL = np.copy(-self.dumax)
+        delUU = np.copy(self.dumax)
         # Input limits
         for i in range(4):
             if self.u0[i] < self.umin[i]:
@@ -285,7 +285,7 @@ class UprightMPC2():
         dydes = np.hstack((dpdes, 0, 0, 0))
 
         h0 = np.hstack((R0.T @ np.array([0, 0, self.M0[0] * g]), np.zeros(3)))
-        # w0t = w0 - h0 - M0*dq0/dt
+        # w0t = w0 - h0 + M0*dq0/dt
         w0t = w0 - h0 + (self.M0 * dq0) / self.dt
         T0 = np.eye(6)
         T0[3:,3:] = e3h @ R0.T
@@ -298,7 +298,7 @@ class UprightMPC2():
 
         # WLQP update u0
         delu = self.prevsol[(2*ny + nu)*self.N:]
-        # self.u0 += delu FIXME:
+        self.u0 += delu
 
         return np.hstack((self.T0, utilde[1:]))
     
@@ -356,7 +356,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     us = np.zeros((Nt, 3))
     pdess = np.zeros((Nt, 3))
     accdess = np.zeros((Nt,6))
-    delus = np.zeros((Nt,4))
+    wlqpus = np.zeros((Nt,4))
 
     trajOmg = 2 * np.pi * trajFreq * 1e-3 # to KHz, then to rad/ms
     ddqdes = None # test integrate ddq sim below
@@ -372,7 +372,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
         if useMPC:
             t1 = perf_counter()
             u, accdess[ti,:] = mdl.update(p, Rb, dq, pdes, dpdes)
-            delus[ti,:] = mdl.prevsol[-4:]
+            wlqpus[ti,:] = mdl.u0#mdl.prevsol[-4:]
             avgTime += 0.01 * (perf_counter() - t1 - avgTime)
             # # Alternate simulation by integrating accDes
             # ddqdes = accdess[ti,:]
@@ -415,10 +415,10 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     ax[7].plot(tt, accdess[:,3:])
     ax[7].axhline(y=0, color='k', alpha=0.3)
     ax[7].set_ylabel('accdes ang')
-    ax[8].plot(tt, delus[:,:2])
-    ax[8].plot(tt, delus[:,2:],'--')
+    ax[8].plot(tt, wlqpus[:,:2])
+    ax[8].plot(tt, wlqpus[:,2:],'--')
     ax[8].legend(('0','1','2','3'))
-    ax[8].set_ylabel('delu')
+    ax[8].set_ylabel('wlqpu')
     fig.tight_layout()
     plt.show()
 
@@ -451,7 +451,7 @@ if __name__ == "__main__":
     # dumax = np.array([10, 10, 10, 10]) # /s
     umin = -100000 * np.ones(4)
     umax = 100000 * np.ones(4)
-    dumax = 100 * np.ones(4) # /s
+    dumax = 1000 * np.ones(4) # /s
     controlRate = 1000
 
     ydes = np.zeros_like(y0)
