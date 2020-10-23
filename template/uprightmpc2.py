@@ -6,6 +6,7 @@ np.set_printoptions(precision=4, suppress=True, linewidth=200)
 from genqp import quadrotorNLDyn, skew, Ib
 from uprightmpc2py import UprightMPC2C # C version
 from time import perf_counter
+import sys
 
 ny = 6
 nu = 3
@@ -94,8 +95,8 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, Tmax, delUL, delUU):
         l[2*N*ny+k] = -T0
         u[2*N*ny+k] = Tmax-T0
     # Delta-u input (rate) limits
-    l[2*N*ny+N:2*N*ny+N+4] = delUL
-    u[2*N*ny+N:2*N*ny+N+4] = delUU
+    l[2*N*ny+N:2*N*ny+N+4] = -np.ones(4)*100000 # delUL
+    u[2*N*ny+N:2*N*ny+N+4] = np.ones(4)*100000 # delUU
 
     # Left 1/4
     AxidxT0dt = []
@@ -150,8 +151,8 @@ def getUpperTriang(P1):
 
 def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0t, M0t):
     # In the last column, need to stack the columns of the first matrix with the upper triang part of the second matrix
-    mat1 = np.zeros((6,4)) # -M0t.T @ Qw @ dwdu # dy1,delu block
-    mat2 = np.eye(4) # dwdu.T @ Qw @ dwdu # delu,delu block
+    mat1 = -M0t.T @ Qw @ dwdu # dy1,delu block
+    mat2 = dwdu.T @ Qw @ dwdu # delu,delu block
     lastcol = np.zeros(6*4 + 4*(4+1)//2)
     offs = 0
     for j in range(mat1.shape[1]):
@@ -164,7 +165,7 @@ def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0t, M0t)
     Pdata = np.hstack((
         np.hstack([Qyr for k in range(N-1)]),
         Qyf,
-        getUpperTriang(np.diag(Qdyr)),# + M0t.T @ Qw @ M0t),# dy1,dy1 block upper triang FIXME:
+        getUpperTriang(np.diag(Qdyr) + M0t.T @ Qw @ M0t),# dy1,dy1 block upper triang
         np.hstack([Qdyr for k in range(N-2)]),
         Qdyf,
         np.hstack([R for k in range(N)]),
@@ -174,14 +175,12 @@ def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0t, M0t)
     q = np.hstack((
         np.hstack([-Qyr*ydes for k in range(N-1)]),
         -Qyf*ydes,
-        np.hstack([-Qdyr*dydes for k in range(N-1)]), # added on to below
+        -Qdyr*dydes - M0t.T @ Qw @ w0t, # dy1
+        np.hstack([-Qdyr*dydes for k in range(N-2)]),
         -Qdyf*dydes,
         np.zeros(N*len(R)),
-        -np.arange(4)#dwdu.T @ Qw @ w0t
+        dwdu.T @ Qw @ w0t
     ))
-    # print(q.shape)
-    # abort
-    # q[N*ny:(N+1)*ny] -= M0t.T @ Qw @ w0t
     return Pdata, q
 
 def openLoopX(N, dt, T0, s0s, Btaus, y0, dy0, g):
@@ -294,12 +293,12 @@ class UprightMPC2():
         dydes = np.hstack((dpdes, 0, 0, 0))
 
         h0 = np.hstack((R0.T @ np.array([0, 0, self.M0[0] * g]), np.zeros(3)))
-        # w0t = w0 - h0 + M0*dq0/dt
-        w0t = w0 - h0 + (self.M0 * dq0) / self.dt
         T0 = np.eye(6)
         T0[3:,3:] = e3h @ R0.T
         # M0t = M0*T0/dt
         M0t = np.diag(self.M0) @ T0 / self.dt
+        # w0t = w0 - h0 + M0*dq0/dt
+        w0t = w0 - h0 + (self.M0 * dq0) / self.dt
 
         self.prevsol = self.update1(self.T0, s0s, Btaus, y0, dy0, ydes, dydes, dwdu0, w0t, M0t)
         utilde = self.prevsol[2*ny*self.N : 2*ny*self.N+nu]
@@ -307,7 +306,12 @@ class UprightMPC2():
 
         # WLQP update u0
         delu = self.prevsol[(2*ny + nu)*self.N:]
-        self.u0 += delu
+        # self.u0 += delu
+
+        # FIXME: debug: this should be zero!
+        a0 = w0t - M0t @ (self.prevsol[ny*self.N : ny*self.N+ny]) # from horiz
+        print(dwdu0 @ delu + a0)
+        sys.exit()
 
         return np.hstack((self.T0, utilde[1:]))
     
@@ -470,7 +474,7 @@ if __name__ == "__main__":
     up = UprightMPC2(N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, umin, umax, dumax, mb, Ib.diagonal(), Qw, controlRate)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
     # # C version can be tested too
-    upc = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 20)
+    # upc = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 20)
 
     # # FIXME: test
     # p = np.random.rand(3)
