@@ -451,21 +451,21 @@ if __name__ == "__main__":
     # # C version can be tested too
     upc = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 10)
 
-    # FIXME: test
-    p = np.random.rand(3)
-    R = np.random.rand(3, 3)
-    dq = np.random.rand(6)
-    pdes = np.random.rand(3)
-    dpdes = np.random.rand(3)
-    upc.update(p, R, dq, pdes, dpdes)
-    cl, cu, cq = upc.vectors()
-    cP, cAdata, cAidx = upc.matrices()
-    up.update(p, R, dq, pdes, dpdes)
-    print(up.Pdata - cP)
+    # # FIXME: test
+    # p = np.random.rand(3)
+    # R = np.random.rand(3, 3)
+    # dq = np.random.rand(6)
+    # pdes = np.random.rand(3)
+    # dpdes = np.random.rand(3)
+    # upc.update(p, R, dq, pdes, dpdes)
+    # cl, cu, cq = upc.vectors()
+    # cP, cAdata, cAidx = upc.matrices()
+    # up.update(p, R, dq, pdes, dpdes)
+    # print(up.Pdata - cP)
 
     # # Hover
     # controlTest(up, 500, useMPC=True)
     # # Ascent
     # controlTest(up, 500, useMPC=True, ascentIC=True)
     # Traj
-    # controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
+    controlTest(upc, 2000, useMPC=True, trajAmp=50, trajFreq=1)

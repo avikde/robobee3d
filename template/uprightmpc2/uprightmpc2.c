@@ -23,6 +23,21 @@
 // 	printf("\n");
 // }
 
+// index for col-major access
+#define Cind(n, i, j) ((i) + (j)*n)
+// writes n*(n+1)/2 values in out
+static int getUpperTriang(float *out, const float *Mcolmaj, int n) {
+	int i, j, k;
+	k = 0;
+	for (j = 0; j < n; ++j) {
+		for (i = 0; i <= j; ++i) {
+			out[k] = Mcolmaj[Cind(n, i, j)];
+			k++;
+		}
+	}
+	return k;
+}
+
 void umpcInit(UprightMPC_t *up, float dt, float g, float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, float mb, const float Ib[/* 3 */], const float umin[/* 4 */], const float umax[/* 4 */], const float dumax[/* 4 */], const float Qw[/* 6 */], float controlRate, int maxIter) {
 	static float Ibi[9];
 	int i, k, n1, n2, offs;
@@ -206,30 +221,65 @@ static void umpcUpdateConstraint(UprightMPC_t *up, const float s0[/*  */], const
 }
 
 static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const float dydes[/* 6 */]) {
-	int offs, k, i;
+	int offsq, offsP, k, i, ii, jj;
+	static float dummy66[6*6], dummy44[4*4];
+
 	// q, P diag ---
-	offs = 0;
+	offsq = offsP = 0;
+
+	// First N*ny
 	for (k = 0; k < UMPC_N; ++k) {
 		for (i = 0; i < UMPC_NY; ++i) {
-			up->Px_data[offs + i] = k == UMPC_N-1 ? up->Qyf[i] : up->Qyr[i];
-			up->q[offs + i] = -up->Px_data[offs + i] * ydes[i];
+			up->Px_data[offsP + i] = k == UMPC_N-1 ? up->Qyf[i] : up->Qyr[i];
+			up->q[offsq + i] = -up->Px_data[offsP + i] * ydes[i];
 		}
-		offs += UMPC_NY;
+		offsP += UMPC_NY;
+		offsq += UMPC_NY;
 	}
+	
+	// Second N*ny
 	for (k = 0; k < UMPC_N; ++k) {
-		for (i = 0; i < UMPC_NY; ++i) {
-			up->Px_data[offs + i] = k == UMPC_N-1 ? up->Qdyf[i] : up->Qdyr[i];
-			up->q[offs + i] = -up->Px_data[offs + i] * dydes[i];
+		if (k == 0) {
+			// dy1,dy1 block upper triang
+			// create diag matrix
+			for (ii = 0; ii < 6; ++ii) {
+				for (jj = 0; jj < 6; ++jj) {
+					dummy66[Cind(6, ii, jj)] = (ii == jj) ? up->Qdyr[ii] : 0;
+				}
+			}
+			// TODO:  M0T0dt.T @ np.diag(Qw) @ M0T0dt
+			offsP += getUpperTriang(&up->Px_data[offsP], dummy66, UMPC_NY);
+		} else {
+			for (i = 0; i < UMPC_NY; ++i) {
+				up->Px_data[offsP + i] = k == UMPC_N-1 ? up->Qdyf[i] : up->Qdyr[i];
+			}
+			offsP += UMPC_NY;
 		}
-		offs += UMPC_NY;
+		for (i = 0; i < UMPC_NY; ++i) {
+			up->q[offsq + i] = -(k == UMPC_N-1 ? up->Qdyf[i] : up->Qdyr[i]) * dydes[i];
+		}
+		offsq += UMPC_NY;
 	}
+
+	// Third N*nu
 	for (k = 0; k < UMPC_N; ++k) {
 		for (i = 0; i < UMPC_NU; ++i) {
-			up->Px_data[offs + i] = up->R[i];
+			up->Px_data[offsP + i] = up->R[i];
 			// Last rows of q remain 0
 		}
-		offs += UMPC_NU;
+		offsP += UMPC_NU;
 	}
+
+	// Last block col
+	// dy1,delu block
+	for (i = 0; i < 6*4; ++i) {
+		up->Px_data[offsP] = 0; // TODO: -M0T0dt.T @ np.diag(Qw) @ dwdu
+		offsP += 1;
+	}
+	// delu,delu block upper triang
+	for (int i = 0; i < 4*4; ++i)
+		dummy44[i] = 0; // TODO: dwdu.T @ np.diag(Qw) @ dwdu
+	offsP += getUpperTriang(&up->Px_data[offsP], dummy44, 4);
 }
 
 int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]) {
