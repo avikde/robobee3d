@@ -37,8 +37,8 @@ def initConstraint(N, nx, nc):
     P = np.eye(nx) # Q, R stacked
     # Dense blocks for WLQP
     P[N*ny:N*ny+ny,N*ny:N*ny+ny] = np.ones((ny,ny))
-    # P[N*ny:N*ny+ny,N*(2*ny+nu):N*(2*ny+nu)+4] = np.reshape(np.arange(24),(6,4),order='F')
-    # P[N*(2*ny+nu):N*(2*ny+nu)+4,N*ny:N*ny+ny] = np.ones((4,ny))
+    P[N*ny:N*ny+ny,N*(2*ny+nu):N*(2*ny+nu)+4] = np.ones((ny,4))
+    P[N*(2*ny+nu):N*(2*ny+nu)+4,N*ny:N*ny+ny] = np.ones((4,ny))
     P[N*(2*ny+nu):N*(2*ny+nu)+4,N*(2*ny+nu):N*(2*ny+nu)+4] = np.ones((4,4))
 
     # cols of A are broken up like this (partition nx)
@@ -149,6 +149,17 @@ def getUpperTriang(P1):
     return P1data
 
 def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0t, M0t):
+    # In the last column, need to stack the columns of the first matrix with the upper triang part of the second matrix
+    mat1 = np.zeros((6,4)) # -M0t.T @ Qw @ dwdu # dy1,delu block
+    mat2 = np.eye(4) # dwdu.T @ Qw @ dwdu # delu,delu block
+    lastcol = np.zeros(6*4 + 4*(4+1)//2)
+    offs = 0
+    for j in range(mat1.shape[1]):
+        lastcol[offs : offs+6] = mat1[:,j]
+        offs += 6
+        lastcol[offs : offs+j+1] = mat2[:(j+1),j]
+        offs += j+1
+
     # Block diag components - see notes
     Pdata = np.hstack((
         np.hstack([Qyr for k in range(N-1)]),
@@ -157,9 +168,7 @@ def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0t, M0t)
         np.hstack([Qdyr for k in range(N-2)]),
         Qdyf,
         np.hstack([R for k in range(N)]),
-        # (-M0t.T @ Qw @ dwdu).ravel(order='F'), # dy1,delu block FIXME:
-        # (np.zeros((6,4))).ravel(order='F'), # dy1,delu block
-        getUpperTriang(np.eye(4)),#getUpperTriang(dwdu.T @ Qw @ dwdu),# delu,delu block upper triang
+        lastcol
     ))
 
     q = np.hstack((
