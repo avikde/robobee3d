@@ -148,28 +148,28 @@ def getUpperTriang(P):
             kk += 1
     return Pdata
 
-def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0m, M0T0dt):
-    # w0m = w0 - h0 - M0*dq0/dt
+def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0m, M0t):
+    # Block diag components - see notes
     Pdata = np.hstack((
         np.hstack([Qyr for k in range(N-1)]),
         Qyf,
-        getUpperTriang(np.diag(Qdyr) + M0T0dt.T @ np.diag(Qw) @ M0T0dt),# dy1,dy1 block upper triang
+        getUpperTriang(np.diag(Qdyr) + M0t.T @ Qw @ M0t),# dy1,dy1 block upper triang
         np.hstack([Qdyr for k in range(N-2)]),
         Qdyf,
         np.hstack([R for k in range(N)]),
-        (-M0T0dt.T @ np.diag(Qw) @ dwdu).ravel(order='F'), # dy1,delu block
-        getUpperTriang(dwdu.T @ np.diag(Qw) @ dwdu),# delu,delu block upper triang
+        (-M0t.T @ Qw @ dwdu).ravel(order='F'), # dy1,delu block
+        getUpperTriang(dwdu.T @ Qw @ dwdu),# delu,delu block upper triang
     ))
 
     q = np.hstack((
         np.hstack([-Qyr*ydes for k in range(N-1)]),
         -Qyf*ydes,
-        np.hstack([-Qdyr*dydes for k in range(N-1)]),
+        np.hstack([-Qdyr*dydes for k in range(N-1)]), # added on to below
         -Qdyf*dydes,
         np.zeros(N*len(R)),
-        dwdu.T @ (Qw * w0m)
+        dwdu.T @ Qw @ w0m
     ))
-    q[N*ny:(N+1)*ny] -= M0T0dt.T @ (Qw * w0m)
+    q[N*ny:(N+1)*ny] -= M0t.T @ Qw @ w0t
     return Pdata, q
 
 def openLoopX(N, dt, T0, s0s, Btaus, y0, dy0, g):
@@ -229,7 +229,7 @@ class UprightMPC2():
         self.umin = umin
         self.umax = umax
         self.dumax = dumax / controlRate
-        self.Qw = Qw
+        self.Qw = np.diag(Qw)
         # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3]
         self.u0 = np.zeros(4)
         
@@ -246,7 +246,7 @@ class UprightMPC2():
         xtest = openLoopX(self.N, self.dt, T0, s0s, Btaus, y0, dy0, self.g)
         print((self.A @ xtest - l)[:2*self.N*ny])
     
-    def update1(self, T0sp, s0s, Btaus, y0, dy0, ydes, dydes, dwdu0, w0m, M0T0dt):
+    def update1(self, T0sp, s0s, Btaus, y0, dy0, ydes, dydes, dwdu0, w0t, M0t):
         # WLQP Delta-u limit
         delUL = -self.dumax
         delUU = self.dumax
@@ -258,7 +258,7 @@ class UprightMPC2():
                 delUU[i] = 0
         # Update
         self.A, self.l, self.u, self.Axidx = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.Tmax, delUL, delUU)
-        self.Pdata, self.q = updateObjective(self.N, *self.Wts, ydes, dydes, self.Qw, dwdu0, w0m, M0T0dt)
+        self.Pdata, self.q = updateObjective(self.N, *self.Wts, ydes, dydes, self.Qw, dwdu0, w0t, M0t)
         
         # OSQP solve ---
         self.model.update(Px=self.Pdata, Ax=self.A.data, q=self.q, l=self.l, u=self.u)
@@ -282,12 +282,14 @@ class UprightMPC2():
         dydes = np.hstack((dpdes, 0, 0, 0))
 
         h0 = np.hstack((R0.T @ np.array([0, 0, self.M0[0] * g]), np.zeros(3)))
-        w0m = w0 - h0 - (self.M0 * dq0) / self.dt
+        # w0t = w0 - h0 - M0*dq0/dt
+        w0t = w0 - h0 + (self.M0 * dq0) / self.dt
         T0 = np.eye(6)
         T0[3:,3:] = e3h @ R0.T
-        M0T0dt = np.diag(self.M0) @ T0 / self.dt
+        # M0t = M0*T0/dt
+        M0t = np.diag(self.M0) @ T0 / self.dt
 
-        self.prevsol = self.update1(self.T0, s0s, Btaus, y0, dy0, ydes, dydes, dwdu0, w0m, M0T0dt)
+        self.prevsol = self.update1(self.T0, s0s, Btaus, y0, dy0, ydes, dydes, dwdu0, w0t, M0t)
         utilde = self.prevsol[2*ny*self.N : 2*ny*self.N+nu]
         self.T0 += utilde[0]
 
@@ -432,12 +434,12 @@ if __name__ == "__main__":
     wmom = 1e-2
     # WLQP inputs
     mb = 100
-    Qw = np.zeros(6)
+    Qw = np.hstack((np.zeros(2), np.ones(4)))
     # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3]
     # umin = np.array([0, -0.5, -0.2, -0.1])
     # umax = np.array([10, 0.5, 0.2, 0.1])
     # dumax = np.array([10, 10, 10, 10]) # /s
-    umin = -100000 * np.ones(4)# FIXME: get nonconvex with Qw = ones(6)
+    umin = -100000 * np.ones(4)
     umax = 100000 * np.ones(4)
     dumax = 100000 * np.ones(4) # /s
     controlRate = 1000
@@ -449,7 +451,7 @@ if __name__ == "__main__":
     up = UprightMPC2(N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, umin, umax, dumax, mb, Ib.diagonal(), Qw, controlRate)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
     # # C version can be tested too
-    upc = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 10)
+    upc = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 20)
 
     # # FIXME: test
     # p = np.random.rand(3)
