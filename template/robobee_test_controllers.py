@@ -89,11 +89,16 @@ class WaypointHover(RobobeeController):
         wvf = 2e3
         wthrust = 1e-1
         wmom = 1e-2
-        smin = np.full(3, -10000)
-        smax = np.full(3, 10000)
         TtoWmax = 3
+        # Unused
+        umin = -100000 * np.ones(4)
+        umax = 100000 * np.ones(4)
+        dumax = 100000 * np.ones(4) # /s
+        controlRate = 1000
+        mb=100
+        Qw = np.zeros(6)
         # self.up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
-        self.up = UprightMPC2C(dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib.diagonal(), 10)
+        self.up = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 10)
 
     def templateVF(self, t, p, dp, s, ds, posdes, dposdes, kpos=[0.5e-3,5e-1], kz=[1e-3,2e-1], ks=[4e-3,0.3e0]):
         # TEST
