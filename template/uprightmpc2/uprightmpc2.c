@@ -334,7 +334,7 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 	}
 
 	// populate lastcol
-	for (jj = 0; jj < 6; ++jj) {
+	for (jj = 0; jj < 4; ++jj) {
 		for (ii = 0; ii < 6; ++ii) {
 			up->Px_data[offsP + ii] = dy1delu[Cind(6, ii, jj)];
 		}

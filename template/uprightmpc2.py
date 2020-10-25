@@ -499,6 +499,7 @@ if __name__ == "__main__":
     cl, cu, cq = upc.vectors()
     cP, cAdata, cAidx = upc.matrices()
     ret = up.update(p, R, dq, pdes, dpdes)
+    print(cAdata - up.A.data[cAidx])
     print(ret, retc)
 
     # # Hover
