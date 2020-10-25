@@ -6,7 +6,7 @@ from ca6dynamics import dynamicsTerms
 from wlqppy import WLController
 import valuefunc
 from uprightmpc2 import reactiveController#UprightMPC2, 
-from uprightmpc2py import UprightMPC2C # C version
+from uprightmpc2py import UprightMPC2, #UprightMPC2C # C version
 from genqp import quadrotorNLVF, Ib
 
 class WaveformGenerator(object):
@@ -88,15 +88,15 @@ class WaypointHover(RobobeeController):
         wthrust = 1e-1
         wmom = 1e-2
         TtoWmax = 3
-        # Unused
-        umin = -100000 * np.ones(4)
-        umax = 100000 * np.ones(4)
-        dumax = 100000 * np.ones(4) # /s
+        # WLQP stuff - copied from isolated C implementation
+        umin = np.array([50, -0.5, -0.2, -0.1])
+        umax = np.array([240, -0.5, -0.2, -0.1])
+        dumax = np.array([5e3, 10, 10, 10]) # /s
         controlRate = 1000
-        mb=100
-        Qw = np.zeros(6)
-        # self.up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
-        self.up = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 10)
+        mb = 100
+        Qw = np.array([1,1,1,0.1,0.1,0.1])
+        self.up = UprightMPC2(N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, umin, umax, dumax, mb, Ib.diagonal(), Qw, controlRate)
+        # self.up = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 10)
 
     def templateVF(self, t, p, dp, s, ds, posdes, dposdes, kpos=[0.5e-3,5e-1], kz=[1e-3,2e-1], ks=[4e-3,0.3e0]):
         # TEST
@@ -146,6 +146,7 @@ class WaypointHover(RobobeeController):
         dpdes[1] = trajAmp * trajOmg * np.sin(trajOmg * t)
 
         # Upright MPC
+        # FIXME: the funapprox stuff is in C; need to copy over to uprightmpc2
         uquad, ddqdes = self.up.update(p, Rb, dq0, self.posdes, dpdes)
         # ddqdes[:3] = Rb.T @ ddqdes[:3] # Convert to body frame?
         return uquad, ddqdes
@@ -178,8 +179,9 @@ class WaypointHover(RobobeeController):
         # # WLQP
         # self.u4 = self.wl.update(self.u4, h0, M0 @ self.accdes)
         
-        # Manual mapping
-        self.u4 = self.manualMapping(*uquad)
+        # # Manual mapping
+        # self.u4 = self.manualMapping(*uquad)
+        # self.u4 = self.up.uwlqp
 
         Vmean, uoffs, udiff, h2 = self.u4
         # # test
