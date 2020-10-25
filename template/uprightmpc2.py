@@ -296,7 +296,7 @@ class UprightMPC2():
         self.viol = lambda x : np.amin(np.hstack((self.A @ x - self.l, self.u - self.A @ x)))
         return res.x
     
-    def update2(self, p0, R0, dq0, pdes, dpdes, dwdu0, w0):
+    def update2(self, p0, R0, dq0, pdes, dpdes, w0, dwdu0):
         # At current state
         s0 = np.copy(R0[:,2])
         s0s = [s0 for i in range(self.N)]
@@ -335,12 +335,9 @@ class UprightMPC2():
         # return (bTw(dq1des) - bTw(dq0)) / self.dt
         return (dq1des - dq0) / self.dt # return in world frame
     
-    def update(self, p0, R0, dq0, pdes, dpdes):
-        # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3]
-        w0 = np.hstack((0,0,self.u0))
-        dwdu0 = np.vstack((np.zeros((2,4)), np.eye(4)))
+    def update(self, p0, R0, dq0, pdes, dpdes, w0, dwdu0):
         # Version of above that computes the desired body frame acceleration
-        u = self.update2(p0, R0, dq0, pdes, dpdes, dwdu0, w0)
+        u = self.update2(p0, R0, dq0, pdes, dpdes, w0, dwdu0)
         return u, self.getAccDes(R0, dq0)
 
 def reactiveController(p, Rb, dq, pdes, kpos=[1e-3,5e-1], kz=[1e-1,1e0], ks=[1e0,1e2]):
@@ -396,7 +393,10 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
         # Call controller
         if useMPC:
             t1 = perf_counter()
-            u, accdess[ti,:] = mdl.update(p, Rb, dq, pdes, dpdes)
+            # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3]
+            w0 = np.hstack((0,0,mdl.u0))
+            dwdu0 = np.vstack((np.zeros((2,4)), np.eye(4)))
+            u, accdess[ti,:] = mdl.update(p, Rb, dq, pdes, dpdes, w0, dwdu0)
             wlqpus[ti,:] = mdl.prevsol[-4:] #mdl.u0#
             avgTime += 0.01 * (perf_counter() - t1 - avgTime)
             # # Alternate simulation by integrating accDes
