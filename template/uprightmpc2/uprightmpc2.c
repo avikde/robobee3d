@@ -268,15 +268,15 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 	int offsq, offsP, k, i, ii, jj;
 	static float dummy66[6*6], dummy44[4*4], Qwdwdu[6*4], dy1delu[6*4], deludelu[4*4], M0TQwM0[6*6], Qww0t[6], mM0tQww0t[6], dwduQww0t[4];
 
-	// Last block col
-	matMult(Qwdwdu, up->Qw, dwdu0, 6, 4, 6, 1.0f, 0, 0); // Qw*dwdu
-	matMult(dy1delu, M0t, Qwdwdu, 6, 4, 6, -1.0f, 1, 0); // -M0^T*Qw*dwdu
-	matMult(deludelu, dwdu0, Qwdwdu, 4, 4, 6, 1.0f, 1, 0); // dwdu^T*Qw*dwdu
-	matMult(dummy66, up->Qw, M0t, 6, 6, 6, 1.0f, 0, 0); // Qw*M0
-	matMult(M0TQwM0, M0t, dummy66, 6, 6, 6, 1.0f, 1, 0); // M0^T*Qw*M0
-	matMult(Qww0t, up->Qw, w0t, 6, 1, 6, 1.0f, 0, 0); // - M0t.T @ Qw @ w0t
-	matMult(mM0tQww0t, M0t, Qww0t, 6, 1, 6, -1.0f, 1, 0); // - M0t.T @ Qw @ w0t
-	matMult(dwduQww0t, dwdu0, Qww0t, 4, 1, 6, 1.0f, 1, 0); // dwdu.T @ Qw @ w0t
+	// // Last block col
+	// matMult(Qwdwdu, up->Qw, dwdu0, 6, 4, 6, 1.0f, 0, 0); // Qw*dwdu
+	// matMult(dy1delu, M0t, Qwdwdu, 6, 4, 6, -1.0f, 1, 0); // -M0^T*Qw*dwdu
+	// matMult(deludelu, dwdu0, Qwdwdu, 4, 4, 6, 1.0f, 1, 0); // dwdu^T*Qw*dwdu
+	// matMult(dummy66, up->Qw, M0t, 6, 6, 6, 1.0f, 0, 0); // Qw*M0
+	// matMult(M0TQwM0, M0t, dummy66, 6, 6, 6, 1.0f, 1, 0); // M0^T*Qw*M0
+	// matMult(Qww0t, up->Qw, w0t, 6, 1, 6, 1.0f, 0, 0); // - M0t.T @ Qw @ w0t
+	// matMult(mM0tQww0t, M0t, Qww0t, 6, 1, 6, -1.0f, 1, 0); // - M0t.T @ Qw @ w0t
+	// matMult(dwduQww0t, dwdu0, Qww0t, 4, 1, 6, 1.0f, 1, 0); // dwdu.T @ Qw @ w0t
 
 	// q, P diag ---
 	offsq = offsP = 0;
@@ -298,7 +298,7 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 			// create diag matrix
 			for (ii = 0; ii < 6; ++ii) {
 				for (jj = 0; jj < 6; ++jj) {
-					dummy66[Cind(6, ii, jj)] = ((ii == jj) ? up->Qdyr[ii] : 0) + M0TQwM0[Cind(6, ii, jj)]; // add M0T0dt.T @ np.diag(Qw) @ M0T0dt
+					dummy66[Cind(6, ii, jj)] = ((ii == jj) ? up->Qdyr[ii] : 0);// + M0TQwM0[Cind(6, ii, jj)]; // add M0T0dt.T @ np.diag(Qw) @ M0T0dt
 				}
 			}
 			offsP += getUpperTriang(&up->Px_data[offsP], dummy66, UMPC_NY);
@@ -310,7 +310,7 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 		}
 		for (i = 0; i < UMPC_NY; ++i) {
 			if (k == 0) {
-				up->q[offsq + i] = -up->Qdyr[i] * dydes[i] + mM0tQww0t[i];
+				up->q[offsq + i] = -up->Qdyr[i] * dydes[i];// + mM0tQww0t[i];
 			} else {
 				up->q[offsq + i] = -(k == UMPC_N-1 ? up->Qdyf[i] : up->Qdyr[i]) * dydes[i];
 			}
@@ -330,17 +330,17 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 
 	// Last wlqp part for q
 	for (i = 0; i < 4; ++i) {
-		up->q[offsq + i] = dwduQww0t[i];
+		up->q[offsq + i] = 0;//dwduQww0t[i];
 	}
 
 	// populate lastcol
 	for (jj = 0; jj < 4; ++jj) {
 		for (ii = 0; ii < 6; ++ii) {
-			up->Px_data[offsP + ii] = dy1delu[Cind(6, ii, jj)];
+			up->Px_data[offsP + ii] = 0;//dy1delu[Cind(6, ii, jj)];
 		}
 		offsP += 6;
 		for (ii = 0; ii < jj+1; ++ii) {
-			up->Px_data[offsP + ii] = deludelu[Cind(6, ii, jj)];
+			up->Px_data[offsP + ii] = 0;//deludelu[Cind(6, ii, jj)];
 		}
 		offsP += (jj+1);
 	}
@@ -376,23 +376,23 @@ int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], fl
 	dydes[3] = dydes[4] = dydes[5] = 0;
 
 	// WLQP stuff. sample wrench map ---
-	wrenchMap(up, w0t, up->u0);
-	wrenchJacMap(up, dwdu0, up->u0);
+	// wrenchMap(up, w0t, up->u0);
+	// wrenchJacMap(up, dwdu0, up->u0);
 	// Create Tform0
 	matMult(e3hR0T, up->e3h, R0, 3, 3, 3, 1.0f, 0, 1); // e3h*R0^T
-	for (i = 0; i < 3; ++i) {
-		for (j = 0; j < 3; ++j) {
-			up->Tform0[Cind(6, 3+i, 3+j)] = e3hR0T[Cind(3, i, j)]; // T0[3:,3:] = e3h @ R0.T
-		}
-	}
-	// M0t = M0*T0/dt
-	matMult(M0t, up->M0, up->Tform0, 6, 6, 6, 1 / up->dt, 0, 0);
-	// w0t = w0 - h0 + M0*dq0/dt
-	matMult(dummy, up->M0, dq0, 6, 1, 6, 1 / up->dt, 0, 0); // M0*dq0/dt
-	matMult(&dummy[6], R0, up->h0W, 3, 1, 3, 1.0f, 1, 0); // h0B = R0^T*h0W
-	for (i = 0; i < 6; ++i) {
-		w0t[i] = w0t[i] - (i < 3 ? dummy[6+i] : 0) + dummy[i];
-	}
+	// for (i = 0; i < 3; ++i) {
+	// 	for (j = 0; j < 3; ++j) {
+	// 		up->Tform0[Cind(6, 3+i, 3+j)] = e3hR0T[Cind(3, i, j)]; // T0[3:,3:] = e3h @ R0.T
+	// 	}
+	// }
+	// // M0t = M0*T0/dt
+	// matMult(M0t, up->M0, up->Tform0, 6, 6, 6, 1 / up->dt, 0, 0);
+	// // w0t = w0 - h0 + M0*dq0/dt
+	// matMult(dummy, up->M0, dq0, 6, 1, 6, 1 / up->dt, 0, 0); // M0*dq0/dt
+	// matMult(&dummy[6], R0, up->h0W, 3, 1, 3, 1.0f, 1, 0); // h0B = R0^T*h0W
+	// for (i = 0; i < 6; ++i) {
+	// 	w0t[i] = w0t[i] - (i < 3 ? dummy[6+i] : 0) + dummy[i];
+	// }
 
 	umpcUpdateConstraint(up, s0, Btau, y0, dy0);
 	updateObjective(up, ydes, dydes, dwdu0, w0t, M0t);
