@@ -473,7 +473,7 @@ if __name__ == "__main__":
     mb = 100
     # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3].
     # Setting first 2 elements of Qw -> 0 => should not affect objective as longs as dumax does not constrain.
-    Qw = np.hstack((np.zeros(2), np.ones(4)))
+    Qw = np.hstack((np.zeros(2), np.zeros(4)))
     umin = np.array([0, -0.5, -0.2, -0.1])
     umax = np.array([10, 0.5, 0.2, 0.1])
     dumax = np.array([10, 10, 10, 10]) # /s
@@ -485,25 +485,25 @@ if __name__ == "__main__":
 
     up = UprightMPC2(N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, umin, umax, dumax, mb, Ib.diagonal(), Qw, controlRate)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
-    # # C version can be tested too
-    # popts = np.zeros(90)
-    # upc = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 20, popts)
+    # C version can be tested too
+    popts = np.zeros(90)
+    upc = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 50, popts)
 
-    # # FIXME: test
-    # p = np.random.rand(3)
-    # R = np.random.rand(3, 3)
-    # dq = np.random.rand(6)
-    # pdes = np.random.rand(3)
-    # dpdes = np.random.rand(3)
-    # upc.update(p, R, dq, pdes, dpdes)
-    # cl, cu, cq = upc.vectors()
-    # cP, cAdata, cAidx = upc.matrices()
-    # up.update(p, R, dq, pdes, dpdes)
-    # print(up.Pdata - cP)
+    # FIXME: test
+    p = np.random.rand(3)
+    R = np.random.rand(3, 3)
+    dq = np.random.rand(6)
+    pdes = np.random.rand(3)
+    dpdes = np.random.rand(3)
+    retc = upc.update(p, R, dq, pdes, dpdes)
+    cl, cu, cq = upc.vectors()
+    cP, cAdata, cAidx = upc.matrices()
+    ret = up.update(p, R, dq, pdes, dpdes)
+    print(ret, retc)
 
     # # Hover
     # controlTest(up, 500, useMPC=True)
     # # Ascent
     # controlTest(up, 500, useMPC=True, ascentIC=True)
     # Traj
-    controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
+    # controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
