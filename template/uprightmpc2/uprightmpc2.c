@@ -61,7 +61,7 @@ static void wrenchJacMap(const UprightMPC_t *up, float *dw_du, const float *u) {
 		funApproxDf(dwi_du, &up->fa[i], u);
 		for (j = 0; j < WLQP_NU; ++j) {
 			// Copy into the col-major matrix
-			dw_du[Cind(WLQP_NW, i, j)] = i > 2 && i - 2 == j ? 1 : 0;  //dwi_du[j];
+			dw_du[Cind(WLQP_NW, i, j)] = i >= 2 && i - 2 == j ? 1 : 0;  //dwi_du[j];
 		}
 	}
 }
@@ -266,7 +266,7 @@ static void umpcUpdateConstraint(UprightMPC_t *up, const float s0[/*  */], const
 
 static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const float dydes[/* 6 */], const float dwdu0[/* 6*4 */], const float w0t[/* 6 */], const float M0t[/* 6*6 */]) {
 	int offsq, offsP, k, i, ii, jj;
-	static float dummy66[6*6], dummy44[4*4], Qwdwdu[6*4], dy1delu[6*4], deludelu[4*4], M0TQwM0[6*6];
+	static float dummy66[6*6], dummy44[4*4], Qwdwdu[6*4], dy1delu[6*4], deludelu[4*4], M0TQwM0[6*6], Qww0t[6], mM0tQww0t[6], dwduQww0t[4];
 
 	// Last block col
 	matMult(Qwdwdu, up->Qw, dwdu0, 6, 4, 6, 1.0f, 0, 0); // Qw*dwdu
@@ -274,6 +274,9 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 	matMult(deludelu, dwdu0, Qwdwdu, 4, 4, 6, 1.0f, 1, 0); // dwdu^T*Qw*dwdu
 	matMult(dummy66, up->Qw, M0t, 6, 6, 6, 1.0f, 0, 0); // Qw*M0
 	matMult(M0TQwM0, M0t, dummy66, 6, 6, 6, 1.0f, 1, 0); // M0^T*Qw*M0
+	matMult(Qww0t, up->Qw, w0t, 6, 1, 6, 1.0f, 0, 0); // - M0t.T @ Qw @ w0t
+	matMult(mM0tQww0t, M0t, Qww0t, 6, 1, 6, -1.0f, 1, 0); // - M0t.T @ Qw @ w0t
+	matMult(dwduQww0t, dwdu0, Qww0t, 4, 1, 6, 1.0f, 1, 0); // dwdu.T @ Qw @ w0t
 
 	// q, P diag ---
 	offsq = offsP = 0;
@@ -306,7 +309,11 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 			offsP += UMPC_NY;
 		}
 		for (i = 0; i < UMPC_NY; ++i) {
-			up->q[offsq + i] = -(k == UMPC_N-1 ? up->Qdyf[i] : up->Qdyr[i]) * dydes[i];
+			if (k == 0) {
+				up->q[offsq + i] = -up->Qdyr[i] * dydes[i] + mM0tQww0t[i];
+			} else {
+				up->q[offsq + i] = -(k == UMPC_N-1 ? up->Qdyf[i] : up->Qdyr[i]) * dydes[i];
+			}
 		}
 		offsq += UMPC_NY;
 	}
@@ -315,12 +322,18 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 	for (k = 0; k < UMPC_N; ++k) {
 		for (i = 0; i < UMPC_NU; ++i) {
 			up->Px_data[offsP + i] = up->R[i];
-			// Last rows of q remain 0
+			// N*nu of q remain 0
 		}
 		offsP += UMPC_NU;
+		offsq += UMPC_NU;
 	}
 
-	// populate lastcol, reusing offsq
+	// Last wlqp part for q
+	for (i = 0; i < 4; ++i) {
+		up->q[offsq + i] = dwduQww0t[i];
+	}
+
+	// populate lastcol
 	for (jj = 0; jj < 6; ++jj) {
 		for (ii = 0; ii < 6; ++ii) {
 			up->Px_data[offsP + ii] = dy1delu[Cind(6, ii, jj)];
