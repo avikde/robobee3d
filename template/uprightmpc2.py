@@ -291,6 +291,7 @@ class UprightMPC2():
         if 'solved' not in res.info.status:
             print(res.info.status)
         self.obj_val = res.info.obj_val
+        self.obj = lambda x : 0.5 * x.T @ self.Pdense @ x + self.q.T @ x
 
         return res.x
     
@@ -324,9 +325,14 @@ class UprightMPC2():
         # self.u0 += delu
 
         # FIXME: debug: this should be zero!
-        a0 = w0t - M0t @ (self.prevsol[ny*self.N : ny*self.N+ny]) # from horiz
+        dy1 = self.prevsol[ny*self.N : ny*self.N+ny]
+        a0 = w0t - M0t @ dy1 # from horiz
         print(dwdu0 @ delu + a0)
-        print(self.obj_val, 0.5 * self.prevsol @ self.Pdense @ self.prevsol + np.dot(self.q, self.prevsol))
+        # Manual try to get a new solution
+        xtest = np.copy(self.prevsol)
+        xtest[-4:] = -a0[-4:]
+        print(dwdu0 @ xtest[-4:] + a0)
+        print(self.obj_val, self.obj(self.prevsol), self.obj(xtest))
         sys.exit()
 
         return np.hstack((self.T0, utilde[1:]))
