@@ -257,10 +257,14 @@ static void umpcUpdateConstraint(UprightMPC_t *up, const float s0[/*  */], const
 
 static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const float dydes[/* 6 */], const float dwdu0[/* 6*4 */], const float w0t[/* 6 */], const float M0t[/* 6*6 */]) {
 	int offsq, offsP, k, i, ii, jj;
-	static float dummy66[6*6], dummy44[4*4], dy1delu[6*4], deludelu[4*4], lastcol[6*4+4*(4+1)/2];
+	static float dummy66[6*6], dummy44[4*4], Qwdwdu[6*4], dy1delu[6*4], deludelu[4*4], lastcol[6*4+4*(4+1)/2], M0TQwM0[6*6];
 
 	// Last col
-	// matMult(dummy66, M0t, Qw)
+	matMult(Qwdwdu, up->Qw, dwdu0, 6, 4, 6, 1.0f, 0, 0); // Qw*dwdu
+	matMult(dy1delu, up->M0, Qwdwdu, 6, 4, 6, -1.0f, 1, 0); // -M0^T*Qw*dwdu
+	matMult(deludelu, dwdu0, Qwdwdu, 4, 4, 6, 1.0f, 1, 0); // dwdu^T*Qw*dwdu
+	matMult(dummy66, up->Qw, up->M0, 6, 6, 6, 1.0f, 0, 0); // Qw*M0
+	matMult(M0TQwM0, up->M0, dummy66, 6, 6, 6, 1.0f, 1, 0); // M0^T*Qw*M0
 
 	// q, P diag ---
 	offsq = offsP = 0;
