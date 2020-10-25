@@ -243,7 +243,7 @@ class UprightMPC2():
 
         # Create OSQP
         self.model = osqp.OSQP()
-        self.model.setup(P=self.P, A=self.A, l=np.zeros(nc), eps_rel=1e-4, eps_abs=1e-4, verbose=False)
+        self.model.setup(P=self.P, A=self.A, l=np.zeros(nc), eps_rel=1e-6, eps_abs=1e-6, verbose=False)
 
         # Manage linearization point
         self.T0 = 0 # mass-specific thrust
