@@ -338,7 +338,7 @@ class UprightMPC2():
     def update(self, p0, R0, dq0, pdes, dpdes, w0, dwdu0):
         # Version of above that computes the desired body frame acceleration
         u = self.update2(p0, R0, dq0, pdes, dpdes, w0, dwdu0)
-        return u, self.getAccDes(R0, dq0)
+        return u, self.getAccDes(R0, dq0), self.u0
 
 def reactiveController(p, Rb, dq, pdes, kpos=[1e-3,5e-1], kz=[1e-1,1e0], ks=[1e0,1e2]):
     # Pakpong-style reactive controller
@@ -396,8 +396,8 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
             # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3]
             w0 = np.hstack((0,0,mdl.u0))
             dwdu0 = np.vstack((np.zeros((2,4)), np.eye(4)))
-            u, accdess[ti,:] = mdl.update(p, Rb, dq, pdes, dpdes, w0, dwdu0)
-            wlqpus[ti,:] = mdl.prevsol[-4:] #mdl.u0#
+            u, accdess[ti,:], uwlqp = mdl.update(p, Rb, dq, pdes, dpdes, w0, dwdu0)
+            wlqpus[ti,:] = uwlqp
             avgTime += 0.01 * (perf_counter() - t1 - avgTime)
             # # Alternate simulation by integrating accDes
             # ddqdes = accdess[ti,:]
@@ -471,12 +471,9 @@ if __name__ == "__main__":
     # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3].
     # Setting first 2 elements of Qw -> 0 => should not affect objective as longs as dumax does not constrain.
     Qw = np.hstack((np.zeros(2), np.ones(4)))
-    # umin = np.array([0, -0.5, -0.2, -0.1])
-    # umax = np.array([10, 0.5, 0.2, 0.1])
-    # dumax = np.array([10, 10, 10, 10]) # /s
-    umin = -100000 * np.ones(4)
-    umax = 100000 * np.ones(4)
-    dumax = 100000 * np.ones(4) # /s
+    umin = np.array([0, -0.5, -0.2, -0.1])
+    umax = np.array([10, 0.5, 0.2, 0.1])
+    dumax = np.array([10, 10, 10, 10]) # /s
     controlRate = 1000
 
     ydes = np.zeros_like(y0)
