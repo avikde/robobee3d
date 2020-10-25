@@ -243,7 +243,7 @@ class UprightMPC2():
 
         # Create OSQP
         self.model = osqp.OSQP()
-        self.model.setup(P=self.P, A=self.A, l=np.zeros(nc), eps_rel=1e-6, eps_abs=1e-6, verbose=False)
+        self.model.setup(P=self.P, A=self.A, l=np.zeros(nc), eps_rel=1e-7, eps_abs=1e-7, verbose=False)
 
         # Manage linearization point
         self.T0 = 0 # mass-specific thrust
@@ -323,18 +323,7 @@ class UprightMPC2():
 
         # WLQP update u0
         delu = self.prevsol[(2*ny + nu)*self.N:]
-        # self.u0 += delu
-
-        # FIXME: debug: this should be zero!
-        dy1 = self.prevsol[ny*self.N : ny*self.N+ny]
-        a0 = w0t - M0t @ dy1 # from horiz
-        print(dwdu0 @ delu + a0)
-        # Manual try to get a new solution
-        xtest = np.copy(self.prevsol)
-        xtest[-4:] = -a0[-4:]
-        print(dwdu0 @ xtest[-4:] + a0)
-        print(self.obj_val, self.obj(self.prevsol), self.obj(xtest), self.viol(self.prevsol), self.viol(xtest))
-        sys.exit()
+        self.u0 += delu
 
         return np.hstack((self.T0, utilde[1:]))
     
@@ -516,4 +505,4 @@ if __name__ == "__main__":
     # # Ascent
     # controlTest(up, 500, useMPC=True, ascentIC=True)
     # Traj
-    controlTest(up, 500, useMPC=True, trajAmp=50, trajFreq=1)
+    controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
