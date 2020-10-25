@@ -16,13 +16,22 @@
 #include <stdio.h>
 #include <string.h>
 
-// static void PRINTVEC(const float *y, int sz) {
-// 	int i;
-// 	for (i = 0; i < sz; ++i) {
-// 		printf("%.2f,", y[i]);
-// 	}
-// 	printf("\n");
-// }
+static void PRINTVEC(const float *y, int sz) {
+	int i;
+	for (i = 0; i < sz; ++i) {
+		printf("%.2f,", y[i]);
+	}
+	printf("\n");
+}
+static void PRINTMAT(const float *M, int sz1, int sz2) {
+	int i, j;
+	for (i = 0; i < sz1; ++i) {
+		for (j = 0; j < sz2; ++j) {
+			printf("%.2f,", M[Cind(sz1, i, j)]);
+		}
+		printf("\n");
+	}
+}
 
 // writes n*(n+1)/2 values in out
 static int getUpperTriang(float *out, const float *Mcolmaj, int n) {
@@ -41,7 +50,7 @@ static int getUpperTriang(float *out, const float *Mcolmaj, int n) {
 static void wrenchMap(const UprightMPC_t *up, float *w, const float *u) {
 	int i;
 	for (i = 0; i < WLQP_NW; ++i) {
-		w[i] = funApproxF(&up->fa[i], u);
+		w[i] = 0;//funApproxF(&up->fa[i], u);
 	}
 }
 
@@ -52,7 +61,7 @@ static void wrenchJacMap(const UprightMPC_t *up, float *dw_du, const float *u) {
 		funApproxDf(dwi_du, &up->fa[i], u);
 		for (j = 0; j < WLQP_NU; ++j) {
 			// Copy into the col-major matrix
-			dw_du[Cind(WLQP_NW, i, j)] = dwi_du[j];
+			dw_du[Cind(WLQP_NW, i, j)] = i > 2 && i - 2 == j ? 1 : 0;  //dwi_du[j];
 		}
 	}
 }
@@ -259,6 +268,13 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 	int offsq, offsP, k, i, ii, jj;
 	static float dummy66[6*6], dummy44[4*4], Qwdwdu[6*4], dy1delu[6*4], deludelu[4*4], M0TQwM0[6*6];
 
+	// Last block col
+	matMult(Qwdwdu, up->Qw, dwdu0, 6, 4, 6, 1.0f, 0, 0); // Qw*dwdu
+	matMult(dy1delu, M0t, Qwdwdu, 6, 4, 6, -1.0f, 1, 0); // -M0^T*Qw*dwdu
+	matMult(deludelu, dwdu0, Qwdwdu, 4, 4, 6, 1.0f, 1, 0); // dwdu^T*Qw*dwdu
+	matMult(dummy66, up->Qw, M0t, 6, 6, 6, 1.0f, 0, 0); // Qw*M0
+	matMult(M0TQwM0, M0t, dummy66, 6, 6, 6, 1.0f, 1, 0); // M0^T*Qw*M0
+
 	// q, P diag ---
 	offsq = offsP = 0;
 
@@ -304,12 +320,6 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 		offsP += UMPC_NU;
 	}
 
-	// Last block col
-	matMult(Qwdwdu, up->Qw, dwdu0, 6, 4, 6, 1.0f, 0, 0); // Qw*dwdu
-	matMult(dy1delu, up->M0, Qwdwdu, 6, 4, 6, -1.0f, 1, 0); // -M0^T*Qw*dwdu
-	matMult(deludelu, dwdu0, Qwdwdu, 4, 4, 6, 1.0f, 1, 0); // dwdu^T*Qw*dwdu
-	matMult(dummy66, up->Qw, up->M0, 6, 6, 6, 1.0f, 0, 0); // Qw*M0
-	matMult(M0TQwM0, up->M0, dummy66, 6, 6, 6, 1.0f, 1, 0); // M0^T*Qw*M0
 	// populate lastcol, reusing offsq
 	for (jj = 0; jj < 6; ++jj) {
 		for (ii = 0; ii < 6; ++ii) {
