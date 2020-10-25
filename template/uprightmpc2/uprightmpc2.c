@@ -168,6 +168,10 @@ void umpcInit(UprightMPC_t *up, float dt, float g, float TtoWmax, float ws, floa
 	for (i = 0; i < 6; ++i) {
 		funApproxInit(&up->fa[i], &popts[15 * i]);
 	}
+	for (i = 0; i < 6; ++i) {
+		up->M0[Cind(6, i, i)] = i < 3 ? mb : Ib[i - 3];
+		up->Qw[Cind(6, i, i)] = Qw[i];
+	}
 }
 
 // Return the ith element of (A0*y), where A0 = (dt*N)
@@ -246,9 +250,10 @@ static void umpcUpdateConstraint(UprightMPC_t *up, const float s0[/*  */], const
 
 static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const float dydes[/* 6 */], const float dwdu0[/* 6*4 */], const float w0t[/* 6 */], const float M0t[/* 6*6 */]) {
 	int offsq, offsP, k, i, ii, jj;
-	static float dummy66[6*6], dummy44[4*4];
+	static float dummy66[6*6], dummy44[4*4], dy1delu[6*4], deludelu[4*4], lastcol[6*4+4*(4+1)/2];
 
-	// TODO: last col
+	// Last col
+	matMult(dummy66, M0t, Qw)
 
 	// q, P diag ---
 	offsq = offsP = 0;
