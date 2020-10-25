@@ -346,7 +346,7 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 	}
 }
 
-int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]) {
+int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], float uwlqp[/* 4 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]) {
 	static float s0[3], ds0[3], y0[UMPC_NY], dy0[UMPC_NY], ydes[UMPC_NY], dydes[UMPC_NY], dummy[9], Btau[9];
 	static float dy1des[UMPC_NY], dq1des[UMPC_NY], dwdu0[6*6], w0t[6], M0t[6*6], T0[6*6], e3hR0T[3*3];
 	int i, j, ret;
@@ -421,6 +421,12 @@ int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], co
 		accdes[i] = (dq1des[i] - dq0[i]) / up->dt;
 	}
 
+	// WLQP
+	for (i = 0; i < 4; ++i) {
+		up->u0[i] += workspace.solution->x[(2*UMPC_NY + UMPC_NU)*UMPC_N + i]; // delta u
+		uwlqp[i] = up->u0[i];
+	}
+
 	return ret;
 }
 
@@ -428,10 +434,10 @@ int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], co
 UprightMPC_t _up;
 int _inited = 0;
 
-void umpcS(float uquad_y1[/* 3 */], float accdes_y2[/* 6 */], const float p0_u1[/* 3 */], const float R0_u2[/* 9 */], const float dq0_u3[/* 6 */], const float pdes_u4[/* 3 */], const float dpdes_u5[/* 3 */], float dt_u6, float g_u7, float TtoWmax_u8, float ws_u9, float wds_u10, float wpr_u11, float wpf_u12, float wvr_u13, float wvf_u14, float wthrust_u15, float wmom_u16, float mb_u17, const float Ib_u18[/* 3 */], const float umin_u19[/* 4 */], const float umax_u20[/* 4 */], const float dumax_u21[/* 4 */], const float Qw_u22[/* 6 */], float controlRate_u23, int maxIter_u24, const float *popts_u25) {
+void umpcS(float uquad_y1[/* 3 */], float accdes_y2[/* 6 */], float uwlqp_y3[/* 4 */], const float p0_u1[/* 3 */], const float R0_u2[/* 9 */], const float dq0_u3[/* 6 */], const float pdes_u4[/* 3 */], const float dpdes_u5[/* 3 */], float dt_u6, float g_u7, float TtoWmax_u8, float ws_u9, float wds_u10, float wpr_u11, float wpf_u12, float wvr_u13, float wvf_u14, float wthrust_u15, float wmom_u16, float mb_u17, const float Ib_u18[/* 3 */], const float umin_u19[/* 4 */], const float umax_u20[/* 4 */], const float dumax_u21[/* 4 */], const float Qw_u22[/* 6 */], float controlRate_u23, int maxIter_u24, const float *popts_u25) {
 	if (_inited == 0) {
 		umpcInit(&_up, dt_u6, g_u7, TtoWmax_u8, ws_u9, wds_u10, wpr_u11, wpf_u12, wvr_u13, wvf_u14, wthrust_u15, wmom_u16, mb_u17, Ib_u18, umin_u19, umax_u20, dumax_u21, Qw_u22, controlRate_u23, maxIter_u24, popts_u25);
 		_inited = 1;
 	}
-	umpcUpdate(&_up, uquad_y1, accdes_y2, p0_u1, R0_u2, dq0_u3, pdes_u4, dpdes_u5);
+	umpcUpdate(&_up, uquad_y1, accdes_y2, uwlqp_y3, p0_u1, R0_u2, dq0_u3, pdes_u4, dpdes_u5);
 }

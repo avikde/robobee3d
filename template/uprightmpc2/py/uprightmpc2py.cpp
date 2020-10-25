@@ -18,7 +18,7 @@
 namespace py = pybind11;
 
 typedef Eigen::Matrix<float, 6, 1> Vec6_t;
-typedef std::tuple<Eigen::Vector3f, Vec6_t> uacc_t;
+typedef std::tuple<Eigen::Vector3f, Vec6_t, Eigen::Vector4f> ret_t;
 typedef Eigen::Map<const Eigen::MatrixXf> MCMatX;
 typedef Eigen::Map<Eigen::MatrixXf> MMatX;
 typedef Eigen::Matrix<float, UMPC_NX, 1> Vecx_t;
@@ -38,11 +38,12 @@ public:
 		umpcInit(&umpc, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.data(), umin.data(), umax.data(), dumax.data(), Qw.data(), controlRate, maxIter, popts.data());
 	}
 
-	uacc_t update(const Eigen::Vector3f &p0, const Eigen::Matrix3f &R0, const Vec6_t &dq0, const Eigen::Vector3f &pdes, const Eigen::Vector3f &dpdes) {
+	ret_t update(const Eigen::Vector3f &p0, const Eigen::Matrix3f &R0, const Vec6_t &dq0, const Eigen::Vector3f &pdes, const Eigen::Vector3f &dpdes) {
 		static Eigen::Vector3f uquad;
+		static Eigen::Vector4f uwlqp;
 		static Vec6_t accdes;
-		umpcUpdate(&umpc, uquad.data(), accdes.data(), p0.data(), R0.data(), dq0.data(), pdes.data(), dpdes.data());
-		return std::make_tuple(uquad, accdes);
+		umpcUpdate(&umpc, uquad.data(), accdes.data(), uwlqp.data(), p0.data(), R0.data(), dq0.data(), pdes.data(), dpdes.data());
+		return std::make_tuple(uquad, accdes, uwlqp);
 	}
 
 	// for debugging
