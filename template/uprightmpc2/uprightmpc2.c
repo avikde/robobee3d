@@ -415,7 +415,7 @@ int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], fl
 		if (i < 3)
 			dq1des[i] = dy1des[i];
 	}
-	matMult(&dq1des[3], e3hR0T, &dy1des[3], 3, 1, 3, 1.0f,01, 0); // e3h*R0^T*s1des
+	matMult(&dq1des[3], e3hR0T, &dy1des[3], 3, 1, 3, 1.0f, 0, 0); // e3h*R0^T*s1des
 
 	for (i = 0; i < UMPC_NY; ++i) {
 		accdes[i] = (dq1des[i] - dq0[i]) / up->dt;

@@ -489,22 +489,22 @@ if __name__ == "__main__":
     popts = np.zeros(90)
     upc = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 50, popts)
 
-    # FIXME: test
-    p = np.random.rand(3)
-    R = np.random.rand(3, 3)
-    dq = np.random.rand(6)
-    pdes = np.random.rand(3)
-    dpdes = np.random.rand(3)
-    retc = upc.update(p, R, dq, pdes, dpdes)
-    cl, cu, cq = upc.vectors()
-    cP, cAdata, cAidx = upc.matrices()
-    ret = up.update(p, R, dq, pdes, dpdes)
-    print(cAdata - up.A.data[cAidx])
-    print(ret, retc)
+    # # FIXME: test
+    # p = np.random.rand(3)
+    # R = np.random.rand(3, 3)
+    # dq = np.random.rand(6)
+    # pdes = np.random.rand(3)
+    # dpdes = np.random.rand(3)
+    # retc = upc.update(p, R, dq, pdes, dpdes)
+    # cl, cu, cq = upc.vectors()
+    # cP, cAdata, cAidx = upc.matrices()
+    # ret = up.update(p, R, dq, pdes, dpdes)
+    # # print(cAdata - up.A.data[cAidx])
+    # print(ret[0], ret[1], ret[0]-retc[0], ret[1]-retc[1])
 
     # # Hover
     # controlTest(up, 500, useMPC=True)
     # # Ascent
     # controlTest(up, 500, useMPC=True, ascentIC=True)
     # Traj
-    # controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
+    controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
