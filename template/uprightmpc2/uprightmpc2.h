@@ -46,7 +46,7 @@ typedef struct {
   float T0;
   // WLQP stuff
   float u0[WLQP_NU], umin[WLQP_NU], umax[WLQP_NU], dumax[WLQP_NU];
-  float M0[6*6], Qw[6*6];
+  float M0[6*6], Qw[6*6], Tform0[6*6], h0W[3];
   FunApprox_t fa[6];
 } UprightMPC_t;
 

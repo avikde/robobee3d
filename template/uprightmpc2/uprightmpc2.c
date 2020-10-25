@@ -168,10 +168,17 @@ void umpcInit(UprightMPC_t *up, float dt, float g, float TtoWmax, float ws, floa
 	for (i = 0; i < 6; ++i) {
 		funApproxInit(&up->fa[i], &popts[15 * i]);
 	}
+	memset(up->M0, 0, 36 * sizeof(float));
+	memset(up->Qw, 0, 36 * sizeof(float));
+	memset(up->Tform0, 0, 36 * sizeof(float));
 	for (i = 0; i < 6; ++i) {
 		up->M0[Cind(6, i, i)] = i < 3 ? mb : Ib[i - 3];
 		up->Qw[Cind(6, i, i)] = Qw[i];
+		up->Tform0[Cind(6, i, i)] = 1; // Identity
 	}
+	// Gravity vector world frame
+	up->h0W[0] = up->h0W[1] = 0;
+	up->h0W[2] = up->M0[0] * up->g;
 }
 
 // Return the ith element of (A0*y), where A0 = (dt*N)
@@ -253,7 +260,7 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 	static float dummy66[6*6], dummy44[4*4], dy1delu[6*4], deludelu[4*4], lastcol[6*4+4*(4+1)/2];
 
 	// Last col
-	matMult(dummy66, M0t, Qw)
+	// matMult(dummy66, M0t, Qw)
 
 	// q, P diag ---
 	offsq = offsP = 0;
@@ -315,8 +322,8 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 
 int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]) {
 	static float s0[3], ds0[3], y0[UMPC_NY], dy0[UMPC_NY], ydes[UMPC_NY], dydes[UMPC_NY], dummy[9], Btau[9];
-	static float dy1des[UMPC_NY], dq1des[UMPC_NY], dwdu0[6*6], w0t[6], M0t[6*6];
-	int i, ret;
+	static float dy1des[UMPC_NY], dq1des[UMPC_NY], dwdu0[6*6], w0t[6], M0t[6*6], T0[6*6], e3hR0T[3*3];
+	int i, j, ret;
 
 	// Compute some states
 	memcpy(s0, &R0[6], 3 * sizeof(float)); // column major R0, and want third col
@@ -342,12 +349,24 @@ int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], co
 	ydes[5] = 1;
 	dydes[3] = dydes[4] = dydes[5] = 0;
 
-	// Sample wrench map ---
+	// WLQP stuff. sample wrench map ---
 	wrenchMap(up, w0t, up->u0);
 	wrenchJacMap(up, dwdu0, up->u0);
-	// TODO:
-	// w0t = w0 - h0 + M0*dq0/dt
+	// Create Tform0
+	matMult(e3hR0T, up->e3h, R0, 3, 3, 3, 1.0f, 0, 1); // e3h*R0^T
+	for (i = 0; i < 3; ++i) {
+		for (j = 0; j < 3; ++j) {
+			up->Tform0[Cind(6, 3+i, 3+j)] = e3hR0T[Cind(3, i, j)]; // T0[3:,3:] = e3h @ R0.T
+		}
+	}
 	// M0t = M0*T0/dt
+	matMult(M0t, up->M0, up->Tform0, 6, 6, 6, 1 / up->dt, 0, 0);
+	// w0t = w0 - h0 + M0*dq0/dt
+	matMult(dummy, up->M0, dq0, 6, 1, 6, 1 / up->dt, 0, 0); // M0*dq0/dt
+	matMult(&dummy[6], R0, up->h0W, 3, 1, 3, 1.0f, 1, 0); // h0B = R0^T*h0W
+	for (i = 0; i < 6; ++i) {
+		w0t[i] = w0t[i] - (i < 3 ? dummy[6+i] : 0) + dummy[i];
+	}
 
 	umpcUpdateConstraint(up, s0, Btau, y0, dy0);
 	updateObjective(up, ydes, dydes, dwdu0, w0t, M0t);
@@ -370,8 +389,7 @@ int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], co
 		if (i < 3)
 			dq1des[i] = dy1des[i];
 	}
-	matMult(dummy, R0, &dy1des[3], 3, 1, 3, 1.0f, 1, 0); // R0^T*s1des
-	matMult(&dq1des[3], up->e3h, dummy, 3, 1, 3, 1.0f, 0, 0); // e3h*R0^T*s1des
+	matMult(&dq1des[3], e3hR0T, &dy1des[3], 3, 1, 3, 1.0f,01, 0); // e3h*R0^T*s1des
 
 	for (i = 0; i < UMPC_NY; ++i) {
 		accdes[i] = (dq1des[i] - dq0[i]) / up->dt;
