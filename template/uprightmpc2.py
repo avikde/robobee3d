@@ -72,7 +72,7 @@ def initConstraint(N, nx, nc):
     # Delta-u WLQP rate limit constraint
     A[nc3:nc3+4, n3:n3+4] = np.eye(4)
     
-    return sp.csc_matrix(A), sp.csc_matrix(P)
+    return sp.csc_matrix(A), sp.csc_matrix(P), P # for debugging
 
 def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, Tmax, delUL, delUU):
     nc = A.shape[0]
@@ -149,7 +149,7 @@ def getUpperTriang(P1):
             kk += 1
     return P1data
 
-def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0t, M0t):
+def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0t, M0t, Pdense):
     # In the last column, need to stack the columns of the first matrix with the upper triang part of the second matrix
     mat1 = -M0t.T @ Qw @ dwdu # dy1,delu block
     mat2 = dwdu.T @ Qw @ dwdu # delu,delu block
@@ -171,6 +171,20 @@ def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0t, M0t)
         np.hstack([R for k in range(N)]),
         lastcol
     ))
+    # Dense P update for debugging
+    ii = np.diag_indices(N*(2*ny+nu))
+    Pdense[:N*(2*ny+nu), :N*(2*ny+nu)][ii] = np.hstack((
+        np.hstack([Qyr for k in range(N-1)]),
+        Qyf,
+        np.hstack([Qdyr for k in range(N-1)]),
+        Qdyf,
+        np.hstack([R for k in range(N)])
+    ))
+    # Off diag parts
+    Pdense[N*ny:(N+1)*ny, N*ny:(N+1)*ny] += M0t.T @ Qw @ M0t # keep the Qyr
+    Pdense[N*(2*ny+nu):, N*(2*ny+nu):] = dwdu.T @ Qw @ dwdu
+    Pdense[N*ny:(N+1)*ny, N*(2*ny+nu):] = -M0t.T @ Qw @ dwdu
+    Pdense[N*(2*ny+nu):, N*ny:(N+1)*ny] = -dwdu.T @ Qw @ M0t
 
     q = np.hstack((
         np.hstack([-Qyr*ydes for k in range(N-1)]),
@@ -181,7 +195,7 @@ def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0t, M0t)
         np.zeros(N*len(R)),
         dwdu.T @ Qw @ w0t
     ))
-    return Pdata, q
+    return Pdata, q, Pdense
 
 def openLoopX(N, dt, T0, s0s, Btaus, y0, dy0, g):
     ys = np.zeros((N,ny))
@@ -214,7 +228,7 @@ class UprightMPC2():
         nx = self.N * (2*ny + nu) + 4
         nc = 2*self.N*ny + self.N + 4
 
-        self.A, self.P = initConstraint(N, nx, nc)
+        self.A, self.P, self.Pdense = initConstraint(N, nx, nc)
 
         Qyr = np.hstack((np.full(3,wpr), np.full(3,ws)))
         Qyf = np.hstack((np.full(3,wpf), np.full(3,ws)))
@@ -269,13 +283,14 @@ class UprightMPC2():
                 delUU[i] = 0
         # Update
         self.A, self.l, self.u, self.Axidx = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.Tmax, delUL, delUU)
-        self.Pdata, self.q = updateObjective(self.N, *self.Wts, ydes, dydes, self.Qw, dwdu0, w0t, M0t)
+        self.Pdata, self.q, self.Pdense = updateObjective(self.N, *self.Wts, ydes, dydes, self.Qw, dwdu0, w0t, M0t, self.Pdense)
         
         # OSQP solve ---
         self.model.update(Px=self.Pdata, Ax=self.A.data, q=self.q, l=self.l, u=self.u)
         res = self.model.solve()
         if 'solved' not in res.info.status:
             print(res.info.status)
+        self.obj_val = res.info.obj_val
 
         return res.x
     
@@ -311,6 +326,7 @@ class UprightMPC2():
         # FIXME: debug: this should be zero!
         a0 = w0t - M0t @ (self.prevsol[ny*self.N : ny*self.N+ny]) # from horiz
         print(dwdu0 @ delu + a0)
+        print(self.obj_val, 0.5 * self.prevsol @ self.Pdense @ self.prevsol + np.dot(self.q, self.prevsol))
         sys.exit()
 
         return np.hstack((self.T0, utilde[1:]))
