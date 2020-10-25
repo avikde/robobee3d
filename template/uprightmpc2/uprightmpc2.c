@@ -257,14 +257,7 @@ static void umpcUpdateConstraint(UprightMPC_t *up, const float s0[/*  */], const
 
 static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const float dydes[/* 6 */], const float dwdu0[/* 6*4 */], const float w0t[/* 6 */], const float M0t[/* 6*6 */]) {
 	int offsq, offsP, k, i, ii, jj;
-	static float dummy66[6*6], dummy44[4*4], Qwdwdu[6*4], dy1delu[6*4], deludelu[4*4], lastcol[6*4+4*(4+1)/2], M0TQwM0[6*6];
-
-	// Last col
-	matMult(Qwdwdu, up->Qw, dwdu0, 6, 4, 6, 1.0f, 0, 0); // Qw*dwdu
-	matMult(dy1delu, up->M0, Qwdwdu, 6, 4, 6, -1.0f, 1, 0); // -M0^T*Qw*dwdu
-	matMult(deludelu, dwdu0, Qwdwdu, 4, 4, 6, 1.0f, 1, 0); // dwdu^T*Qw*dwdu
-	matMult(dummy66, up->Qw, up->M0, 6, 6, 6, 1.0f, 0, 0); // Qw*M0
-	matMult(M0TQwM0, up->M0, dummy66, 6, 6, 6, 1.0f, 1, 0); // M0^T*Qw*M0
+	static float dummy66[6*6], dummy44[4*4], Qwdwdu[6*4], dy1delu[6*4], deludelu[4*4], M0TQwM0[6*6];
 
 	// q, P diag ---
 	offsq = offsP = 0;
@@ -312,27 +305,22 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 	}
 
 	// Last block col
+	matMult(Qwdwdu, up->Qw, dwdu0, 6, 4, 6, 1.0f, 0, 0); // Qw*dwdu
+	matMult(dy1delu, up->M0, Qwdwdu, 6, 4, 6, -1.0f, 1, 0); // -M0^T*Qw*dwdu
+	matMult(deludelu, dwdu0, Qwdwdu, 4, 4, 6, 1.0f, 1, 0); // dwdu^T*Qw*dwdu
+	matMult(dummy66, up->Qw, up->M0, 6, 6, 6, 1.0f, 0, 0); // Qw*M0
+	matMult(M0TQwM0, up->M0, dummy66, 6, 6, 6, 1.0f, 1, 0); // M0^T*Qw*M0
 	// populate lastcol, reusing offsq
-	offsq = 0;
 	for (jj = 0; jj < 6; ++jj) {
 		for (ii = 0; ii < 6; ++ii) {
-			lastcol[offsq + ii] = dy1delu[Cind(6, ii, jj)];
+			up->Px_data[offsP + ii] = dy1delu[Cind(6, ii, jj)];
 		}
-		offsq += 6;
+		offsP += 6;
 		for (ii = 0; ii < jj+1; ++ii) {
-			lastcol[offsq + ii] = deludelu[Cind(6, ii, jj)];
+			up->Px_data[offsP + ii] = deludelu[Cind(6, ii, jj)];
 		}
-		offsq += (jj+1);
+		offsP += (jj+1);
 	}
-	// dy1,delu block
-	for (i = 0; i < 6*4; ++i) {
-		up->Px_data[offsP] = 0; // TODO: -M0T0dt.T @ np.diag(Qw) @ dwdu
-		offsP += 1;
-	}
-	// delu,delu block upper triang
-	for (i = 0; i < 4*4; ++i)
-		dummy44[i] = 0; // TODO: dwdu.T @ np.diag(Qw) @ dwdu
-	offsP += getUpperTriang(&up->Px_data[offsP], dummy44, 4);
 }
 
 int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]) {
