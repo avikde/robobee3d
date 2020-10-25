@@ -291,8 +291,9 @@ class UprightMPC2():
         if 'solved' not in res.info.status:
             print(res.info.status)
         self.obj_val = res.info.obj_val
+        # Functions for debugging
         self.obj = lambda x : 0.5 * x.T @ self.Pdense @ x + self.q.T @ x
-
+        self.viol = lambda x : np.amin(np.hstack((self.A @ x - self.l, self.u - self.A @ x)))
         return res.x
     
     def update2(self, p0, R0, dq0, pdes, dpdes, dwdu0, w0):
@@ -332,7 +333,7 @@ class UprightMPC2():
         xtest = np.copy(self.prevsol)
         xtest[-4:] = -a0[-4:]
         print(dwdu0 @ xtest[-4:] + a0)
-        print(self.obj_val, self.obj(self.prevsol), self.obj(xtest))
+        print(self.obj_val, self.obj(self.prevsol), self.obj(xtest), self.viol(self.prevsol), self.viol(xtest))
         sys.exit()
 
         return np.hstack((self.T0, utilde[1:]))
