@@ -286,10 +286,9 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 			// create diag matrix
 			for (ii = 0; ii < 6; ++ii) {
 				for (jj = 0; jj < 6; ++jj) {
-					dummy66[Cind(6, ii, jj)] = (ii == jj) ? up->Qdyr[ii] : 0;
+					dummy66[Cind(6, ii, jj)] = ((ii == jj) ? up->Qdyr[ii] : 0) + M0TQwM0[Cind(6, ii, jj)]; // add M0T0dt.T @ np.diag(Qw) @ M0T0dt
 				}
 			}
-			// TODO:  M0T0dt.T @ np.diag(Qw) @ M0T0dt
 			offsP += getUpperTriang(&up->Px_data[offsP], dummy66, UMPC_NY);
 		} else {
 			for (i = 0; i < UMPC_NY; ++i) {
@@ -313,6 +312,18 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 	}
 
 	// Last block col
+	// populate lastcol, reusing offsq
+	offsq = 0;
+	for (jj = 0; jj < 6; ++jj) {
+		for (ii = 0; ii < 6; ++ii) {
+			lastcol[offsq + ii] = dy1delu[Cind(6, ii, jj)];
+		}
+		offsq += 6;
+		for (ii = 0; ii < jj+1; ++ii) {
+			lastcol[offsq + ii] = deludelu[Cind(6, ii, jj)];
+		}
+		offsq += (jj+1);
+	}
 	// dy1,delu block
 	for (i = 0; i < 6*4; ++i) {
 		up->Px_data[offsP] = 0; // TODO: -M0T0dt.T @ np.diag(Qw) @ dwdu
