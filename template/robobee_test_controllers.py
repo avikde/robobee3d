@@ -5,8 +5,8 @@ from scipy.spatial.transform import Rotation
 from ca6dynamics import dynamicsTerms
 from wlqppy import WLController
 import valuefunc
-from uprightmpc2 import reactiveController#UprightMPC2, 
-from uprightmpc2py import UprightMPC2, #UprightMPC2C # C version
+from uprightmpc2 import reactiveController, UprightMPC2
+from uprightmpc2py import UprightMPC2C # C version
 from genqp import quadrotorNLVF, Ib
 
 class WaveformGenerator(object):
@@ -94,9 +94,10 @@ class WaypointHover(RobobeeController):
         dumax = np.array([5e3, 10, 10, 10]) # /s
         controlRate = 1000
         mb = 100
-        Qw = np.array([1,1,1,0.1,0.1,0.1])
+        # Qw = np.array([1,1,1,0.1,0.1,0.1])
+        Qw = np.zeros(6)
         self.up = UprightMPC2(N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, umin, umax, dumax, mb, Ib.diagonal(), Qw, controlRate)
-        # self.up = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 10)
+        # self.up = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 20, np.ravel(popts))
 
     def templateVF(self, t, p, dp, s, ds, posdes, dposdes, kpos=[0.5e-3,5e-1], kz=[1e-3,2e-1], ks=[4e-3,0.3e0]):
         # TEST
@@ -146,10 +147,9 @@ class WaypointHover(RobobeeController):
         dpdes[1] = trajAmp * trajOmg * np.sin(trajOmg * t)
 
         # Upright MPC
-        # FIXME: the funapprox stuff is in C; need to copy over to uprightmpc2
-        uquad, ddqdes = self.up.update(p, Rb, dq0, self.posdes, dpdes)
+        uquad, ddqdes, uwlqp = self.up.update(p, Rb, dq0, self.posdes, dpdes)
         # ddqdes[:3] = Rb.T @ ddqdes[:3] # Convert to body frame?
-        return uquad, ddqdes
+        return uquad, ddqdes, uwlqp
 
         # # Template controller <- LATEST
         # fTpos, fTorn = self.templateVF(t, p, dp, s, ds, self.posdes, dpdes)
@@ -174,14 +174,14 @@ class WaypointHover(RobobeeController):
         t, qb, dqb = args
 
         M0, h0 = dynamicsTerms(qb, dqb)
-        uquad, self.accdes = self.accReference(t, qb, dqb)
+        uquad, self.accdes, uwlqp = self.accReference(t, qb, dqb)
 
-        # # WLQP
-        # self.u4 = self.wl.update(self.u4, h0, M0 @ self.accdes)
+        # WLQP
+        self.u4 = self.wl.update(self.u4, h0, M0 @ self.accdes)
         
         # # Manual mapping
         # self.u4 = self.manualMapping(*uquad)
-        # self.u4 = self.up.uwlqp
+        # self.u4 = uwlqp
 
         Vmean, uoffs, udiff, h2 = self.u4
         # # test

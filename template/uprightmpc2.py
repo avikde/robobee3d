@@ -296,7 +296,10 @@ class UprightMPC2():
         self.viol = lambda x : np.amin(np.hstack((self.A @ x - self.l, self.u - self.A @ x)))
         return res.x
     
-    def update2(self, p0, R0, dq0, pdes, dpdes, w0, dwdu0):
+    def update2(self, p0, R0, dq0, pdes, dpdes):
+        # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3]
+        w0 = np.hstack((0,0,0,0,0,0))#self.u0))
+        dwdu0 = np.vstack((np.zeros((2,4)), np.eye(4)))
         # At current state
         s0 = np.copy(R0[:,2])
         s0s = [s0 for i in range(self.N)]
@@ -309,7 +312,7 @@ class UprightMPC2():
         ydes = np.hstack((pdes, 0, 0, 1))
         dydes = np.hstack((dpdes, 0, 0, 0))
 
-        h0 = np.hstack((R0.T @ np.array([0, 0, self.M0[0] * g]), np.zeros(3)))
+        h0 = np.hstack((R0.T @ np.array([0, 0, self.M0[0] * self.g]), np.zeros(3)))
         T0 = np.eye(6)
         T0[3:,3:] = e3h @ R0.T
         # M0t = M0*T0/dt
@@ -335,9 +338,9 @@ class UprightMPC2():
         # return (bTw(dq1des) - bTw(dq0)) / self.dt
         return (dq1des - dq0) / self.dt # return in world frame
     
-    def update(self, p0, R0, dq0, pdes, dpdes, w0, dwdu0):
+    def update(self, p0, R0, dq0, pdes, dpdes):
         # Version of above that computes the desired body frame acceleration
-        u = self.update2(p0, R0, dq0, pdes, dpdes, w0, dwdu0)
+        u = self.update2(p0, R0, dq0, pdes, dpdes)
         return u, self.getAccDes(R0, dq0), self.u0
 
 def reactiveController(p, Rb, dq, pdes, kpos=[1e-3,5e-1], kz=[1e-1,1e0], ks=[1e0,1e2]):
@@ -396,7 +399,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
             # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3]
             w0 = np.hstack((0,0,mdl.u0))
             dwdu0 = np.vstack((np.zeros((2,4)), np.eye(4)))
-            u, accdess[ti,:], uwlqp = mdl.update(p, Rb, dq, pdes, dpdes, w0, dwdu0)
+            u, accdess[ti,:], uwlqp = mdl.update(p, Rb, dq, pdes, dpdes)
             wlqpus[ti,:] = uwlqp
             avgTime += 0.01 * (perf_counter() - t1 - avgTime)
             # # Alternate simulation by integrating accDes
@@ -483,7 +486,8 @@ if __name__ == "__main__":
     up = UprightMPC2(N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, umin, umax, dumax, mb, Ib.diagonal(), Qw, controlRate)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
     # # C version can be tested too
-    # upc = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 20)
+    # popts = np.zeros(90)
+    # upc = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 20, popts)
 
     # # FIXME: test
     # p = np.random.rand(3)
