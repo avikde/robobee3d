@@ -95,8 +95,8 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, Tmax, delUL, delUU):
         l[2*N*ny+k] = -T0
         u[2*N*ny+k] = Tmax-T0
     # Delta-u input (rate) limits
-    l[2*N*ny+N:2*N*ny+N+4] = -np.ones(4)*100000 # delUL
-    u[2*N*ny+N:2*N*ny+N+4] = np.ones(4)*100000 # delUU
+    l[2*N*ny+N:2*N*ny+N+4] = delUL
+    u[2*N*ny+N:2*N*ny+N+4] = delUU
 
     # Left 1/4
     AxidxT0dt = []
