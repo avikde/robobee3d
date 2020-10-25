@@ -244,9 +244,11 @@ static void umpcUpdateConstraint(UprightMPC_t *up, const float s0[/*  */], const
 	}
 }
 
-static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const float dydes[/* 6 */]) {
+static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const float dydes[/* 6 */], const float dwdu0[/* 6*4 */], const float w0t[/* 6 */], const float M0t[/* 6*6 */]) {
 	int offsq, offsP, k, i, ii, jj;
 	static float dummy66[6*6], dummy44[4*4];
+
+	// TODO: last col
 
 	// q, P diag ---
 	offsq = offsP = 0;
@@ -308,7 +310,7 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 
 int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]) {
 	static float s0[3], ds0[3], y0[UMPC_NY], dy0[UMPC_NY], ydes[UMPC_NY], dydes[UMPC_NY], dummy[9], Btau[9];
-	static float dy1des[UMPC_NY], dq1des[UMPC_NY];
+	static float dy1des[UMPC_NY], dq1des[UMPC_NY], dwdu0[6*6], w0t[6], M0t[6*6];
 	int i, ret;
 
 	// Compute some states
@@ -335,8 +337,15 @@ int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], co
 	ydes[5] = 1;
 	dydes[3] = dydes[4] = dydes[5] = 0;
 
+	// Sample wrench map ---
+	wrenchMap(up, w0t, up->u0);
+	wrenchJacMap(up, dwdu0, up->u0);
+	// TODO:
+	// w0t = w0 - h0 + M0*dq0/dt
+	// M0t = M0*T0/dt
+
 	umpcUpdateConstraint(up, s0, Btau, y0, dy0);
-	updateObjective(up, ydes, dydes);
+	updateObjective(up, ydes, dydes, dwdu0, w0t, M0t);
 
 	// Update
 	osqp_update_bounds(&workspace, up->l, up->u);
