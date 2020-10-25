@@ -50,7 +50,7 @@ static int getUpperTriang(float *out, const float *Mcolmaj, int n) {
 static void wrenchMap(const UprightMPC_t *up, float *w, const float *u) {
 	int i;
 	for (i = 0; i < WLQP_NW; ++i) {
-		w[i] = 0;//funApproxF(&up->fa[i], u);
+		w[i] = funApproxF(&up->fa[i], u);
 	}
 }
 
@@ -61,7 +61,7 @@ static void wrenchJacMap(const UprightMPC_t *up, float *dw_du, const float *u) {
 		funApproxDf(dwi_du, &up->fa[i], u);
 		for (j = 0; j < WLQP_NU; ++j) {
 			// Copy into the col-major matrix
-			dw_du[Cind(WLQP_NW, i, j)] = i >= 2 && i - 2 == j ? 1 : 0;  //dwi_du[j];
+			dw_du[Cind(WLQP_NW, i, j)] = dwi_du[j]; // i >= 2 && i - 2 == j ? 1 : 0;  //
 		}
 	}
 }
