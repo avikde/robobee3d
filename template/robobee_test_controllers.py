@@ -5,7 +5,7 @@ from scipy.spatial.transform import Rotation
 from ca6dynamics import dynamicsTerms
 from wlqppy import WLController
 import valuefunc
-from uprightmpc2 import reactiveController#UprightMPC2, 
+from uprightmpc2 import reactiveController, UprightMPC2
 from uprightmpc2py import UprightMPC2C # C version
 from genqp import quadrotorNLVF, Ib
 
@@ -69,8 +69,6 @@ class WaypointHover(RobobeeController):
         self.wl = WLController(np.ravel(popts), 1000)
         self.u4 = [140.0,0.,0.,0.]
 
-        # self.accController = self.manualMapping
-        self.accController = self.wrenchLinWrapper
         # For acc reference. only need to get once for now for hover task
         # In this R (for quadrotors) weigh the pitch and yaw torques high
         self.S = valuefunc.quadrotorS(9.81e-3, Qpos=[0,0,10,0.1,0.1,0.1], Qvel=[1,1,10,0.1,0.1,0.1], Rdiag=[1,1,1,1])
@@ -89,11 +87,17 @@ class WaypointHover(RobobeeController):
         wvf = 2e3
         wthrust = 1e-1
         wmom = 1e-2
-        smin = np.array([-2,-2,0.5])
-        smax = np.array([2,2,1.5])
         TtoWmax = 3
-        # self.up = UprightMPC2(N, dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom)
-        self.up = UprightMPC2C(dt, g, smin, smax, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib.diagonal(), 10)
+        # WLQP stuff - copied from isolated C implementation
+        umin = np.array([50, -0.5, -0.2, -0.1])
+        umax = np.array([240, -0.5, -0.2, -0.1])
+        dumax = np.array([5e3, 10, 10, 10]) # /s
+        controlRate = 1000
+        mb = 100
+        # Qw = np.array([1,1,1,0.1,0.1,0.1])
+        Qw = np.zeros(6)
+        # self.up = UprightMPC2(N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, umin, umax, dumax, mb, Ib.diagonal(), Qw, controlRate)
+        self.up = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 20, np.ravel(popts))
 
     def templateVF(self, t, p, dp, s, ds, posdes, dposdes, kpos=[0.5e-3,5e-1], kz=[1e-3,2e-1], ks=[4e-3,0.3e0]):
         # TEST
@@ -143,9 +147,9 @@ class WaypointHover(RobobeeController):
         dpdes[1] = trajAmp * trajOmg * np.sin(trajOmg * t)
 
         # Upright MPC
-        _, ddqdes = self.up.update(p, Rb, dq0, self.posdes, dpdes)
+        uquad, ddqdes, uwlqp = self.up.update(p, Rb, dq0, self.posdes, dpdes)
         # ddqdes[:3] = Rb.T @ ddqdes[:3] # Convert to body frame?
-        return ddqdes
+        return uquad, ddqdes, uwlqp
 
         # # Template controller <- LATEST
         # fTpos, fTorn = self.templateVF(t, p, dp, s, ds, self.posdes, dpdes)
@@ -166,12 +170,18 @@ class WaypointHover(RobobeeController):
         # print(pddes)
         # return pddes
 
-    def wrenchLinWrapper(self, *args):
+    def accController(self, *args):
         t, qb, dqb = args
 
         M0, h0 = dynamicsTerms(qb, dqb)
-        self.accdes = self.accReference(t, qb, dqb)
+        uquad, self.accdes, uwlqp = self.accReference(t, qb, dqb)
+
+        # WLQP
         self.u4 = self.wl.update(self.u4, h0, M0 @ self.accdes)
+        
+        # # Manual mapping
+        # self.u4 = self.manualMapping(*uquad)
+        # self.u4 = uwlqp
 
         Vmean, uoffs, udiff, h2 = self.u4
         # # test
@@ -195,12 +205,10 @@ class WaypointHover(RobobeeController):
         # control
         return self.accController(t, qb, dqb)
         
-    def manualMapping(self, t, qb, dqb, pdes):
+    def manualMapping(self, spThrust, momx, momy):
         """Low level mapping to torques. Can be replaced"""
-        self.wf.step(t, self.P('freq'))
-        w = self.wf.get(t, self.P('freq')) # no h2 usage in this
-        umean = 120 + 1000 * (pdes[2] - dqb[2])
-        udiff = np.clip(0.01*pdes[3], -0.5, 0.5)
-        uoffs = np.clip(0.1*pdes[4], -0.5, 0.5)
-        self.u4 = np.array([umean, uoffs, udiff, 0.]) # last is h2
-        return np.array([1 + udiff, 1 - udiff]) * umean * (w + uoffs)
+        Vmean = 105 + (spThrust - 9.81e-3) * 1e3
+        # momx, momy go up to ~10.
+        uoffs = np.clip(0.005 * momy, -0.3, 0.3)
+        udiff = np.clip(0.02 * momx, -0.3, 0.3)
+        return Vmean, uoffs, udiff, 0
