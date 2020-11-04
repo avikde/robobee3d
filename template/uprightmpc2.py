@@ -362,8 +362,8 @@ def reactiveController(p, Rb, dq, pdes, kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e
     fAorn = -e3h @ Rb.T @ fTorn
     return np.hstack((fz, fAorn[:2]))
 
-def viewControlTestLog(log, log2=None, callShow=True):
-    def traj3plot(_ax, t, p, v, cmap, vscale=0.4, narrow=10):
+def viewControlTestLog(log, log2=None, callShow=True, goal0=False, desTraj=False, vscale=0.4):
+    def traj3plot(_ax, t, p, v, cmap, narrow=10):
         cnorm = t/t[-1]
         _ax.scatter(p[:,0], p[:,1], p[:,2], c=cnorm, cmap=cmap, marker='.', label='_nolegend_')
         ii = np.linspace(0, len(t), narrow, dtype=int, endpoint=False)
@@ -387,11 +387,16 @@ def viewControlTestLog(log, log2=None, callShow=True):
         if log2 is not None:
             traj3plot(_ax, log2['t'], log2['y'][:,:3], log2['y'][:,3:6], "Reds_r")
         # _ax.plot(log['t'], log['pdes'][:,0], 'k--', alpha=0.3)
-        _ax.plot([0], [0], [0], 'g*', markersize=10, zorder=10)
+        if goal0:
+            _ax.plot([0], [0], [0], 'g*', markersize=10, zorder=10)
+            _ax.legend(('MPC', 'Reactive', 'Goal'))
+        else:
+            _ax.legend(('MPC', 'Reactive'))
+        if desTraj:
+            _ax.plot(log['pdes'][:,0], log['pdes'][:,1], log['pdes'][:,2], 'k--', alpha=0.5, zorder=9)
         _ax.set_xlabel('x [mm]')
         _ax.set_ylabel('y [mm]')
         _ax.set_zlabel('z [mm]')
-        _ax.legend(('MPC', 'Reactive', 'Goal'))
 
     def posPlot(_ax):
         _ax.plot(log['t'], log['y'][:,:3])
@@ -446,7 +451,7 @@ def viewControlTestLog(log, log2=None, callShow=True):
     if callShow:
         plt.show()
 
-def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascentIC=False, showPlots=True):
+def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascentIC=False, showPlots=True, tpert=None):
     """trajFreq in Hz, trajAmp in mm"""
     # Initial conditions
     dq = np.zeros(6)
@@ -475,6 +480,13 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
         # Traj to follow
         pdes[0] = trajAmp * np.sin(trajOmg * tt[ti])
         dpdes[0] = trajAmp * trajOmg * np.cos(trajOmg * tt[ti])
+        if trajAmp > 1e-3:
+            pdes[2] = 0.1 * tt[ti]
+            dpdes[2] = 0.1
+            # Add perturbation for this traj
+            if tpert is not None and tt[ti] > tpert:
+                dq[1] += 2
+                tpert = None
 
         # Call controller
         if useMPC:
@@ -501,9 +513,13 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     return log
 
 def papPlots():
-    l1 = controlTest(up, 300, useMPC=True, showPlots=False)
-    l2 = controlTest(up, 1000, useMPC=False, showPlots=False)
-    viewControlTestLog(l1, log2=l2)
+    # l1 = controlTest(up, 300, useMPC=True, showPlots=False)
+    # l2 = controlTest(up, 1000, useMPC=False, showPlots=False)
+    # viewControlTestLog(l1, log2=l2, goal0=True)
+
+    l1 = controlTest(up, 2000, useMPC=True, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000)
+    l2 = controlTest(up, 2000, useMPC=False, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000)
+    viewControlTestLog(l1, log2=l2, desTraj=True, vscale=20)
 
 if __name__ == "__main__":
     T0 = 0.5
