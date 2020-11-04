@@ -359,6 +359,43 @@ def reactiveController(p, Rb, dq, pdes, kpos=[1e-3,5e-1], kz=[1e-1,1e0], ks=[1e0
     fAorn = -e3h @ Rb.T @ fTorn
     return np.hstack((fz, fAorn[:2]))
 
+def viewControlTestLog(log, log2=None):
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(3,3)
+    ax = ax.ravel()
+        
+    ax[0].plot(log['t'], log['y'][:,:3])
+    ax[0].plot(log['t'], log['pdes'][:,0], 'k--', alpha=0.3)
+    ax[0].set_ylabel('p')
+    ax[1].plot(log['t'], log['y'][:,3:6])
+    ax[1].axhline(y=0, color='k', alpha=0.3)
+    ax[1].set_ylabel('s')
+    ax[2].plot(log['t'], log['u'][:,0])
+    ax[2].axhline(y=0, color='k', alpha=0.3)
+    ax[2].set_ylabel('Sp. thrust')
+    ax[3].plot(log['t'], log['u'][:,1:])
+    ax[3].axhline(y=0, color='k', alpha=0.3)
+    ax[3].set_ylabel('Moments')
+    ax[4].plot(log['t'], log['y'][:,6:9])
+    ax[4].axhline(y=0, color='k', alpha=0.3)
+    ax[4].set_ylabel('v')
+    ax[5].plot(log['t'], log['y'][:,9:12])
+    ax[5].axhline(y=0, color='k', alpha=0.3)
+    ax[5].set_ylabel('omega')
+    ax[6].plot(log['t'], log['accdes'][:,:3])
+    ax[6].axhline(y=0, color='k', alpha=0.3)
+    ax[6].set_ylabel('accdes pos')
+    ax[7].plot(log['t'], log['accdes'][:,3:])
+    ax[7].axhline(y=0, color='k', alpha=0.3)
+    ax[7].set_ylabel('accdes ang')
+    ax[8].plot(log['t'], log['wlqpu'][:,:2])
+    ax[8].plot(log['t'], log['wlqpu'][:,2:],'--')
+    ax[8].legend(('0','1','2','3'))
+    ax[8].set_ylabel('wlqpu')
+    fig.tight_layout()
+    plt.show()
+
 def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascentIC=False):
     """trajFreq in Hz, trajAmp in mm"""
     # Initial conditions
@@ -377,11 +414,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     Nt = len(tt)
 
     # for logging
-    ys = np.zeros((Nt, 12))
-    us = np.zeros((Nt, 3))
-    pdess = np.zeros((Nt, 3))
-    accdess = np.zeros((Nt,6))
-    wlqpus = np.zeros((Nt,4))
+    log = {'t': tt, 'y': np.zeros((Nt, 12)), 'u': np.zeros((Nt, 3)), 'pdes': np.zeros((Nt, 3)), 'accdes': np.zeros((Nt,6)), 'wlqpu': np.zeros((Nt,4))}
 
     trajOmg = 2 * np.pi * trajFreq * 1e-3 # to KHz, then to rad/ms
     ddqdes = None # test integrate ddq sim below
@@ -399,8 +432,8 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
             # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3]
             w0 = np.hstack((0,0,mdl.u0))
             dwdu0 = np.vstack((np.zeros((2,4)), np.eye(4)))
-            u, accdess[ti,:], uwlqp = mdl.update(p, Rb, dq, pdes, dpdes)
-            wlqpus[ti,:] = uwlqp
+            u, log['accdes'][ti,:], uwlqp = mdl.update(p, Rb, dq, pdes, dpdes)
+            log['wlqpu'][ti,:] = uwlqp
             avgTime += 0.01 * (perf_counter() - t1 - avgTime)
             # # Alternate simulation by integrating accDes
             # ddqdes = accdess[ti,:]
@@ -409,46 +442,11 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
         # u = np.array([1,0.1,0])
 
         p, Rb, dq = quadrotorNLDyn(p, Rb, dq, u, dtsim, ddq=ddqdes)
-        ys[ti,:] = np.hstack((p, Rb[:,2], dq))
-        us[ti,:] = u
-        pdess[ti,:] = pdes
+        log['y'][ti,:] = np.hstack((p, Rb[:,2], dq))
+        log['u'][ti,:] = u
+        log['pdes'][ti,:] = pdes
     print("Time (ms):", avgTime * 1e3)
-    
-    import matplotlib.pyplot as plt
-
-    fig, ax = plt.subplots(3,3)
-    ax = ax.ravel()
-        
-    ax[0].plot(tt, ys[:,:3])
-    ax[0].plot(tt, pdess[:,0], 'k--', alpha=0.3)
-    ax[0].set_ylabel('p')
-    ax[1].plot(tt, ys[:,3:6])
-    ax[1].axhline(y=0, color='k', alpha=0.3)
-    ax[1].set_ylabel('s')
-    ax[2].plot(tt, us[:,0])
-    ax[2].axhline(y=0, color='k', alpha=0.3)
-    ax[2].set_ylabel('Sp. thrust')
-    ax[3].plot(tt, us[:,1:])
-    ax[3].axhline(y=0, color='k', alpha=0.3)
-    ax[3].set_ylabel('Moments')
-    ax[4].plot(tt, ys[:,6:9])
-    ax[4].axhline(y=0, color='k', alpha=0.3)
-    ax[4].set_ylabel('v')
-    ax[5].plot(tt, ys[:,9:12])
-    ax[5].axhline(y=0, color='k', alpha=0.3)
-    ax[5].set_ylabel('omega')
-    ax[6].plot(tt, accdess[:,:3])
-    ax[6].axhline(y=0, color='k', alpha=0.3)
-    ax[6].set_ylabel('accdes pos')
-    ax[7].plot(tt, accdess[:,3:])
-    ax[7].axhline(y=0, color='k', alpha=0.3)
-    ax[7].set_ylabel('accdes ang')
-    ax[8].plot(tt, wlqpus[:,:2])
-    ax[8].plot(tt, wlqpus[:,2:],'--')
-    ax[8].legend(('0','1','2','3'))
-    ax[8].set_ylabel('wlqpu')
-    fig.tight_layout()
-    plt.show()
+    viewControlTestLog(log)
 
 if __name__ == "__main__":
     T0 = 0.5
@@ -502,9 +500,9 @@ if __name__ == "__main__":
     # # print(cAdata - up.A.data[cAidx])
     # print(ret[0], ret[1], ret[0]-retc[0], ret[1]-retc[1])
 
-    # # Hover
-    # controlTest(up, 500, useMPC=True)
+    # Hover
+    controlTest(up, 500, useMPC=True)
     # # Ascent
     # controlTest(up, 500, useMPC=True, ascentIC=True)
-    # Traj
-    controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
+    # # Traj
+    # controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
