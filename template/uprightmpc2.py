@@ -9,6 +9,7 @@ from time import perf_counter
 import sys
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.cm as cm
 
 ny = 6
 nu = 3
@@ -362,11 +363,19 @@ def reactiveController(p, Rb, dq, pdes, kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e
     return np.hstack((fz, fAorn[:2]))
 
 def viewControlTestLog(log, log2=None, callShow=True):
+    def traj3plot(_ax, t, p, v, cmap, vscale=0.2, narrow=10):
+        cnorm = t/t[-1]
+        _ax.scatter(p[:,0], p[:,1], p[:,2], c=cnorm, cmap=cmap, marker='.')
+        ii = np.linspace(0, len(t), narrow, dtype=int, endpoint=False)
+        v *= vscale
+        _ax.quiver(p[ii,0], p[ii,1], p[ii,2], v[ii,0], v[ii,1], v[ii,2], color='b' if "Blue" in cmap else 'r', linewidth=1)
+
     def posParamPlot(_ax):
-        _ax.plot(log['y'][:,0], log['y'][:,1], log['y'][:,2], 'b.')
+        traj3plot(_ax, log['t'], log['y'][:,:3], log['y'][:,3:6], "Blues_r")
         if log2 is not None:
-            _ax.plot(log2['y'][:,0], log2['y'][:,1], log2['y'][:,2], 'r.')
+            traj3plot(_ax, log2['t'], log2['y'][:,:3], log2['y'][:,3:6], "Reds_r")
         # _ax.plot(log['t'], log['pdes'][:,0], 'k--', alpha=0.3)
+        _ax.plot([0], [0], [0], 'g*', markersize=15)
         _ax.set_ylabel('p')
     def posPlot(_ax):
         _ax.plot(log['t'], log['y'][:,:3])
@@ -405,17 +414,19 @@ def viewControlTestLog(log, log2=None, callShow=True):
         _ax.legend(('0','1','2','3'))
         _ax.set_ylabel('wlqpu')
     
+    # fig = plt.figure()
+    # ax = [fig.add_subplot(3,3,i+1) for i in range(1,12)]
+    # posPlot(ax[0])
+    # splot(ax[1])
+    # inputsPlot(ax[2], ax[3])
+    # velsPlot(ax[4], ax[5])
+    # accdesPlots(ax[6], ax[7])
+    # wlqpuPlots(ax[8])
+    # fig.tight_layout()
     fig = plt.figure()
-    ax = [fig.add_subplot(3,4,i+1) for i in range(1,12)]
-    ax3d = fig.add_subplot(3,4,1,projection='3d')
-    posPlot(ax[0])
-    splot(ax[1])
-    inputsPlot(ax[2], ax[3])
-    velsPlot(ax[4], ax[5])
-    accdesPlots(ax[6], ax[7])
-    wlqpuPlots(ax[8])
+    ax3d = fig.add_subplot(1,1,1,projection='3d')
     posParamPlot(ax3d)
-    fig.tight_layout()
+
     if callShow:
         plt.show()
 
@@ -474,7 +485,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     return log
 
 def papPlots():
-    l1 = controlTest(up, 1000, useMPC=True, showPlots=False)
+    l1 = controlTest(up, 300, useMPC=True, showPlots=False)
     l2 = controlTest(up, 1000, useMPC=False, showPlots=False)
     viewControlTestLog(l1, log2=l2)
 
