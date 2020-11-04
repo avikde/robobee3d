@@ -363,15 +363,27 @@ def reactiveController(p, Rb, dq, pdes, kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e
     return np.hstack((fz, fAorn[:2]))
 
 def viewControlTestLog(log, log2=None, callShow=True):
-    def traj3plot(_ax, t, p, v, cmap, vscale=0.2, narrow=10):
+    def traj3plot(_ax, t, p, v, cmap, vscale=0.4, narrow=10):
         cnorm = t/t[-1]
         _ax.scatter(p[:,0], p[:,1], p[:,2], c=cnorm, cmap=cmap, marker='.', label='_nolegend_')
         ii = np.linspace(0, len(t), narrow, dtype=int, endpoint=False)
         v *= vscale
         _ax.quiver(p[ii,0], p[ii,1], p[ii,2], v[ii,0], v[ii,1], v[ii,2], color='b' if "Blue" in cmap else 'r', linewidth=1)
 
+    def aspectEqual3(_ax, xyz):
+        X, Y, Z = xyz[:,0], xyz[:,1], xyz[:,2]
+        # Create cubic bounding box to simulate equal aspect ratio
+        max_range = np.array([X.max()-X.min(), Y.max()-Y.min(), Z.max()-Z.min()]).max()
+        Xb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][0].flatten() + 0.5*(X.max()+X.min())
+        Yb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][1].flatten() + 0.5*(Y.max()+Y.min())
+        Zb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][2].flatten() + 0.5*(Z.max()+Z.min())
+        # Comment or uncomment following both lines to test the fake bounding box:
+        for xb, yb, zb in zip(Xb, Yb, Zb):
+            _ax.plot([xb], [yb], [zb], 'w')
+
     def posParamPlot(_ax):
         traj3plot(_ax, log['t'], log['y'][:,:3], log['y'][:,3:6], "Blues_r")
+        aspectEqual3(_ax, log['y'][:,:3])
         if log2 is not None:
             traj3plot(_ax, log2['t'], log2['y'][:,:3], log2['y'][:,3:6], "Reds_r")
         # _ax.plot(log['t'], log['pdes'][:,0], 'k--', alpha=0.3)
@@ -380,6 +392,7 @@ def viewControlTestLog(log, log2=None, callShow=True):
         _ax.set_ylabel('y [mm]')
         _ax.set_zlabel('z [mm]')
         _ax.legend(('MPC', 'Reactive'))
+
     def posPlot(_ax):
         _ax.plot(log['t'], log['y'][:,:3])
         if log2 is not None:
@@ -443,7 +456,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     else:
         p = np.array([0, 0, 0])
         Rb = Rotation.from_euler('xyz', [0.5,-0.5,0]).as_matrix()
-        # dq[0] = 0.1
+        dq[0] = 0.1
     pdes = np.zeros(3)
     dpdes = np.zeros(3)
     
