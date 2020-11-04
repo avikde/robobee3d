@@ -366,6 +366,8 @@ def viewControlTestLog(log, log2=None):
     ax = ax.ravel()
         
     ax[0].plot(log['t'], log['y'][:,:3])
+    if log2 is not None:
+        ax[0].plot(log2['t'], log2['y'][:,:3], '--')
     ax[0].plot(log['t'], log['pdes'][:,0], 'k--', alpha=0.3)
     ax[0].set_ylabel('p')
     ax[1].plot(log['t'], log['y'][:,3:6])
@@ -396,7 +398,7 @@ def viewControlTestLog(log, log2=None):
     fig.tight_layout()
     plt.show()
 
-def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascentIC=False):
+def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascentIC=False, showPlots=True):
     """trajFreq in Hz, trajAmp in mm"""
     # Initial conditions
     dq = np.zeros(6)
@@ -446,7 +448,14 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
         log['u'][ti,:] = u
         log['pdes'][ti,:] = pdes
     print("Time (ms):", avgTime * 1e3)
-    viewControlTestLog(log)
+    if showPlots:
+        viewControlTestLog(log)
+    return log
+
+def test1():
+    l1 = controlTest(up, 500, useMPC=True, showPlots=False)
+    l2 = controlTest(up, 500, useMPC=False, showPlots=False)
+    viewControlTestLog(l1, log2=l2)
 
 if __name__ == "__main__":
     T0 = 0.5
@@ -500,9 +509,11 @@ if __name__ == "__main__":
     # # print(cAdata - up.A.data[cAidx])
     # print(ret[0], ret[1], ret[0]-retc[0], ret[1]-retc[1])
 
-    # Hover
-    controlTest(up, 500, useMPC=True)
+    # # Hover
+    # controlTest(up, 500, useMPC=True)
     # # Ascent
     # controlTest(up, 500, useMPC=True, ascentIC=True)
     # # Traj
     # controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
+
+    test1()
