@@ -7,6 +7,8 @@ from genqp import quadrotorNLDyn, skew, Ib
 from uprightmpc2py import UprightMPC2C # C version
 from time import perf_counter
 import sys
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 ny = 6
 nu = 3
@@ -360,8 +362,12 @@ def reactiveController(p, Rb, dq, pdes, kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e
     return np.hstack((fz, fAorn[:2]))
 
 def viewControlTestLog(log, log2=None, callShow=True):
-    import matplotlib.pyplot as plt
-    
+    def posParamPlot(_ax):
+        _ax.plot(log['y'][:,0], log['y'][:,1], log['y'][:,2], 'b.')
+        if log2 is not None:
+            _ax.plot(log2['y'][:,0], log2['y'][:,1], log2['y'][:,2], 'r.')
+        # _ax.plot(log['t'], log['pdes'][:,0], 'k--', alpha=0.3)
+        _ax.set_ylabel('p')
     def posPlot(_ax):
         _ax.plot(log['t'], log['y'][:,:3])
         if log2 is not None:
@@ -399,14 +405,16 @@ def viewControlTestLog(log, log2=None, callShow=True):
         _ax.legend(('0','1','2','3'))
         _ax.set_ylabel('wlqpu')
     
-    fig, ax = plt.subplots(3,3)
-    ax = ax.ravel()
+    fig = plt.figure()
+    ax = [fig.add_subplot(3,4,i+1) for i in range(1,12)]
+    ax3d = fig.add_subplot(3,4,1,projection='3d')
     posPlot(ax[0])
     splot(ax[1])
     inputsPlot(ax[2], ax[3])
     velsPlot(ax[4], ax[5])
     accdesPlots(ax[6], ax[7])
     wlqpuPlots(ax[8])
+    posParamPlot(ax3d)
     fig.tight_layout()
     if callShow:
         plt.show()
