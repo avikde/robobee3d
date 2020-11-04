@@ -343,7 +343,7 @@ class UprightMPC2():
         u = self.update2(p0, R0, dq0, pdes, dpdes)
         return u, self.getAccDes(R0, dq0), self.u0
 
-def reactiveController(p, Rb, dq, pdes, kpos=[1e-3,5e-1], kz=[1e-1,1e0], ks=[1e0,1e2]):
+def reactiveController(p, Rb, dq, pdes, kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e0,1e2]):
     # Pakpong-style reactive controller
     sdes = np.clip(kpos[0] * (pdes - p) - kpos[1] * dq[:3], np.full(3, -0.5), np.full(3, 0.5))
     sdes[2] = 1
@@ -359,44 +359,57 @@ def reactiveController(p, Rb, dq, pdes, kpos=[1e-3,5e-1], kz=[1e-1,1e0], ks=[1e0
     fAorn = -e3h @ Rb.T @ fTorn
     return np.hstack((fz, fAorn[:2]))
 
-def viewControlTestLog(log, log2=None):
+def viewControlTestLog(log, log2=None, callShow=True):
     import matplotlib.pyplot as plt
-
+    
+    def posPlot(_ax):
+        _ax.plot(log['t'], log['y'][:,:3])
+        if log2 is not None:
+            _ax.plot(log2['t'], log2['y'][:,:3], '--')
+        _ax.plot(log['t'], log['pdes'][:,0], 'k--', alpha=0.3)
+        _ax.set_ylabel('p')
+    def splot(_ax):
+        _ax.plot(log['t'], log['y'][:,3:6])
+        _ax.axhline(y=0, color='k', alpha=0.3)
+        _ax.set_ylabel('s')
+    def inputsPlot(_ax1, _ax2):
+        _ax1.plot(log['t'], log['u'][:,0])
+        _ax1.axhline(y=0, color='k', alpha=0.3)
+        _ax1.set_ylabel('Sp. thrust')
+        _ax2.plot(log['t'], log['u'][:,1:])
+        _ax2.axhline(y=0, color='k', alpha=0.3)
+        _ax2.set_ylabel('Moments')
+    def velsPlot(_ax1, _ax2):
+        _ax1.plot(log['t'], log['y'][:,6:9])
+        _ax1.axhline(y=0, color='k', alpha=0.3)
+        _ax1.set_ylabel('v')
+        _ax2.plot(log['t'], log['y'][:,9:12])
+        _ax2.axhline(y=0, color='k', alpha=0.3)
+        _ax2.set_ylabel('omega')
+    def accdesPlots(_ax1, _ax2):
+        _ax1.plot(log['t'], log['accdes'][:,:3])
+        _ax1.axhline(y=0, color='k', alpha=0.3)
+        _ax1.set_ylabel('accdes pos')
+        _ax2.plot(log['t'], log['accdes'][:,3:])
+        _ax2.axhline(y=0, color='k', alpha=0.3)
+        _ax2.set_ylabel('accdes ang')
+    def wlqpuPlots(_ax):
+        _ax.plot(log['t'], log['wlqpu'][:,:2])
+        _ax.plot(log['t'], log['wlqpu'][:,2:],'--')
+        _ax.legend(('0','1','2','3'))
+        _ax.set_ylabel('wlqpu')
+    
     fig, ax = plt.subplots(3,3)
     ax = ax.ravel()
-        
-    ax[0].plot(log['t'], log['y'][:,:3])
-    if log2 is not None:
-        ax[0].plot(log2['t'], log2['y'][:,:3], '--')
-    ax[0].plot(log['t'], log['pdes'][:,0], 'k--', alpha=0.3)
-    ax[0].set_ylabel('p')
-    ax[1].plot(log['t'], log['y'][:,3:6])
-    ax[1].axhline(y=0, color='k', alpha=0.3)
-    ax[1].set_ylabel('s')
-    ax[2].plot(log['t'], log['u'][:,0])
-    ax[2].axhline(y=0, color='k', alpha=0.3)
-    ax[2].set_ylabel('Sp. thrust')
-    ax[3].plot(log['t'], log['u'][:,1:])
-    ax[3].axhline(y=0, color='k', alpha=0.3)
-    ax[3].set_ylabel('Moments')
-    ax[4].plot(log['t'], log['y'][:,6:9])
-    ax[4].axhline(y=0, color='k', alpha=0.3)
-    ax[4].set_ylabel('v')
-    ax[5].plot(log['t'], log['y'][:,9:12])
-    ax[5].axhline(y=0, color='k', alpha=0.3)
-    ax[5].set_ylabel('omega')
-    ax[6].plot(log['t'], log['accdes'][:,:3])
-    ax[6].axhline(y=0, color='k', alpha=0.3)
-    ax[6].set_ylabel('accdes pos')
-    ax[7].plot(log['t'], log['accdes'][:,3:])
-    ax[7].axhline(y=0, color='k', alpha=0.3)
-    ax[7].set_ylabel('accdes ang')
-    ax[8].plot(log['t'], log['wlqpu'][:,:2])
-    ax[8].plot(log['t'], log['wlqpu'][:,2:],'--')
-    ax[8].legend(('0','1','2','3'))
-    ax[8].set_ylabel('wlqpu')
+    posPlot(ax[0])
+    splot(ax[1])
+    inputsPlot(ax[2], ax[3])
+    velsPlot(ax[4], ax[5])
+    accdesPlots(ax[6], ax[7])
+    wlqpuPlots(ax[8])
     fig.tight_layout()
-    plt.show()
+    if callShow:
+        plt.show()
 
 def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascentIC=False, showPlots=True):
     """trajFreq in Hz, trajAmp in mm"""
@@ -452,9 +465,9 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
         viewControlTestLog(log)
     return log
 
-def test1():
-    l1 = controlTest(up, 500, useMPC=True, showPlots=False)
-    l2 = controlTest(up, 500, useMPC=False, showPlots=False)
+def papPlots():
+    l1 = controlTest(up, 1000, useMPC=True, showPlots=False)
+    l2 = controlTest(up, 1000, useMPC=False, showPlots=False)
     viewControlTestLog(l1, log2=l2)
 
 if __name__ == "__main__":
@@ -516,4 +529,4 @@ if __name__ == "__main__":
     # # Traj
     # controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
 
-    test1()
+    papPlots()
