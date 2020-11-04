@@ -365,7 +365,7 @@ def reactiveController(p, Rb, dq, pdes, kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e
 def viewControlTestLog(log, log2=None, callShow=True):
     def traj3plot(_ax, t, p, v, cmap, vscale=0.2, narrow=10):
         cnorm = t/t[-1]
-        _ax.scatter(p[:,0], p[:,1], p[:,2], c=cnorm, cmap=cmap, marker='.')
+        _ax.scatter(p[:,0], p[:,1], p[:,2], c=cnorm, cmap=cmap, marker='.', label='_nolegend_')
         ii = np.linspace(0, len(t), narrow, dtype=int, endpoint=False)
         v *= vscale
         _ax.quiver(p[ii,0], p[ii,1], p[ii,2], v[ii,0], v[ii,1], v[ii,2], color='b' if "Blue" in cmap else 'r', linewidth=1)
@@ -375,8 +375,11 @@ def viewControlTestLog(log, log2=None, callShow=True):
         if log2 is not None:
             traj3plot(_ax, log2['t'], log2['y'][:,:3], log2['y'][:,3:6], "Reds_r")
         # _ax.plot(log['t'], log['pdes'][:,0], 'k--', alpha=0.3)
-        _ax.plot([0], [0], [0], 'g*', markersize=15)
-        _ax.set_ylabel('p')
+        _ax.plot([0], [0], [0], 'g*', markersize=10, zorder=10, label='_nolegend_')
+        _ax.set_xlabel('x [mm]')
+        _ax.set_ylabel('y [mm]')
+        _ax.set_zlabel('z [mm]')
+        _ax.legend(('MPC', 'Reactive'))
     def posPlot(_ax):
         _ax.plot(log['t'], log['y'][:,:3])
         if log2 is not None:
