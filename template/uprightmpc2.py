@@ -368,7 +368,7 @@ def viewControlTestLog(log, log2=None, callShow=True):
         _ax.scatter(p[:,0], p[:,1], p[:,2], c=cnorm, cmap=cmap, marker='.', label='_nolegend_')
         ii = np.linspace(0, len(t), narrow, dtype=int, endpoint=False)
         v *= vscale
-        _ax.quiver(p[ii,0], p[ii,1], p[ii,2], v[ii,0], v[ii,1], v[ii,2], color='b' if "Blue" in cmap else 'r', linewidth=1)
+        _ax.quiver(p[ii,0], p[ii,1], p[ii,2], v[ii,0], v[ii,1], v[ii,2], color='b' if "Blue" in cmap else 'r')
 
     def aspectEqual3(_ax, xyz):
         X, Y, Z = xyz[:,0], xyz[:,1], xyz[:,2]
@@ -379,7 +379,7 @@ def viewControlTestLog(log, log2=None, callShow=True):
         Zb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][2].flatten() + 0.5*(Z.max()+Z.min())
         # Comment or uncomment following both lines to test the fake bounding box:
         for xb, yb, zb in zip(Xb, Yb, Zb):
-            _ax.plot([xb], [yb], [zb], 'w')
+            _ax.plot([xb], [yb], [zb], 'w', label='_nolegend_')
 
     def posParamPlot(_ax):
         traj3plot(_ax, log['t'], log['y'][:,:3], log['y'][:,3:6], "Blues_r")
@@ -387,11 +387,11 @@ def viewControlTestLog(log, log2=None, callShow=True):
         if log2 is not None:
             traj3plot(_ax, log2['t'], log2['y'][:,:3], log2['y'][:,3:6], "Reds_r")
         # _ax.plot(log['t'], log['pdes'][:,0], 'k--', alpha=0.3)
-        _ax.plot([0], [0], [0], 'g*', markersize=10, zorder=10, label='_nolegend_')
+        _ax.plot([0], [0], [0], 'g*', markersize=10, zorder=10)
         _ax.set_xlabel('x [mm]')
         _ax.set_ylabel('y [mm]')
         _ax.set_zlabel('z [mm]')
-        _ax.legend(('MPC', 'Reactive'))
+        _ax.legend(('MPC', 'Reactive', 'Goal'))
 
     def posPlot(_ax):
         _ax.plot(log['t'], log['y'][:,:3])
