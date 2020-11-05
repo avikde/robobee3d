@@ -419,9 +419,10 @@ def viewControlTestLog(log, log2=None, callShow=True, goal0=False, desTraj=False
         _ax1.plot(log['t'], log['y'][:,6:9])
         _ax1.axhline(y=0, color='k', alpha=0.3)
         _ax1.set_ylabel('v')
-        _ax2.plot(log['t'], log['y'][:,9:12])
-        _ax2.axhline(y=0, color='k', alpha=0.3)
-        _ax2.set_ylabel('omega')
+        if _ax2 is not None:
+            _ax2.plot(log['t'], log['y'][:,9:12])
+            _ax2.axhline(y=0, color='k', alpha=0.3)
+            _ax2.set_ylabel('omega')
     def accdesPlots(_ax1, _ax2):
         _ax1.plot(log['t'], log['accdes'][:,:3])
         _ax1.axhline(y=0, color='k', alpha=0.3)
@@ -444,9 +445,14 @@ def viewControlTestLog(log, log2=None, callShow=True, goal0=False, desTraj=False
     # accdesPlots(ax[6], ax[7])
     # wlqpuPlots(ax[8])
     # fig.tight_layout()
+    
+    # fig = plt.figure()
+    # ax3d = fig.add_subplot(1,1,1,projection='3d')
+    # posParamPlot(ax3d)
     fig = plt.figure()
-    ax3d = fig.add_subplot(1,1,1,projection='3d')
-    posParamPlot(ax3d)
+    ax = [fig.add_subplot(1,2,i+1) for i in range(2)]
+    posPlot(ax[0])
+    velsPlot(ax[1], None)
 
     if callShow:
         plt.show()
