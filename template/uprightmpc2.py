@@ -451,12 +451,13 @@ def viewControlTestLog(log, log2=None, callShow=True, goal0=False, desTraj=False
     if callShow:
         plt.show()
 
-def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascentIC=False, showPlots=True, tpert=None):
+def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascentIC=False, showPlots=True, tpert=None, speedTest=False):
     """trajFreq in Hz, trajAmp in mm"""
+    speedTestvdes = 2 # m/s
     # Initial conditions
     dq = np.zeros(6)
-    if ascentIC:
-        p = np.array([0, 0, -50])
+    if ascentIC or speedTest:
+        p = np.array([0, 0, -50]) if ascentIC else np.array([-500*speedTestvdes, 0, 0])
         Rb = np.eye(3)
     else:
         p = np.array([0, 0, 0])
@@ -478,15 +479,23 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
 
     for ti in range(Nt):
         # Traj to follow
-        pdes[0] = trajAmp * np.sin(trajOmg * tt[ti])
-        dpdes[0] = trajAmp * trajOmg * np.cos(trajOmg * tt[ti])
-        if trajAmp > 1e-3:
-            pdes[2] = 0.1 * tt[ti]
-            dpdes[2] = 0.1
-            # Add perturbation for this traj
-            if tpert is not None and tt[ti] > tpert:
-                dq[1] += 2
-                tpert = None
+        if speedTest:
+            if tt[ti] < 500:
+                dpdes[0] = speedTestvdes
+                pdes[0] = -500*speedTestvdes + speedTestvdes*(tt[ti])
+            else:
+                pdes[0] = 0
+                dpdes[0] = 0
+        else:
+            pdes[0] = trajAmp * np.sin(trajOmg * tt[ti])
+            dpdes[0] = trajAmp * trajOmg * np.cos(trajOmg * tt[ti])
+            if trajAmp > 1e-3:
+                pdes[2] = 0.1 * tt[ti]
+                dpdes[2] = 0.1
+                # Add perturbation for this traj
+                if tpert is not None and tt[ti] > tpert:
+                    dq[1] += 2
+                    tpert = None
 
         # Call controller
         if useMPC:
@@ -517,9 +526,13 @@ def papPlots():
     # l2 = controlTest(up, 1000, useMPC=False, showPlots=False)
     # viewControlTestLog(l1, log2=l2, goal0=True)
 
-    l1 = controlTest(up, 2000, useMPC=True, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000)
-    l2 = controlTest(up, 2000, useMPC=False, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000)
-    viewControlTestLog(l1, log2=l2, desTraj=True, vscale=20)
+    # l1 = controlTest(up, 2000, useMPC=True, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000)
+    # l2 = controlTest(up, 2000, useMPC=False, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000)
+    # viewControlTestLog(l1, log2=l2, desTraj=True, vscale=20)
+
+    l1 = controlTest(up, 1000, useMPC=True, showPlots=False, speedTest=True)
+    l2 = controlTest(up, 1000, useMPC=False, showPlots=False, speedTest=True)
+    viewControlTestLog(l1, log2=l2, desTraj=True, vscale=50)
 
 if __name__ == "__main__":
     T0 = 0.5
