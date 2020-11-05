@@ -446,20 +446,22 @@ def viewControlTestLog(log, log2=None, callShow=True, goal0=False, desTraj=False
     # wlqpuPlots(ax[8])
     # fig.tight_layout()
     
-    # fig = plt.figure()
-    # ax3d = fig.add_subplot(1,1,1,projection='3d')
-    # posParamPlot(ax3d)
+    fig = plt.figure()
+    ax3d = fig.add_subplot(1,1,1,projection='3d')
+    posParamPlot(ax3d)
 
     if callShow:
         plt.show()
 
-def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascentIC=False, showPlots=True, tpert=None, speedTest=False):
+def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascentIC=False, showPlots=True, tpert=None, speedTest=False, perchTraj=False):
     """trajFreq in Hz, trajAmp in mm"""
     speedTestvdes = 2 # m/s
     # Initial conditions
     dq = np.zeros(6)
-    if ascentIC or speedTest:
+    if ascentIC or speedTest or perchTraj:
         p = np.array([0, 0, -50]) if ascentIC else np.array([-500*speedTestvdes, 0, 0])
+        if perchTraj:
+            p = np.array([-100, 0, 0])
         Rb = np.eye(3)
     else:
         p = np.array([0, 0, 0])
@@ -481,7 +483,13 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
 
     for ti in range(Nt):
         # Traj to follow
-        if speedTest:
+        if perchTraj:
+            if tt[ti] < 500:
+                pdes[0] = -100 + 0.2 * tt[ti]
+                dpdes[0] = 0.2
+            else:
+                pdes[0] = dpdes[0] = 0
+        elif speedTest:
             if tt[ti] < 500:
                 dpdes[0] = speedTestvdes
                 pdes[0] = -500*speedTestvdes + speedTestvdes*(tt[ti])
@@ -524,20 +532,25 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     return log
 
 def papPlots():
-    # Hover task ------------------
-    l1 = controlTest(up, 300, useMPC=True, showPlots=False)
-    l2 = controlTest(up, 1000, useMPC=False, showPlots=False)
-    # viewControlTestLog(l1, log2=l2, goal0=True)
-    fig, ax = plt.subplots(1,2, figsize=(5,2.5))
-    for i in range(2):
-        ax[i].plot(1e-3*l1['t'], l1['y'][:,i], 'b')
-        ax[i].plot(1e-3*l2['t'], l2['y'][:,i], 'r')
-        ax[i].plot(1e-3*l2['t'], l2['pdes'][:,i], 'k--', alpha=0.3)
-        ax[i].set_xlabel('t [s]')
-    ax[0].set_ylabel('x [mm]')
-    ax[1].set_ylabel('y [mm]')
-    fig.tight_layout()
+    # Perch traj ---------------------
+    l1 = controlTest(up, 1000, useMPC=True, showPlots=False, perchTraj=True)
+    viewControlTestLog(l1, desTraj=True, vscale=5)
     plt.show()
+
+    # # Hover task ------------------
+    # l1 = controlTest(up, 300, useMPC=True, showPlots=False)
+    # l2 = controlTest(up, 1000, useMPC=False, showPlots=False)
+    # # viewControlTestLog(l1, log2=l2, goal0=True)
+    # fig, ax = plt.subplots(1,2, figsize=(5,2.5))
+    # for i in range(2):
+    #     ax[i].plot(1e-3*l1['t'], l1['y'][:,i], 'b')
+    #     ax[i].plot(1e-3*l2['t'], l2['y'][:,i], 'r')
+    #     ax[i].plot(1e-3*l2['t'], l2['pdes'][:,i], 'k--', alpha=0.3)
+    #     ax[i].set_xlabel('t [s]')
+    # ax[0].set_ylabel('x [mm]')
+    # ax[1].set_ylabel('y [mm]')
+    # fig.tight_layout()
+    # plt.show()
 
     # # S traj ---------------------------
     # l1 = controlTest(up, 2000, useMPC=True, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000)
