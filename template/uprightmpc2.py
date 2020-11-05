@@ -299,7 +299,7 @@ class UprightMPC2():
         self.viol = lambda x : np.amin(np.hstack((self.A @ x - self.l, self.u - self.A @ x)))
         return res.x
     
-    def update2(self, p0, R0, dq0, pdes, dpdes):
+    def update2(self, p0, R0, dq0, pdes, dpdes, sdes):
         # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3]
         w0 = np.hstack((0,0,0,0,0,0))#self.u0))
         dwdu0 = np.vstack((np.zeros((2,4)), np.eye(4)))
@@ -312,7 +312,7 @@ class UprightMPC2():
 
         y0 = np.hstack((p0, s0))
         dy0 = np.hstack((dq0[:3], ds0))
-        ydes = np.hstack((pdes, 0, 0, 1))
+        ydes = np.hstack((pdes, sdes))
         dydes = np.hstack((dpdes, 0, 0, 0))
 
         h0 = np.hstack((R0.T @ np.array([0, 0, self.M0[0] * self.g]), np.zeros(3)))
@@ -341,9 +341,9 @@ class UprightMPC2():
         # return (bTw(dq1des) - bTw(dq0)) / self.dt
         return (dq1des - dq0) / self.dt # return in world frame
     
-    def update(self, p0, R0, dq0, pdes, dpdes):
+    def update(self, p0, R0, dq0, pdes, dpdes, sdes):
         # Version of above that computes the desired body frame acceleration
-        u = self.update2(p0, R0, dq0, pdes, dpdes)
+        u = self.update2(p0, R0, dq0, pdes, dpdes, sdes)
         return u, self.getAccDes(R0, dq0), self.u0
 
 def reactiveController(p, Rb, dq, pdes, kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e0,1e2]):
@@ -469,6 +469,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
         dq[0] = 0.1
     pdes = np.zeros(3)
     dpdes = np.zeros(3)
+    sdes = np.array([0,0,1])
     
     tt = np.arange(tend, step=dtsim)
     Nt = len(tt)
@@ -487,8 +488,12 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
             if tt[ti] < 500:
                 pdes[0] = -100 + 0.2 * tt[ti]
                 dpdes[0] = 0.2
+                # rotation phase 0 to 1
+                ph = np.clip((tt[ti] - 450) / 100, 0, 1)
+                sdes = np.array([-np.sin(ph*np.pi), 0, np.cos(ph*np.pi)])
             else:
                 pdes[0] = dpdes[0] = 0
+                sdes = np.array([-1,0,0])
         elif speedTest:
             if tt[ti] < 500:
                 dpdes[0] = speedTestvdes
@@ -513,7 +518,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
             # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3]
             w0 = np.hstack((0,0,mdl.u0))
             dwdu0 = np.vstack((np.zeros((2,4)), np.eye(4)))
-            u, log['accdes'][ti,:], uwlqp = mdl.update(p, Rb, dq, pdes, dpdes)
+            u, log['accdes'][ti,:], uwlqp = mdl.update(p, Rb, dq, pdes, dpdes, sdes)
             log['wlqpu'][ti,:] = uwlqp
             avgTime += 0.01 * (perf_counter() - t1 - avgTime)
             # # Alternate simulation by integrating accDes
@@ -533,7 +538,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
 
 def papPlots():
     # Perch traj ---------------------
-    l1 = controlTest(up, 1000, useMPC=True, showPlots=False, perchTraj=True)
+    l1 = controlTest(up, 550, useMPC=True, showPlots=False, perchTraj=True)
     viewControlTestLog(l1, desTraj=True, vscale=5)
     plt.show()
 
