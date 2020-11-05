@@ -449,10 +449,6 @@ def viewControlTestLog(log, log2=None, callShow=True, goal0=False, desTraj=False
     # fig = plt.figure()
     # ax3d = fig.add_subplot(1,1,1,projection='3d')
     # posParamPlot(ax3d)
-    fig = plt.figure()
-    ax = [fig.add_subplot(1,2,i+1) for i in range(2)]
-    posPlot(ax[0])
-    velsPlot(ax[1], None)
 
     if callShow:
         plt.show()
@@ -536,9 +532,22 @@ def papPlots():
     # l2 = controlTest(up, 2000, useMPC=False, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000)
     # viewControlTestLog(l1, log2=l2, desTraj=True, vscale=20)
 
+    # Straight line acceleration -------
     l1 = controlTest(up, 1000, useMPC=True, showPlots=False, speedTest=True)
     l2 = controlTest(up, 1000, useMPC=False, showPlots=False, speedTest=True)
     viewControlTestLog(l1, log2=l2, desTraj=True, vscale=50)
+    fig, ax = plt.subplots(1,2, figsize=(5,2.5))
+    ax[0].plot(1e-3*l1['t'], 1e-3*l1['y'][:,0], 'b')
+    ax[0].plot(1e-3*l2['t'], 1e-3*l2['y'][:,0], 'r')
+    ax[0].plot(1e-3*l2['t'], 1e-3*l2['pdes'][:,0], 'k--', alpha=0.3)
+    ax[0].set_ylabel('x [m]')
+    ax[0].set_xlabel('t [s]')
+    ax[1].plot(1e-3*l1['t'], l1['y'][:,6], 'b')
+    ax[1].plot(1e-3*l2['t'], l2['y'][:,6], 'r')
+    ax[1].set_ylabel('xdot [m/s]')
+    ax[1].set_xlabel('t [s]')
+    fig.tight_layout()
+    plt.show()
 
 if __name__ == "__main__":
     T0 = 0.5
