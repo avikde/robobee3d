@@ -453,7 +453,7 @@ def viewControlTestLog(log, log2=None, callShow=True, goal0=False, desTraj=False
     if callShow:
         plt.show()
 
-def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascentIC=False, showPlots=True, tpert=None, speedTest=False, perchTraj=False):
+def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascentIC=False, showPlots=True, tpert=None, speedTest=False, perchTraj=False, flipTask=False):
     """trajFreq in Hz, trajAmp in mm"""
     speedTestvdes = 2 # m/s
     # Initial conditions
@@ -465,7 +465,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
         Rb = np.eye(3)
     else:
         p = np.array([0, 0, 0])
-        Rb = Rotation.from_euler('xyz', [0.5,-0.5,0]).as_matrix()
+        Rb = np.eye(3) if flipTask else Rotation.from_euler('xyz', [0.5,-0.5,0]).as_matrix()
         dq[0] = 0.1
     pdes = np.zeros(3)
     dpdes = np.zeros(3)
@@ -484,7 +484,11 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
 
     for ti in range(Nt):
         # Traj to follow
-        if perchTraj:
+        if flipTask:
+            # rotation phase 0 to 1
+            ph = np.clip((tt[ti] - 100) / 200, 0, 1)
+            sdes = np.array([-np.sin(ph*2*np.pi), 0, np.cos(ph*2*np.pi)])
+        elif perchTraj:
             if tt[ti] < 500:
                 pdes[0] = -100 + 0.2 * tt[ti]
                 dpdes[0] = 0.2
@@ -537,22 +541,40 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     return log
 
 def papPlots():
-    # Perch traj ---------------------
-    l1 = controlTest(up, 550, useMPC=True, showPlots=False, perchTraj=True)
-    # viewControlTestLog(l1, desTraj=True, vscale=10)
-    fig, ax = plt.subplots(1,3, figsize=(7.5,2.5))
-    for i in range(0,3,2):
-        ax[i].plot(1e-3*l1['t'], l1['y'][:,i], 'b')
-        ax[i].plot(1e-3*l1['t'], l1['pdes'][:,i], 'k--', alpha=0.3)
-        ax[i].set_xlabel('t [s]')
+    # Flip traj ---------------------
+    l1 = controlTest(up, 1000, useMPC=True, showPlots=False, flipTask=True)
+    viewControlTestLog(l1, desTraj=True, vscale=10)
+    # fig, ax = plt.subplots(1,3, figsize=(7.5,2.5))
+    # for i in range(0,3,2):
+    #     ax[i].plot(1e-3*l1['t'], l1['y'][:,i], 'b')
+    #     ax[i].plot(1e-3*l1['t'], l1['pdes'][:,i], 'k--', alpha=0.3)
+    #     ax[i].set_xlabel('t [s]')
         
-    ax[1].plot(1e-3*l1['t'], 180/np.pi*np.arctan2(l1['y'][:,3], l1['y'][:,5]), 'b')
-    ax[1].plot([0, 0.45, 0.55], [0, 0, -90], 'k--', alpha=0.3)
-    ax[1].set_ylabel('Angle [deg]')
-    ax[0].set_ylabel('x [mm]')
-    ax[2].set_ylabel('z [mm]')
-    fig.tight_layout()
+    # ax[1].plot(1e-3*l1['t'], 180/np.pi*np.arctan2(l1['y'][:,3], l1['y'][:,5]), 'b')
+    # ax[1].plot([0, 0.1, 0.2], [0, 0, -180], 'k--', alpha=0.3)
+    # ax[1].plot([0.2, 0.3, 1], [180, 0, 0], 'k--', alpha=0.3)
+    # ax[1].set_ylabel('Angle [deg]')
+    # ax[0].set_ylabel('x [mm]')
+    # ax[2].set_ylabel('z [mm]')
+    # fig.tight_layout()
     plt.show()
+
+    # # Perch traj ---------------------
+    # l1 = controlTest(up, 550, useMPC=True, showPlots=False, perchTraj=True)
+    # # viewControlTestLog(l1, desTraj=True, vscale=10)
+    # fig, ax = plt.subplots(1,3, figsize=(7.5,2.5))
+    # for i in range(0,3,2):
+    #     ax[i].plot(1e-3*l1['t'], l1['y'][:,i], 'b')
+    #     ax[i].plot(1e-3*l1['t'], l1['pdes'][:,i], 'k--', alpha=0.3)
+    #     ax[i].set_xlabel('t [s]')
+        
+    # ax[1].plot(1e-3*l1['t'], 180/np.pi*np.arctan2(l1['y'][:,3], l1['y'][:,5]), 'b')
+    # ax[1].plot([0, 0.45, 0.55], [0, 0, -90], 'k--', alpha=0.3)
+    # ax[1].set_ylabel('Angle [deg]')
+    # ax[0].set_ylabel('x [mm]')
+    # ax[2].set_ylabel('z [mm]')
+    # fig.tight_layout()
+    # plt.show()
 
     # # Hover task ------------------
     # l1 = controlTest(up, 300, useMPC=True, showPlots=False)
