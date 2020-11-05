@@ -363,7 +363,7 @@ def reactiveController(p, Rb, dq, pdes, kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e
     return np.hstack((fz, fAorn[:2]))
 
 def viewControlTestLog(log, log2=None, callShow=True, goal0=False, desTraj=False, vscale=0.4):
-    def traj3plot(_ax, t, p, v, cmap, narrow=10):
+    def traj3plot(_ax, t, p, v, cmap, narrow=20):
         cnorm = t/t[-1]
         _ax.scatter(p[:,0], p[:,1], p[:,2], c=cnorm, cmap=cmap, marker='.', label='_nolegend_')
         ii = np.linspace(0, len(t), narrow, dtype=int, endpoint=False)
@@ -539,7 +539,19 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
 def papPlots():
     # Perch traj ---------------------
     l1 = controlTest(up, 550, useMPC=True, showPlots=False, perchTraj=True)
-    viewControlTestLog(l1, desTraj=True, vscale=5)
+    # viewControlTestLog(l1, desTraj=True, vscale=10)
+    fig, ax = plt.subplots(1,3, figsize=(7.5,2.5))
+    for i in range(0,3,2):
+        ax[i].plot(1e-3*l1['t'], l1['y'][:,i], 'b')
+        ax[i].plot(1e-3*l1['t'], l1['pdes'][:,i], 'k--', alpha=0.3)
+        ax[i].set_xlabel('t [s]')
+        
+    ax[1].plot(1e-3*l1['t'], 180/np.pi*np.arctan2(l1['y'][:,3], l1['y'][:,5]), 'b')
+    ax[1].plot([0, 0.45, 0.55], [0, 0, -90], 'k--', alpha=0.3)
+    ax[1].set_ylabel('Angle [deg]')
+    ax[0].set_ylabel('x [mm]')
+    ax[2].set_ylabel('z [mm]')
+    fig.tight_layout()
     plt.show()
 
     # # Hover task ------------------
