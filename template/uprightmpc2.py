@@ -524,30 +524,52 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     return log
 
 def papPlots():
-    # l1 = controlTest(up, 300, useMPC=True, showPlots=False)
-    # l2 = controlTest(up, 1000, useMPC=False, showPlots=False)
+    # Hover task ------------------
+    l1 = controlTest(up, 300, useMPC=True, showPlots=False)
+    l2 = controlTest(up, 1000, useMPC=False, showPlots=False)
     # viewControlTestLog(l1, log2=l2, goal0=True)
-
-    # l1 = controlTest(up, 2000, useMPC=True, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000)
-    # l2 = controlTest(up, 2000, useMPC=False, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000)
-    # viewControlTestLog(l1, log2=l2, desTraj=True, vscale=20)
-
-    # Straight line acceleration -------
-    l1 = controlTest(up, 1000, useMPC=True, showPlots=False, speedTest=True)
-    l2 = controlTest(up, 1000, useMPC=False, showPlots=False, speedTest=True)
-    viewControlTestLog(l1, log2=l2, desTraj=True, vscale=50)
     fig, ax = plt.subplots(1,2, figsize=(5,2.5))
-    ax[0].plot(1e-3*l1['t'], 1e-3*l1['y'][:,0], 'b')
-    ax[0].plot(1e-3*l2['t'], 1e-3*l2['y'][:,0], 'r')
-    ax[0].plot(1e-3*l2['t'], 1e-3*l2['pdes'][:,0], 'k--', alpha=0.3)
-    ax[0].set_ylabel('x [m]')
-    ax[0].set_xlabel('t [s]')
-    ax[1].plot(1e-3*l1['t'], l1['y'][:,6], 'b')
-    ax[1].plot(1e-3*l2['t'], l2['y'][:,6], 'r')
-    ax[1].set_ylabel('xdot [m/s]')
-    ax[1].set_xlabel('t [s]')
+    for i in range(2):
+        ax[i].plot(1e-3*l1['t'], l1['y'][:,i], 'b')
+        ax[i].plot(1e-3*l2['t'], l2['y'][:,i], 'r')
+        ax[i].plot(1e-3*l2['t'], l2['pdes'][:,i], 'k--', alpha=0.3)
+        ax[i].set_xlabel('t [s]')
+    ax[0].set_ylabel('x [mm]')
+    ax[1].set_ylabel('y [mm]')
     fig.tight_layout()
     plt.show()
+
+    # # S traj ---------------------------
+    # l1 = controlTest(up, 2000, useMPC=True, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000)
+    # l2 = controlTest(up, 2000, useMPC=False, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000)
+    # # viewControlTestLog(l1, log2=l2, desTraj=True, vscale=20)
+    # fig, ax = plt.subplots(1,2, figsize=(5,2.5))
+    # for i in range(2):
+    #     ax[i].plot(1e-3*l1['t'], 1e-3*l1['y'][:,i], 'b')
+    #     ax[i].plot(1e-3*l2['t'], 1e-3*l2['y'][:,i], 'r')
+    #     ax[i].plot(1e-3*l2['t'], 1e-3*l2['pdes'][:,i], 'k--', alpha=0.3)
+    #     ax[i].set_xlabel('t [s]')
+    # ax[0].set_ylabel('x [m]')
+    # ax[1].set_ylabel('y [m]')
+    # fig.tight_layout()
+    # plt.show()
+
+    # # Straight line acceleration -------
+    # l1 = controlTest(up, 1000, useMPC=True, showPlots=False, speedTest=True)
+    # l2 = controlTest(up, 1000, useMPC=False, showPlots=False, speedTest=True)
+    # viewControlTestLog(l1, log2=l2, desTraj=True, vscale=50)
+    # fig, ax = plt.subplots(1,2, figsize=(5,2.5))
+    # ax[0].plot(1e-3*l1['t'], 1e-3*l1['y'][:,0], 'b')
+    # ax[0].plot(1e-3*l2['t'], 1e-3*l2['y'][:,0], 'r')
+    # ax[0].plot(1e-3*l2['t'], 1e-3*l2['pdes'][:,0], 'k--', alpha=0.3)
+    # ax[0].set_ylabel('x [m]')
+    # ax[0].set_xlabel('t [s]')
+    # ax[1].plot(1e-3*l1['t'], l1['y'][:,6], 'b')
+    # ax[1].plot(1e-3*l2['t'], l2['y'][:,6], 'r')
+    # ax[1].set_ylabel('xdot [m/s]')
+    # ax[1].set_xlabel('t [s]')
+    # fig.tight_layout()
+    # plt.show()
 
 if __name__ == "__main__":
     T0 = 0.5
