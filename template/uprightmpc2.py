@@ -650,6 +650,8 @@ def papPlots():
             try:
                 l2 = controlTest(up, 1000, useMPC=False, showPlots=False, ks=[xv[i,j],yv[i,j]])
                 costs[i,j] = logStabMetric(l2)
+            except KeyboardInterrupt:
+                raise
             except:
                 costs[i,j] = np.nan
     fig, ax = plt.subplots(2)

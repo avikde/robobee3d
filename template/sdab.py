@@ -38,6 +38,12 @@ def runSim(poptsFile, direct, tend):
         viewlog.saveLog('../logs/sdab', data)
     return data
 
+def papPlots(poptsFile):
+    import matplotlib.pyplot as plt
+    l1 = runSim(poptsFile, True, 1000)
+    viewlog.defaultPlots(l1)
+    plt.show()
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('poptsFile', nargs='?', default='popts.npy')
@@ -45,6 +51,6 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--direct', action='store_true', default=False, help='direct mode (no visualization)')
     args = parser.parse_args()
     
-    runSim(args.poptsFile, args.direct, args.tend)
+    # runSim(args.poptsFile, args.direct, args.tend)
 
-
+    papPlots(args.poptsFile)
