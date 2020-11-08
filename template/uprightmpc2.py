@@ -540,10 +540,22 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
         viewControlTestLog(log)
     return log
 
+def logStabMetric(log):
+    # A metric to plot about how good the tracking was
+    Nt = len(log['t'])
+    perr = log['y'][:,:3]
+    serr = log['y'][:,3:6]
+    serr[:,2] -= 1.0
+    err = 0
+    for i in range(Nt):
+        err += np.dot(perr[i,:], perr[i,:]) + 10 * np.dot(serr[i,:], serr[i,:])
+    err /= Nt
+    return err
+
 def papPlots():
-    # Flip traj ---------------------
-    l1 = controlTest(up, 1000, useMPC=True, showPlots=False, flipTask=True)
-    viewControlTestLog(l1, desTraj=True, vscale=10)
+    # # Flip traj ---------------------
+    # l1 = controlTest(up, 1000, useMPC=True, showPlots=False, flipTask=True)
+    # viewControlTestLog(l1, desTraj=True, vscale=10)
     # fig, ax = plt.subplots(1,3, figsize=(7.5,2.5))
     # for i in range(0,3,2):
     #     ax[i].plot(1e-3*l1['t'], l1['y'][:,i], 'b')
@@ -557,7 +569,7 @@ def papPlots():
     # ax[0].set_ylabel('x [mm]')
     # ax[2].set_ylabel('z [mm]')
     # fig.tight_layout()
-    plt.show()
+    # plt.show()
 
     # # Perch traj ---------------------
     # l1 = controlTest(up, 550, useMPC=True, showPlots=False, perchTraj=True)
@@ -622,6 +634,12 @@ def papPlots():
     # ax[1].set_xlabel('t [s]')
     # fig.tight_layout()
     # plt.show()
+
+    # Hover tuning ---------
+    lmpc = controlTest(up, 300, useMPC=True, showPlots=False)
+    empc = logStabMetric(lmpc)
+    l2 = controlTest(up, 1000, useMPC=False, showPlots=False)
+    print(empc, logStabMetric(l2))
 
 if __name__ == "__main__":
     T0 = 0.5
