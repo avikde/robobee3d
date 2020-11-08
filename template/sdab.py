@@ -9,7 +9,7 @@ np.set_printoptions(precision=4, suppress=True, linewidth=200)
 # Generate URDF
 subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.urdf"])
 
-def runSim(poptsFile, direct, tend):
+def runSim(poptsFile, direct, tend, useMPC=True):
     # filtfreq is for the body velocity filter
     bee = robobee.RobobeeSim(p.DIRECT if direct else p.GUI, slowDown=0, camLock=True, timestep=0.1, gui=0, filtfreq=0.16)
     # load robot
@@ -18,7 +18,7 @@ def runSim(poptsFile, direct, tend):
     bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=False)
     data = viewlog.initLog()
     # controller = OpenLoop()
-    controller = WaypointHover(poptsFile, useh2=False)#, constPdes=[0.,0,10,0,0,0])
+    controller = WaypointHover(poptsFile, useh2=False, useMPC=useMPC)#, constPdes=[0.,0,10,0,0,0])
 
     # --- Actual simulation ---
     try:
@@ -40,8 +40,17 @@ def runSim(poptsFile, direct, tend):
 
 def papPlots(poptsFile):
     import matplotlib.pyplot as plt
-    l1 = runSim(poptsFile, True, 1000)
-    viewlog.defaultPlots(l1)
+    l1 = runSim(poptsFile, True, 1000, useMPC=True)
+    l2 = runSim(poptsFile, True, 1000, useMPC=False)
+    qb = lambda data: data['q'][:,-7:]
+    # dqb = data['dq'][:,-6:]
+    # viewlog.defaultPlots(l1)
+    fig, ax = plt.subplots(2,2)
+    ax = ax.ravel()
+    for i in range(3):
+        ax[i].plot(l1['t'], qb(l1)[:,i], 'b')
+        ax[i].plot(l2['t'], qb(l2)[:,i], 'r')
+        ax[i].plot(l1['t'], l1['posdes'][:,i], 'k--', alpha=0.3)
     plt.show()
 
 if __name__ == "__main__":

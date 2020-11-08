@@ -56,12 +56,13 @@ class OpenLoop(RobobeeController):
 
 class WaypointHover(RobobeeController):
     """Simplified version of Pakpong (2013). u = [Vmean, uoffs, udiff, h2]"""
-    def __init__(self, wrenchMapPoptsFile, constdqdes=None, useh2=True):
+    def __init__(self, wrenchMapPoptsFile, constdqdes=None, useh2=False, useMPC=True):
         super(WaypointHover, self).__init__({'freq': (0, 0.3, 0.16)})
         self.wf = WaveformGenerator()
         self.posdes = np.array([0.,0.,100.])
         self.constdqdes = constdqdes
         self.useh2 = useh2
+        self.useMPC = useMPC
 
         # NOTE: This is not actually used: need to put in wlcontroller.cpp or wlcontroller.c
         popts = np.load(wrenchMapPoptsFile)
@@ -146,15 +147,16 @@ class WaypointHover(RobobeeController):
         self.posdes[1] = trajAmp * (1 - np.cos(trajOmg * t))
         dpdes[1] = trajAmp * trajOmg * np.sin(trajOmg * t)
 
-        # Upright MPC
-        uquad, ddqdes, uwlqp = self.up.update(p, Rb, dq0, self.posdes, dpdes)
-        # ddqdes[:3] = Rb.T @ ddqdes[:3] # Convert to body frame?
-        return uquad, ddqdes, uwlqp
-
-        # # Template controller <- LATEST
-        # fTpos, fTorn = self.templateVF(t, p, dp, s, ds, self.posdes, dpdes)
-        # fAorn = -e3h @ Rb.T @ fTorn
-        # return np.hstack((fTpos, fAorn))
+        if self.useMPC:
+            # Upright MPC
+            uquad, ddqdes, uwlqp = self.up.update(p, Rb, dq0, self.posdes, dpdes)
+            # ddqdes[:3] = Rb.T @ ddqdes[:3] # Convert to body frame?
+            return ddqdes
+        else:
+            # Template controller <- LATEST
+            fTpos, fTorn = self.templateVF(t, p, dp, s, ds, self.posdes, dpdes)
+            fAorn = -e3h @ Rb.T @ fTorn
+            return np.hstack((fTpos, fAorn))
 
         # # Here the u is Thrust,torques (quadrotor template)
         # pT = q0[:3]
@@ -174,7 +176,7 @@ class WaypointHover(RobobeeController):
         t, qb, dqb = args
 
         M0, h0 = dynamicsTerms(qb, dqb)
-        uquad, self.accdes, uwlqp = self.accReference(t, qb, dqb)
+        self.accdes = self.accReference(t, qb, dqb)
 
         # WLQP
         self.u4 = self.wl.update(self.u4, h0, M0 @ self.accdes)
