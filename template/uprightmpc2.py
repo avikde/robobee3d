@@ -640,36 +640,39 @@ def papPlots():
     # Hover tuning ---------
     lmpc = controlTest(up, 1000, useMPC=True, showPlots=False)
     empc = logStabMetric(lmpc)
-    # defaults kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e0,1e2]
-    # Best: kpos: 0.025, 1.5
-    k1s = np.linspace(5e-3,3e-2,num=10)
-    k2s = np.linspace(5e-1,2e0,num=10)
-    xv, yv = np.meshgrid(k1s, k2s, indexing='ij') # treat xv[i,j], yv[i,j]
-    costs = np.zeros_like(xv)
     
-    # create a progress bar
-    widgets = [
-        'Progress: ', progressbar.Percentage(),
-        ' ', progressbar.Bar(),
-        ' ', progressbar.ETA(),
-    ]
-    maxcost = 10
-    bar = progressbar.ProgressBar(widgets=widgets, max_value=np.prod(costs.shape))
-    nrun = 0
-    for i in range(len(k1s)):
-        for j in range(len(k2s)):
-            nrun += 1
-            bar.update(nrun)
-            try:
-                l2 = controlTest(up, 1000, useMPC=False, showPlots=False, kpos=[xv[i,j],yv[i,j]])
-                costs[i,j] = np.clip(logStabMetric(l2) / empc, 0, maxcost)
-            except KeyboardInterrupt:
-                raise
-            except:
-                costs[i,j] = np.nan
-    print(costs)
+    def gainPlot(kwgain, k1range, k2range, npts=10):
+        # defaults kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e0,1e2]
+        # Best: kpos: 0.025, 1.5
+        k1s = np.linspace(*k1range,num=npts)
+        k2s = np.linspace(*k2range,num=npts)
+        xv, yv = np.meshgrid(k1s, k2s, indexing='ij') # treat xv[i,j], yv[i,j]
+        costs = np.zeros_like(xv)
+        # create a progress bar
+        widgets = [
+            'Progress: ', progressbar.Percentage(),
+            ' ', progressbar.Bar(),
+            ' ', progressbar.ETA(),
+        ]
+        maxcost = 10
+        bar = progressbar.ProgressBar(widgets=widgets, max_value=np.prod(costs.shape))
+        nrun = 0
+        for i in range(len(k1s)):
+            for j in range(len(k2s)):
+                nrun += 1
+                bar.update(nrun)
+                try:
+                    kwargs = {kwgain: [xv[i,j],yv[i,j]]}
+                    l2 = controlTest(up, 1000, useMPC=False, showPlots=False, **kwargs)
+                    costs[i,j] = np.clip(logStabMetric(l2) / empc, 0, maxcost)
+                except KeyboardInterrupt:
+                    raise
+                except:
+                    costs[i,j] = np.nan
+        print(costs)
+        return ax[0].pcolormesh(xv, yv, costs, cmap='RdBu_r', shading='auto')
     fig, ax = plt.subplots(2)
-    im = ax[0].pcolormesh(xv, yv, costs, cmap='RdBu_r', shading='auto')
+    im = gainPlot('kpos', [5e-3,3e-2], [5e-1,2e0])
     ax[0].plot([0.025], [1.5], 'g*')
     fig.colorbar(im, ax=ax[0])
     plt.show()
