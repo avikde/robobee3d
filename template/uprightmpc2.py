@@ -549,7 +549,7 @@ def logStabMetric(log):
     serr[:,2] -= 1.0
     err = 0
     for i in range(Nt):
-        err += np.dot(perr[i,:], perr[i,:]) + 10 * np.dot(serr[i,:], serr[i,:])
+        err += np.dot(perr[i,:], perr[i,:])# + 10 * np.dot(serr[i,:], serr[i,:])
     err /= Nt
     return err
 
@@ -640,22 +640,35 @@ def papPlots():
     lmpc = controlTest(up, 1000, useMPC=True, showPlots=False)
     empc = logStabMetric(lmpc)
     # defaults kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e0,1e2]
-    kss = np.linspace(1e0,1e2,num=10)
-    kdss = np.linspace(1e1,1e3,num=10)
-    xv, yv = np.meshgrid(kss, kdss, indexing='ij') # treat xv[i,j], yv[i,j]
+    k1s = np.linspace(5e-3,3e-2,num=6)
+    k2s = np.linspace(5e-1,3e0,num=6)
+    xv, yv = np.meshgrid(k1s, k2s, indexing='ij') # treat xv[i,j], yv[i,j]
     costs = np.zeros_like(xv)
-    for i in range(len(kss)):
-        for j in range(len(kdss)):
-            print(i,j)
+    
+    # create a progress bar
+    import progressbar
+    widgets = [
+        'Progress: ', progressbar.Percentage(),
+        ' ', progressbar.Bar(),
+        ' ', progressbar.ETA(),
+    ]
+    bar = progressbar.ProgressBar(widgets=widgets, max_value=np.prod(costs.shape))
+    nrun = 0
+    for i in range(len(k1s)):
+        for j in range(len(k2s)):
+            nrun += 1
+            bar.update(nrun)
             try:
-                l2 = controlTest(up, 1000, useMPC=False, showPlots=False, ks=[xv[i,j],yv[i,j]])
-                costs[i,j] = logStabMetric(l2)
+                l2 = controlTest(up, 1000, useMPC=False, showPlots=False, kpos=[xv[i,j],yv[i,j]])
+                costs[i,j] = logStabMetric(l2) / empc
             except KeyboardInterrupt:
                 raise
             except:
                 costs[i,j] = np.nan
+    print(costs)
     fig, ax = plt.subplots(2)
-    ax[0].pcolormesh(xv, yv, costs, cmap='RdBu')
+    im = ax[0].pcolormesh(xv, yv, costs, cmap='RdBu_r', shading='auto')
+    fig.colorbar(im, ax=ax[0])
     plt.show()
 
 if __name__ == "__main__":
