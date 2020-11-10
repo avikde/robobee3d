@@ -454,7 +454,7 @@ def viewControlTestLog(log, log2=None, callShow=True, goal0=False, desTraj=False
     if callShow:
         plt.show()
 
-def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascentIC=False, showPlots=True, tpert=None, speedTest=False, perchTraj=False, flipTask=False, **kwargs):
+def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascentIC=False, showPlots=True, tpert=None, speedTest=False, perchTraj=False, flipTask=False, taulim=100, **kwargs):
     """trajFreq in Hz, trajAmp in mm"""
     speedTestvdes = 2 # m/s
     # Initial conditions
@@ -531,6 +531,9 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
         else:
             u = reactiveController(p, Rb, dq, pdes, **kwargs)
         # u = np.array([1,0.1,0])
+        # Input limit
+        for i in range(2):
+            u[i+1] = np.clip(u[i+1], -taulim, taulim)
 
         p, Rb, dq = quadrotorNLDyn(p, Rb, dq, u, dtsim, ddq=ddqdes)
         log['y'][ti,:] = np.hstack((p, Rb[:,2], dq))
@@ -641,9 +644,7 @@ def papPlots():
     lmpc = controlTest(up, 1000, useMPC=True, showPlots=False)
     empc = logStabMetric(lmpc)
     
-    def gainPlot(kwgain, k1range, k2range, npts=10):
-        # defaults kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e0,1e2]
-        # Best: kpos: 0.025, 1.5
+    def gainPlot(ax, kwgain, k1range, k2range, kwfixedn, kwfixedv, npts=10, maxcost=10):
         k1s = np.linspace(*k1range,num=npts)
         k2s = np.linspace(*k2range,num=npts)
         xv, yv = np.meshgrid(k1s, k2s, indexing='ij') # treat xv[i,j], yv[i,j]
@@ -654,7 +655,6 @@ def papPlots():
             ' ', progressbar.Bar(),
             ' ', progressbar.ETA(),
         ]
-        maxcost = 10
         bar = progressbar.ProgressBar(widgets=widgets, max_value=np.prod(costs.shape))
         nrun = 0
         for i in range(len(k1s)):
@@ -662,19 +662,22 @@ def papPlots():
                 nrun += 1
                 bar.update(nrun)
                 try:
-                    kwargs = {kwgain: [xv[i,j],yv[i,j]]}
-                    l2 = controlTest(up, 1000, useMPC=False, showPlots=False, **kwargs)
+                    kwargs = {kwgain: [xv[i,j],yv[i,j]], kwfixedn: kwfixedv}
+                    l2 = controlTest(up, 1000, useMPC=False, showPlots=False, taulim=10, **kwargs)
                     costs[i,j] = np.clip(logStabMetric(l2) / empc, 0, maxcost)
                 except KeyboardInterrupt:
                     raise
                 except:
                     costs[i,j] = np.nan
-        print(costs)
-        return ax[0].pcolormesh(xv, yv, costs, cmap='RdBu_r', shading='auto')
+        im = ax.pcolormesh(xv, yv, costs, cmap='RdBu_r', shading='auto')
+        fig.colorbar(im, ax=ax)
+        return costs
     fig, ax = plt.subplots(2)
-    im = gainPlot('kpos', [5e-3,3e-2], [5e-1,2e0])
-    ax[0].plot([0.025], [1.5], 'g*')
-    fig.colorbar(im, ax=ax[0])
+    # defaults kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e0,1e2]
+    # gainPlot(ax[0], 'ks', [5e0,2e1], [2e1,2e2], 'kpos', [5e-3,5e-1], npts=10) # 15,100
+    # ax[0].plot([15], [100], 'g*')
+    gainPlot(ax[0], 'kpos', [1e-3,8e-2], [1e-1,2e0], 'ks', [15,100])
+    # ax[0].plot([0.05], [1.5], 'g*')
     plt.show()
 
 if __name__ == "__main__":
