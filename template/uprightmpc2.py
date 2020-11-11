@@ -703,11 +703,27 @@ def papPlots():
     # gainTuningReactiveSims('kpos', [1e-3,8e-2], [1e-1,2e0], 'ks', [15,100])
 
     # gainTuningReactivePlots()
-    fig, ax = plt.subplots(2)
-    ffs = ['ks.npz', 'kpos.npz']
-    for i in range(2):
-        aa = np.load(ffs[i])
-        ax[i].scatter(np.clip(aa['costs'].ravel(),0, 1000), aa['efforts'].ravel())
+    lmpc = controlTest(up, 1000, useMPC=True, showPlots=False)
+    empc, effmpc = logMetric(lmpc)
+    ffs = ['kpos.npz']
+    costs2 = []
+    effs2 = []
+    for i in range(1):
+        dat = np.load(ffs[i])
+        costs = dat['costs'].ravel() / empc
+        effs = dat['efforts'].ravel() / effmpc
+        ii = np.where(costs < 10)[0]
+        costs2.append(costs[ii])
+        effs2.append(effs[ii])
+    fig, ax = plt.subplots(1, figsize=(4,4))
+    ax.scatter(costs2, effs2, color='r')
+    ax.axhline(1, color='k', linestyle='dashed', alpha=0.3)
+    ax.axvline(1, color='k', linestyle='dashed', alpha=0.3)
+    ax.set_xlim((0,10))
+    ax.set_ylim((0,10))
+    ax.set_aspect('equal')
+    ax.set_xlabel('Relative tracking error [ ]')
+    ax.set_ylabel('Relative actuator effort [ ]')
     plt.show()
     # hoverTask(False, {'ks':[15,100], 'kpos':[0.01,1]}, {'ks':[15,100], 'kpos':[0.04,1.25]})
     # sTask(False, ks=[15,100], kpos=[0.01,1])
