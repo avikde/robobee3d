@@ -545,17 +545,21 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
         viewControlTestLog(log)
     return log
 
-def logStabMetric(log):
+def logMetric(log):
     # A metric to plot about how good the tracking was
     Nt = len(log['t'])
     perr = log['y'][:,:3]
+    tau = log['u'][:,1:3]
     serr = log['y'][:,3:6]
     serr[:,2] -= 1.0
     err = 0
+    eff = 0
     for i in range(Nt):
         err += np.dot(perr[i,:], perr[i,:])# + 10 * np.dot(serr[i,:], serr[i,:])
+        eff += np.dot(tau[i,:], tau[i,:])# + 10 * np.dot(serr[i,:], serr[i,:])
     err /= Nt
-    return err
+    eff /= Nt
+    return err, eff
 
 def papPlots():
     # # Flip traj ---------------------
@@ -593,35 +597,43 @@ def papPlots():
     # fig.tight_layout()
     # plt.show()
 
-    # # Hover task ------------------
-    # l1 = controlTest(up, 300, useMPC=True, showPlots=False)
-    # l2 = controlTest(up, 1000, useMPC=False, showPlots=False)
-    # # viewControlTestLog(l1, log2=l2, goal0=True)
-    # fig, ax = plt.subplots(1,2, figsize=(5,2.5))
-    # for i in range(2):
-    #     ax[i].plot(1e-3*l1['t'], l1['y'][:,i], 'b')
-    #     ax[i].plot(1e-3*l2['t'], l2['y'][:,i], 'r')
-    #     ax[i].plot(1e-3*l2['t'], l2['pdes'][:,i], 'k--', alpha=0.3)
-    #     ax[i].set_xlabel('t [s]')
-    # ax[0].set_ylabel('x [mm]')
-    # ax[1].set_ylabel('y [mm]')
-    # fig.tight_layout()
-    # plt.show()
+    def hoverTask(show3d, reactiveArgs1, reactiveArgs2=None):
+        l1 = controlTest(up, 300, useMPC=True, showPlots=False)
+        l2 = controlTest(up, 1000, useMPC=False, showPlots=False, **reactiveArgs1)
+        if reactiveArgs2 is not None:
+            l3 = controlTest(up, 1000, useMPC=False, showPlots=False, **reactiveArgs2)
+        if show3d:
+            viewControlTestLog(l1, log2=l2, goal0=True)
+        else:
+            fig, ax = plt.subplots(1,2, figsize=(5,2.5))
+            for i in range(2):
+                ax[i].plot(1e-3*l1['t'], l1['y'][:,i], 'b')
+                ax[i].plot(1e-3*l2['t'], l2['y'][:,i], 'r')
+                if reactiveArgs2 is not None:
+                    ax[i].plot(1e-3*l3['t'], l3['y'][:,i], 'r--')
+                ax[i].plot(1e-3*l2['t'], l2['pdes'][:,i], 'k--', alpha=0.3)
+                ax[i].set_xlabel('t [s]')
+            ax[0].set_ylabel('x [mm]')
+            ax[1].set_ylabel('y [mm]')
+            fig.tight_layout()
+            plt.show()
 
-    # # S traj ---------------------------
-    # l1 = controlTest(up, 2000, useMPC=True, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000)
-    # l2 = controlTest(up, 2000, useMPC=False, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000)
-    # # viewControlTestLog(l1, log2=l2, desTraj=True, vscale=20)
-    # fig, ax = plt.subplots(1,2, figsize=(5,2.5))
-    # for i in range(2):
-    #     ax[i].plot(1e-3*l1['t'], 1e-3*l1['y'][:,i], 'b')
-    #     ax[i].plot(1e-3*l2['t'], 1e-3*l2['y'][:,i], 'r')
-    #     ax[i].plot(1e-3*l2['t'], 1e-3*l2['pdes'][:,i], 'k--', alpha=0.3)
-    #     ax[i].set_xlabel('t [s]')
-    # ax[0].set_ylabel('x [m]')
-    # ax[1].set_ylabel('y [m]')
-    # fig.tight_layout()
-    # plt.show()
+    def sTask(show3d, **reactiveArgs):
+        l1 = controlTest(up, 2000, useMPC=True, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000)
+        l2 = controlTest(up, 2000, useMPC=False, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000, **reactiveArgs)
+        if show3d:
+            viewControlTestLog(l1, log2=l2, desTraj=True, vscale=20)
+        else:
+            fig, ax = plt.subplots(1,2, figsize=(5,2.5))
+            for i in range(2):
+                ax[i].plot(1e-3*l1['t'], 1e-3*l1['y'][:,i], 'b')
+                ax[i].plot(1e-3*l2['t'], 1e-3*l2['y'][:,i], 'r')
+                ax[i].plot(1e-3*l2['t'], 1e-3*l2['pdes'][:,i], 'k--', alpha=0.3)
+                ax[i].set_xlabel('t [s]')
+            ax[0].set_ylabel('x [m]')
+            ax[1].set_ylabel('y [m]')
+            fig.tight_layout()
+            plt.show()
 
     # # Straight line acceleration -------
     # l1 = controlTest(up, 1000, useMPC=True, showPlots=False, speedTest=True)
@@ -641,14 +653,12 @@ def papPlots():
     # plt.show()
 
     # Hover tuning ---------
-    lmpc = controlTest(up, 1000, useMPC=True, showPlots=False)
-    empc = logStabMetric(lmpc)
-    
-    def gainPlot(ax, kwgain, k1range, k2range, kwfixedn, kwfixedv, npts=10, maxcost=10):
+    def gainTuningReactiveSims(kwgain, k1range, k2range, kwfixedn, kwfixedv, npts=10):
         k1s = np.linspace(*k1range,num=npts)
         k2s = np.linspace(*k2range,num=npts)
         xv, yv = np.meshgrid(k1s, k2s, indexing='ij') # treat xv[i,j], yv[i,j]
         costs = np.zeros_like(xv)
+        efforts = np.zeros_like(xv)
         # create a progress bar
         widgets = [
             'Progress: ', progressbar.Percentage(),
@@ -664,21 +674,35 @@ def papPlots():
                 try:
                     kwargs = {kwgain: [xv[i,j],yv[i,j]], kwfixedn: kwfixedv}
                     l2 = controlTest(up, 1000, useMPC=False, showPlots=False, taulim=10, **kwargs)
-                    costs[i,j] = np.clip(logStabMetric(l2) / empc, 0, maxcost)
+                    costs[i,j], efforts[i,j] = logMetric(l2)
                 except KeyboardInterrupt:
                     raise
                 except:
-                    costs[i,j] = np.nan
-        im = ax.pcolormesh(xv, yv, costs, cmap='RdBu_r', shading='auto')
-        fig.colorbar(im, ax=ax)
-        return costs
-    fig, ax = plt.subplots(2)
-    # defaults kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e0,1e2]
-    # gainPlot(ax[0], 'ks', [5e0,2e1], [2e1,2e2], 'kpos', [5e-3,5e-1], npts=10) # 15,100
-    # ax[0].plot([15], [100], 'g*')
-    gainPlot(ax[0], 'kpos', [1e-3,8e-2], [1e-1,2e0], 'ks', [15,100])
-    # ax[0].plot([0.05], [1.5], 'g*')
-    plt.show()
+                    costs[i,j] = efforts[i,j] = np.nan
+        np.savez(kwgain+str('.npz'), xv=xv, yv=yv, costs=costs, efforts=efforts)
+    # # Run and save data
+    # # defaults kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e0,1e2]
+    # gainTuningReactiveSims('ks', [5e0,2e1], [2e1,2e2], 'kpos', [5e-3,5e-1])
+    # gainTuningReactiveSims('kpos', [1e-3,8e-2], [1e-1,2e0], 'ks', [15,100])
+
+    def gainTuningReactivePlots(maxcost=10):
+        lmpc = controlTest(up, 1000, useMPC=True, showPlots=False)
+        empc, effmpc = logMetric(lmpc)
+                        
+        def plot1(ax, dat):
+            costs = np.clip(dat['costs'] / empc, 0, maxcost)
+            im = ax.pcolormesh(dat['xv'], dat['yv'], costs, cmap='gray_r', shading='auto')
+            fig.colorbar(im, ax=ax)
+            
+        fig, ax = plt.subplots(1,2,figsize=(9,4))
+        plot1(ax[0], np.load('ks.npz'))
+        ax[0].plot([15], [100], 'r*', ms=20)
+        plot1(ax[1], np.load('kpos.npz'))
+        ax[1].plot([0.01, 0.04], [1.0, 1.25], 'r*', ms=20)
+        plt.show()
+    gainTuningReactivePlots()
+    # hoverTask(False, {'ks':[15,100], 'kpos':[0.01,1]}, {'ks':[15,100], 'kpos':[0.04,1.25]})
+    # sTask(False, ks=[15,100], kpos=[0.01,1])
 
 if __name__ == "__main__":
     T0 = 0.5
