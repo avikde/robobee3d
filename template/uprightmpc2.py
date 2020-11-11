@@ -104,8 +104,8 @@ def viewControlTestLog(log, log2=None, callShow=True, goal0=False, desTraj=False
 
 def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascentIC=False, showPlots=True, tpert=None, speedTest=False, perchTraj=False, flipTask=False, taulim=100, **kwargs):
     """trajFreq in Hz, trajAmp in mm"""
-    if mdl is None:
-        mdl = createMPC(**kwargs)
+    if mdl is None and useMPC:
+        mdl, _ = createMPC(**kwargs)
     speedTestvdes = 2 # m/s
     # Initial conditions
     dq = np.zeros(6)
@@ -189,7 +189,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
         log['y'][ti,:] = np.hstack((p, Rb[:,2], dq))
         log['u'][ti,:] = u
         log['pdes'][ti,:] = pdes
-    if useMPC:
+    if useMPC and showPlots:
         print("Time (ms):", avgTime * 1e3)
     if showPlots:
         viewControlTestLog(log)
@@ -304,7 +304,7 @@ def papPlots(bmpc):
     # plt.show()
 
     # Hover tuning ---------
-    def gainTuningReactiveSims(kwgain, k1range, k2range, kwfixedn, kwfixedv, npts=10):
+    def gainTuningSims(useMPC, kwgain, k1range, k2range, kwfixedn, kwfixedv, npts=10):
         k1s = np.linspace(*k1range,num=npts)
         k2s = np.linspace(*k2range,num=npts)
         xv, yv = np.meshgrid(k1s, k2s, indexing='ij') # treat xv[i,j], yv[i,j]
@@ -323,8 +323,13 @@ def papPlots(bmpc):
                 nrun += 1
                 bar.update(nrun)
                 try:
-                    kwargs = {kwgain: [xv[i,j],yv[i,j]], kwfixedn: kwfixedv}
-                    l2 = controlTest(up, 1000, useMPC=False, showPlots=False, taulim=10, **kwargs)
+                    if useMPC:
+                        kwgain = 'mpc_wpos' # overwrite filename
+                        # Assume same ratio of final to running cost
+                        kwargs = {'wpr': xv[i,j], 'wvr': yv[i,j], 'wpf': 5*xv[i,j], 'wvf': 2*yv[i,j]}
+                    else: # Reactive
+                        kwargs = {kwgain: [xv[i,j],yv[i,j]], kwfixedn: kwfixedv}
+                    l2 = controlTest(None, 1000, useMPC=useMPC, showPlots=False, taulim=10, **kwargs)
                     costs[i,j], efforts[i,j] = logMetric(l2)
                 except KeyboardInterrupt:
                     raise
@@ -332,37 +337,48 @@ def papPlots(bmpc):
                     costs[i,j] = efforts[i,j] = np.nan
         np.savez(kwgain+str('.npz'), xv=xv, yv=yv, costs=costs, efforts=efforts)
 
-    def gainTuningReactivePlots(maxcost=10):
+    def gainTuningPlots(maxcost=10):
         lmpc = controlTest(bmpc, 1000, useMPC=True, showPlots=False)
         empc, effmpc = logMetric(lmpc)
                         
-        def plot1(ax, dat):
+        def plot1(ax, dat, cbar=False):
             costs = np.clip(dat['costs'] / empc, 0, maxcost)
-            im = ax.pcolormesh(dat['xv'], dat['yv'], costs, cmap='gray_r', shading='auto')
-            fig.colorbar(im, ax=ax)
-            
-        fig, ax = plt.subplots(1,2,figsize=(9,4))
+            im = ax.pcolormesh(dat['xv'], dat['yv'], costs, cmap='gray_r', shading='auto', vmin=0, vmax=maxcost)
+            if cbar:
+                fig.colorbar(im)
+        
+        fig, ax = plt.subplots(1,3,figsize=(12,4))
         plot1(ax[0], np.load('ks.npz'))
         ax[0].plot([15], [100], 'r*', ms=20)
         plot1(ax[1], np.load('kpos.npz'))
         ax[1].plot([0.01, 0.04], [1.0, 1.25], 'r*', ms=20)
+        plot1(ax[2], np.load('mpc_wpos.npz'), cbar=True)
+        ax[2].plot([1], [1e3], 'b*', ms=20)
         plt.show()
 
-    def trackingEffortPlot(ffs):
+    def trackingEffortPlot(files):
         # Baseline
         lmpc = controlTest(bmpc, 1000, useMPC=True, showPlots=False)
         empc, effmpc = logMetric(lmpc)
         costs2 = []
         effs2 = []
-        for ff in ffs:
-            dat = np.load(ff)
+        costs2mpc = []
+        effs2mpc = []
+        for fname in files:
+            dat = np.load(fname)
             costs = dat['costs'].ravel() / empc
             effs = dat['efforts'].ravel() / effmpc
             ii = np.where(costs < 10)[0]
-            costs2.append(costs[ii])
-            effs2.append(effs[ii])
+            if 'mpc' in fname:
+                costs2mpc.append(costs[ii])
+                effs2mpc.append(effs[ii])
+            else:
+                costs2.append(costs[ii])
+                effs2.append(effs[ii])
         fig, ax = plt.subplots(1, figsize=(4,4))
-        ax.scatter(costs2, effs2, color='r')
+        if len(costs2mpc) > 0:
+            ax.scatter(costs2mpc, effs2mpc, color='b', label='MPC')
+        ax.scatter(costs2, effs2, color='r', label='Reactive')
         ax.axhline(1, color='k', linestyle='dashed', alpha=0.3)
         ax.axvline(1, color='k', linestyle='dashed', alpha=0.3)
         ax.set_xlim((0,10))
@@ -370,19 +386,23 @@ def papPlots(bmpc):
         ax.set_aspect('equal')
         ax.set_xlabel('Relative tracking error [ ]')
         ax.set_ylabel('Relative actuator effort [ ]')
+        ax.legend()
         plt.show()
 
     # # Run and save data
     # # defaults kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e0,1e2]
-    # gainTuningReactiveSims('ks', [5e0,2e1], [2e1,2e2], 'kpos', [5e-3,5e-1])
-    # gainTuningReactiveSims('kpos', [1e-3,8e-2], [1e-1,2e0], 'ks', [15,100])
+    # gainTuningSims(False, 'ks', [5e0,2e1], [2e1,2e2], 'kpos', [5e-3,5e-1])
+    # gainTuningSims(False, 'kpos', [1e-3,8e-2], [1e-1,2e0], 'ks', [15,100])
+    # # defaults wpr=1, wvr=1e3, wpf=5, wvf=2e3
+    # gainTuningSims(True, 'wpos', [0.5,10], [0.5e3, 10e3], None, None)
 
-    # gainTuningReactivePlots()
+    # gainTuningPlots()
 
     # hoverTask(False, {'ks':[15,100], 'kpos':[0.01,1]}, {'ks':[15,100], 'kpos':[0.04,1.25]})
     # sTask(False, ks=[15,100], kpos=[0.01,1])
 
-    trackingEffortPlot(['kpos.npz'])
+    # trackingEffortPlot(['kpos.npz'])
+    trackingEffortPlot(['mpc_wpos.npz','kpos.npz'])
 
 if __name__ == "__main__":
     up, upc = createMPC()

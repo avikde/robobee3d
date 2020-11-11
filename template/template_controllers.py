@@ -341,7 +341,7 @@ class UprightMPC2():
         u = self.update2(p0, R0, dq0, pdes, dpdes, sdes)
         return u, self.getAccDes(R0, dq0), self.u0
         
-def createMPC(N=3, ws=1e1, wds=1e3, wpr=1, wpf=5, wvr=1e3, wvf=2e3, wthrust=1e-1, wmom=1e-2, **kwargs):
+def createMPC(N=3, ws=1e1, wds=1e3, wpr=1, wvr=1e3, wpf=5, wvf=2e3, wthrust=1e-1, wmom=1e-2, **kwargs):
     """Returns the mdl"""
     dt = 5
     TtoWmax = 2 # thrust-to-weight
