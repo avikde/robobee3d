@@ -38,19 +38,29 @@ def runSim(poptsFile, direct, tend, useMPC=True):
         viewlog.saveLog('../logs/sdab', data)
     return data
 
-def papPlots(poptsFile):
+def papPlots(poptsFile, tend=1000):
     import matplotlib.pyplot as plt
-    l1 = runSim(poptsFile, True, 1000, useMPC=True)
-    l2 = runSim(poptsFile, True, 1000, useMPC=False)
+    l1 = runSim(poptsFile, True, tend, useMPC=True)
+    l2 = runSim(poptsFile, True, tend, useMPC=False)
     qb = lambda data: data['q'][:,-7:]
     # dqb = data['dq'][:,-6:]
     # viewlog.defaultPlots(l1)
-    fig, ax = plt.subplots(2,2)
+    fig, ax = plt.subplots(3,2)
     ax = ax.ravel()
     for i in range(3):
         ax[i].plot(l1['t'], qb(l1)[:,i], 'b')
         ax[i].plot(l2['t'], qb(l2)[:,i], 'r')
         ax[i].plot(l1['t'], l1['posdes'][:,i], 'k--', alpha=0.3)
+    
+    ax[3].plot(l1['t'], l1['u'][:,2], 'b') # Vmean
+    ax[3].plot(l1['t'], l2['u'][:,2], 'r') # Vmean
+    ax[3].set_ylabel('Vmean')
+    ax[4].plot(l1['t'], l1['u'][:,3], 'b')
+    ax[4].plot(l1['t'], l2['u'][:,3], 'r')
+    ax[4].set_ylabel('uoffs')
+    ax[5].plot(l1['t'], l1['u'][:,4], 'b')
+    ax[5].plot(l1['t'], l2['u'][:,4], 'r')
+    ax[5].set_ylabel('diff')
     plt.show()
 
 if __name__ == "__main__":
@@ -60,6 +70,6 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--direct', action='store_true', default=False, help='direct mode (no visualization)')
     args = parser.parse_args()
     
-    runSim(args.poptsFile, args.direct, args.tend)
+    # runSim(args.poptsFile, args.direct, args.tend)
 
-    # papPlots(args.poptsFile)
+    papPlots(args.poptsFile, tend=300)
