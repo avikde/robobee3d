@@ -8,13 +8,25 @@ from time import perf_counter
 import sys
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Line3DCollection
 import matplotlib.cm as cm
 import progressbar
 
 def viewControlTestLog(log, log2=None, callShow=True, goal0=False, desTraj=False, vscale=0.4):
     def traj3plot(_ax, t, p, v, cmap, narrow=20):
         cnorm = t/t[-1]
-        _ax.scatter(p[:,0], p[:,1], p[:,2], c=cnorm, cmap=cmap, marker='.', label='_nolegend_')
+        # _ax.scatter(p[:,0], p[:,1], p[:,2], c=cnorm, cmap=cmap, marker='.', label='_nolegend_')
+        
+        # https://matplotlib.org/3.1.1/gallery/lines_bars_and_markers/multicolored_line.html
+        points = np.array([p[:,0], p[:,1], p[:,2]]).T.reshape(-1, 1, 3)
+        segments = np.concatenate([points[:-1], points[1:]], axis=1)
+        # Create the 3D-line collection object
+        lc = Line3DCollection(segments, cmap=cmap, linewidths=2, label='_nolegend_')
+        lc.set_array(cnorm) 
+        lc.set_linewidth(2)
+        _ax.add_collection3d(lc, zs=p[:,-1], zdir='z')
+
+        # Upright arrows
         ii = np.linspace(0, len(t), narrow, dtype=int, endpoint=False)
         v *= vscale
         _ax.quiver(p[ii,0], p[ii,1], p[ii,2], v[ii,0], v[ii,1], v[ii,2], color='b' if "Blue" in cmap else 'r')
@@ -395,14 +407,14 @@ def papPlots(bmpc):
     # gainTuningSims(False, 'kpos', [1e-3,8e-2], [1e-1,2e0], 'ks', [15,100])
     # # defaults wpr=1, wvr=1e3, wpf=5, wvf=2e3
     # gainTuningSims(True, 'wpos', [0.5,10], [0.5e3, 10e3], None, None)
-
-    # gainTuningPlots()
-
+    
     # hoverTask(False, {'ks':[15,100], 'kpos':[0.01,1]}, {'ks':[15,100], 'kpos':[0.04,1.25]})
     # sTask(False, ks=[15,100], kpos=[0.01,1])
 
-    # trackingEffortPlot(['kpos.npz'])
-    trackingEffortPlot(['mpc_wpos.npz','kpos.npz'])
+    # gainTuningPlots()
+    # trackingEffortPlot(['mpc_wpos.npz','kpos.npz'])
+
+    hoverTask(True, {'ks':[15,100], 'kpos':[0.01,1]})
 
 if __name__ == "__main__":
     up, upc = createMPC()
