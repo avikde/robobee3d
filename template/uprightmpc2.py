@@ -680,10 +680,6 @@ def papPlots():
                 except:
                     costs[i,j] = efforts[i,j] = np.nan
         np.savez(kwgain+str('.npz'), xv=xv, yv=yv, costs=costs, efforts=efforts)
-    # # Run and save data
-    # # defaults kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e0,1e2]
-    # gainTuningReactiveSims('ks', [5e0,2e1], [2e1,2e2], 'kpos', [5e-3,5e-1])
-    # gainTuningReactiveSims('kpos', [1e-3,8e-2], [1e-1,2e0], 'ks', [15,100])
 
     def gainTuningReactivePlots(maxcost=10):
         lmpc = controlTest(up, 1000, useMPC=True, showPlots=False)
@@ -700,7 +696,19 @@ def papPlots():
         plot1(ax[1], np.load('kpos.npz'))
         ax[1].plot([0.01, 0.04], [1.0, 1.25], 'r*', ms=20)
         plt.show()
-    gainTuningReactivePlots()
+
+    # # Run and save data
+    # # defaults kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e0,1e2]
+    # gainTuningReactiveSims('ks', [5e0,2e1], [2e1,2e2], 'kpos', [5e-3,5e-1])
+    # gainTuningReactiveSims('kpos', [1e-3,8e-2], [1e-1,2e0], 'ks', [15,100])
+
+    # gainTuningReactivePlots()
+    fig, ax = plt.subplots(2)
+    ffs = ['ks.npz', 'kpos.npz']
+    for i in range(2):
+        aa = np.load(ffs[i])
+        ax[i].scatter(np.clip(aa['costs'].ravel(),0, 1000), aa['efforts'].ravel())
+    plt.show()
     # hoverTask(False, {'ks':[15,100], 'kpos':[0.01,1]}, {'ks':[15,100], 'kpos':[0.04,1.25]})
     # sTask(False, ks=[15,100], kpos=[0.01,1])
 
