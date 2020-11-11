@@ -341,7 +341,7 @@ class UprightMPC2():
         u = self.update2(p0, R0, dq0, pdes, dpdes, sdes)
         return u, self.getAccDes(R0, dq0), self.u0
         
-def createMPC(N, ws=1e1, wds=1e3, wpr=1, wpf=5, wvr=1e3, wvf=2e3, wthrust=1e-1, wmom=1e-2, **kwargs):
+def createMPC(N=3, ws=1e1, wds=1e3, wpr=1, wpf=5, wvr=1e3, wvf=2e3, wthrust=1e-1, wmom=1e-2, **kwargs):
     """Returns the mdl"""
     dt = 5
     TtoWmax = 2 # thrust-to-weight
@@ -376,4 +376,28 @@ def reactiveController(p, Rb, dq, pdes, kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e
     fTorn[2] = 0
     fAorn = -e3h @ Rb.T @ fTorn
     return np.hstack((fz, fAorn[:2]))
-    
+
+if __name__ == "__main__":
+    up, upc = createMPC()
+    # Dyn test
+    T0 = 0.5
+    s0s = [[0.1,0.1,0.9] for i in range(up.N)]
+    Btaus = [np.full((3,2),1.123) for i in range(up.N)]
+    y0 = np.random.rand(6)
+    dy0 = np.random.rand(6)
+    ydes = np.zeros_like(y0)
+    dydes = np.zeros_like(y0)
+    up.testDyn(T0, s0s, Btaus, y0, dy0)
+
+    # # FIXME: test
+    # p = np.random.rand(3)
+    # R = np.random.rand(3, 3)
+    # dq = np.random.rand(6)
+    # pdes = np.random.rand(3)
+    # dpdes = np.random.rand(3)
+    # retc = upc.update(p, R, dq, pdes, dpdes)
+    # cl, cu, cq = upc.vectors()
+    # cP, cAdata, cAidx = upc.matrices()
+    # ret = up.update(p, R, dq, pdes, dpdes)
+    # # print(cAdata - up.A.data[cAidx])
+    # print(ret[0], ret[1], ret[0]-retc[0], ret[1]-retc[1])

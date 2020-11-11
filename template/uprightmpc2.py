@@ -104,6 +104,8 @@ def viewControlTestLog(log, log2=None, callShow=True, goal0=False, desTraj=False
 
 def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascentIC=False, showPlots=True, tpert=None, speedTest=False, perchTraj=False, flipTask=False, taulim=100, **kwargs):
     """trajFreq in Hz, trajAmp in mm"""
+    if mdl is None:
+        mdl = createMPC(**kwargs)
     speedTestvdes = 2 # m/s
     # Initial conditions
     dq = np.zeros(6)
@@ -209,9 +211,10 @@ def logMetric(log):
     eff /= Nt
     return err, eff
 
-def papPlots():
+def papPlots(bmpc):
+    """Baseline mpc as argument"""
     # # Flip traj ---------------------
-    # l1 = controlTest(up, 1000, useMPC=True, showPlots=False, flipTask=True)
+    # l1 = controlTest(bmpc, 1000, useMPC=True, showPlots=False, flipTask=True)
     # viewControlTestLog(l1, desTraj=True, vscale=10)
     # fig, ax = plt.subplots(1,3, figsize=(7.5,2.5))
     # for i in range(0,3,2):
@@ -229,7 +232,7 @@ def papPlots():
     # plt.show()
 
     # # Perch traj ---------------------
-    # l1 = controlTest(up, 550, useMPC=True, showPlots=False, perchTraj=True)
+    # l1 = controlTest(bmpc, 550, useMPC=True, showPlots=False, perchTraj=True)
     # # viewControlTestLog(l1, desTraj=True, vscale=10)
     # fig, ax = plt.subplots(1,3, figsize=(7.5,2.5))
     # for i in range(0,3,2):
@@ -246,10 +249,10 @@ def papPlots():
     # plt.show()
 
     def hoverTask(show3d, reactiveArgs1, reactiveArgs2=None):
-        l1 = controlTest(up, 300, useMPC=True, showPlots=False)
-        l2 = controlTest(up, 1000, useMPC=False, showPlots=False, **reactiveArgs1)
+        l1 = controlTest(bmpc, 300, useMPC=True, showPlots=False)
+        l2 = controlTest(bmpc, 1000, useMPC=False, showPlots=False, **reactiveArgs1)
         if reactiveArgs2 is not None:
-            l3 = controlTest(up, 1000, useMPC=False, showPlots=False, **reactiveArgs2)
+            l3 = controlTest(bmpc, 1000, useMPC=False, showPlots=False, **reactiveArgs2)
         if show3d:
             viewControlTestLog(l1, log2=l2, goal0=True)
         else:
@@ -267,8 +270,8 @@ def papPlots():
             plt.show()
 
     def sTask(show3d, **reactiveArgs):
-        l1 = controlTest(up, 2000, useMPC=True, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000)
-        l2 = controlTest(up, 2000, useMPC=False, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000, **reactiveArgs)
+        l1 = controlTest(bmpc, 2000, useMPC=True, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000)
+        l2 = controlTest(bmpc, 2000, useMPC=False, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000, **reactiveArgs)
         if show3d:
             viewControlTestLog(l1, log2=l2, desTraj=True, vscale=20)
         else:
@@ -284,8 +287,8 @@ def papPlots():
             plt.show()
 
     # # Straight line acceleration -------
-    # l1 = controlTest(up, 1000, useMPC=True, showPlots=False, speedTest=True)
-    # l2 = controlTest(up, 1000, useMPC=False, showPlots=False, speedTest=True)
+    # l1 = controlTest(bmpc, 1000, useMPC=True, showPlots=False, speedTest=True)
+    # l2 = controlTest(bmpc, 1000, useMPC=False, showPlots=False, speedTest=True)
     # viewControlTestLog(l1, log2=l2, desTraj=True, vscale=50)
     # fig, ax = plt.subplots(1,2, figsize=(5,2.5))
     # ax[0].plot(1e-3*l1['t'], 1e-3*l1['y'][:,0], 'b')
@@ -330,7 +333,7 @@ def papPlots():
         np.savez(kwgain+str('.npz'), xv=xv, yv=yv, costs=costs, efforts=efforts)
 
     def gainTuningReactivePlots(maxcost=10):
-        lmpc = controlTest(up, 1000, useMPC=True, showPlots=False)
+        lmpc = controlTest(bmpc, 1000, useMPC=True, showPlots=False)
         empc, effmpc = logMetric(lmpc)
                         
         def plot1(ax, dat):
@@ -347,7 +350,7 @@ def papPlots():
 
     def trackingEffortPlot(ffs):
         # Baseline
-        lmpc = controlTest(up, 1000, useMPC=True, showPlots=False)
+        lmpc = controlTest(bmpc, 1000, useMPC=True, showPlots=False)
         empc, effmpc = logMetric(lmpc)
         costs2 = []
         effs2 = []
@@ -382,31 +385,7 @@ def papPlots():
     trackingEffortPlot(['kpos.npz'])
 
 if __name__ == "__main__":
-    N = 3
-    T0 = 0.5
-    s0s = [[0.1,0.1,0.9] for i in range(N)]
-    Btaus = [np.full((3,2),1.123) for i in range(N)]
-    y0 = np.random.rand(6)
-    dy0 = np.random.rand(6)
-
-    ydes = np.zeros_like(y0)
-    dydes = np.zeros_like(y0)
-
-    up, upc = createMPC(N)
-    up.testDyn(T0, s0s, Btaus, y0, dy0)
-
-    # # FIXME: test
-    # p = np.random.rand(3)
-    # R = np.random.rand(3, 3)
-    # dq = np.random.rand(6)
-    # pdes = np.random.rand(3)
-    # dpdes = np.random.rand(3)
-    # retc = upc.update(p, R, dq, pdes, dpdes)
-    # cl, cu, cq = upc.vectors()
-    # cP, cAdata, cAidx = upc.matrices()
-    # ret = up.update(p, R, dq, pdes, dpdes)
-    # # print(cAdata - up.A.data[cAidx])
-    # print(ret[0], ret[1], ret[0]-retc[0], ret[1]-retc[1])
+    up, upc = createMPC()
 
     # # Hover
     # controlTest(up, 500, useMPC=True)
@@ -415,4 +394,4 @@ if __name__ == "__main__":
     # # Traj
     # controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
 
-    papPlots()
+    papPlots(up)
