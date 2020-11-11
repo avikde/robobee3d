@@ -347,7 +347,7 @@ class UprightMPC2():
         u = self.update2(p0, R0, dq0, pdes, dpdes, sdes)
         return u, self.getAccDes(R0, dq0), self.u0
 
-def reactiveController(p, Rb, dq, pdes, kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e0,1e2]):
+def reactiveController(p, Rb, dq, pdes, kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e0,1e2], **kwargs):
     # Pakpong-style reactive controller
     sdes = np.clip(kpos[0] * (pdes - p) - kpos[1] * dq[:3], np.full(3, -0.5), np.full(3, 0.5))
     sdes[2] = 1
@@ -561,6 +561,34 @@ def logMetric(log):
     eff /= Nt
     return err, eff
 
+def createMPC(N, **kwargs):
+    """Returns the mdl"""
+    dt = 5
+    g = 9.81e-3
+    # weights
+    ws = 1e1
+    wds = 1e3
+    wpr = 1
+    wpf = 5
+    wvr = 1e3
+    wvf = 2e3
+    wthrust = 1e-1
+    wmom = 1e-2
+    # WLQP inputs
+    mb = 100
+    # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3].
+    # Setting first 2 elements of Qw -> 0 => should not affect objective as longs as dumax does not constrain.
+    Qw = np.hstack((np.zeros(2), np.zeros(4)))
+    umin = np.array([0, -0.5, -0.2, -0.1])
+    umax = np.array([10, 0.5, 0.2, 0.1])
+    dumax = np.array([10, 10, 10, 10]) # /s
+    controlRate = 1000
+    pyver = UprightMPC2(N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, umin, umax, dumax, mb, Ib.diagonal(), Qw, controlRate)
+    # C version can be tested too
+    popts = np.zeros(90)
+    cver = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 50, popts)
+    return pyver, cver
+
 def papPlots():
     # # Flip traj ---------------------
     # l1 = controlTest(up, 1000, useMPC=True, showPlots=False, flipTask=True)
@@ -697,75 +725,56 @@ def papPlots():
         ax[1].plot([0.01, 0.04], [1.0, 1.25], 'r*', ms=20)
         plt.show()
 
+    def trackingEffortPlot(ffs):
+        # Baseline
+        lmpc = controlTest(up, 1000, useMPC=True, showPlots=False)
+        empc, effmpc = logMetric(lmpc)
+        costs2 = []
+        effs2 = []
+        for ff in ffs:
+            dat = np.load(ff)
+            costs = dat['costs'].ravel() / empc
+            effs = dat['efforts'].ravel() / effmpc
+            ii = np.where(costs < 10)[0]
+            costs2.append(costs[ii])
+            effs2.append(effs[ii])
+        fig, ax = plt.subplots(1, figsize=(4,4))
+        ax.scatter(costs2, effs2, color='r')
+        ax.axhline(1, color='k', linestyle='dashed', alpha=0.3)
+        ax.axvline(1, color='k', linestyle='dashed', alpha=0.3)
+        ax.set_xlim((0,10))
+        ax.set_ylim((0,10))
+        ax.set_aspect('equal')
+        ax.set_xlabel('Relative tracking error [ ]')
+        ax.set_ylabel('Relative actuator effort [ ]')
+        plt.show()
+
     # # Run and save data
     # # defaults kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e0,1e2]
     # gainTuningReactiveSims('ks', [5e0,2e1], [2e1,2e2], 'kpos', [5e-3,5e-1])
     # gainTuningReactiveSims('kpos', [1e-3,8e-2], [1e-1,2e0], 'ks', [15,100])
 
     # gainTuningReactivePlots()
-    lmpc = controlTest(up, 1000, useMPC=True, showPlots=False)
-    empc, effmpc = logMetric(lmpc)
-    ffs = ['kpos.npz']
-    costs2 = []
-    effs2 = []
-    for i in range(1):
-        dat = np.load(ffs[i])
-        costs = dat['costs'].ravel() / empc
-        effs = dat['efforts'].ravel() / effmpc
-        ii = np.where(costs < 10)[0]
-        costs2.append(costs[ii])
-        effs2.append(effs[ii])
-    fig, ax = plt.subplots(1, figsize=(4,4))
-    ax.scatter(costs2, effs2, color='r')
-    ax.axhline(1, color='k', linestyle='dashed', alpha=0.3)
-    ax.axvline(1, color='k', linestyle='dashed', alpha=0.3)
-    ax.set_xlim((0,10))
-    ax.set_ylim((0,10))
-    ax.set_aspect('equal')
-    ax.set_xlabel('Relative tracking error [ ]')
-    ax.set_ylabel('Relative actuator effort [ ]')
-    plt.show()
+
     # hoverTask(False, {'ks':[15,100], 'kpos':[0.01,1]}, {'ks':[15,100], 'kpos':[0.04,1.25]})
     # sTask(False, ks=[15,100], kpos=[0.01,1])
 
+    trackingEffortPlot(['kpos.npz'])
+
 if __name__ == "__main__":
-    T0 = 0.5
-    dt = 5
     N = 3
+    T0 = 0.5
     s0s = [[0.1,0.1,0.9] for i in range(N)]
     Btaus = [np.full((3,2),1.123) for i in range(N)]
     y0 = np.random.rand(6)
     dy0 = np.random.rand(6)
-    g = 9.81e-3
-
-    # weights
-    ws = 1e1
-    wds = 1e3
-    wpr = 1
-    wpf = 5
-    wvr = 1e3
-    wvf = 2e3
-    wthrust = 1e-1
-    wmom = 1e-2
-    # WLQP inputs
-    mb = 100
-    # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3].
-    # Setting first 2 elements of Qw -> 0 => should not affect objective as longs as dumax does not constrain.
-    Qw = np.hstack((np.zeros(2), np.zeros(4)))
-    umin = np.array([0, -0.5, -0.2, -0.1])
-    umax = np.array([10, 0.5, 0.2, 0.1])
-    dumax = np.array([10, 10, 10, 10]) # /s
-    controlRate = 1000
 
     ydes = np.zeros_like(y0)
     dydes = np.zeros_like(y0)
     TtoWmax = 2 # thrust-to-weight
 
-    up = UprightMPC2(N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, umin, umax, dumax, mb, Ib.diagonal(), Qw, controlRate)
+    up, upc = createMPC(N)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
-    # C version can be tested too
-    popts = np.zeros(90)
-    upc = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 50, popts)
 
     # # FIXME: test
     # p = np.random.rand(3)
