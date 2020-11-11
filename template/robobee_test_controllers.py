@@ -5,8 +5,7 @@ from scipy.spatial.transform import Rotation
 from ca6dynamics import dynamicsTerms
 from wlqppy import WLController
 import valuefunc
-from uprightmpc2 import reactiveController, UprightMPC2
-from uprightmpc2py import UprightMPC2C # C version
+from template_controllers import createMPC, reactiveController
 from genqp import quadrotorNLVF, Ib
 
 class WaveformGenerator(object):
@@ -76,29 +75,8 @@ class WaypointHover(RobobeeController):
         self.printCtr = 0
 
         # upright MPC
-        dt = 5
-        N = 3
-        g = 9.81e-3
-        ws = 0.5e2
-        wds = 5e3
-        #1.5,3 works for a x-axis traj (body frame), but the robot rolls more so need 1,2 for a y-axis traj
-        wpr = 1e-1
-        wpf = 2e-2
-        wvr = 1e3
-        wvf = 2e3
-        wthrust = 1e-1
-        wmom = 1e-2
-        TtoWmax = 3
-        # WLQP stuff - copied from isolated C implementation
-        umin = np.array([50, -0.5, -0.2, -0.1])
-        umax = np.array([240, -0.5, -0.2, -0.1])
-        dumax = np.array([5e3, 10, 10, 10]) # /s
-        controlRate = 1000
-        mb = 100
-        # Qw = np.array([1,1,1,0.1,0.1,0.1])
-        Qw = np.zeros(6)
-        # self.up = UprightMPC2(N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, umin, umax, dumax, mb, Ib.diagonal(), Qw, controlRate)
-        self.up = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 20, np.ravel(popts))
+        #wp: 1.5,3 works for a x-axis traj (body frame), but the robot rolls more so need 1,2 for a y-axis traj
+        _, self.up = createMPC(ws=0.5e2, wds=5e3, wpr=1e-1, wvr=1e3, wpf=2e-2, wvf=2e3, TtoWmax=3, popts=np.ravel(popts))
 
     def templateVF(self, t, p, dp, s, ds, posdes, dposdes, kpos=[0.5e-3,5e-1], kz=[1e-3,2e-1], ks=[4e-3,0.3e0]):
         # TEST
@@ -149,7 +127,8 @@ class WaypointHover(RobobeeController):
 
         if self.useMPC:
             # Upright MPC
-            uquad, ddqdes, uwlqp = self.up.update(p, Rb, dq0, self.posdes, dpdes)
+            sdes = np.array([0,0,1])
+            uquad, ddqdes, uwlqp = self.up.update(p, Rb, dq0, self.posdes, dpdes)#, sdes)
             # ddqdes[:3] = Rb.T @ ddqdes[:3] # Convert to body frame?
             return ddqdes
         else:

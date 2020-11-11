@@ -60,6 +60,6 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--direct', action='store_true', default=False, help='direct mode (no visualization)')
     args = parser.parse_args()
     
-    # runSim(args.poptsFile, args.direct, args.tend)
+    runSim(args.poptsFile, args.direct, args.tend)
 
-    papPlots(args.poptsFile)
+    # papPlots(args.poptsFile)

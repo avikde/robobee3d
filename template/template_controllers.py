@@ -341,10 +341,9 @@ class UprightMPC2():
         u = self.update2(p0, R0, dq0, pdes, dpdes, sdes)
         return u, self.getAccDes(R0, dq0), self.u0
         
-def createMPC(N=3, ws=1e1, wds=1e3, wpr=1, wvr=1e3, wpf=5, wvf=2e3, wthrust=1e-1, wmom=1e-2, **kwargs):
+def createMPC(N=3, ws=1e1, wds=1e3, wpr=1, wvr=1e3, wpf=5, wvf=2e3, wthrust=1e-1, wmom=1e-2, TtoWmax=2, popts=np.zeros(90), **kwargs):
     """Returns the mdl"""
     dt = 5
-    TtoWmax = 2 # thrust-to-weight
     g = 9.81e-3
     # WLQP inputs
     mb = 100
@@ -354,10 +353,13 @@ def createMPC(N=3, ws=1e1, wds=1e3, wpr=1, wvr=1e3, wpf=5, wvf=2e3, wthrust=1e-1
     umin = np.array([0, -0.5, -0.2, -0.1])
     umax = np.array([10, 0.5, 0.2, 0.1])
     dumax = np.array([10, 10, 10, 10]) # /s
+    # # WLQP stuff - copied from isolated C implementation
+    # umin = np.array([50, -0.5, -0.2, -0.1])
+    # umax = np.array([240, -0.5, -0.2, -0.1])
+    # dumax = np.array([5e3, 10, 10, 10]) # /s
     controlRate = 1000
     pyver = UprightMPC2(N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, umin, umax, dumax, mb, Ib.diagonal(), Qw, controlRate)
     # C version can be tested too
-    popts = np.zeros(90)
     cver = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 50, popts)
     return pyver, cver
 
