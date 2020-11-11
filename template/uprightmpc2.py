@@ -298,24 +298,22 @@ def papPlots(bmpc):
             fig.tight_layout()
             plt.show()
 
-    def accTask(show3d, reactiveArgs):
+    def accTask(reactiveArgs):
         l1 = controlTest(bmpc, 1000, useMPC=True, showPlots=False, speedTest=True)
         l2 = controlTest(bmpc, 1000, useMPC=False, showPlots=False, speedTest=True, **reactiveArgs)
-        if show3d:
-            viewControlTestLog(l1, log2=l2, desTraj=True, vscale=50)
-        else:
-            fig, ax = plt.subplots(1,2, figsize=(5,2.5))
-            ax[0].plot(1e-3*l1['t'], 1e-3*l1['y'][:,0], 'b')
-            ax[0].plot(1e-3*l2['t'], 1e-3*l2['y'][:,0], 'r')
-            ax[0].plot(1e-3*l2['t'], 1e-3*l2['pdes'][:,0], 'k--', alpha=0.3)
-            ax[0].set_ylabel('x [m]')
-            ax[0].set_xlabel('t [s]')
-            ax[1].plot(1e-3*l1['t'], l1['y'][:,6], 'b')
-            ax[1].plot(1e-3*l2['t'], l2['y'][:,6], 'r')
-            ax[1].set_ylabel('xdot [m/s]')
-            ax[1].set_xlabel('t [s]')
-            fig.tight_layout()
-            plt.show()
+        viewControlTestLog(l1, log2=l2, desTraj=True, vscale=100)
+        fig, ax = plt.subplots(1,2, figsize=(5,2.5))
+        ax[0].plot(1e-3*l1['t'], 1e-3*l1['y'][:,0], 'b')
+        ax[0].plot(1e-3*l2['t'], 1e-3*l2['y'][:,0], 'r')
+        ax[0].plot(1e-3*l2['t'], 1e-3*l2['pdes'][:,0], 'k--', alpha=0.3)
+        ax[0].set_ylabel('x [m]')
+        ax[0].set_xlabel('t [s]')
+        ax[1].plot(1e-3*l1['t'], l1['y'][:,6], 'b')
+        ax[1].plot(1e-3*l2['t'], l2['y'][:,6], 'r')
+        ax[1].set_ylabel('xdot [m/s]')
+        ax[1].set_xlabel('t [s]')
+        fig.tight_layout()
+        plt.show()
 
     # Hover tuning ---------
     def gainTuningSims(useMPC, kwgain, k1range, k2range, kwfixedn, kwfixedv, npts=10):
@@ -420,7 +418,7 @@ def papPlots(bmpc):
     # sim1hover -------------------
     # hoverTask(False, {'ks':[15,100], 'kpos':[0.01,1]})
     # sTask(False, {'ks':[15,100], 'kpos':[0.01,1]})
-    # accTask(False, {'ks':[15,100], 'kpos':[0.01,1]})
+    accTask({'ks':[15,100], 'kpos':[0.01,1]})
     # sim1perch --------------
     # flipTask()
     # perchTask()
