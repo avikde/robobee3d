@@ -2,50 +2,14 @@
 import numpy as np
 from scipy.spatial.transform import Rotation
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
-from genqp import quadrotorNLDyn, skew, Ib
-from uprightmpc2py import UprightMPC2C # C version
-from uprightmpc_pyver import UprightMPC2 # py version
+from genqp import quadrotorNLDyn
+from template_controllers import createMPC, reactiveController
 from time import perf_counter
 import sys
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.cm as cm
 import progressbar
-
-def createMPC(N, ws=1e1, wds=1e3, wpr=1, wpf=5, wvr=1e3, wvf=2e3, wthrust=1e-1, wmom=1e-2, **kwargs):
-    """Returns the mdl"""
-    dt = 5
-    g = 9.81e-3
-    # WLQP inputs
-    mb = 100
-    # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3].
-    # Setting first 2 elements of Qw -> 0 => should not affect objective as longs as dumax does not constrain.
-    Qw = np.hstack((np.zeros(2), np.zeros(4)))
-    umin = np.array([0, -0.5, -0.2, -0.1])
-    umax = np.array([10, 0.5, 0.2, 0.1])
-    dumax = np.array([10, 10, 10, 10]) # /s
-    controlRate = 1000
-    pyver = UprightMPC2(N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, umin, umax, dumax, mb, Ib.diagonal(), Qw, controlRate)
-    # C version can be tested too
-    popts = np.zeros(90)
-    cver = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 50, popts)
-    return pyver, cver
-
-def reactiveController(p, Rb, dq, pdes, kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e0,1e2], **kwargs):
-    # Pakpong-style reactive controller
-    sdes = np.clip(kpos[0] * (pdes - p) - kpos[1] * dq[:3], np.full(3, -0.5), np.full(3, 0.5))
-    sdes[2] = 1
-    # sdes = np.array([0,0,1])
-    omega = dq[3:]
-    dp = dq[:3]
-    s = Rb[:,2]
-    ds = -Rb @ e3h @ omega
-    # Template controller <- LATEST
-    fz = kz[0] * (pdes[2] - p[2]) - kz[1] * dq[2]
-    fTorn = ks[0] * (s - sdes) + ks[1] * ds
-    fTorn[2] = 0
-    fAorn = -e3h @ Rb.T @ fTorn
-    return np.hstack((fz, fAorn[:2]))
 
 def viewControlTestLog(log, log2=None, callShow=True, goal0=False, desTraj=False, vscale=0.4):
     def traj3plot(_ax, t, p, v, cmap, narrow=20):
@@ -427,7 +391,6 @@ if __name__ == "__main__":
 
     ydes = np.zeros_like(y0)
     dydes = np.zeros_like(y0)
-    TtoWmax = 2 # thrust-to-weight
 
     up, upc = createMPC(N)
     up.testDyn(T0, s0s, Btaus, y0, dy0)
