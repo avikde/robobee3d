@@ -18,7 +18,7 @@ def runSim(poptsFile, direct, tend, useMPC=True):
     bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=False)
     data = viewlog.initLog()
     # controller = OpenLoop()
-    controller = WaypointHover(poptsFile, useh2=False, useMPC=useMPC)#, constPdes=[0.,0,10,0,0,0])
+    controller = WaypointHover(poptsFile, startPos, useh2=False, useMPC=useMPC)#, constPdes=[0.,0,10,0,0,0])
 
     # --- Actual simulation ---
     try:
@@ -70,6 +70,6 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--direct', action='store_true', default=False, help='direct mode (no visualization)')
     args = parser.parse_args()
     
-    # runSim(args.poptsFile, args.direct, args.tend)
+    runSim(args.poptsFile, args.direct, args.tend)
 
-    papPlots(args.poptsFile, tend=3000)
+    # papPlots(args.poptsFile, tend=3000)

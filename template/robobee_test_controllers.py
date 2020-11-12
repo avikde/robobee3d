@@ -7,6 +7,7 @@ from wlqppy import WLController
 import valuefunc
 from template_controllers import createMPC, reactiveController
 from genqp import quadrotorNLVF, Ib
+import flight_tasks
 
 class WaveformGenerator(object):
     """A simple waveform generator that keeps track of phase"""
@@ -55,13 +56,14 @@ class OpenLoop(RobobeeController):
 
 class WaypointHover(RobobeeController):
     """Simplified version of Pakpong (2013). u = [Vmean, uoffs, udiff, h2]"""
-    def __init__(self, wrenchMapPoptsFile, constdqdes=None, useh2=False, useMPC=True):
+    def __init__(self, wrenchMapPoptsFile, initialPos, constdqdes=None, useh2=False, useMPC=True):
         super(WaypointHover, self).__init__({'freq': (0, 0.3, 0.16)})
         self.wf = WaveformGenerator()
         self.posdes = np.array([0.,0.,100.])
         self.constdqdes = constdqdes
         self.useh2 = useh2
         self.useMPC = useMPC
+        self.initialPos = np.asarray(initialPos)
 
         # NOTE: This is not actually used: need to put in wlcontroller.cpp or wlcontroller.c
         popts = np.load(wrenchMapPoptsFile)
@@ -113,21 +115,10 @@ class WaypointHover(RobobeeController):
         s = Rb @ np.array([0,0,1])
         ds = -Rb @ e3h @ omega
 
-        self.posdes = np.array([0,0,100])
-        dpdes = np.zeros(3)
-        trajAmp = 80
-        trajFreq = 1
-        trajOmg = 2 * np.pi * trajFreq * 1e-3 # to KHz, then to rad/ms
-        self.posdes[0] = trajAmp * np.sin(trajOmg * t)
-        dpdes[0] = trajAmp * trajOmg * np.cos(trajOmg * t)
-        self.posdes[2] = 100 + 0.15*t
-        dpdes[2] = 0.15
-        self.posdes[1] = trajAmp * (1 - np.cos(trajOmg * t))
-        dpdes[1] = trajAmp * trajOmg * np.sin(trajOmg * t)
+        self.posdes, dpdes, sdes = flight_tasks.helix(t, self.initialPos)
 
         if self.useMPC:
             # Upright MPC
-            sdes = np.array([0,0,1])
             uquad, ddqdes, uwlqp = self.up.update(p, Rb, dq0, self.posdes, dpdes)#, sdes)
             # ddqdes[:3] = Rb.T @ ddqdes[:3] # Convert to body frame?
             return ddqdes
