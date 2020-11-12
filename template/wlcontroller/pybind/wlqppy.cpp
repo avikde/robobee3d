@@ -16,5 +16,5 @@ namespace py = pybind11;
 PYBIND11_MODULE(wlqppy, m) {
   py::class_<WLController>(m, "WLController")
   .def(py::init<const Eigen::VectorXf &/* popts */, float /* controlRate */>())
-  .def("update", &WLController::update, "u = update(u0, h0, pdotdes)");
+  .def("update", &WLController::update, "u, w0 = update(u0, h0, pdotdes)");
 }

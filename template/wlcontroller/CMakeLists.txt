@@ -72,6 +72,6 @@ if(PYBIND)
   target_link_libraries(wlqppy PRIVATE wlcontroller)
 
   add_custom_command(TARGET wlqppy POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:wlqppy> ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:wlqppy> ${CMAKE_CURRENT_SOURCE_DIR}/..
     COMMENT "Copied python binding")
 endif(PYBIND)
