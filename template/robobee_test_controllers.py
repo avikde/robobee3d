@@ -115,7 +115,9 @@ class WaypointHover(RobobeeController):
         s = Rb @ np.array([0,0,1])
         ds = -Rb @ e3h @ omega
 
-        self.posdes, dpdes, sdes = flight_tasks.helix(t, self.initialPos)
+        #flight_tasks.helix(t, self.initialPos)
+        self.posdes, dpdes, sdes = flight_tasks.straightAcc(t, self.initialPos, vdes=0.5, tduration=500)
+        # flight_tasks.flip(t, self.initialPos)
 
         if self.useMPC:
             # Upright MPC
