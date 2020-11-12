@@ -4,6 +4,7 @@ from scipy.spatial.transform import Rotation
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 from genqp import quadrotorNLDyn
 from template_controllers import createMPC, reactiveController
+import flight_tasks
 from time import perf_counter
 import sys
 import matplotlib.pyplot as plt
@@ -140,7 +141,6 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     # for logging
     log = {'t': tt, 'y': np.zeros((Nt, 12)), 'u': np.zeros((Nt, 3)), 'pdes': np.zeros((Nt, 3)), 'accdes': np.zeros((Nt,6)), 'wlqpu': np.zeros((Nt,4))}
 
-    trajOmg = 2 * np.pi * trajFreq * 1e-3 # to KHz, then to rad/ms
     ddqdes = None # test integrate ddq sim below
 
     avgTime = 0.0
@@ -169,15 +169,11 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
                 pdes[0] = 0
                 dpdes[0] = 0
         else:
-            pdes[0] = trajAmp * np.sin(trajOmg * tt[ti])
-            dpdes[0] = trajAmp * trajOmg * np.cos(trajOmg * tt[ti])
-            if trajAmp > 1e-3:
-                pdes[2] = 0.1 * tt[ti]
-                dpdes[2] = 0.1
-                # Add perturbation for this traj
-                if tpert is not None and tt[ti] > tpert:
-                    dq[1] += 2
-                    tpert = None
+            pdes, dpdes, sdes = flight_tasks.helix(tt[ti], np.zeros(3), trajAmp=trajAmp, trajFreq=trajFreq, dz=0.1, useY=False)
+            # Add perturbation for this traj
+            if tpert is not None and tt[ti] > tpert:
+                dq[1] += 2
+                tpert = None
 
         # Call controller
         if useMPC:
@@ -281,22 +277,20 @@ def papPlots(bmpc):
             fig.tight_layout()
             plt.show()
 
-    def sTask(show3d, reactiveArgs):
+    def sTask(reactiveArgs):
         l1 = controlTest(bmpc, 2000, useMPC=True, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000)
         l2 = controlTest(bmpc, 2000, useMPC=False, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000, **reactiveArgs)
-        if show3d:
-            viewControlTestLog(l1, log2=l2, desTraj=True, vscale=20)
-        else:
-            fig, ax = plt.subplots(1,2, figsize=(5,2.5))
-            for i in range(2):
-                ax[i].plot(1e-3*l1['t'], 1e-3*l1['y'][:,i], 'b')
-                ax[i].plot(1e-3*l2['t'], 1e-3*l2['y'][:,i], 'r')
-                ax[i].plot(1e-3*l2['t'], 1e-3*l2['pdes'][:,i], 'k--', alpha=0.3)
-                ax[i].set_xlabel('t [s]')
-            ax[0].set_ylabel('x [m]')
-            ax[1].set_ylabel('y [m]')
-            fig.tight_layout()
-            plt.show()
+        viewControlTestLog(l1, log2=l2, desTraj=True, vscale=20)
+        fig, ax = plt.subplots(1,2, figsize=(5,2.5))
+        for i in range(2):
+            ax[i].plot(1e-3*l1['t'], 1e-3*l1['y'][:,i], 'b')
+            ax[i].plot(1e-3*l2['t'], 1e-3*l2['y'][:,i], 'r')
+            ax[i].plot(1e-3*l2['t'], 1e-3*l2['pdes'][:,i], 'k--', alpha=0.3)
+            ax[i].set_xlabel('t [s]')
+        ax[0].set_ylabel('x [m]')
+        ax[1].set_ylabel('y [m]')
+        fig.tight_layout()
+        plt.show()
 
     def accTask(reactiveArgs):
         l1 = controlTest(bmpc, 1000, useMPC=True, showPlots=False, speedTest=True)
@@ -417,8 +411,8 @@ def papPlots(bmpc):
 
     # sim1hover -------------------
     # hoverTask(False, {'ks':[15,100], 'kpos':[0.01,1]})
-    # sTask(False, {'ks':[15,100], 'kpos':[0.01,1]})
-    accTask({'ks':[15,100], 'kpos':[0.01,1]})
+    sTask({'ks':[15,100], 'kpos':[0.01,1]})
+    # accTask({'ks':[15,100], 'kpos':[0.01,1]})
     # sim1perch --------------
     # flipTask()
     # perchTask()
