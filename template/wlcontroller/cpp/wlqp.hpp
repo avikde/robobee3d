@@ -12,6 +12,9 @@
 
 #include "eigenutil.hpp"
 #include <limits>
+#include <tuple>
+
+typedef std::tuple<u_t, w_t> WLQPRet_t;
 
 /**
  * @brief Abstract base class for wrench lin QP. Assumes wrench in R^6, nu = 4;
@@ -29,7 +32,7 @@ public:
   void setLimits(const u_t &umin, const u_t &umax, const u_t &dumax);
   void setWeight(const w_t &Qdiag) { this->Qdiag = Qdiag; }
 
-  u_t update(const u_t &u0, const w_t &h0, const w_t &pdotdes);
+  WLQPRet_t update(const u_t &u0, const w_t &h0, const w_t &pdotdes);
 
   // Solve settings
   int maxIter = 10;

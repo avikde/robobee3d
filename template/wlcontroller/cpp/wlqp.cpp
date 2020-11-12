@@ -21,7 +21,7 @@ WrenchLinQP::WrenchLinQP(float controlRate) {
 	U0 /= controlRate;
 }
 
-u_t WrenchLinQP::update(const u_t &u0, const w_t &h0, const w_t &pdotdes) {
+WLQPRet_t WrenchLinQP::update(const u_t &u0, const w_t &h0, const w_t &pdotdes) {
 	// Momentum reference dynamics https://github.com/avikde/robobee3d/pull/166
 	auto w0 = wrenchMap(u0);
 	auto a0 = w0 - h0 - pdotdes;
@@ -46,7 +46,7 @@ u_t WrenchLinQP::update(const u_t &u0, const w_t &h0, const w_t &pdotdes) {
 	// std::cout << P << q << L << U << A;
 
 	auto du = solve(P, /* A,  */q, L, U);
-	return u0 + du;
+	return std::make_tuple(u0 + du, w0);
 }
 
 void WrenchLinQP::setLimits(const u_t &umin, const u_t &umax, const u_t &dumax) {
