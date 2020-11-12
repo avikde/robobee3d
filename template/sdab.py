@@ -63,7 +63,8 @@ def papPlots(poptsFile, tend=1000):
         ax[5].plot(l1['t'], l2['u'][:,4], 'r')
         ax[5].set_ylabel('diff')
         plt.show()
-    doTask('helix')
+    # doTask('helix')
+    doTask('line')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process some integers.')
@@ -72,6 +73,6 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--direct', action='store_true', default=False, help='direct mode (no visualization)')
     args = parser.parse_args()
     
-    # runSim(args.poptsFile, args.direct, args.tend, useMPC=False)
+    # runSim(args.poptsFile, args.direct, args.tend, useMPC=True)
 
     papPlots(args.poptsFile, tend=1000)

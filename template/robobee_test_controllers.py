@@ -79,10 +79,10 @@ class WaypointHover(RobobeeController):
 
         # upright MPC
         #wp: 1.5,3 works for a x-axis traj (body frame), but the robot rolls more so need 1,2 for a y-axis traj
-        if task=='line':
-            self.up, _ = createMPC(ws=50, wds=1e4, wpr=0.2, wvr=1e3, wpf=0.4, wvf=1e3, TtoWmax=5, popts=np.ravel(popts)) # line
-        else:
-            self.up, _ = createMPC(ws=1, wds=1e2, wpr=5e-3, wvr=4e1, wpf=10e-3, wvf=4e1, TtoWmax=3, popts=np.ravel(popts))
+        # if task=='line':
+        #     self.up, _ = createMPC(ws=50, wds=1e4, wpr=0.2, wvr=1e3, wpf=0.4, wvf=1e3, TtoWmax=5, popts=np.ravel(popts)) # line
+        # else:
+        self.up, _ = createMPC(ws=1, wds=5e2, wpr=1e-2, wvr=2e1, wpf=1e-2, wvf=4e1, TtoWmax=3, popts=np.ravel(popts))
 
     def templateVF(self, t, p, dp, s, ds, posdes, dposdes, kpos=[0.5e-3,5e-1], kz=[1e-3,2e-1], ks=[4e-3,0.3e0]):
         # TEST
