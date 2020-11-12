@@ -9,7 +9,7 @@ np.set_printoptions(precision=4, suppress=True, linewidth=200)
 # Generate URDF
 subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.urdf"])
 
-def runSim(poptsFile, direct, tend, useMPC=True):
+def runSim(poptsFile, direct, tend, **kwargs):
     # filtfreq is for the body velocity filter
     bee = robobee.RobobeeSim(p.DIRECT if direct else p.GUI, slowDown=0, camLock=True, timestep=0.1, gui=0, filtfreq=0.16)
     # load robot
@@ -18,7 +18,7 @@ def runSim(poptsFile, direct, tend, useMPC=True):
     bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=False)
     data = viewlog.initLog()
     # controller = OpenLoop()
-    controller = WaypointHover(poptsFile, startPos, useh2=False, useMPC=useMPC)#, constPdes=[0.,0,10,0,0,0])
+    controller = WaypointHover(poptsFile, startPos, useh2=False, **kwargs)#, constPdes=[0.,0,10,0,0,0])
 
     # --- Actual simulation ---
     try:
@@ -70,6 +70,6 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--direct', action='store_true', default=False, help='direct mode (no visualization)')
     args = parser.parse_args()
     
-    runSim(args.poptsFile, args.direct, args.tend)
+    runSim(args.poptsFile, args.direct, args.tend, useMPC=True, task='line')
 
     # papPlots(args.poptsFile, tend=3000)

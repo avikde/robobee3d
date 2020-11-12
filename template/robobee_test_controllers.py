@@ -56,7 +56,7 @@ class OpenLoop(RobobeeController):
 
 class WaypointHover(RobobeeController):
     """Simplified version of Pakpong (2013). u = [Vmean, uoffs, udiff, h2]"""
-    def __init__(self, wrenchMapPoptsFile, initialPos, constdqdes=None, useh2=False, useMPC=True):
+    def __init__(self, wrenchMapPoptsFile, initialPos, constdqdes=None, useh2=False, useMPC=True, task='helix'):
         super(WaypointHover, self).__init__({'freq': (0, 0.3, 0.16)})
         self.wf = WaveformGenerator()
         self.posdes = np.array([0.,0.,100.])
@@ -64,6 +64,7 @@ class WaypointHover(RobobeeController):
         self.useh2 = useh2
         self.useMPC = useMPC
         self.initialPos = np.asarray(initialPos)
+        self.task = task
 
         # NOTE: This is not actually used: need to put in wlcontroller.cpp or wlcontroller.c
         popts = np.load(wrenchMapPoptsFile)
@@ -78,7 +79,7 @@ class WaypointHover(RobobeeController):
 
         # upright MPC
         #wp: 1.5,3 works for a x-axis traj (body frame), but the robot rolls more so need 1,2 for a y-axis traj
-        _, self.up = createMPC(ws=15, wds=1e4, wpr=0.1, wvr=1e3, wpf=0.2, wvf=1e3, TtoWmax=3, popts=np.ravel(popts))
+        self.up, _ = createMPC(ws=15, wds=1e4, wpr=0.1, wvr=1e3, wpf=0.2, wvf=1e3, TtoWmax=3, popts=np.ravel(popts))
 
     def templateVF(self, t, p, dp, s, ds, posdes, dposdes, kpos=[0.5e-3,5e-1], kz=[1e-3,2e-1], ks=[4e-3,0.3e0]):
         # TEST
@@ -115,13 +116,16 @@ class WaypointHover(RobobeeController):
         s = Rb @ np.array([0,0,1])
         ds = -Rb @ e3h @ omega
 
-        #flight_tasks.helix(t, self.initialPos)
-        self.posdes, dpdes, sdes = flight_tasks.straightAcc(t, self.initialPos, vdes=0.5, tduration=500)
-        # flight_tasks.flip(t, self.initialPos)
+        if self.task == 'helix':
+            self.posdes, dpdes, sdes = flight_tasks.helix(t, self.initialPos)
+        elif self.task == 'line':
+            self.posdes, dpdes, sdes = flight_tasks.straightAcc(t, self.initialPos, vdes=0.5, tduration=500)
+        elif self.task == 'flip':
+            self.posdes, dpdes, sdes = flight_tasks.flip(t, self.initialPos)
 
         if self.useMPC:
             # Upright MPC
-            uquad, ddqdes, uwlqp = self.up.update(p, Rb, dq0, self.posdes, dpdes)#, sdes)
+            uquad, ddqdes, uwlqp = self.up.update(p, Rb, dq0, self.posdes, dpdes, sdes)
             # ddqdes[:3] = Rb.T @ ddqdes[:3] # Convert to body frame?
             return ddqdes
         else:
