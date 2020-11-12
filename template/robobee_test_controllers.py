@@ -79,7 +79,8 @@ class WaypointHover(RobobeeController):
 
         # upright MPC
         #wp: 1.5,3 works for a x-axis traj (body frame), but the robot rolls more so need 1,2 for a y-axis traj
-        self.up, _ = createMPC(ws=15, wds=1e4, wpr=0.1, wvr=1e3, wpf=0.2, wvf=1e3, TtoWmax=3, popts=np.ravel(popts))
+        # self.up, _ = createMPC(ws=15, wds=1e4, wpr=0.1, wvr=1e3, wpf=0.2, wvf=1e3, TtoWmax=3, popts=np.ravel(popts))
+        self.up, _ = createMPC(ws=50, wds=1e4, wpr=0.2, wvr=1e3, wpf=0.4, wvf=1e3, TtoWmax=5, popts=np.ravel(popts)) # line
 
     def templateVF(self, t, p, dp, s, ds, posdes, dposdes, kpos=[0.5e-3,5e-1], kz=[1e-3,2e-1], ks=[4e-3,0.3e0]):
         # TEST
@@ -119,7 +120,7 @@ class WaypointHover(RobobeeController):
         if self.task == 'helix':
             self.posdes, dpdes, sdes = flight_tasks.helix(t, self.initialPos)
         elif self.task == 'line':
-            self.posdes, dpdes, sdes = flight_tasks.straightAcc(t, self.initialPos, vdes=0.5, tduration=500)
+            self.posdes, dpdes, sdes = flight_tasks.straightAcc(t, self.initialPos, vdes=1, tduration=500)
         elif self.task == 'flip':
             self.posdes, dpdes, sdes = flight_tasks.flip(t, self.initialPos)
 

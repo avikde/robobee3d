@@ -5,6 +5,7 @@ import robobee
 from robobee_test_controllers import OpenLoop, WaypointHover
 import viewlog
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
+import matplotlib.pyplot as plt
 
 # Generate URDF
 subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.urdf"])
@@ -39,29 +40,30 @@ def runSim(poptsFile, direct, tend, **kwargs):
     return data
 
 def papPlots(poptsFile, tend=1000):
-    import matplotlib.pyplot as plt
-    l1 = runSim(poptsFile, True, tend, useMPC=True)
-    l2 = runSim(poptsFile, True, tend, useMPC=False)
-    qb = lambda data: data['q'][:,-7:]
-    # dqb = data['dq'][:,-6:]
-    # viewlog.defaultPlots(l1)
-    fig, ax = plt.subplots(3,2)
-    ax = ax.ravel()
-    for i in range(3):
-        ax[i].plot(l1['t'], qb(l1)[:,i], 'b')
-        ax[i].plot(l2['t'], qb(l2)[:,i], 'r')
-        ax[i].plot(l1['t'], l1['posdes'][:,i], 'k--', alpha=0.3)
-    
-    ax[3].plot(l1['t'], l1['u'][:,2], 'b') # Vmean
-    ax[3].plot(l1['t'], l2['u'][:,2], 'r') # Vmean
-    ax[3].set_ylabel('Vmean')
-    ax[4].plot(l1['t'], l1['u'][:,3], 'b')
-    ax[4].plot(l1['t'], l2['u'][:,3], 'r')
-    ax[4].set_ylabel('uoffs')
-    ax[5].plot(l1['t'], l1['u'][:,4], 'b')
-    ax[5].plot(l1['t'], l2['u'][:,4], 'r')
-    ax[5].set_ylabel('diff')
-    plt.show()
+    def doTask(s):
+        l1 = runSim(poptsFile, True, tend, useMPC=True, task=s)
+        l2 = runSim(poptsFile, True, tend, useMPC=False, task=s)
+        qb = lambda data: data['q'][:,-7:]
+        # dqb = data['dq'][:,-6:]
+        # viewlog.defaultPlots(l1)
+        fig, ax = plt.subplots(3,2)
+        ax = ax.ravel()
+        for i in range(3):
+            ax[i].plot(l1['t'], qb(l1)[:,i], 'b')
+            ax[i].plot(l2['t'], qb(l2)[:,i], 'r')
+            ax[i].plot(l1['t'], l1['posdes'][:,i], 'k--', alpha=0.3)
+        
+        ax[3].plot(l1['t'], l1['u'][:,2], 'b') # Vmean
+        ax[3].plot(l1['t'], l2['u'][:,2], 'r') # Vmean
+        ax[3].set_ylabel('Vmean')
+        ax[4].plot(l1['t'], l1['u'][:,3], 'b')
+        ax[4].plot(l1['t'], l2['u'][:,3], 'r')
+        ax[4].set_ylabel('uoffs')
+        ax[5].plot(l1['t'], l1['u'][:,4], 'b')
+        ax[5].plot(l1['t'], l2['u'][:,4], 'r')
+        ax[5].set_ylabel('diff')
+        plt.show()
+    doTask('line')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process some integers.')
@@ -70,6 +72,6 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--direct', action='store_true', default=False, help='direct mode (no visualization)')
     args = parser.parse_args()
     
-    runSim(args.poptsFile, args.direct, args.tend, useMPC=True, task='line')
+    # runSim(args.poptsFile, args.direct, args.tend, useMPC=False)
 
-    # papPlots(args.poptsFile, tend=3000)
+    papPlots(args.poptsFile, tend=800)
