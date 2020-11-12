@@ -82,7 +82,7 @@ class WaypointHover(RobobeeController):
         # if task=='line':
         #     self.up, _ = createMPC(ws=50, wds=1e4, wpr=0.2, wvr=1e3, wpf=0.4, wvf=1e3, TtoWmax=5, popts=np.ravel(popts)) # line
         # else:
-        self.up, _ = createMPC(ws=1, wds=5e2, wpr=1e-2, wvr=2e1, wpf=1e-2, wvf=4e1, TtoWmax=3, popts=np.ravel(popts))
+        self.up, _ = createMPC(ws=1, wds=5e2, wpr=1e-2, wvr=2e1, wpf=2e-2, wvf=4e1, TtoWmax=3, popts=np.ravel(popts))
 
     def templateVF(self, t, p, dp, s, ds, posdes, dposdes, kpos=[0.5e-3,5e-1], kz=[1e-3,2e-1], ks=[4e-3,0.3e0]):
         # TEST
@@ -159,7 +159,7 @@ class WaypointHover(RobobeeController):
 
         # WLQP
         self.u4, w0 = self.wl.update(self.u4, h0, M0 @ self.accdes)
-        # self.up.T0 += 0.001 * (w0[2]/M0[2,2] - self.up.T0)
+        self.up.T0 += 1 * (w0[2]/M0[2,2] - self.up.T0)
         
         # # Manual mapping
         # self.u4 = self.manualMapping(*uquad)
