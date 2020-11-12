@@ -150,19 +150,9 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     for ti in range(Nt):
         # Traj to follow
         if flipTask:
-            # rotation phase 0 to 1
-            ph = np.clip((tt[ti] - 100) / 200, 0, 1)
-            sdes = np.array([-np.sin(ph*2*np.pi), 0, np.cos(ph*2*np.pi)])
+            pdes, dpdes, sdes = flight_tasks.flip(tt[ti], initialPos)
         elif perchTraj:
-            if tt[ti] < 500:
-                pdes[0] = -100 + 0.2 * tt[ti]
-                dpdes[0] = 0.2
-                # rotation phase 0 to 1
-                ph = np.clip((tt[ti] - 450) / 100, 0, 1)
-                sdes = np.array([-np.sin(ph*np.pi), 0, np.cos(ph*np.pi)])
-            else:
-                pdes[0] = dpdes[0] = 0
-                sdes = np.array([-1,0,0])
+            pdes, dpdes, sdes = flight_tasks.perch(tt[ti], initialPos)
         elif speedTest:
             pdes, dpdes, sdes = flight_tasks.straightAcc(tt[ti], initialPos, vdes=speedTestvdes, tduration=speedTestdur)
         else:
@@ -409,10 +399,10 @@ def papPlots(bmpc):
     # sim1hover -------------------
     # hoverTask(False, {'ks':[15,100], 'kpos':[0.01,1]})
     # sTask({'ks':[15,100], 'kpos':[0.01,1]})
-    accTask({'ks':[15,100], 'kpos':[0.01,1]})
+    # accTask({'ks':[15,100], 'kpos':[0.01,1]})
     # sim1perch --------------
     # flipTask()
-    # perchTask()
+    perchTask()
 
 if __name__ == "__main__":
     up, upc = createMPC()

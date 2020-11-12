@@ -27,3 +27,23 @@ def straightAcc(t, initialPos, tduration=500, vdes=2):
     pdes[0] += vdes * np.clip(t, 0, tduration)
     
     return pdes, dpdes, VERTICAL
+
+def flip(t, initialPos, tstart=100, tend=200, vdes=2):
+    pdes = np.copy(initialPos)
+    # rotation phase 0 to 1
+    ph = np.clip((t - tstart) / tend, 0, 1)
+    sdes = np.array([-np.sin(ph*2*np.pi), 0, np.cos(ph*2*np.pi)])
+    return pdes, np.zeros(3), sdes
+
+def perch(t, initialPos, tend=500, trotstart=100, trotend=450, vdes=0.2):
+    pdes = np.copy(initialPos)
+    dpdes = np.zeros(3)
+    pdes[0] += vdes * np.clip(t, 0, tend)
+    dpdes[0] = vdes if t < tend else 0
+    if t < tend:
+        # rotation phase 0 to 1
+        ph = np.clip((t - trotend) / trotstart, 0, 1)
+        sdes = np.array([-np.sin(ph*np.pi), 0, np.cos(ph*np.pi)])
+    else:
+        sdes = np.array([-1,0,0])
+    return pdes, dpdes, sdes
