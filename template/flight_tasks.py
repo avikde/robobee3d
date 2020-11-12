@@ -1,6 +1,8 @@
 """Tasks specified as desired pos, vel and nominal traj"""
 import numpy as np
 
+VERTICAL = np.array([0,0,1])
+
 def helix(t, initialPos, trajAmp=80, trajFreq=1, dz=0.15, useY=True):
     """If trajAmp is small, can be used for hover"""
     posdes = np.copy(initialPos)
@@ -15,7 +17,13 @@ def helix(t, initialPos, trajAmp=80, trajFreq=1, dz=0.15, useY=True):
         posdes[2] += dz*t
         dpdes[2] = dz
 
-    sdes = np.array([0,0,1])
+    return posdes, dpdes, VERTICAL
 
-    return posdes, dpdes, sdes
-
+def straightAcc(t, initialPos, tduration=500, vdes=2):
+    """duration in ms, vdes in m/s"""
+    pdes = np.copy(initialPos)
+    dpdes = np.zeros(3)
+    dpdes[0] = vdes if t < tduration else 0
+    pdes[0] += vdes * np.clip(t, 0, tduration)
+    
+    return pdes, dpdes, VERTICAL

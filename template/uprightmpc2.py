@@ -120,10 +120,11 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     if mdl is None and useMPC:
         mdl, _ = createMPC(**kwargs)
     speedTestvdes = 2 # m/s
+    speedTestdur = 500
     # Initial conditions
     dq = np.zeros(6)
     if ascentIC or speedTest or perchTraj:
-        p = np.array([0, 0, -50]) if ascentIC else np.array([-500*speedTestvdes, 0, 0])
+        p = np.array([0, 0, -50]) if ascentIC else np.array([-speedTestdur*speedTestvdes, 0, 0])
         if perchTraj:
             p = np.array([-100, 0, 0])
         Rb = np.eye(3)
@@ -134,6 +135,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     pdes = np.zeros(3)
     dpdes = np.zeros(3)
     sdes = np.array([0,0,1])
+    initialPos = np.copy(p)
     
     tt = np.arange(tend, step=dtsim)
     Nt = len(tt)
@@ -162,14 +164,9 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
                 pdes[0] = dpdes[0] = 0
                 sdes = np.array([-1,0,0])
         elif speedTest:
-            if tt[ti] < 500:
-                dpdes[0] = speedTestvdes
-                pdes[0] = -500*speedTestvdes + speedTestvdes*(tt[ti])
-            else:
-                pdes[0] = 0
-                dpdes[0] = 0
+            pdes, dpdes, sdes = flight_tasks.straightAcc(tt[ti], initialPos, vdes=speedTestvdes, tduration=speedTestdur)
         else:
-            pdes, dpdes, sdes = flight_tasks.helix(tt[ti], np.zeros(3), trajAmp=trajAmp, trajFreq=trajFreq, dz=0.1, useY=False)
+            pdes, dpdes, sdes = flight_tasks.helix(tt[ti], initialPos, trajAmp=trajAmp, trajFreq=trajFreq, dz=0.1, useY=False)
             # Add perturbation for this traj
             if tpert is not None and tt[ti] > tpert:
                 dq[1] += 2
@@ -295,7 +292,7 @@ def papPlots(bmpc):
     def accTask(reactiveArgs):
         l1 = controlTest(bmpc, 1000, useMPC=True, showPlots=False, speedTest=True)
         l2 = controlTest(bmpc, 1000, useMPC=False, showPlots=False, speedTest=True, **reactiveArgs)
-        viewControlTestLog(l1, log2=l2, desTraj=True, vscale=100)
+        viewControlTestLog(l1, log2=l2, desTraj=True, vscale=100, goal0=True)
         fig, ax = plt.subplots(1,2, figsize=(5,2.5))
         ax[0].plot(1e-3*l1['t'], 1e-3*l1['y'][:,0], 'b')
         ax[0].plot(1e-3*l2['t'], 1e-3*l2['y'][:,0], 'r')
@@ -411,8 +408,8 @@ def papPlots(bmpc):
 
     # sim1hover -------------------
     # hoverTask(False, {'ks':[15,100], 'kpos':[0.01,1]})
-    sTask({'ks':[15,100], 'kpos':[0.01,1]})
-    # accTask({'ks':[15,100], 'kpos':[0.01,1]})
+    # sTask({'ks':[15,100], 'kpos':[0.01,1]})
+    accTask({'ks':[15,100], 'kpos':[0.01,1]})
     # sim1perch --------------
     # flipTask()
     # perchTask()
