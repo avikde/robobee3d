@@ -72,4 +72,4 @@ if __name__ == "__main__":
     
     # runSim(args.poptsFile, args.direct, args.tend)
 
-    papPlots(args.poptsFile, tend=1500)
+    papPlots(args.poptsFile, tend=3000)
