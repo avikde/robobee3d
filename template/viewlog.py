@@ -38,6 +38,17 @@ def readFile(fname, dataFmtList=None):
     data = pickle.load(zfile)
     # print(data)
     print('Opened '+fname+'; average data rate = ' + str(1000.0/np.mean(np.diff(data['t'])))+'Hz')
+    # Convert and add more keys for easier processing
+    qb = data['q'][:,-7:]
+    dqb = data['dq'][:,-6:]
+    data['s'] = np.zeros((len(data['t']), 3))
+    for i in range(len(data['t'])):
+        data['s'][i,:] = Rotation.from_quat(qb[i,3:]).as_matrix()[:,2]
+    data['eul'] = Rotation.from_quat(qb[:,3:]).as_euler('xyz')
+    # Split up q
+    data['p'] = qb[:,:3]
+    data['dp'] = dqb[:,:3]
+    data['omega'] = dqb[:,3:]
     return data
 
 def getData(fname):
@@ -52,24 +63,18 @@ def getData(fname):
 def defaultPlots(data, ca6log=False):
     t = data['t']
     # SDAB log also has wings
-    qb = data['q'][:,-7:]
-    dqb = data['dq'][:,-6:]
 
     fig, ax = plt.subplots(4,2)
     ax = ax.ravel()
-    ax[0].plot(data['t'], qb[:,:3])
+    ax[0].plot(data['t'], data['p'])
     ax[0].plot(data['t'], data['posdes'][:,0], 'b--')
     ax[0].plot(data['t'], data['posdes'][:,1], 'r--')
     ax[0].plot(data['t'], data['posdes'][:,2], 'g--')
     ax[0].set_ylabel('pos [mm]')
 
-    s = np.zeros((len(t), 3))
-    for i in range(len(t)):
-        s[i,:] = Rotation.from_quat(qb[i,3:]).as_matrix()[:,2]
-    ax[1].plot(data['t'], s)
+    ax[1].plot(data['t'], data['s'])
     ax[1].set_ylabel('s')
-    eul = Rotation.from_quat(qb[:,3:]).as_euler('xyz')
-    ax[2].plot(data['t'], eul)
+    ax[2].plot(data['t'], data['eul'])
     ax[2].set_ylabel('orn [rad]')
 
     ax[3].plot(data['t'], data['accdes'][:,:3])
