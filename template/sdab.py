@@ -5,8 +5,6 @@ import robobee
 from robobee_test_controllers import OpenLoop, WaypointHover
 import viewlog
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
-import matplotlib.pyplot as plt
-from plot_helpers import *
 
 # Generate URDF
 subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.urdf"])
@@ -44,35 +42,8 @@ def papExps(task, poptsFile, tend=1000):
     def doTask(s):
         l1 = runSim(poptsFile, True, tend, useMPC=True, task=s)
         l2 = runSim(poptsFile, True, tend, useMPC=False, task=s)
-    doTask(task)
-
-def papPlots(fmpc, freac, vscale):
-    l1 = viewlog.readFile(fmpc)
-    l2 = viewlog.readFile(freac)
-
-    fig = plt.figure()
-    ax3d = fig.add_subplot(1,1,1,projection='3d')
-    traj3plot(ax3d, l1['t'], l1['p'], l1['s'], "Blues_r", vscale=vscale)
-    aspectEqual3(ax3d, l1['p'])
-    traj3plot(ax3d, l2['t'], l2['p'], l2['s'], "Reds_r", vscale=vscale)
-    ax3d.plot(l1['posdes'][:,0], l1['posdes'][:,1], l1['posdes'][:,2], 'k--', alpha=0.5, zorder=9)
-    ax3d.set_xlabel('x [mm]')
-    ax3d.set_ylabel('y [mm]')
-    ax3d.set_zlabel('z [mm]')
-    
-    fig, ax = plt.subplots(1,3,figsize=(7.5,2.5))
-    ax=ax.ravel()
-    ax[0].plot(l1['t'], l1['u'][:,2], 'b') # Vmean
-    ax[0].plot(l1['t'], l2['u'][:,2], 'r') # Vmean
-    ax[0].set_ylabel('Vmean')
-    ax[1].plot(l1['t'], l1['u'][:,3], 'b')
-    ax[1].plot(l1['t'], l2['u'][:,3], 'r')
-    ax[1].set_ylabel('uoffs')
-    ax[2].plot(l1['t'], l1['u'][:,4], 'b')
-    ax[2].plot(l1['t'], l2['u'][:,4], 'r')
-    ax[2].set_ylabel('diff')
-    fig.tight_layout()
-    plt.show()
+        return l1, l2
+    ls = doTask(task)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process some integers.')
@@ -84,6 +55,4 @@ if __name__ == "__main__":
     # runSim(args.poptsFile, args.direct, args.tend, useMPC=True)
 
     # papExps('helix', args.poptsFile, tend=3000)
-    papPlots('../logs/sdab_20201112190409.zip', '../logs/sdab_20201112190440.zip', 40)
     # papExps('line', args.poptsFile, tend=1000)
-    papPlots('../logs/sdab_20201112190644.zip', '../logs/sdab_20201112190654.zip', 50)
