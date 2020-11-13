@@ -59,27 +59,19 @@ def papPlots(fmpc, freac, vscale):
     ax3d.set_xlabel('x [mm]')
     ax3d.set_ylabel('y [mm]')
     ax3d.set_zlabel('z [mm]')
-    # if log2 is not None:
-    #     traj3plot(_ax, log2['t'], log2['y'][:,:3], log2['y'][:,3:6], "Reds_r", vscale=vscale)
-
-    # dqb = data['dq'][:,-6:]
-    # viewlog.defaultPlots(l1)
-    # fig, ax = plt.subplots(3,2)
-    # ax = ax.ravel()
-    # for i in range(3):
-    #     ax[i].plot(l1['t'], qb(l1)[:,i], 'b')
-    #     ax[i].plot(l2['t'], qb(l2)[:,i], 'r')
-    #     ax[i].plot(l1['t'], l1['posdes'][:,i], 'k--', alpha=0.3)
     
-    # ax[3].plot(l1['t'], l1['u'][:,2], 'b') # Vmean
-    # ax[3].plot(l1['t'], l2['u'][:,2], 'r') # Vmean
-    # ax[3].set_ylabel('Vmean')
-    # ax[4].plot(l1['t'], l1['u'][:,3], 'b')
-    # ax[4].plot(l1['t'], l2['u'][:,3], 'r')
-    # ax[4].set_ylabel('uoffs')
-    # ax[5].plot(l1['t'], l1['u'][:,4], 'b')
-    # ax[5].plot(l1['t'], l2['u'][:,4], 'r')
-    # ax[5].set_ylabel('diff')
+    fig, ax = plt.subplots(1,3,figsize=(7.5,2.5))
+    ax=ax.ravel()
+    ax[0].plot(l1['t'], l1['u'][:,2], 'b') # Vmean
+    ax[0].plot(l1['t'], l2['u'][:,2], 'r') # Vmean
+    ax[0].set_ylabel('Vmean')
+    ax[1].plot(l1['t'], l1['u'][:,3], 'b')
+    ax[1].plot(l1['t'], l2['u'][:,3], 'r')
+    ax[1].set_ylabel('uoffs')
+    ax[2].plot(l1['t'], l1['u'][:,4], 'b')
+    ax[2].plot(l1['t'], l2['u'][:,4], 'r')
+    ax[2].set_ylabel('diff')
+    fig.tight_layout()
     plt.show()
 
 if __name__ == "__main__":
