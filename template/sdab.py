@@ -6,6 +6,7 @@ from robobee_test_controllers import OpenLoop, WaypointHover
 import viewlog
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 import matplotlib.pyplot as plt
+from plot_helpers import *
 
 # Generate URDF
 subprocess.call(["python", "../urdf/xacro.py", "../urdf/sdab.xacro", "-o", "../urdf/sdab.urdf"])
@@ -39,32 +40,44 @@ def runSim(poptsFile, direct, tend, **kwargs):
         viewlog.saveLog('../logs/sdab', data)
     return data
 
-def papPlots(poptsFile, tend=1000):
+def papExps(task, poptsFile, tend=1000):
     def doTask(s):
         l1 = runSim(poptsFile, True, tend, useMPC=True, task=s)
         l2 = runSim(poptsFile, True, tend, useMPC=False, task=s)
-        qb = lambda data: data['q'][:,-7:]
-        # dqb = data['dq'][:,-6:]
-        # viewlog.defaultPlots(l1)
-        fig, ax = plt.subplots(3,2)
-        ax = ax.ravel()
-        for i in range(3):
-            ax[i].plot(l1['t'], qb(l1)[:,i], 'b')
-            ax[i].plot(l2['t'], qb(l2)[:,i], 'r')
-            ax[i].plot(l1['t'], l1['posdes'][:,i], 'k--', alpha=0.3)
-        
-        ax[3].plot(l1['t'], l1['u'][:,2], 'b') # Vmean
-        ax[3].plot(l1['t'], l2['u'][:,2], 'r') # Vmean
-        ax[3].set_ylabel('Vmean')
-        ax[4].plot(l1['t'], l1['u'][:,3], 'b')
-        ax[4].plot(l1['t'], l2['u'][:,3], 'r')
-        ax[4].set_ylabel('uoffs')
-        ax[5].plot(l1['t'], l1['u'][:,4], 'b')
-        ax[5].plot(l1['t'], l2['u'][:,4], 'r')
-        ax[5].set_ylabel('diff')
-        plt.show()
-    # doTask('helix')
-    doTask('line')
+    doTask(task)
+
+def papPlots(fmpc, freac):
+    l1 = viewlog.readFile(fmpc)
+    l2 = viewlog.readFile(freac)
+    qb = lambda data: data['q'][:,-7:]
+
+    fig = plt.figure()
+    ax3d = fig.add_subplot(1,1,1,projection='3d')
+    # TODO: convert quat to s; call below
+    traj3plot(ax3d, l1['t'], qb(l1)[:,0], log['y'][:,3:6], "Blues_r", vscale=vscale)
+    aspectEqual3(ax3d, log['y'][:,:3])
+    # if log2 is not None:
+    #     traj3plot(_ax, log2['t'], log2['y'][:,:3], log2['y'][:,3:6], "Reds_r", vscale=vscale)
+
+    # dqb = data['dq'][:,-6:]
+    # viewlog.defaultPlots(l1)
+    fig, ax = plt.subplots(3,2)
+    ax = ax.ravel()
+    for i in range(3):
+        ax[i].plot(l1['t'], qb(l1)[:,i], 'b')
+        ax[i].plot(l2['t'], qb(l2)[:,i], 'r')
+        ax[i].plot(l1['t'], l1['posdes'][:,i], 'k--', alpha=0.3)
+    
+    ax[3].plot(l1['t'], l1['u'][:,2], 'b') # Vmean
+    ax[3].plot(l1['t'], l2['u'][:,2], 'r') # Vmean
+    ax[3].set_ylabel('Vmean')
+    ax[4].plot(l1['t'], l1['u'][:,3], 'b')
+    ax[4].plot(l1['t'], l2['u'][:,3], 'r')
+    ax[4].set_ylabel('uoffs')
+    ax[5].plot(l1['t'], l1['u'][:,4], 'b')
+    ax[5].plot(l1['t'], l2['u'][:,4], 'r')
+    ax[5].set_ylabel('diff')
+    plt.show()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process some integers.')
@@ -75,4 +88,7 @@ if __name__ == "__main__":
     
     # runSim(args.poptsFile, args.direct, args.tend, useMPC=True)
 
-    papPlots(args.poptsFile, tend=1000)
+    # papExps('helix', args.poptsFile, tend=3000)
+    # papPlots('../logs/sdab_20201112190409.zip', '../logs/sdab_20201112190440.zip')
+    # papExps('line', args.poptsFile, tend=1000)
+    papPlots('../logs/sdab_20201112190644.zip', '../logs/sdab_20201112190654.zip')
