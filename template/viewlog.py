@@ -154,6 +154,6 @@ if __name__ == "__main__":
     # data, ca6log = getData("")
     # defaultPlots(data, ca6log=ca6log)
     # plt.show()
-    papPlots('../logs/sdab_20201113122252.zip', '../logs/sdab_20201113122320.zip')
-    # papPlots('../logs/sdab_20201113122333.zip', '../logs/sdab_20201113122341.zip')
+    papPlots('../logs/sdab_20201113124801.zip', '../logs/sdab_20201113124828.zip')
+    # papPlots('../logs/sdab_20201113124841.zip', '../logs/sdab_20201113124849.zip')
     plt.show()
