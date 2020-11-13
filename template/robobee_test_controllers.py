@@ -79,7 +79,7 @@ class WaypointHover(RobobeeController):
         self.printCtr = 0
 
         # upright MPC
-        mpcopts = {'ws':2, 'wds':1e3, 'wpr':1e-2, 'wvr':1e1, 'wpf':2e-2, 'wvf':5e1, 'TtoWmax':3}
+        mpcopts = {'ws':2, 'wds':1e3, 'wpr':5e-3, 'wvr':2e1, 'wpf':1e-2, 'wvf':6e1, 'TtoWmax':3}
         self.up, _ = createMPC(**mpcopts, popts=np.ravel(popts))
 
     def templateVF(self, t, p, dp, s, ds, posdes, dposdes, kpos=[0.5e-3,5e-1], kz=[1e-3,2e-1], ks=[4e-3,0.3e0]):
