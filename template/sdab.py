@@ -41,8 +41,8 @@ def runSim(poptsFile, direct, tend, **kwargs):
 
 def papExps(task, poptsFile, tend=1000):
     def doTask(s):
-        l1 = runSim(poptsFile, True, tend, useMPC=True, task=s)
-        l2 = runSim(poptsFile, True, tend, useMPC=False, task=s)
+        l1 = runSim(poptsFile, True, tend, useMPC=True, useWLQP=False, task=s)
+        l2 = runSim(poptsFile, True, tend, useMPC=False, useWLQP=False, task=s)
         return l1, l2
     ls = doTask(task)
 
@@ -51,12 +51,16 @@ if __name__ == "__main__":
     parser.add_argument('poptsFile', nargs='?', default='popts.npy')
     parser.add_argument('-t', '--tend', type=float, default=np.inf, help='end time [ms]')
     parser.add_argument('-d', '--direct', action='store_true', default=False, help='direct mode (no visualization)')
+    parser.add_argument('-p', '--paper', action='store_true', default=False, help='Paper experiments')
+    parser.add_argument('-e', '--exp', default='helix', help='Task')
     args = parser.parse_args()
     
-    log = runSim(args.poptsFile, args.direct, args.tend, useMPC=True, useWLQP=False)
-    if args.direct:
-        viewlog.defaultPlots(log)
-        plt.show()
+    if args.paper:
+        papExps('helix', args.poptsFile, tend=3500)
+        papExps('line', args.poptsFile, tend=1000)
+    else:
+        log = runSim(args.poptsFile, args.direct, args.tend, useMPC=True, useWLQP=False, task=args.exp)
+        if args.direct:
+            viewlog.defaultPlots(log)
+            plt.show()
 
-    # papExps('helix', args.poptsFile, tend=3000)
-    # papExps('line', args.poptsFile, tend=1000)

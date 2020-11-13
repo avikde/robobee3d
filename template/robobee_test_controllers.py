@@ -79,11 +79,8 @@ class WaypointHover(RobobeeController):
         self.printCtr = 0
 
         # upright MPC
-        #wp: 1.5,3 works for a x-axis traj (body frame), but the robot rolls more so need 1,2 for a y-axis traj
-        # if task=='line':
-        #     self.up, _ = createMPC(ws=50, wds=1e4, wpr=0.2, wvr=1e3, wpf=0.4, wvf=1e3, TtoWmax=5, popts=np.ravel(popts)) # line
-        # else:
-        self.up, _ = createMPC(ws=1, wds=5e2, wpr=1e-2, wvr=1e1, wpf=1e-2, wvf=5e1, TtoWmax=3, popts=np.ravel(popts))
+        mpcopts = {'ws':2, 'wds':1e3, 'wpr':1e-2, 'wvr':1e1, 'wpf':2e-2, 'wvf':5e1, 'TtoWmax':3}
+        self.up, _ = createMPC(**mpcopts, popts=np.ravel(popts))
 
     def templateVF(self, t, p, dp, s, ds, posdes, dposdes, kpos=[0.5e-3,5e-1], kz=[1e-3,2e-1], ks=[4e-3,0.3e0]):
         # TEST
@@ -192,7 +189,7 @@ class WaypointHover(RobobeeController):
     def manualMapping(self, accdes, kx=1e2, ky=1e3, kV1=1e3, kV0=105):
         """Low level mapping to torques. Can be replaced"""
         Vmean = kV0 + (accdes[2] - 9.81e-3) * kV1
-        uoffs = np.clip(ky * accdes[4], -0.3, 0.3)
+        uoffs = np.clip(ky * accdes[4], -0.5, 0.5)
         udiff = np.clip(kx * accdes[3], -0.3, 0.3)
         # print(accdes)
         return Vmean, uoffs, udiff, 0
