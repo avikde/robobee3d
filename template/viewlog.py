@@ -151,9 +151,9 @@ def papPlots(l1, l2, vscale=50):
     fig.tight_layout()
 
 if __name__ == "__main__":
-    # data, ca6log = getData("")
-    # defaultPlots(data, ca6log=ca6log)
-    # plt.show()
-    papPlots('../logs/sdab_20201112190409.zip', '../logs/sdab_20201112190440.zip')
-    papPlots('../logs/sdab_20201112190644.zip', '../logs/sdab_20201112190654.zip')
+    data, ca6log = getData("")
+    defaultPlots(data, ca6log=ca6log)
     plt.show()
+    # papPlots('../logs/sdab_20201112190409.zip', '../logs/sdab_20201112190440.zip')
+    # papPlots('../logs/sdab_20201112190644.zip', '../logs/sdab_20201112190654.zip')
+    # plt.show()

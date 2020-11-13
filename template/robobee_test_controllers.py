@@ -56,7 +56,7 @@ class OpenLoop(RobobeeController):
 
 class WaypointHover(RobobeeController):
     """Simplified version of Pakpong (2013). u = [Vmean, uoffs, udiff, h2]"""
-    def __init__(self, wrenchMapPoptsFile, initialPos, constdqdes=None, useh2=False, useMPC=True, task='helix'):
+    def __init__(self, wrenchMapPoptsFile, initialPos, constdqdes=None, useh2=False, useMPC=True, useWLQP=True, task='helix'):
         super(WaypointHover, self).__init__({'freq': (0, 0.3, 0.16)})
         self.wf = WaveformGenerator()
         self.posdes = np.array([0.,0.,100.])
@@ -65,6 +65,7 @@ class WaypointHover(RobobeeController):
         self.useMPC = useMPC
         self.initialPos = np.asarray(initialPos)
         self.task = task
+        self.useWLQP = useWLQP
 
         # NOTE: This is not actually used: need to put in wlcontroller.cpp or wlcontroller.c
         popts = np.load(wrenchMapPoptsFile)
@@ -130,6 +131,7 @@ class WaypointHover(RobobeeController):
             # Upright MPC
             uquad, ddqdes, uwlqp = self.up.update(p, Rb, dq0, self.posdes, dpdes, sdes)
             # ddqdes[:3] = Rb.T @ ddqdes[:3] # Convert to body frame?
+            # ddqdes[3:] = Rb.T @ ddqdes[3:] # Convert to body frame?
             return ddqdes
         else:
             # Template controller <- LATEST
@@ -157,13 +159,13 @@ class WaypointHover(RobobeeController):
         M0, h0 = dynamicsTerms(qb, dqb)
         self.accdes = self.accReference(t, qb, dqb)
 
-        # WLQP
-        self.u4, w0 = self.wl.update(self.u4, h0, M0 @ self.accdes)
-        self.up.T0 += 1 * (w0[2]/M0[2,2] - self.up.T0)
-        
-        # # Manual mapping
-        # self.u4 = self.manualMapping(*uquad)
-        # self.u4 = uwlqp
+        if self.useWLQP:
+            self.u4, w0 = self.wl.update(self.u4, h0, M0 @ self.accdes)
+            self.up.T0 += 1 * (w0[2]/M0[2,2] - self.up.T0)
+        else:
+            # Manual mapping
+            self.u4 = self.manualMapping(self.accdes)
+            # self.u4 = uwlqp
 
         Vmean, uoffs, udiff, h2 = self.u4
         # # test
@@ -187,10 +189,10 @@ class WaypointHover(RobobeeController):
         # control
         return self.accController(t, qb, dqb)
         
-    def manualMapping(self, spThrust, momx, momy):
+    def manualMapping(self, accdes, kx=1e2, ky=1e3, kV1=1e3, kV0=105):
         """Low level mapping to torques. Can be replaced"""
-        Vmean = 105 + (spThrust - 9.81e-3) * 1e3
-        # momx, momy go up to ~10.
-        uoffs = np.clip(0.005 * momy, -0.3, 0.3)
-        udiff = np.clip(0.02 * momx, -0.3, 0.3)
+        Vmean = kV0 + (accdes[2] - 9.81e-3) * kV1
+        uoffs = np.clip(ky * accdes[4], -0.3, 0.3)
+        udiff = np.clip(kx * accdes[3], -0.3, 0.3)
+        # print(accdes)
         return Vmean, uoffs, udiff, 0
