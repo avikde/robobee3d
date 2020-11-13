@@ -33,12 +33,7 @@ def saveLog(f1, data):
     zfile.close()
     print('Saved log in', fname)
 
-def readFile(fname, dataFmtList=None):
-    f1, ext = os.path.splitext(fname)
-    zfile = gzip.GzipFile(fname, 'rb')
-    data = pickle.load(zfile)
-    # print(data)
-    print('Opened '+fname+'; average data rate = ' + str(1000.0/np.mean(np.diff(data['t'])))+'Hz')
+def addKeys(data):
     # Convert and add more keys for easier processing
     qb = data['q'][:,-7:]
     dqb = data['dq'][:,-6:]
@@ -52,6 +47,14 @@ def readFile(fname, dataFmtList=None):
     data['omega'] = dqb[:,3:]
     return data
 
+def readFile(fname, dataFmtList=None):
+    f1, ext = os.path.splitext(fname)
+    zfile = gzip.GzipFile(fname, 'rb')
+    data = pickle.load(zfile)
+    # print(data)
+    print('Opened '+fname+'; average data rate = ' + str(1000.0/np.mean(np.diff(data['t'])))+'Hz')
+    return addKeys(data)
+
 def getData(fname):
     #get file name
     if not fname:
@@ -64,6 +67,9 @@ def getData(fname):
 def defaultPlots(data, ca6log=False):
     t = data['t']
     # SDAB log also has wings
+
+    if 'p' not in data.keys():
+        data = addKeys(data)
 
     fig, ax = plt.subplots(4,2)
     ax = ax.ravel()

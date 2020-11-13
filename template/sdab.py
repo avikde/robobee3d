@@ -4,6 +4,7 @@ import pybullet as p
 import robobee
 from robobee_test_controllers import OpenLoop, WaypointHover
 import viewlog
+import matplotlib.pyplot as plt
 np.set_printoptions(precision=4, suppress=True, linewidth=200)
 
 # Generate URDF
@@ -52,7 +53,10 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--direct', action='store_true', default=False, help='direct mode (no visualization)')
     args = parser.parse_args()
     
-    # runSim(args.poptsFile, args.direct, args.tend, useMPC=True)
+    log = runSim(args.poptsFile, args.direct, args.tend, useMPC=False)
+    if args.direct:
+        viewlog.defaultPlots(log)
+        plt.show()
 
     # papExps('helix', args.poptsFile, tend=3000)
     # papExps('line', args.poptsFile, tend=1000)
