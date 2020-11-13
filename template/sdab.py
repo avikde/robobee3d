@@ -46,15 +46,19 @@ def papExps(task, poptsFile, tend=1000):
         l2 = runSim(poptsFile, True, tend, useMPC=False, task=s)
     doTask(task)
 
-def papPlots(fmpc, freac):
+def papPlots(fmpc, freac, vscale):
     l1 = viewlog.readFile(fmpc)
     l2 = viewlog.readFile(freac)
 
     fig = plt.figure()
     ax3d = fig.add_subplot(1,1,1,projection='3d')
-    traj3plot(ax3d, l1['t'], l1['p'], l1['s'], "Blues_r", vscale=50)
+    traj3plot(ax3d, l1['t'], l1['p'], l1['s'], "Blues_r", vscale=vscale)
     aspectEqual3(ax3d, l1['p'])
-    traj3plot(ax3d, l2['t'], l2['p'], l2['s'], "Reds_r", vscale=50)
+    traj3plot(ax3d, l2['t'], l2['p'], l2['s'], "Reds_r", vscale=vscale)
+    ax3d.plot(l1['posdes'][:,0], l1['posdes'][:,1], l1['posdes'][:,2], 'k--', alpha=0.5, zorder=9)
+    ax3d.set_xlabel('x [mm]')
+    ax3d.set_ylabel('y [mm]')
+    ax3d.set_zlabel('z [mm]')
     # if log2 is not None:
     #     traj3plot(_ax, log2['t'], log2['y'][:,:3], log2['y'][:,3:6], "Reds_r", vscale=vscale)
 
@@ -88,6 +92,6 @@ if __name__ == "__main__":
     # runSim(args.poptsFile, args.direct, args.tend, useMPC=True)
 
     # papExps('helix', args.poptsFile, tend=3000)
-    # papPlots('../logs/sdab_20201112190409.zip', '../logs/sdab_20201112190440.zip')
+    papPlots('../logs/sdab_20201112190409.zip', '../logs/sdab_20201112190440.zip', 40)
     # papExps('line', args.poptsFile, tend=1000)
-    papPlots('../logs/sdab_20201112190644.zip', '../logs/sdab_20201112190654.zip')
+    papPlots('../logs/sdab_20201112190644.zip', '../logs/sdab_20201112190654.zip', 50)
