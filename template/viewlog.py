@@ -122,7 +122,7 @@ def defaultPlots(data, ca6log=False):
     ax[-1].set_xlabel('Time [ms]')
     fig.tight_layout()
 
-def papPlots(l1, l2, vscale=50, traj3d=False):
+def papPlots(l1, l2, vscale=50, traj3d=False, plotset='helix'):
     if isinstance(l1, str):
         l1 = readFile(l1)
         l2 = readFile(l2)
@@ -147,10 +147,16 @@ def papPlots(l1, l2, vscale=50, traj3d=False):
     # pick 4 plots to show
     fig, ax = plt.subplots(2,2,figsize=(5,4))
     ax = ax.ravel()
-    plott(ax[0], 'p', 0, 'x [mm]', 'posdes', 0)
-    plott(ax[1], 'dp', 0, 'dx [mm]')
-    plott(ax[2], 'omega', 1, 'omgy')
-    plott(ax[3], 'eul', 1, 'euly')
+    if plotset=='line':
+        plott(ax[0], 'p', 0, 'x [mm]', 'posdes', 0)
+        plott(ax[1], 'dp', 0, 'dx [mm]')
+        plott(ax[2], 'omega', 1, 'omgy')
+        plott(ax[3], 'eul', 1, 'euly')
+    else:
+        plott(ax[0], 'p', 0, 'x [mm]', 'posdes', 0)
+        plott(ax[1], 'p', 2, 'z [mm]', 'posdes', 2)
+        plott(ax[2], 'omega', 1, 'omegay [rad/ms]')
+        plott(ax[3], 'eul', 2, 'eulz [rad]')
     fig.tight_layout()
 
 if __name__ == "__main__":
@@ -159,6 +165,6 @@ if __name__ == "__main__":
     # plt.show()
 
     # For this one
-    # papPlots('../logs/sdab_20201113124801.zip', '../logs/sdab_20201113124828.zip')
-    papPlots('../logs/sdab_20201115093555.zip', '../logs/sdab_20201115093651.zip', traj3d=True, vscale=100)
+    papPlots('../logs/sdab_20201113124801.zip', '../logs/sdab_20201113124828.zip')
+    # papPlots('../logs/sdab_20201115093555.zip', '../logs/sdab_20201115093651.zip', traj3d=True, vscale=100, plotset='line')
     plt.show()
