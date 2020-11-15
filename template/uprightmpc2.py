@@ -233,14 +233,18 @@ def papPlots(bmpc):
             fig.tight_layout()
             plt.show()
 
-    def sTask(reactiveArgs):
+    def sTask(reactiveArgs1, reactiveArgs2=None):
         l1 = controlTest(bmpc, 2000, useMPC=True, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000)
-        l2 = controlTest(bmpc, 2000, useMPC=False, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000, **reactiveArgs)
+        l2 = controlTest(bmpc, 2000, useMPC=False, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000, **reactiveArgs1)
+        if reactiveArgs2 is not None:
+            l3 = controlTest(bmpc, 2000, useMPC=False, showPlots=False, trajAmp=50, trajFreq=1, tpert=1000, **reactiveArgs2)
         viewControlTestLog(l1, log2=l2, desTraj=True, vscale=20)
         fig, ax = plt.subplots(1,2, figsize=(5,2.5))
         for i in range(2):
             ax[i].plot(1e-3*l1['t'], 1e-3*l1['y'][:,i], 'b')
             ax[i].plot(1e-3*l2['t'], 1e-3*l2['y'][:,i], 'r')
+            if reactiveArgs2 is not None:
+                ax[i].plot(1e-3*l3['t'], l3['y'][:,i], 'r--')
             ax[i].plot(1e-3*l2['t'], 1e-3*l2['pdes'][:,i], 'k--', alpha=0.3)
             ax[i].set_xlabel('t [s]')
         ax[0].set_ylabel('x [m]')
@@ -360,7 +364,7 @@ def papPlots(bmpc):
     # gainTuningSims(True, 'wpos', [0.5,10], [0.5e3, 10e3], None, None)
     
     # hoverTask(False, {'ks':[15,100], 'kpos':[0.01,1]}, {'ks':[15,100], 'kpos':[0.04,1.25]})
-    # sTask(False, ks=[15,100], kpos=[0.01,1])
+    # sTask({'ks':[15,100], 'kpos':[0.01,1]})
 
     # gainTuningPlots()
     # trackingEffortPlot(['mpc_wpos.npz','kpos.npz'])
@@ -371,7 +375,7 @@ def papPlots(bmpc):
     # accTask({'ks':[15,100], 'kpos':[0.01,1]})
     # sim1perch --------------
     # flipTask()
-    perchTask()
+    # perchTask()
 
 if __name__ == "__main__":
     up, upc = createMPC()
