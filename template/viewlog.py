@@ -155,13 +155,13 @@ def papPlots(l1, l2, vscale=50, traj3d=False, plotset='helix', purple=False):
     elif plotset=='helix_wlqp':
         plott(ax[0], 'p', 0, 'x [mm]', 'posdes', 0)
         plott(ax[1], 'p', 2, 'z [mm]', 'posdes', 2)
-        plott(ax[2], 'omega', 1, 'omegay [rad/ms]')
-        plott(ax[3], 'eul', 2, 'eulz [rad]')
+        plott(ax[2], 'u', 2, 'Vmean [V]')
+        plott(ax[3], 'u', 3, 'Voffs [ ]')
     elif plotset=='hover_wlqp':
         plott(ax[0], 'p', 0, 'x [mm]', 'posdes', 0)
-        plott(ax[1], 'p', 2, 'z [mm]', 'posdes', 2)
-        plott(ax[2], 'omega', 1, 'omegay [rad/ms]')
-        plott(ax[3], 'eul', 2, 'eulz [rad]')
+        plott(ax[1], 'p', 1, 'y [mm]', 'posdes', 1)
+        plott(ax[2], 'omega', 0, 'omegax [rad/ms]')
+        plott(ax[3], 'omega', 1, 'omegay [rad/ms]')
     else:
         plott(ax[0], 'p', 0, 'x [mm]', 'posdes', 0)
         plott(ax[1], 'p', 2, 'z [mm]', 'posdes', 2)
@@ -179,6 +179,6 @@ if __name__ == "__main__":
     # papPlots('../logs/sdab_20201115093555.zip', '../logs/sdab_20201115093651.zip', traj3d=True, vscale=100, plotset='line')
 
     # WLQP vs. not (same non-WLQP as above). second is WLQP 1,1.5
-    papPlots('../logs/sdab_20201113124801.zip', '../logs/sdab_20201115120846.zip', purple=True, plotset='helix_wlqp')
-    # papPlots('../logs/sdab_20201115141407.zip', '../logs/sdab_20201115141137.zip', purple=True, vscale=20, plotset='hover_wlqp') # force bias 3,0. No WLQP stopped at t=1800 (fails)
+    # papPlots('../logs/sdab_20201113124801.zip', '../logs/sdab_20201115120846.zip', purple=True, plotset='helix_wlqp')
+    papPlots('../logs/sdab_20201115141407.zip', '../logs/sdab_20201115141137.zip', purple=True, vscale=20, plotset='hover_wlqp') # force bias 3,0. No WLQP stopped at t=1800 (fails)
     plt.show()
