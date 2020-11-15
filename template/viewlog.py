@@ -122,7 +122,7 @@ def defaultPlots(data, ca6log=False):
     ax[-1].set_xlabel('Time [ms]')
     fig.tight_layout()
 
-def papPlots(l1, l2, vscale=50, traj3d=False, plotset='helix'):
+def papPlots(l1, l2, vscale=50, traj3d=False, plotset='helix', purple=False):
     if isinstance(l1, str):
         l1 = readFile(l1)
         l2 = readFile(l2)
@@ -132,14 +132,14 @@ def papPlots(l1, l2, vscale=50, traj3d=False, plotset='helix'):
         ax3d = fig.add_subplot(1,1,1,projection='3d')
         traj3plot(ax3d, l1['t'], l1['p'], l1['s'], "Blues_r", vscale=vscale)
         aspectEqual3(ax3d, l1['p'])
-        traj3plot(ax3d, l2['t'], l2['p'], l2['s'], "Reds_r", vscale=vscale)
+        traj3plot(ax3d, l2['t'], l2['p'], l2['s'], "Purples_r" if purple else "Reds_r", vscale=vscale)
         ax3d.plot(l1['posdes'][:,0], l1['posdes'][:,1], l1['posdes'][:,2], 'k--', alpha=0.5, zorder=9)
         ax3d.set_xlabel('x [mm]')
         ax3d.set_ylabel('y [mm]')
         ax3d.set_zlabel('z [mm]')
     def plott(ax, key, comp, lbl, dkey=None, dcomp=None):
         ax.plot(l1['t'], l1[key][:,comp], 'b')
-        ax.plot(l1['t'], l2[key][:,comp], 'r')
+        ax.plot(l2['t'], l2[key][:,comp], 'purple' if purple else 'r')
         if dkey is not None:
             ax.plot(l1['t'], l1[dkey][:,dcomp], 'k--', alpha=0.3)
         ax.set_ylabel(lbl)
@@ -152,6 +152,16 @@ def papPlots(l1, l2, vscale=50, traj3d=False, plotset='helix'):
         plott(ax[1], 'dp', 0, 'dx [mm]')
         plott(ax[2], 'omega', 1, 'omgy')
         plott(ax[3], 'eul', 1, 'euly')
+    elif plotset=='helix_wlqp':
+        plott(ax[0], 'p', 0, 'x [mm]', 'posdes', 0)
+        plott(ax[1], 'p', 2, 'z [mm]', 'posdes', 2)
+        plott(ax[2], 'omega', 1, 'omegay [rad/ms]')
+        plott(ax[3], 'eul', 2, 'eulz [rad]')
+    elif plotset=='hover_wlqp':
+        plott(ax[0], 'p', 0, 'x [mm]', 'posdes', 0)
+        plott(ax[1], 'p', 2, 'z [mm]', 'posdes', 2)
+        plott(ax[2], 'omega', 1, 'omegay [rad/ms]')
+        plott(ax[3], 'eul', 2, 'eulz [rad]')
     else:
         plott(ax[0], 'p', 0, 'x [mm]', 'posdes', 0)
         plott(ax[1], 'p', 2, 'z [mm]', 'posdes', 2)
@@ -169,6 +179,6 @@ if __name__ == "__main__":
     # papPlots('../logs/sdab_20201115093555.zip', '../logs/sdab_20201115093651.zip', traj3d=True, vscale=100, plotset='line')
 
     # WLQP vs. not (same non-WLQP as above). second is WLQP 1,1.5
-    # papPlots('../logs/sdab_20201113124801.zip', '../logs/sdab_20201115120846.zip')
-    papPlots('../logs/sdab_20201115141407.zip', '../logs/sdab_20201115141137.zip') # force bias 3,0. No WLQP stopped at t=1800 (fails)
+    papPlots('../logs/sdab_20201113124801.zip', '../logs/sdab_20201115120846.zip', purple=True, plotset='helix_wlqp')
+    # papPlots('../logs/sdab_20201115141407.zip', '../logs/sdab_20201115141137.zip', purple=True, vscale=20, plotset='hover_wlqp') # force bias 3,0. No WLQP stopped at t=1800 (fails)
     plt.show()

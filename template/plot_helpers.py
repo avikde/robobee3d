@@ -21,7 +21,12 @@ def traj3plot(_ax, t, p, v, cmap, narrow=20, vscale=0.4):
     # Upright arrows
     ii = np.linspace(0, len(t), narrow, dtype=int, endpoint=False)
     v *= vscale
-    _ax.quiver(p[ii,0], p[ii,1], p[ii,2], v[ii,0], v[ii,1], v[ii,2], color='b' if "Blue" in cmap else 'r')
+    arrowcol = 'b'
+    if "Red" in cmap:
+        arrowcol = 'r'
+    elif "Purple" in cmap:
+        arrowcol = 'purple'
+    _ax.quiver(p[ii,0], p[ii,1], p[ii,2], v[ii,0], v[ii,1], v[ii,2], color=arrowcol)
 
 def aspectEqual3(_ax, xyz):
     X, Y, Z = xyz[:,0], xyz[:,1], xyz[:,2]
