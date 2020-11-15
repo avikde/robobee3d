@@ -122,38 +122,42 @@ def defaultPlots(data, ca6log=False):
     ax[-1].set_xlabel('Time [ms]')
     fig.tight_layout()
 
-def papPlots(l1, l2, vscale=50):
+def papPlots(l1, l2, vscale=50, traj3d=False):
     if isinstance(l1, str):
         l1 = readFile(l1)
         l2 = readFile(l2)
 
-    fig = plt.figure()
-    ax3d = fig.add_subplot(1,1,1,projection='3d')
-    traj3plot(ax3d, l1['t'], l1['p'], l1['s'], "Blues_r", vscale=vscale)
-    aspectEqual3(ax3d, l1['p'])
-    traj3plot(ax3d, l2['t'], l2['p'], l2['s'], "Reds_r", vscale=vscale)
-    ax3d.plot(l1['posdes'][:,0], l1['posdes'][:,1], l1['posdes'][:,2], 'k--', alpha=0.5, zorder=9)
-    ax3d.set_xlabel('x [mm]')
-    ax3d.set_ylabel('y [mm]')
-    ax3d.set_zlabel('z [mm]')
+    if traj3d:
+        fig = plt.figure()
+        ax3d = fig.add_subplot(1,1,1,projection='3d')
+        traj3plot(ax3d, l1['t'], l1['p'], l1['s'], "Blues_r", vscale=vscale)
+        aspectEqual3(ax3d, l1['p'])
+        traj3plot(ax3d, l2['t'], l2['p'], l2['s'], "Reds_r", vscale=vscale)
+        ax3d.plot(l1['posdes'][:,0], l1['posdes'][:,1], l1['posdes'][:,2], 'k--', alpha=0.5, zorder=9)
+        ax3d.set_xlabel('x [mm]')
+        ax3d.set_ylabel('y [mm]')
+        ax3d.set_zlabel('z [mm]')
+    def plott(ax, key, comp, lbl, dkey=None, dcomp=None):
+        ax.plot(l1['t'], l1[key][:,comp], 'b')
+        ax.plot(l1['t'], l2[key][:,comp], 'r')
+        if dkey is not None:
+            ax.plot(l1['t'], l1[dkey][:,dcomp], 'k--', alpha=0.3)
+        ax.set_ylabel(lbl)
     
-    fig, ax = plt.subplots(1,3,figsize=(7.5,2.5))
-    ax=ax.ravel()
-    ax[0].plot(l1['t'], l1['u'][:,2], 'b') # Vmean
-    ax[0].plot(l1['t'], l2['u'][:,2], 'r') # Vmean
-    ax[0].set_ylabel('Vmean')
-    ax[1].plot(l1['t'], l1['u'][:,3], 'b')
-    ax[1].plot(l1['t'], l2['u'][:,3], 'r')
-    ax[1].set_ylabel('uoffs')
-    ax[2].plot(l1['t'], l1['u'][:,4], 'b')
-    ax[2].plot(l1['t'], l2['u'][:,4], 'r')
-    ax[2].set_ylabel('diff')
+    # pick 4 plots to show
+    fig, ax = plt.subplots(2,2,figsize=(5,4))
+    ax = ax.ravel()
+    plott(ax[0], 'p', 0, 'x [mm]', 'posdes', 0)
+    plott(ax[1], 'dp', 0, 'dx [mm]')
+    plott(ax[2], 'u', 0, 'V')
     fig.tight_layout()
 
 if __name__ == "__main__":
     # data, ca6log = getData("")
     # defaultPlots(data, ca6log=ca6log)
     # plt.show()
-    papPlots('../logs/sdab_20201113124801.zip', '../logs/sdab_20201113124828.zip')
-    # papPlots('../logs/sdab_20201113124841.zip', '../logs/sdab_20201113124849.zip')
+
+    # For this one
+    # papPlots('../logs/sdab_20201113124801.zip', '../logs/sdab_20201113124828.zip')
+    papPlots('../logs/sdab_20201113124841.zip', '../logs/sdab_20201113124849.zip')
     plt.show()
