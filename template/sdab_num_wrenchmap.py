@@ -253,7 +253,7 @@ if __name__ == "__main__":
     params = robobee.wparams.copy()
     params.update({'ycp': 7.5, 'AR': 4.5, 'R': 3})
     # NOTE: check this bias
-    ws = wrenchFromKinematics(kins, fs, params, kaerox=1, strokex=1.5)#, wbias=[0,0,0,0,-3,0])
+    ws = wrenchFromKinematics(kins, fs, params, kaerox=1.2, strokex=1.5)#, wbias=[0,0,0,0,-3,0])
     
     # wrenchCompare(ws0, ws) # compare ws0 to ws
     # sys.exit()
