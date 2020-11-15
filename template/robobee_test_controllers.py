@@ -79,7 +79,7 @@ class WaypointHover(RobobeeController):
         self.printCtr = 0
 
         # upright MPC
-        mpcopts = {'ws':2, 'wds':1e3, 'wpr':5e-3, 'wvr':2e1, 'wpf':1e-2, 'wvf':5e1, 'TtoWmax':3}
+        mpcopts = {'ws':1.5, 'wds':1e3, 'wpr':2e-2, 'wvr':2e1, 'wpf':4e-2, 'wvf':2e1, 'TtoWmax':3}#line
         self.up, _ = createMPC(**mpcopts, popts=np.ravel(popts))
 
     def templateVF(self, t, p, dp, s, ds, posdes, dposdes, kpos=[0.5e-3,5e-1], kz=[1e-3,2e-1], ks=[4e-3,0.3e0]):
@@ -120,7 +120,7 @@ class WaypointHover(RobobeeController):
         if self.task == 'helix':
             self.posdes, dpdes, sdes = flight_tasks.helix(t, self.initialPos)
         elif self.task == 'line':
-            self.posdes, dpdes, sdes = flight_tasks.straightAcc(t, self.initialPos, vdes=1, tduration=500)
+            self.posdes, dpdes, sdes = flight_tasks.straightAcc(t, self.initialPos, vdes=2, tduration=750)
         elif self.task == 'flip':
             self.posdes, dpdes, sdes = flight_tasks.flip(t, self.initialPos)
 

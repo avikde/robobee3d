@@ -59,7 +59,7 @@ if __name__ == "__main__":
         papExps('helix', args.poptsFile, tend=3500)
         papExps('line', args.poptsFile, tend=1000)
     else:
-        log = runSim(args.poptsFile, args.direct, args.tend, useMPC=True, useWLQP=False, task=args.exp)
+        log = runSim(args.poptsFile, args.direct, args.tend, useMPC=False, useWLQP=False, task=args.exp)
         if args.direct:
             viewlog.defaultPlots(log)
             plt.show()

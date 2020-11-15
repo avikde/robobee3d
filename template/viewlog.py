@@ -149,7 +149,8 @@ def papPlots(l1, l2, vscale=50, traj3d=False):
     ax = ax.ravel()
     plott(ax[0], 'p', 0, 'x [mm]', 'posdes', 0)
     plott(ax[1], 'dp', 0, 'dx [mm]')
-    plott(ax[2], 'u', 0, 'V')
+    plott(ax[2], 'omega', 1, 'omgy')
+    plott(ax[3], 'eul', 1, 'euly')
     fig.tight_layout()
 
 if __name__ == "__main__":
@@ -159,5 +160,5 @@ if __name__ == "__main__":
 
     # For this one
     # papPlots('../logs/sdab_20201113124801.zip', '../logs/sdab_20201113124828.zip')
-    papPlots('../logs/sdab_20201113124841.zip', '../logs/sdab_20201113124849.zip')
+    papPlots('../logs/sdab_20201115093555.zip', '../logs/sdab_20201115093651.zip', traj3d=True, vscale=100)
     plt.show()
