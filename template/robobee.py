@@ -205,7 +205,7 @@ class RobobeeSim():
     def visAero(self, aeroW, col, lifeTime):
         p.addUserDebugLine(aeroW[1], aeroW[1] + self.FAERO_DRAW_SCALE * np.array(aeroW[0]), lineColorRGB=col, lifeTime=lifeTime, lineWidth=2)
 
-    def update(self, u, testF=None, forceControl=True):
+    def update(self, u, testF=None, forceControl=True, forceBias=np.zeros(2)):#[3,0]):
         if testF is not None:
             p.setJointMotorControlArray(self.bid, [0,2], p.POSITION_CONTROL, targetPositions=[0,0], positionGains=[0.01,0.01], velocityGains=[0.1,0.1], forces=np.full(2, 1000000))
         else:
@@ -214,7 +214,7 @@ class RobobeeSim():
                 for i in range(2):
                     # force in mN from voltage; add on stroke stiffness
                     u[i] = actuatorModel(u[i], self.q[2*i], self.dq[2*i]) - self.urdfParams['kstroke'] * self.q[2*i]
-                p.setJointMotorControlArray(self.bid, [0,2], p.TORQUE_CONTROL, forces=u)
+                p.setJointMotorControlArray(self.bid, [0,2], p.TORQUE_CONTROL, forces=u+np.asarray(forceBias))
             else:
                 p.setJointMotorControlArray(self.bid, [0,2], p.POSITION_CONTROL, targetPositions=u, positionGains=[1,1], velocityGains=[1,1], forces=np.full(2, 1000000))
 

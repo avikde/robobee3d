@@ -165,9 +165,10 @@ if __name__ == "__main__":
     # plt.show()
 
     # For this one
-    papPlots('../logs/sdab_20201113124801.zip', '../logs/sdab_20201113124828.zip')
+    # papPlots('../logs/sdab_20201113124801.zip', '../logs/sdab_20201113124828.zip')
     # papPlots('../logs/sdab_20201115093555.zip', '../logs/sdab_20201115093651.zip', traj3d=True, vscale=100, plotset='line')
 
     # WLQP vs. not (same non-WLQP as above). second is WLQP 1,1.5
-    papPlots('../logs/sdab_20201113124801.zip', '../logs/sdab_20201115120846.zip')
+    # papPlots('../logs/sdab_20201113124801.zip', '../logs/sdab_20201115120846.zip')
+    papPlots('../logs/sdab_20201115141407.zip', '../logs/sdab_20201115141137.zip') # force bias 3,0. No WLQP stopped at t=1800 (fails)
     plt.show()
