@@ -15,7 +15,7 @@ def runSim(poptsFile, direct, tend, **kwargs):
     bee = robobee.RobobeeSim(p.DIRECT if direct else p.GUI, slowDown=0, camLock=True, timestep=0.1, gui=0, filtfreq=0.16)
     # load robot
     startPos = [0,0,100]
-    startOrientation = p.getQuaternionFromEuler(np.zeros(3))#[0.5,-0.5,0])#
+    startOrientation = p.getQuaternionFromEuler([0.5,-0.5,0] if kwargs.get('task')=='hover' else np.zeros(3))#)#
     bid = bee.load("../urdf/sdab.urdf", startPos, startOrientation, useFixedBase=False)
     data = viewlog.initLog()
     # controller = OpenLoop()

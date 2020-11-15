@@ -120,7 +120,9 @@ class WaypointHover(RobobeeController):
         s = Rb @ np.array([0,0,1])
         ds = -Rb @ e3h @ omega
 
-        if self.task == 'helix':
+        if self.task == 'hover':
+            self.posdes, dpdes, sdes = flight_tasks.helix(t, self.initialPos, trajAmp=0, dz=0)
+        elif self.task == 'helix':
             self.posdes, dpdes, sdes = flight_tasks.helix(t, self.initialPos)
         elif self.task == 'line':
             self.posdes, dpdes, sdes = flight_tasks.straightAcc(t, self.initialPos, vdes=2, tduration=750)
