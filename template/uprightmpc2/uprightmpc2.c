@@ -51,13 +51,6 @@ void umpcInit(UprightMPC_t *up, float dt, float g, float TtoWmax, float ws, floa
 	}
 	up->R[0] = wthrust;
 	up->R[1] = up->R[2] = wmom;
-	// Limits
-	for (i = 0; i < WLQP_NU; ++i) {
-		up->u0[i] = 0;
-		up->umin[i] = umin[i];
-		up->umax[i] = umax[i];
-		up->dumax[i] = dumax[i] / controlRate;
-	}
 
 	// Other updates
 	for (i = 0; i < UMPC_NY; ++i) {
@@ -87,7 +80,7 @@ void umpcInit(UprightMPC_t *up, float dt, float g, float TtoWmax, float ws, floa
 	}
 
 	// Ax idx ---
-	// Left 1/4, T0*dt
+	// Left third, T0*dt
 	offs = 0;
 	n2 = 2*UMPC_NY + 3; // nnz in each block col on the left
 	for (k = 0; k < UMPC_N-2; ++k) {
@@ -98,7 +91,7 @@ void umpcInit(UprightMPC_t *up, float dt, float g, float TtoWmax, float ws, floa
 	}
 	up->nAxT0dt = offs;
 
-	// Middle 2/4, dt
+	// Middle third, dt
 	n1 = (2*UMPC_N-1)*UMPC_NY + (UMPC_N-2)*3; // All the nnz in the left third
 	n2 = 3*UMPC_NY; // nnz in each of the first N-1 block cols in the middle third
 	for (k = 0; k < UMPC_N; ++k) {
@@ -120,7 +113,7 @@ void umpcInit(UprightMPC_t *up, float dt, float g, float TtoWmax, float ws, floa
 	}
 	up->nAxdt = offs;
 
-	// Right 3/4
+	// Right third
 	n1 += 3*UMPC_NY*(UMPC_N-1) + 2*UMPC_NY; // All the nnz in the left, middle third
 	n2 = 10; // nnz in each B0 + 1 for thrust lim
 	// s0
@@ -139,22 +132,6 @@ void umpcInit(UprightMPC_t *up, float dt, float g, float TtoWmax, float ws, floa
 	// OSQP ---
 	osqp_update_max_iter(&workspace, maxIter);
 	osqp_update_check_termination(&workspace, 0);
-
-	// WLQP ---
-	for (i = 0; i < 6; ++i) {
-		funApproxInit(&up->fa[i], &popts[15 * i]);
-	}
-	memset(up->M0, 0, 36 * sizeof(float));
-	memset(up->Qw, 0, 36 * sizeof(float));
-	memset(up->Tform0, 0, 36 * sizeof(float));
-	for (i = 0; i < 6; ++i) {
-		up->M0[Cind(6, i, i)] = i < 3 ? mb : Ib[i - 3];
-		up->Qw[Cind(6, i, i)] = Qw[i];
-		up->Tform0[Cind(6, i, i)] = 1; // Identity
-	}
-	// Gravity vector world frame
-	up->h0W[0] = up->h0W[1] = 0;
-	up->h0W[2] = up->M0[0] * up->g;
 }
 
 // Return the ith element of (A0*y), where A0 = (dt*N)
@@ -199,18 +176,6 @@ static void umpcUpdateConstraint(UprightMPC_t *up, const float s0[/*  */], const
 		up->l[2*UMPC_N*UMPC_NY + k] = -up->T0;
 		up->u[2*UMPC_N*UMPC_NY + k] = up->Tmax - up->T0;
 	}
-	// Delta-u input (rate) limits
-	float *delUL = &up->l[2*UMPC_N*UMPC_NY + UMPC_N];
-	float *delUU = &up->u[2*UMPC_N*UMPC_NY + UMPC_N];
-	for (i = 0; i < WLQP_NU; ++i) {
-		delUL[i] = -up->dumax[i];
-		delUU[i] = up->dumax[i];
-		// Cannot decrease if at limit and vice versa
-		if (up->u0[i] < up->umin[i])
-			delUL[i] = 0;
-		else if (up->u0[i] > up->umax[i])
-			delUU[i] = 0;
-	}
 
 	// Update matrix ---
 	for (i = 0; i < up->nAxdt; ++i) {
@@ -231,85 +196,30 @@ static void umpcUpdateConstraint(UprightMPC_t *up, const float s0[/*  */], const
 	}
 }
 
-static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const float dydes[/* 6 */], const float dwdu0[/* 6*4 */], const float w0t[/* 6 */], const float M0t[/* 6*6 */]) {
-	int offsq, offsP, k, i, ii, jj;
-	static float dummy66[6*6], dummy44[4*4], Qwdwdu[6*4], dy1delu[6*4], deludelu[4*4], M0TQwM0[6*6], Qww0t[6], mM0tQww0t[6], dwduQww0t[4];
-
-	// // Last block col
-	// matMult(Qwdwdu, up->Qw, dwdu0, 6, 4, 6, 1.0f, 0, 0); // Qw*dwdu
-	// matMult(dy1delu, M0t, Qwdwdu, 6, 4, 6, -1.0f, 1, 0); // -M0^T*Qw*dwdu
-	// matMult(deludelu, dwdu0, Qwdwdu, 4, 4, 6, 1.0f, 1, 0); // dwdu^T*Qw*dwdu
-	// matMult(dummy66, up->Qw, M0t, 6, 6, 6, 1.0f, 0, 0); // Qw*M0
-	// matMult(M0TQwM0, M0t, dummy66, 6, 6, 6, 1.0f, 1, 0); // M0^T*Qw*M0
-	// matMult(Qww0t, up->Qw, w0t, 6, 1, 6, 1.0f, 0, 0); // - M0t.T @ Qw @ w0t
-	// matMult(mM0tQww0t, M0t, Qww0t, 6, 1, 6, -1.0f, 1, 0); // - M0t.T @ Qw @ w0t
-	// matMult(dwduQww0t, dwdu0, Qww0t, 4, 1, 6, 1.0f, 1, 0); // dwdu.T @ Qw @ w0t
-
+static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const float dydes[/* 6 */]) {
+	int offs, k, i;
 	// q, P diag ---
-	offsq = offsP = 0;
-
-	// First N*ny
+	offs = 0;
 	for (k = 0; k < UMPC_N; ++k) {
 		for (i = 0; i < UMPC_NY; ++i) {
-			up->Px_data[offsP + i] = k == UMPC_N-1 ? up->Qyf[i] : up->Qyr[i];
-			up->q[offsq + i] = -up->Px_data[offsP + i] * ydes[i];
+			up->Px_data[offs + i] = k == UMPC_N-1 ? up->Qyf[i] : up->Qyr[i];
+			up->q[offs + i] = -up->Px_data[offs + i] * ydes[i];
 		}
-		offsP += UMPC_NY;
-		offsq += UMPC_NY;
+		offs += UMPC_NY;
 	}
-	
-	// Second N*ny
 	for (k = 0; k < UMPC_N; ++k) {
-		if (k == 0) {
-			// dy1,dy1 block upper triang
-			// create diag matrix
-			for (ii = 0; ii < 6; ++ii) {
-				for (jj = 0; jj < 6; ++jj) {
-					dummy66[Cind(6, ii, jj)] = ((ii == jj) ? up->Qdyr[ii] : 0);// + M0TQwM0[Cind(6, ii, jj)]; // add M0T0dt.T @ np.diag(Qw) @ M0T0dt
-				}
-			}
-			offsP += getUpperTriang(&up->Px_data[offsP], dummy66, UMPC_NY);
-		} else {
-			for (i = 0; i < UMPC_NY; ++i) {
-				up->Px_data[offsP + i] = k == UMPC_N-1 ? up->Qdyf[i] : up->Qdyr[i];
-			}
-			offsP += UMPC_NY;
-		}
 		for (i = 0; i < UMPC_NY; ++i) {
-			if (k == 0) {
-				up->q[offsq + i] = -up->Qdyr[i] * dydes[i];// + mM0tQww0t[i];
-			} else {
-				up->q[offsq + i] = -(k == UMPC_N-1 ? up->Qdyf[i] : up->Qdyr[i]) * dydes[i];
-			}
+			up->Px_data[offs + i] = k == UMPC_N-1 ? up->Qdyf[i] : up->Qdyr[i];
+			up->q[offs + i] = -up->Px_data[offs + i] * dydes[i];
 		}
-		offsq += UMPC_NY;
+		offs += UMPC_NY;
 	}
-
-	// Third N*nu
 	for (k = 0; k < UMPC_N; ++k) {
 		for (i = 0; i < UMPC_NU; ++i) {
-			up->Px_data[offsP + i] = up->R[i];
-			// N*nu of q remain 0
+			up->Px_data[offs + i] = up->R[i];
+			// Last rows of q remain 0
 		}
-		offsP += UMPC_NU;
-		offsq += UMPC_NU;
-	}
-
-	// Last wlqp part for q
-	for (i = 0; i < 4; ++i) {
-		up->q[offsq + i] = 0;//dwduQww0t[i];
-	}
-
-	// populate lastcol
-	for (jj = 0; jj < 4; ++jj) {
-		for (ii = 0; ii < 6; ++ii) {
-			up->Px_data[offsP + ii] = 0;//dy1delu[Cind(6, ii, jj)];
-		}
-		offsP += 6;
-		for (ii = 0; ii < jj+1; ++ii) {
-			up->Px_data[offsP + ii] = 0;//deludelu[Cind(6, ii, jj)];
-		}
-		offsP += (jj+1);
+		offs += UMPC_NU;
 	}
 }
 
