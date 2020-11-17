@@ -33,7 +33,40 @@ static void PRINTMAT(const float *M, int sz1, int sz2) {
 	}
 }
 
-void umpcInit(UprightMPC_t *up, float dt, float g, float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, const float Ib[/* 3 */], int maxIter) {
+// writes n*(n+1)/2 values in out
+static int getUpperTriang(float *out, const float *Mcolmaj, int n) {
+	int i, j, k;
+	k = 0;
+	for (j = 0; j < n; ++j) {
+		for (i = 0; i <= j; ++i) {
+			out[k] = Mcolmaj[Cind(n, i, j)];
+			k++;
+		}
+	}
+	return k;
+}
+
+// Wrench map
+static void wrenchMap(const UprightMPC_t *up, float *w, const float *u) {
+	int i;
+	for (i = 0; i < WLQP_NW; ++i) {
+		w[i] = funApproxF(&up->fa[i], u);
+	}
+}
+
+static void wrenchJacMap(const UprightMPC_t *up, float *dw_du, const float *u) {
+	int i, j;
+	static float dwi_du[WLQP_NU];
+	for (i = 0; i < WLQP_NW; ++i) {
+		funApproxDf(dwi_du, &up->fa[i], u);
+		for (j = 0; j < WLQP_NU; ++j) {
+			// Copy into the col-major matrix
+			dw_du[Cind(WLQP_NW, i, j)] = dwi_du[j]; // i >= 2 && i - 2 == j ? 1 : 0;  //
+		}
+	}
+}
+
+void umpcInit(UprightMPC_t *up, float dt, float g, float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, float mb, const float Ib[/* 3 */], const float umin[/* 4 */], const float umax[/* 4 */], const float dumax[/* 4 */], const float Qw[/* 6 */], float controlRate, int maxIter, const float popts[/* 90 */]) {
 	static float Ibi[9];
 	int i, k, n1, n2, offs;
 
@@ -313,7 +346,7 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 	}
 }
 
-int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]) {
+int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], float uwlqp[/* 4 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]) {
 	static float s0[3], ds0[3], y0[UMPC_NY], dy0[UMPC_NY], ydes[UMPC_NY], dydes[UMPC_NY], dummy[9], Btau[9];
 	static float dy1des[UMPC_NY], dq1des[UMPC_NY], dwdu0[6*6], w0t[6], M0t[6*6], T0[6*6], e3hR0T[3*3];
 	int i, j, ret;
@@ -401,10 +434,10 @@ int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], co
 UprightMPC_t _up;
 int _inited = 0;
 
-void umpcS(float uquad_y1[/* 3 */], float accdes_y2[/* 6 */], const float p0_u1[/* 3 */], const float R0_u2[/* 9 */], const float dq0_u3[/* 6 */], const float pdes_u4[/* 3 */], const float dpdes_u5[/* 3 */], float dt_u6, float g_u7, float TtoWmax_u8, float ws_u9, float wds_u10, float wpr_u11, float wpf_u12, float wvr_u13, float wvf_u14, float wthrust_u15, float wmom_u16, const float Ib_u17[/* 3 */], int maxIter_u18) {
+void umpcS(float uquad_y1[/* 3 */], float accdes_y2[/* 6 */], float uwlqp_y3[/* 4 */], const float p0_u1[/* 3 */], const float R0_u2[/* 9 */], const float dq0_u3[/* 6 */], const float pdes_u4[/* 3 */], const float dpdes_u5[/* 3 */], float dt_u6, float g_u7, float TtoWmax_u8, float ws_u9, float wds_u10, float wpr_u11, float wpf_u12, float wvr_u13, float wvf_u14, float wthrust_u15, float wmom_u16, float mb_u17, const float Ib_u18[/* 3 */], const float umin_u19[/* 4 */], const float umax_u20[/* 4 */], const float dumax_u21[/* 4 */], const float Qw_u22[/* 6 */], float controlRate_u23, int maxIter_u24, const float *popts_u25) {
 	if (_inited == 0) {
-		umpcInit(&_up, dt_u6, g_u7, TtoWmax_u8, ws_u9, wds_u10, wpr_u11, wpf_u12, wvr_u13, wvf_u14, wthrust_u15, wmom_u16, Ib_u17, maxIter_u18);
+		umpcInit(&_up, dt_u6, g_u7, TtoWmax_u8, ws_u9, wds_u10, wpr_u11, wpf_u12, wvr_u13, wvf_u14, wthrust_u15, wmom_u16, mb_u17, Ib_u18, umin_u19, umax_u20, dumax_u21, Qw_u22, controlRate_u23, maxIter_u24, popts_u25);
 		_inited = 1;
 	}
-	umpcUpdate(&_up, uquad_y1, accdes_y2, p0_u1, R0_u2, dq0_u3, pdes_u4, dpdes_u5);
+	umpcUpdate(&_up, uquad_y1, accdes_y2, uwlqp_y3, p0_u1, R0_u2, dq0_u3, pdes_u4, dpdes_u5);
 }
