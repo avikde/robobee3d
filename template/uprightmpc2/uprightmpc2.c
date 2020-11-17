@@ -223,7 +223,7 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 	}
 }
 
-int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */]) {
+int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */], const float sdes[/* 3 */]) {
 	static float s0[3], ds0[3], y0[UMPC_NY], dy0[UMPC_NY], ydes[UMPC_NY], dydes[UMPC_NY], dummy[9], Btau[9];
 	static float dy1des[UMPC_NY], dq1des[UMPC_NY], e3hR0T[3*3];
 	int i, ret;
@@ -248,8 +248,9 @@ int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], co
 		}
 	}
 	// s parts of ydes
-	ydes[3] = ydes[4] = 0;
-	ydes[5] = 1;
+	ydes[3] = sdes[0];
+	ydes[4] = sdes[1];
+	ydes[5] = sdes[2];
 	dydes[3] = dydes[4] = dydes[5] = 0;
 
 	umpcUpdateConstraint(up, s0, Btau, y0, dy0);
@@ -287,10 +288,10 @@ int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], co
 UprightMPC_t _up;
 int _inited = 0;
 
-void umpcS(float uquad_y1[/* 3 */], float accdes_y2[/* 6 */], const float p0_u1[/* 3 */], const float R0_u2[/* 9 */], const float dq0_u3[/* 6 */], const float pdes_u4[/* 3 */], const float dpdes_u5[/* 3 */], float dt_u6, float g_u7, float TtoWmax_u8, float ws_u9, float wds_u10, float wpr_u11, float wpf_u12, float wvr_u13, float wvf_u14, float wthrust_u15, float wmom_u16, const float Ib_u17[/* 3 */], int maxIter_u18) {
+void umpcS(float uquad_y1[/* 3 */], float accdes_y2[/* 6 */], const float p0_u1[/* 3 */], const float R0_u2[/* 9 */], const float dq0_u3[/* 6 */], const float pdes_u4[/* 3 */], const float dpdes_u5[/* 3 */], const float sdes_u5b[/* 3 */], float dt_u6, float g_u7, float TtoWmax_u8, float ws_u9, float wds_u10, float wpr_u11, float wpf_u12, float wvr_u13, float wvf_u14, float wthrust_u15, float wmom_u16, const float Ib_u17[/* 3 */], int maxIter_u18) {
 	if (_inited == 0) {
 		umpcInit(&_up, dt_u6, g_u7, TtoWmax_u8, ws_u9, wds_u10, wpr_u11, wpf_u12, wvr_u13, wvf_u14, wthrust_u15, wmom_u16, Ib_u17, maxIter_u18);
 		_inited = 1;
 	}
-	umpcUpdate(&_up, uquad_y1, accdes_y2, p0_u1, R0_u2, dq0_u3, pdes_u4, dpdes_u5);
+	umpcUpdate(&_up, uquad_y1, accdes_y2, p0_u1, R0_u2, dq0_u3, pdes_u4, dpdes_u5, sdes_u5b);
 }

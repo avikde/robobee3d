@@ -110,7 +110,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     Nt = len(tt)
 
     # for logging
-    log = {'t': tt, 'y': np.zeros((Nt, 12)), 'u': np.zeros((Nt, 3)), 'pdes': np.zeros((Nt, 3)), 'accdes': np.zeros((Nt,6)), 'wlqpu': np.zeros((Nt,4))}
+    log = {'t': tt, 'y': np.zeros((Nt, 12)), 'u': np.zeros((Nt, 3)), 'pdes': np.zeros((Nt, 3)), 'accdes': np.zeros((Nt,6))}
 
     ddqdes = None # test integrate ddq sim below
 
@@ -134,11 +134,7 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
         # Call controller
         if useMPC:
             t1 = perf_counter()
-            # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3]
-            w0 = np.hstack((0,0,mdl.u0))
-            dwdu0 = np.vstack((np.zeros((2,4)), np.eye(4)))
-            u, log['accdes'][ti,:], uwlqp = mdl.update(p, Rb, dq, pdes, dpdes, sdes)
-            log['wlqpu'][ti,:] = uwlqp
+            u, log['accdes'][ti,:] = mdl.update(p, Rb, dq, pdes, dpdes, sdes)
             avgTime += 0.01 * (perf_counter() - t1 - avgTime)
             # # Alternate simulation by integrating accDes
             # ddqdes = accdess[ti,:]
@@ -380,11 +376,11 @@ def papPlots(bmpc):
 if __name__ == "__main__":
     up, upc = createMPC()
 
-    # # Hover
-    # controlTest(up, 500, useMPC=True)
+    # Hover
+    controlTest(upc, 500, useMPC=True)
     # # Ascent
     # controlTest(up, 500, useMPC=True, ascentIC=True)
     # # Traj
     # controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
 
-    papPlots(up)
+    # papPlots(up)

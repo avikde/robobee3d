@@ -37,10 +37,10 @@ public:
 		umpcInit(&umpc, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib.data(), maxIter);
 	}
 
-	ret_t update(const Eigen::Vector3f &p0, const Eigen::Matrix3f &R0, const Vec6_t &dq0, const Eigen::Vector3f &pdes, const Eigen::Vector3f &dpdes) {
+	ret_t update(const Eigen::Vector3f &p0, const Eigen::Matrix3f &R0, const Vec6_t &dq0, const Eigen::Vector3f &pdes, const Eigen::Vector3f &dpdes, const Eigen::Vector3f &sdes) {
 		static Eigen::Vector3f uquad;
 		static Vec6_t accdes;
-		umpcUpdate(&umpc, uquad.data(), accdes.data(),p0.data(), R0.data(), dq0.data(), pdes.data(), dpdes.data());
+		umpcUpdate(&umpc, uquad.data(), accdes.data(),p0.data(), R0.data(), dq0.data(), pdes.data(), dpdes.data(), sdes.data());
 		return std::make_tuple(uquad, accdes);
 	}
 
