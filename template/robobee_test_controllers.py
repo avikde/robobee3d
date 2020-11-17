@@ -5,9 +5,9 @@ from scipy.spatial.transform import Rotation
 from ca6dynamics import dynamicsTerms
 from wlqppy import WLController
 import valuefunc
-from uprightmpc2 import reactiveController, UprightMPC2
-from uprightmpc2py import UprightMPC2C # C version
+from template_controllers import createMPC, reactiveController
 from genqp import quadrotorNLVF, Ib
+import flight_tasks
 
 class WaveformGenerator(object):
     """A simple waveform generator that keeps track of phase"""
@@ -56,17 +56,21 @@ class OpenLoop(RobobeeController):
 
 class WaypointHover(RobobeeController):
     """Simplified version of Pakpong (2013). u = [Vmean, uoffs, udiff, h2]"""
-    def __init__(self, wrenchMapPoptsFile, constdqdes=None, useh2=True):
+    def __init__(self, initialPos, constdqdes=None, useh2=False, useMPC=True, useWLQP=True, task='helix'):
         super(WaypointHover, self).__init__({'freq': (0, 0.3, 0.16)})
         self.wf = WaveformGenerator()
         self.posdes = np.array([0.,0.,100.])
         self.constdqdes = constdqdes
         self.useh2 = useh2
-
-        # NOTE: This is not actually used: need to put in wlcontroller.cpp or wlcontroller.c
-        popts = np.load(wrenchMapPoptsFile)
-
-        self.wl = WLController(np.ravel(popts), 1000)
+        self.useMPC = useMPC
+        self.initialPos = np.asarray(initialPos)
+        self.task = task
+        self.useWLQP = useWLQP
+        # Generate from sdab_num_wrenchmap.py using csv or numkins.npy
+        popts = [ 3.25e-03,-5.31e-05,-1.05e-05,-1.38e-02, 3.50e-01, 4.21e-07, 2.09e-07, 7.86e-06, 2.47e-03,-8.37e-06,-5.28e-05, 1.10e-04, 3.84e-03,-1.16e-01, 6.55e-03,-1.00e-03, 1.52e-05, 2.10e-03,-3.65e-04, 3.05e-05,-1.09e-07,-6.25e-05, 2.28e-06,-3.57e-07,-7.33e-06, 6.37e-04,-6.56e-02,-1.61e-03,-5.37e-04, 1.84e-02,-1.64e+00, 2.99e-02,-8.45e-06, 3.85e-03,-3.58e-02, 8.67e-05, 6.62e-08,-7.48e-05, 4.21e-04,-4.45e-05, 5.64e-05, 6.03e-05, 5.25e-01,-5.46e-02, 4.89e-01, 6.96e-02,-7.59e-04, 5.14e-05, 2.13e+01, 5.84e-01, 3.23e-06,-1.21e-07, 1.46e-01,-5.65e-03, 5.69e-04,-5.26e-05,-5.62e-02, 2.37e-03, 1.11e-01,-1.06e+00,-2.56e-03, 4.10e-05,-4.85e+00, 1.09e-04, 6.64e-04,-3.33e-07, 6.91e-02,-6.63e-07,-6.63e-06, 3.13e-05,-7.79e-03, 2.31e-02, 2.15e-03, 4.63e-01, 1.92e-02, 3.49e-02, 6.27e-04,-1.21e-04, 9.52e-03, 2.85e+00, 9.40e-06, 1.76e-06,-3.82e-04, 7.75e-03,-3.68e-03,-1.22e-04,-6.17e-05, 6.93e-01,-5.18e+00, 1.56e+01]
+#         popts = [ 3.27e-03,-5.32e-05,-5.76e-05,-1.38e-02, 3.50e-01, 4.22e-07, 1.63e-06, 8.03e-06, 2.47e-03,-1.10e-05, 1.21e-04,-1.49e-03, 3.88e-03,-1.16e-01, 7.01e-03,-8.86e-04, 8.92e-06, 2.10e-03,-6.13e-04, 3.96e-04,-7.51e-08,-6.24e-05, 2.46e-06, 5.83e-05, 2.08e-05, 6.41e-04,-6.56e-02,-2.25e-03, 3.34e-03,-1.02e-02,-1.64e+00, 2.99e-02, 3.24e-05, 3.85e-03,-3.58e-02, 8.67e-05,-2.55e-07,-7.48e-05, 4.21e-04,-2.50e-05, 5.06e-05, 4.05e-05, 5.25e-01,-5.46e-02, 4.89e-01, 8.13e-02,-9.96e-04, 1.12e-01, 2.13e+01, 5.90e-01, 4.26e-06,-1.59e-03, 1.46e-01,-5.74e-03, 7.99e-04,-1.97e-01,-5.60e-02, 2.12e-02, 1.01e-01,-1.05e+00,-4.98e-01, 1.01e-02,-4.84e+00, 5.95e-01, 4.96e-03,-4.33e-05, 6.91e-02,-2.72e-04,-3.69e-05,-1.96e-02,-1.23e-02, 2.18e-02,-8.12e-01, 4.59e-01, 6.52e-02, 3.49e-02, 6.27e-04, 2.41e-05, 9.57e-03, 2.85e+00, 9.40e-06,-2.55e-06,-3.82e-04, 
+# 7.75e-03,-3.68e-03,-6.75e-04, 4.77e-03, 6.93e-01,-5.18e+00, 1.56e+01]
+        self.wl = WLController(popts, 1000)
         self.u4 = [140.0,0.,0.,0.]
 
         # For acc reference. only need to get once for now for hover task
@@ -75,29 +79,11 @@ class WaypointHover(RobobeeController):
         self.printCtr = 0
 
         # upright MPC
-        dt = 5
-        N = 3
-        g = 9.81e-3
-        ws = 0.5e2
-        wds = 5e3
-        #1.5,3 works for a x-axis traj (body frame), but the robot rolls more so need 1,2 for a y-axis traj
-        wpr = 1e-1
-        wpf = 2e-2
-        wvr = 1e3
-        wvf = 2e3
-        wthrust = 1e-1
-        wmom = 1e-2
-        TtoWmax = 3
-        # WLQP stuff - copied from isolated C implementation
-        umin = np.array([50, -0.5, -0.2, -0.1])
-        umax = np.array([240, -0.5, -0.2, -0.1])
-        dumax = np.array([5e3, 10, 10, 10]) # /s
-        controlRate = 1000
-        mb = 100
-        # Qw = np.array([1,1,1,0.1,0.1,0.1])
-        Qw = np.zeros(6)
-        # self.up = UprightMPC2(N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, umin, umax, dumax, mb, Ib.diagonal(), Qw, controlRate)
-        self.up = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, mb, Ib.diagonal(), umin, umax, dumax, Qw, controlRate, 20, np.ravel(popts))
+        if task=='line':
+            mpcopts = {'ws':1.5, 'wds':1e3, 'wpr':2e-2, 'wvr':2e1, 'wpf':4e-2, 'wvf':2e1, 'TtoWmax':3}#line
+        else:
+            mpcopts = {'ws':2, 'wds':1e3, 'wpr':5e-3, 'wvr':2e1, 'wpf':1e-2, 'wvf':5e1, 'TtoWmax':3}#helix
+        self.up, _ = createMPC(**mpcopts, popts=popts)
 
     def templateVF(self, t, p, dp, s, ds, posdes, dposdes, kpos=[0.5e-3,5e-1], kz=[1e-3,2e-1], ks=[4e-3,0.3e0]):
         # TEST
@@ -134,27 +120,26 @@ class WaypointHover(RobobeeController):
         s = Rb @ np.array([0,0,1])
         ds = -Rb @ e3h @ omega
 
-        self.posdes = np.array([0,0,100])
-        dpdes = np.zeros(3)
-        trajAmp = 80
-        trajFreq = 1
-        trajOmg = 2 * np.pi * trajFreq * 1e-3 # to KHz, then to rad/ms
-        self.posdes[0] = trajAmp * np.sin(trajOmg * t)
-        dpdes[0] = trajAmp * trajOmg * np.cos(trajOmg * t)
-        self.posdes[2] = 100 + 0.1*t
-        dpdes[2] = 0.1
-        self.posdes[1] = trajAmp * (1 - np.cos(trajOmg * t))
-        dpdes[1] = trajAmp * trajOmg * np.sin(trajOmg * t)
+        if self.task == 'hover':
+            self.posdes, dpdes, sdes = flight_tasks.helix(t, self.initialPos, trajAmp=0, dz=0)
+        elif self.task == 'helix':
+            self.posdes, dpdes, sdes = flight_tasks.helix(t, self.initialPos)
+        elif self.task == 'line':
+            self.posdes, dpdes, sdes = flight_tasks.straightAcc(t, self.initialPos, vdes=2, tduration=750)
+        elif self.task == 'flip':
+            self.posdes, dpdes, sdes = flight_tasks.flip(t, self.initialPos)
 
-        # Upright MPC
-        uquad, ddqdes, uwlqp = self.up.update(p, Rb, dq0, self.posdes, dpdes)
-        # ddqdes[:3] = Rb.T @ ddqdes[:3] # Convert to body frame?
-        return uquad, ddqdes, uwlqp
-
-        # # Template controller <- LATEST
-        # fTpos, fTorn = self.templateVF(t, p, dp, s, ds, self.posdes, dpdes)
-        # fAorn = -e3h @ Rb.T @ fTorn
-        # return np.hstack((fTpos, fAorn))
+        if self.useMPC:
+            # Upright MPC
+            uquad, ddqdes, uwlqp = self.up.update(p, Rb, dq0, self.posdes, dpdes, sdes)
+            # ddqdes[:3] = Rb.T @ ddqdes[:3] # Convert to body frame?
+            # ddqdes[3:] = Rb.T @ ddqdes[3:] # Convert to body frame?
+            return ddqdes
+        else:
+            # Template controller <- LATEST
+            fTpos, fTorn = self.templateVF(t, p, dp, s, ds, self.posdes, dpdes)
+            fAorn = -e3h @ Rb.T @ fTorn
+            return np.hstack((fTpos, fAorn))
 
         # # Here the u is Thrust,torques (quadrotor template)
         # pT = q0[:3]
@@ -174,14 +159,15 @@ class WaypointHover(RobobeeController):
         t, qb, dqb = args
 
         M0, h0 = dynamicsTerms(qb, dqb)
-        uquad, self.accdes, uwlqp = self.accReference(t, qb, dqb)
+        self.accdes = self.accReference(t, qb, dqb)
 
-        # WLQP
-        self.u4 = self.wl.update(self.u4, h0, M0 @ self.accdes)
-        
-        # # Manual mapping
-        # self.u4 = self.manualMapping(*uquad)
-        # self.u4 = uwlqp
+        if self.useWLQP:
+            self.u4, w0 = self.wl.update(self.u4, h0, M0 @ self.accdes)
+            self.up.T0 += 1 * (w0[2]/M0[2,2] - self.up.T0)
+        else:
+            # Manual mapping
+            self.u4 = self.manualMapping(self.accdes)
+            # self.u4 = uwlqp
 
         Vmean, uoffs, udiff, h2 = self.u4
         # # test
@@ -205,10 +191,10 @@ class WaypointHover(RobobeeController):
         # control
         return self.accController(t, qb, dqb)
         
-    def manualMapping(self, spThrust, momx, momy):
+    def manualMapping(self, accdes, kx=1e2, ky=1e3, kV1=1e3, kV0=105):
         """Low level mapping to torques. Can be replaced"""
-        Vmean = 105 + (spThrust - 9.81e-3) * 1e3
-        # momx, momy go up to ~10.
-        uoffs = np.clip(0.005 * momy, -0.3, 0.3)
-        udiff = np.clip(0.02 * momx, -0.3, 0.3)
+        Vmean = kV0 + (accdes[2] - 9.81e-3) * kV1
+        uoffs = np.clip(ky * accdes[4], -0.5, 0.5)
+        udiff = np.clip(kx * accdes[3], -0.3, 0.3)
+        # print(accdes)
         return Vmean, uoffs, udiff, 0

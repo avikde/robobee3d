@@ -240,7 +240,7 @@ def dw_du(xdata, popts):
     return np.vstack([fa.df_dx(xdata, *popts[i,:]) for i in range(6)])
 
 if __name__ == "__main__":
-    np.set_printoptions(precision=2, suppress=True, linewidth=200)
+    np.set_printoptions(precision=2, suppress=False, linewidth=100000)
 
     ext = os.path.splitext(sys.argv[1])[1]
     if ext == '.npy':
@@ -253,7 +253,7 @@ if __name__ == "__main__":
     params = robobee.wparams.copy()
     params.update({'ycp': 7.5, 'AR': 4.5, 'R': 3})
     # NOTE: check this bias
-    ws = wrenchFromKinematics(kins, fs, params, kaerox=1.2, strokex=1.1)#, wbias=[0,0,0,0,-3,0])
+    ws = wrenchFromKinematics(kins, fs, params, kaerox=1, strokex=1.5)#, wbias=[0,0,0,0,-3,0])
     
     # wrenchCompare(ws0, ws) # compare ws0 to ws
     # sys.exit()
@@ -265,10 +265,8 @@ if __name__ == "__main__":
 
     # Optimized param fits in each row for each component of the wrench
     popts = np.vstack([curve_fit(fa.f, xdata, ws[:,i], p0=np.ones(fa.nparams()))[0] for i in range(6)])
-    print('popts row major = ',end='')
-    for vv in np.ravel(popts, order='C'):
-        print(vv, ',', end=' ')
-    print()
+    print('popts row major =')
+    print(np.array2string(np.ravel(popts, order='C'), separator=','))
     # np.save('poptsEmp2.npy', popts)
 
     def plotFitWi(ui1, ui2, wi, ax3d, ax):
