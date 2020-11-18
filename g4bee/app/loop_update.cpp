@@ -15,7 +15,8 @@
 #include <stdint.h>
 
 // Definitions
-#define micros() (HAL_GetTick()*1000 + 1000 - SysTick->VAL*1000000/SystemCoreClock)
+extern "C" volatile uint32_t _millis;
+// #define micros() (HAL_GetTick()*1000 + 1000 - SysTick->VAL*1000000/SystemCoreClock)
 // Globals
 UprightMPC_t up;
 
@@ -33,7 +34,7 @@ extern "C" void setup() {
 	float wthrust = 1e-1;
 	float wmom = 1e-2;
 	float Ib[3] = {3333,3333,1000};
-	int maxIter = 10;
+	int maxIter = 20;
 	// Call init
 	umpcInit(&up, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib, maxIter);
 }
@@ -51,14 +52,14 @@ extern "C" void loop() {
 	Eigen::Vector3f uquad;
 	Vec6_t accdes;
 
-	uint32_t t1 = micros();
+	// uint32_t t1 = micros();
 
 	umpcUpdate(&up, uquad.data(), accdes.data(), p0.data(), R0.data(), dq0.data(), pdes.data(), dpdes.data(), sdes.data());
 
-	uint32_t t2 = micros();
+	// uint32_t t2 = micros();
 	
 	HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-	printf("hello %lu %lu\n", HAL_GetTick(), t2 - t1);
+	printf("hello %lu %lu\n", HAL_GetTick(), _millis);
 	HAL_Delay(100);
 }
 
