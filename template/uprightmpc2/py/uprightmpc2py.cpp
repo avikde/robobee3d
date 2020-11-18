@@ -12,15 +12,12 @@
 #include <pybind11/eigen.h>
 #include <tuple>
 #include <uprightmpc2.h>
-#define EIGEN_NO_DEBUG
-#include <Eigen/Core>
+#include "ematmult.hpp"
 
 namespace py = pybind11;
 
 typedef Eigen::Matrix<float, 6, 1> Vec6_t;
 typedef std::tuple<Eigen::Vector3f, Vec6_t> ret_t;
-typedef Eigen::Map<const Eigen::MatrixXf> MCMatX;
-typedef Eigen::Map<Eigen::MatrixXf> MMatX;
 typedef Eigen::Matrix<float, UMPC_NX, 1> Vecx_t;
 typedef Eigen::Matrix<float, UMPC_NC, 1> Vecc_t;
 typedef Eigen::Matrix<float, UMPC_nAdata, 1> Adatax_t;
@@ -52,20 +49,6 @@ public:
 		return std::make_tuple(Eigen::Map<Vecx_t>(umpc.Px_data), Eigen::Map<Adatax_t>(umpc.Ax_data), Eigen::Map<Adatai_t>(umpc.Ax_idx));
 	}
 };
-
-// Wrapper for matrix multiply - use Eigen for it
-extern "C" void matMult(float *C, const float *A, const float *B, const int m, const int n, const int k, const float alpha, int AT, int BT) {
-	auto opC = MMatX(C, m, n);
-	if (AT == 0 && BT == 0) {
-		opC = alpha * MCMatX(A, m, k) * MCMatX(B, k, n);
-	} else if (AT == 0 && BT == 1) {
-		opC = alpha * MCMatX(A, m, k) * MCMatX(B, n, k).transpose();
-	} else if (AT == 1 && BT == 0) {
-		opC = alpha * MCMatX(A, k, m).transpose() * MCMatX(B, k, n);
-	} else {
-		opC = alpha * MCMatX(A, k, m).transpose() * MCMatX(B, n, k).transpose();
-	}
-}
 
 PYBIND11_MODULE(uprightmpc2py, m) {
 	py::class_<UprightMPC2>(m, "UprightMPC2C")
