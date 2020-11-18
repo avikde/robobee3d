@@ -51,7 +51,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
+void loopUpdate();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -99,10 +99,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-		volatile uint32_t millis = HAL_GetTick();
-		printf("hello %d\n", millis);
-    HAL_Delay(1000);
+    loopUpdate();
   }
   /* USER CODE END 3 */
 }

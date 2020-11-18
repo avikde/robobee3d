@@ -73,6 +73,7 @@ set(SRC_HAL
 set(SRC_APP
 	${CMAKE_CURRENT_SOURCE_DIR}/app/_stdlib.c
 	${CMAKE_CURRENT_SOURCE_DIR}/app/syscalls.c
+	${CMAKE_CURRENT_SOURCE_DIR}/app/loop_update.cpp
 )
 set(MCU_STARTUP ${CMAKE_CURRENT_SOURCE_DIR}/startup_stm32g431xx.s)
 # Set assembly language on .S files
