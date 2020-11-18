@@ -47,7 +47,8 @@ extern "C" {
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
-
+extern volatile uint32_t _millis;
+#define micros() (_millis*1000 + TIM6->CNT)
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
