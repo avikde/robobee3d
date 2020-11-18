@@ -377,7 +377,7 @@ if __name__ == "__main__":
     up, upc = createMPC()
 
     # Hover
-    controlTest(upc, 500, useMPC=True)
+    controlTest(up, 500, useMPC=True)
     # # Ascent
     # controlTest(up, 500, useMPC=True, ascentIC=True)
     # # Traj

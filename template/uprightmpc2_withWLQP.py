@@ -1,8 +1,3 @@
-import osqp
-import numpy as np
-import scipy.sparse as sp
-from genqp import skew, Ib
-from uprightmpc2py import UprightMPC2C # C version
 
 """This file creates the python controller, and can return py ver, C ver, and a reactive"""
 
@@ -34,13 +29,20 @@ def initConstraint(N, nx, nc):
 
     A = np.zeros((nc, nx))
     P = np.eye(nx) # Q, R stacked
+    # Dense blocks for WLQP
+    P[N*ny:N*ny+ny,N*ny:N*ny+ny] = np.ones((ny,ny))
+    P[N*ny:N*ny+ny,N*(2*ny+nu):N*(2*ny+nu)+4] = np.ones((ny,4))
+    P[N*(2*ny+nu):N*(2*ny+nu)+4,N*ny:N*ny+ny] = np.ones((4,ny))
+    P[N*(2*ny+nu):N*(2*ny+nu)+4,N*(2*ny+nu):N*(2*ny+nu)+4] = np.ones((4,4))
 
     # cols of A are broken up like this (partition nx)
     n1 = N*ny
     n2 = 2*N*ny
+    n3 = 2*N*ny + nu*N
     # rows of A broken up:
     nc1 = N*ny # after this; yddot dynamics
     nc2 = 2*N*ny # after this; thrust lims
+    nc3 = 2*N*ny + N # after this; Delta-u lims
     
     for k in range(N):
         # ykp1 = yk + dt*dyk equations
@@ -60,9 +62,12 @@ def initConstraint(N, nx, nc):
         # thrust lim
         A[nc2+k, n2+3*k] = 1
     
-    return sp.csc_matrix(A), sp.csc_matrix(P)
+    # Delta-u WLQP rate limit constraint
+    A[nc3:nc3+4, n3:n3+4] = np.eye(4)
+    
+    return sp.csc_matrix(A), sp.csc_matrix(P), P # for debugging
 
-def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, Tmax):
+def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, Tmax, delUL, delUU):
     nc = A.shape[0]
 
     # Update vector
@@ -82,14 +87,17 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, Tmax):
     for k in range(N):
         l[2*N*ny+k] = -T0
         u[2*N*ny+k] = Tmax-T0
+    # Delta-u input (rate) limits
+    l[2*N*ny+N:2*N*ny+N+4] = delUL
+    u[2*N*ny+N:2*N*ny+N+4] = delUU
 
-    # Left third
+    # Left 1/4
     AxidxT0dt = []
     n2 = 2*ny + 3 # nnz in each block col on the left
     for k in range(N-2):
         AxidxT0dt += [n2*k + i for i in [8,11,14]]
 
-    # Middle third
+    # Middle 2/4
     n1 = (2*N-1)*ny + (N-2)*3 # All the nnz in the left third
     n2 = 3*ny # nnz in each of the first N-1 block cols in the middle third
     Axidxdt = []
@@ -99,7 +107,7 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, Tmax):
         else:
             Axidxdt += [n1 + n2*k + i for i in [0,2,4,6,8,10]]
     
-    # Right third
+    # Right 3/4
     n1 += 3*ny*(N-1) + 2*ny # all nnz in the left and middle third
     n2 = 10 # nnz in each B0 + 1 for thrust lim
     Axidxs0 = []
@@ -110,7 +118,7 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, Tmax):
     # No need to update rightmost
 
     # Last check
-    assert A.nnz == n1 + n2*N
+    assert A.nnz == n1 + n2*N + 4
 
     # Update
     A.data[AxidxT0dt] = dt*T0
@@ -124,23 +132,63 @@ def updateConstraint(N, A, dt, T0, s0s, Btaus, y0, dy0, g, Tmax):
     # print(A[:,2*N*ny:2*N*ny+6].toarray())
     return A, l, u, Axidx
 
-def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes):
+def getUpperTriang(P1):
+    n = P1.shape[0]
+    P1data = np.zeros(n*(n+1)//2)
+    kk = 0
+    for j in range(n):
+        for i in range(j+1):
+            P1data[kk] = P1[i,j]
+            kk += 1
+    return P1data
+
+def updateObjective(N, Qyr, Qyf, Qdyr, Qdyf, R, ydes, dydes, Qw, dwdu, w0t, M0t, Pdense):
+    # In the last column, need to stack the columns of the first matrix with the upper triang part of the second matrix
+    mat1 = -M0t.T @ Qw @ dwdu # dy1,delu block
+    mat2 = dwdu.T @ Qw @ dwdu # delu,delu block
+    lastcol = np.zeros(6*4 + 4*(4+1)//2)
+    offs = 0
+    for j in range(mat1.shape[1]):
+        lastcol[offs : offs+6] = mat1[:,j]
+        offs += 6
+        lastcol[offs : offs+j+1] = mat2[:(j+1),j]
+        offs += j+1
+
     # Block diag components - see notes
     Pdata = np.hstack((
+        np.hstack([Qyr for k in range(N-1)]),
+        Qyf,
+        getUpperTriang(np.diag(Qdyr) + M0t.T @ Qw @ M0t),# dy1,dy1 block upper triang
+        np.hstack([Qdyr for k in range(N-2)]),
+        Qdyf,
+        np.hstack([R for k in range(N)]),
+        lastcol
+    ))
+    # Dense P update for debugging
+    ii = np.diag_indices(N*(2*ny+nu))
+    Pdense[:N*(2*ny+nu), :N*(2*ny+nu)][ii] = np.hstack((
         np.hstack([Qyr for k in range(N-1)]),
         Qyf,
         np.hstack([Qdyr for k in range(N-1)]),
         Qdyf,
         np.hstack([R for k in range(N)])
     ))
+    # Off diag parts
+    Pdense[N*ny:(N+1)*ny, N*ny:(N+1)*ny] += M0t.T @ Qw @ M0t # keep the Qyr
+    Pdense[N*(2*ny+nu):, N*(2*ny+nu):] = dwdu.T @ Qw @ dwdu
+    Pdense[N*ny:(N+1)*ny, N*(2*ny+nu):] = -M0t.T @ Qw @ dwdu
+    Pdense[N*(2*ny+nu):, N*ny:(N+1)*ny] = -dwdu.T @ Qw @ M0t
+
     q = np.hstack((
         np.hstack([-Qyr*ydes for k in range(N-1)]),
         -Qyf*ydes,
-        np.hstack([-Qdyr*dydes for k in range(N-1)]),
+        -Qdyr*dydes - M0t.T @ Qw @ w0t, # dy1
+        np.hstack([-Qdyr*dydes for k in range(N-2)]),
         -Qdyf*dydes,
-        np.zeros(N*len(R))
+        np.zeros(N*len(R)),
+        dwdu.T @ Qw @ w0t
     ))
-    return Pdata, q
+    return Pdata, q, Pdense
 
 def openLoopX(N, dt, T0, s0s, Btaus, y0, dy0, g):
     ys = np.zeros((N,ny))
@@ -162,18 +210,18 @@ def openLoopX(N, dt, T0, s0s, Btaus, y0, dy0, g):
         dyk = np.copy(dykp1)
 
     # stack
-    x = np.hstack((np.ravel(ys), np.ravel(dys), np.ravel(us)))
+    x = np.hstack((np.ravel(ys), np.ravel(dys), np.ravel(us), np.zeros(4)))
     # print(ys, x)
     return x
 
 class UprightMPC2():
-    def __init__(self, N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib):
+    def __init__(self, N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, umin, umax, dumax, mb, Ib, Qw, controlRate):
         self.N = N
 
-        nx = self.N * (2*ny + nu)
-        nc = 2*self.N*ny + self.N
+        nx = self.N * (2*ny + nu) + 4
+        nc = 2*self.N*ny + self.N + 4
 
-        self.A, self.P = initConstraint(N, nx, nc)
+        self.A, self.P, self.Pdense = initConstraint(N, nx, nc)
 
         Qyr = np.hstack((np.full(3,wpr), np.full(3,ws)))
         Qyf = np.hstack((np.full(3,wpf), np.full(3,ws)))
@@ -188,11 +236,20 @@ class UprightMPC2():
 
         # Create OSQP
         self.model = osqp.OSQP()
-        self.model.setup(P=self.P, A=self.A, l=np.zeros(nc), eps_rel=1e-4, eps_abs=1e-4, verbose=False)
+        self.model.setup(P=self.P, A=self.A, l=np.zeros(nc), eps_rel=1e-7, eps_abs=1e-7, verbose=False)
 
         # Manage linearization point
         self.T0 = 0 # mass-specific thrust
         self.Ibi = np.diag(1/Ib)
+        self.M0 = np.hstack((mb,mb,mb,Ib))
+
+        # WLQP state
+        self.umin = umin
+        self.umax = umax
+        self.dumax = dumax / controlRate
+        self.Qw = np.diag(Qw)
+        # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3]
+        self.u0 = np.zeros(4)
         
     def codegen(self, dirname='uprightmpc2/gen'):
         try:
@@ -203,14 +260,23 @@ class UprightMPC2():
 
     def testDyn(self, T0sp, s0s, Btaus, y0, dy0):
         # Test
-        self.A, l, u, Axidx = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.Tmax)
+        self.A, l, u, Axidx = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.Tmax, np.zeros(4), np.zeros(4))
         xtest = openLoopX(self.N, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g)
         print((self.A @ xtest - l)[:2*self.N*ny])
     
-    def update1(self, T0sp, s0s, Btaus, y0, dy0, ydes, dydes):
+    def update1(self, T0sp, s0s, Btaus, y0, dy0, ydes, dydes, dwdu0, w0t, M0t):
+        # WLQP Delta-u limit
+        delUL = np.copy(-self.dumax)
+        delUU = np.copy(self.dumax)
+        # Input limits
+        for i in range(4):
+            if self.u0[i] < self.umin[i]:
+                delUL[i] = 0
+            elif self.u0[i] > self.umax[i]:
+                delUU[i] = 0
         # Update
-        self.A, self.l, self.u, self.Axidx = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.Tmax)
-        self.Pdata, self.q = updateObjective(self.N, *self.Wts, ydes, dydes)
+        self.A, self.l, self.u, self.Axidx = updateConstraint(self.N, self.A, self.dt, T0sp, s0s, Btaus, y0, dy0, self.g, self.Tmax, delUL, delUU)
+        self.Pdata, self.q, self.Pdense = updateObjective(self.N, *self.Wts, ydes, dydes, self.Qw, dwdu0, w0t, M0t, self.Pdense)
         
         # OSQP solve ---
         self.model.update(Px=self.Pdata, Ax=self.A.data, q=self.q, l=self.l, u=self.u)
@@ -224,6 +290,9 @@ class UprightMPC2():
         return res.x
     
     def update2(self, p0, R0, dq0, pdes, dpdes, sdes):
+        # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3]
+        w0 = np.hstack((0,0,0,0,0,0))#self.u0))
+        dwdu0 = np.vstack((np.zeros((2,4)), np.eye(4)))
         # At current state
         s0 = np.copy(R0[:,2])
         s0s = [s0 for i in range(self.N)]
@@ -236,9 +305,21 @@ class UprightMPC2():
         ydes = np.hstack((pdes, sdes))
         dydes = np.hstack((dpdes, 0, 0, 0))
 
-        self.prevsol = self.update1(self.T0, s0s, Btaus, y0, dy0, ydes, dydes)
+        h0 = np.hstack((R0.T @ np.array([0, 0, self.M0[0] * self.g]), np.zeros(3)))
+        T0 = np.eye(6)
+        T0[3:,3:] = e3h @ R0.T
+        # M0t = M0*T0/dt
+        M0t = np.diag(self.M0) @ T0 / self.dt
+        # w0t = w0 - h0 + M0*dq0/dt
+        w0t = w0 - h0 + (self.M0 * dq0) / self.dt
+
+        self.prevsol = self.update1(self.T0, s0s, Btaus, y0, dy0, ydes, dydes, dwdu0, w0t, M0t)
         utilde = self.prevsol[2*ny*self.N : 2*ny*self.N+nu]
         self.T0 += utilde[0]
+
+        # WLQP update u0
+        delu = self.prevsol[(2*ny + nu)*self.N:]
+        self.u0 += delu
 
         return np.hstack((self.T0, utilde[1:]))
     
@@ -253,68 +334,4 @@ class UprightMPC2():
     def update(self, p0, R0, dq0, pdes, dpdes, sdes):
         # Version of above that computes the desired body frame acceleration
         u = self.update2(p0, R0, dq0, pdes, dpdes, sdes)
-        return u, self.getAccDes(R0, dq0)
-        
-def createMPC(N=3, ws=1e1, wds=1e3, wpr=1, wvr=1e3, wpf=5, wvf=2e3, wthrust=1e-1, wmom=1e-2, TtoWmax=2, popts=np.zeros(90), **kwargs):
-    """Returns the mdl"""
-    dt = 5
-    g = 9.81e-3
-    # WLQP inputs
-    mb = 100
-    # what "u" is depends on w(u). Here in python testing with w(u) = [0,0,u0,u1,u2,u3].
-    # Setting first 2 elements of Qw -> 0 => should not affect objective as longs as dumax does not constrain.
-    Qw = np.hstack((np.zeros(2), np.zeros(4)))
-    umin = np.array([0, -0.5, -0.2, -0.1])
-    umax = np.array([10, 0.5, 0.2, 0.1])
-    dumax = np.array([10, 10, 10, 10]) # /s
-    # # WLQP stuff - copied from isolated C implementation
-    # umin = np.array([50, -0.5, -0.2, -0.1])
-    # umax = np.array([240, -0.5, -0.2, -0.1])
-    # dumax = np.array([5e3, 10, 10, 10]) # /s
-    controlRate = 1000
-    pyver = UprightMPC2(N, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib.diagonal())
-    # C version can be tested too
-    cver = UprightMPC2C(dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib.diagonal(), 50)
-    return pyver, cver
-
-def reactiveController(p, Rb, dq, pdes, kpos=[5e-3,5e-1], kz=[1e-1,1e0], ks=[10e0,1e2], **kwargs):
-    # Pakpong-style reactive controller
-    sdes = np.clip(kpos[0] * (pdes - p) - kpos[1] * dq[:3], np.full(3, -0.5), np.full(3, 0.5))
-    sdes[2] = 1
-    # sdes = np.array([0,0,1])
-    omega = dq[3:]
-    dp = dq[:3]
-    s = Rb[:,2]
-    ds = -Rb @ e3h @ omega
-    # Template controller <- LATEST
-    fz = kz[0] * (pdes[2] - p[2]) - kz[1] * dq[2]
-    fTorn = ks[0] * (s - sdes) + ks[1] * ds
-    fTorn[2] = 0
-    fAorn = -e3h @ Rb.T @ fTorn
-    return np.hstack((fz, fAorn[:2]))
-
-if __name__ == "__main__":
-    up, upc = createMPC()
-    # Dyn test
-    T0 = 0.5
-    s0s = [[0.1,0.1,0.9] for i in range(up.N)]
-    Btaus = [np.full((3,2),1.123) for i in range(up.N)]
-    y0 = np.random.rand(6)
-    dy0 = np.random.rand(6)
-    ydes = np.zeros_like(y0)
-    dydes = np.zeros_like(y0)
-    up.testDyn(T0, s0s, Btaus, y0, dy0)
-
-    # FIXME: test
-    p = np.random.rand(3)
-    R = np.random.rand(3, 3)
-    dq = np.random.rand(6)
-    pdes = np.random.rand(3)
-    dpdes = np.random.rand(3)
-    sdes = np.random.rand(3)
-    retc = upc.update(p, R, dq, pdes, dpdes, sdes)
-    cl, cu, cq = upc.vectors()
-    cP, cAdata, cAidx = upc.matrices()
-    ret = up.update(p, R, dq, pdes, dpdes, sdes)
-    # print(cAdata - up.A.data[cAidx])
-    print(ret[0], ret[1], ret[0]-retc[0], ret[1]-retc[1])
+        return u, self.getAccDes(R0, dq0), self.u0
