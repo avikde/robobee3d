@@ -14,3 +14,4 @@
 
 typedef Eigen::Map<const Eigen::MatrixXf> MCMatX;
 typedef Eigen::Map<Eigen::MatrixXf> MMatX;
+typedef Eigen::Matrix<float, 6, 1> Vec6_t;

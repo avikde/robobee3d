@@ -16,7 +16,6 @@
 
 namespace py = pybind11;
 
-typedef Eigen::Matrix<float, 6, 1> Vec6_t;
 typedef std::tuple<Eigen::Vector3f, Vec6_t> ret_t;
 typedef Eigen::Matrix<float, UMPC_NX, 1> Vecx_t;
 typedef Eigen::Matrix<float, UMPC_NC, 1> Vecc_t;

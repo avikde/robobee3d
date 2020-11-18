@@ -9,6 +9,7 @@
  * 
  */
 #include <uprightmpc2.h>
+#include <ematmult.hpp>
 #include <main.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -38,9 +39,21 @@ extern "C" void setup() {
 }
 
 extern "C" void loop() {
+	// States
+	Eigen::Vector3f p0 = Eigen::Vector3f::Zero();
+	Eigen::Matrix3f R0 = Eigen::Matrix3f::Identity();
+	Vec6_t dq0 = Vec6_t::Zero();
+	Eigen::Vector3f pdes = Eigen::Vector3f(0, 0, 10);
+	Eigen::Vector3f dpdes = Eigen::Vector3f(0, 0, 0.1);
+	Eigen::Vector3f sdes = Eigen::Vector3f::UnitZ();
+
+	// Outputs
+	Eigen::Vector3f uquad;
+	Vec6_t accdes;
+
 	uint32_t t1 = micros();
 
-	// upri
+	umpcUpdate(&up, uquad.data(), accdes.data(), p0.data(), R0.data(), dq0.data(), pdes.data(), dpdes.data(), sdes.data());
 
 	uint32_t t2 = micros();
 	
