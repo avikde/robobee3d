@@ -6,6 +6,9 @@ set(CMAKE_TOOLCHAIN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/../arm-gcc-toolchain.cmake)
 
 project(g4bee)
 
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_CXX_STANDARD 17)
+
 # Set a default build type if none was specified
 set(default_build_type "Release")
 
@@ -36,7 +39,7 @@ set(LDSCRIPT STM32G431KBTx_FLASH.ld)
 link_libraries(-lc -lm -lnosys)
 set(CMAKE_EXE_LINKER_FLAGS "-specs=nano.specs  -u _printf_float -T${CMAKE_CURRENT_SOURCE_DIR}/${LDSCRIPT} -Wl,--gc-sections")
 
-file(GLOB SRC_HAL
+set(SRC_HAL
 	${CMAKE_CURRENT_SOURCE_DIR}/Src/main.c
 	${CMAKE_CURRENT_SOURCE_DIR}/Src/stm32g4xx_it.c
 	${CMAKE_CURRENT_SOURCE_DIR}/Src/stm32g4xx_hal_msp.c
@@ -59,10 +62,8 @@ file(GLOB SRC_HAL
 	${CMAKE_CURRENT_SOURCE_DIR}/Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_cortex.c
 	${CMAKE_CURRENT_SOURCE_DIR}/Src/system_stm32g4xx.c
 )
-# TODO: later
-file(GLOB SRC_APP
-	${CMAKE_CURRENT_SOURCE_DIR}/app/*.c
-	${CMAKE_CURRENT_SOURCE_DIR}/app/*.cpp
+set(SRC_APP
+	${CMAKE_CURRENT_SOURCE_DIR}/app/_stdlib.c
 )
 set(MCU_STARTUP ${CMAKE_CURRENT_SOURCE_DIR}/startup_stm32g431xx.s)
 # Set assembly language on .S files
