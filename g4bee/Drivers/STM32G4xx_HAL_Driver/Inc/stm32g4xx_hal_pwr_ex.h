@@ -6,7 +6,7 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2017 STMicroelectronics.
+  * <h2><center>&copy; Copyright (c) 2019 STMicroelectronics.
   * All rights reserved.</center></h2>
   *
   * This software component is licensed by ST under BSD 3-Clause license,
@@ -767,15 +767,6 @@ void HAL_PWREx_EnablePVM4(void);
 void HAL_PWREx_DisablePVM4(void);
 HAL_StatusTypeDef HAL_PWREx_ConfigPVM(PWR_PVMTypeDef *sConfigPVM);
 
-#if defined(PWR_CR3_UCPD_DBDIS)
-void HAL_PWREx_EnableUSBDeadBatteryPD(void);
-void HAL_PWREx_DisableUSBDeadBatteryPD(void);
-#endif /* PWR_CR3_UCPD_DBDIS */
-#if defined(PWR_CR3_UCPD_STDBY)
-void HAL_PWREx_EnableUSBStandByModePD(void);
-void HAL_PWREx_DisableUSBStandByModePD (void);
-#endif /* PWR_CR3_UCPD_STDBY */
-
 /* Low Power modes configuration functions ************************************/
 void HAL_PWREx_EnableLowPowerRunMode(void);
 HAL_StatusTypeDef HAL_PWREx_DisableLowPowerRunMode(void);
@@ -792,6 +783,15 @@ void HAL_PWREx_PVM2Callback(void);
 #endif /* PWR_CR2_PVME2 */
 void HAL_PWREx_PVM3Callback(void);
 void HAL_PWREx_PVM4Callback(void);
+
+#if defined(PWR_CR3_UCPD_STDBY)
+void HAL_PWREx_EnableUCPDStandbyMode(void);
+void HAL_PWREx_DisableUCPDStandbyMode(void);
+#endif /* PWR_CR3_UCPD_STDBY */
+#if defined(PWR_CR3_UCPD_DBDIS)
+void HAL_PWREx_EnableUCPDDeadBattery(void);
+void HAL_PWREx_DisableUCPDDeadBattery(void);
+#endif /* PWR_CR3_UCPD_DBDIS */
 
 /**
   * @}
