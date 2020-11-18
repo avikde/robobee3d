@@ -7,13 +7,13 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2019 STMicroelectronics.
+  * <h2><center>&copy; Copyright (c) 2020 STMicroelectronics.
   * All rights reserved.</center></h2>
   *
-  * This software component is licensed by ST under Ultimate Liberty license
-  * SLA0044, the "License"; You may not use this file except in compliance with
-  * the License. You may obtain a copy of the License at:
-  *                             www.st.com/SLA0044
+  * This software component is licensed by ST under BSD 3-Clause license,
+  * the "License"; You may not use this file except in compliance with the
+  * License. You may obtain a copy of the License at:
+  *                        opensource.org/licenses/BSD-3-Clause
   *
   ******************************************************************************
   */
@@ -29,7 +29,6 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32g4xx_hal.h"
-#include "stm32g4xx_ll_pwr.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -48,7 +47,8 @@ extern "C" {
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
-
+extern volatile uint32_t _millis;
+#define micros() (_millis*1000 + TIM6->CNT)
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
@@ -63,12 +63,12 @@ void Error_Handler(void);
 #define USART2_TX_GPIO_Port GPIOA
 #define USART2_RX_Pin GPIO_PIN_3
 #define USART2_RX_GPIO_Port GPIOA
-#define SS1_Pin GPIO_PIN_11
-#define SS1_GPIO_Port GPIOA
 #define T_SWDIO_Pin GPIO_PIN_13
 #define T_SWDIO_GPIO_Port GPIOA
 #define T_SWCLK_Pin GPIO_PIN_14
 #define T_SWCLK_GPIO_Port GPIOA
+#define T_SWO_Pin GPIO_PIN_3
+#define T_SWO_GPIO_Port GPIOB
 #define LD2_Pin GPIO_PIN_8
 #define LD2_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */

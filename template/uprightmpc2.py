@@ -84,7 +84,7 @@ def viewControlTestLog(log, log2=None, callShow=True, goal0=False, desTraj=False
     if callShow:
         plt.show()
 
-def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascentIC=False, showPlots=True, tpert=None, speedTest=False, perchTraj=False, flipTask=False, taulim=100, **kwargs):
+def controlTest(mdl, tend, dtsim=0.2, hlInterval=None, useMPC=True, trajFreq=0, trajAmp=0, ascentIC=False, showPlots=True, tpert=None, speedTest=False, perchTraj=False, flipTask=False, taulim=100, **kwargs):
     """trajFreq in Hz, trajAmp in mm"""
     if mdl is None and useMPC:
         mdl, _ = createMPC(**kwargs)
@@ -113,8 +113,9 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
     log = {'t': tt, 'y': np.zeros((Nt, 12)), 'u': np.zeros((Nt, 3)), 'pdes': np.zeros((Nt, 3)), 'accdes': np.zeros((Nt,6))}
 
     ddqdes = None # test integrate ddq sim below
-
     avgTime = 0.0
+    uquad = np.zeros(3)
+    thlPrev = 0
 
     for ti in range(Nt):
         # Traj to follow
@@ -131,23 +132,25 @@ def controlTest(mdl, tend, dtsim=0.2, useMPC=True, trajFreq=0, trajAmp=0, ascent
                 dq[1] += 2
                 tpert = None
 
-        # Call controller
-        if useMPC:
-            t1 = perf_counter()
-            u, log['accdes'][ti,:] = mdl.update(p, Rb, dq, pdes, dpdes, sdes)
-            avgTime += 0.01 * (perf_counter() - t1 - avgTime)
-            # # Alternate simulation by integrating accDes
-            # ddqdes = accdess[ti,:]
-        else:
-            u = reactiveController(p, Rb, dq, pdes, **kwargs)
+        # Call HL controller
+        if hlInterval is None or tt[ti] - thlPrev > hlInterval:
+            if useMPC:
+                t1 = perf_counter()
+                uquad, log['accdes'][ti,:] = mdl.update(p, Rb, dq, pdes, dpdes, sdes)
+                avgTime += 0.01 * (perf_counter() - t1 - avgTime)
+                # # Alternate simulation by integrating accDes
+                # ddqdes = accdess[ti,:]
+            else:
+                uquad = reactiveController(p, Rb, dq, pdes, **kwargs)
+            thlPrev = tt[ti]
         # u = np.array([1,0.1,0])
         # Input limit
         for i in range(2):
-            u[i+1] = np.clip(u[i+1], -taulim, taulim)
+            uquad[i+1] = np.clip(uquad[i+1], -taulim, taulim)
 
-        p, Rb, dq = quadrotorNLDyn(p, Rb, dq, u, dtsim, ddq=ddqdes)
+        p, Rb, dq = quadrotorNLDyn(p, Rb, dq, uquad, dtsim, ddq=ddqdes)
         log['y'][ti,:] = np.hstack((p, Rb[:,2], dq))
-        log['u'][ti,:] = u
+        log['u'][ti,:] = uquad
         log['pdes'][ti,:] = pdes
     if useMPC and showPlots:
         print("Time (ms):", avgTime * 1e3)
@@ -376,11 +379,11 @@ def papPlots(bmpc):
 if __name__ == "__main__":
     up, upc = createMPC()
 
-    # # Hover
-    # controlTest(up, 500, useMPC=True)
+    # Hover
+    controlTest(upc, 500, useMPC=True, hlInterval=5)
     # # Ascent
     # controlTest(up, 500, useMPC=True, ascentIC=True)
     # # Traj
-    # controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
+    # controlTest(upc, 2000, useMPC=True, trajAmp=50, trajFreq=1, hlInterval=5)
 
-    papPlots(up)
+    # papPlots(up)

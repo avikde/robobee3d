@@ -7,7 +7,7 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2018 STMicroelectronics.
+  * <h2><center>&copy; Copyright (c) 2019 STMicroelectronics.
   * All rights reserved.</center></h2>
   *
   * This software component is licensed by ST under BSD 3-Clause license,
@@ -461,7 +461,7 @@ extern "C" {
                                             ((__CONFIG__) == SYSCFG_BREAK_SRAMPARITY)    || \
                                             ((__CONFIG__) == SYSCFG_BREAK_LOCKUP))
 
-#if (CCMSRAM_SIZE == 0x00008000UL)
+#if (CCMSRAM_SIZE == 0x00008000UL) || (CCMSRAM_SIZE == 0x00004000UL)
 #define IS_SYSCFG_CCMSRAMWRP_PAGE(__PAGE__)  ((__PAGE__) > 0U)
 #elif (CCMSRAM_SIZE == 0x00002800UL)
 #define IS_SYSCFG_CCMSRAMWRP_PAGE(__PAGE__)  (((__PAGE__) > 0U) && ((__PAGE__) <= 0x000003FFU))

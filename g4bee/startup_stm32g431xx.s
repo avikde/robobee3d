@@ -15,7 +15,7 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2017 STMicroelectronics.
+  * <h2><center>&copy; Copyright (c) 2019 STMicroelectronics.
   * All rights reserved.</center></h2>
   *
   * This software component is licensed by ST under BSD 3-Clause license,
@@ -94,7 +94,7 @@ LoopFillZerobss:
   cmp r2, r4
   bcc FillZerobss
 
-/* Call the clock system intitialization function.*/
+/* Call the clock system initialization function.*/
     bl  SystemInit
 /* Call static constructors */
     bl __libc_init_array

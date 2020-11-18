@@ -5,6 +5,8 @@ project(uprightmpc2)
 set(PYBIND11_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../controls/thirdparty/pybind11" CACHE STRING "Pybind location")
 set(EIGEN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../SDK/thirdparty/eigen" CACHE STRING "Eigen location")
 
+set(BPYBIND ON CACHE BOOL "")
+
 set(OSQP_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 file(GLOB osqp_src "${OSQP_DIR}/*.c")
 # emosqp options
@@ -42,11 +44,13 @@ add_library(uprightmpc2 STATIC ${osqp_src})
 #   COMMENT "Copied mex")
   
 # C++ version ---------------------------------------------------------
-include_directories(${EIGEN_DIR})
-add_subdirectory(${PYBIND11_DIR} "pybind11")
-pybind11_add_module(uprightmpc2py ${CMAKE_CURRENT_SOURCE_DIR}/py/uprightmpc2py.cpp)
-target_link_libraries(uprightmpc2py PRIVATE uprightmpc2)
+if (${BPYBIND})
+  include_directories(${EIGEN_DIR})
+  add_subdirectory(${PYBIND11_DIR} "pybind11")
+  pybind11_add_module(uprightmpc2py ${CMAKE_CURRENT_SOURCE_DIR}/py/uprightmpc2py.cpp ${CMAKE_CURRENT_SOURCE_DIR}/py/ematmult.cpp)
+  target_link_libraries(uprightmpc2py PRIVATE uprightmpc2)
 
-add_custom_command(TARGET uprightmpc2py POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:uprightmpc2py> ${CMAKE_CURRENT_SOURCE_DIR}/..
-  COMMENT "Copied python binding")
+  add_custom_command(TARGET uprightmpc2py POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:uprightmpc2py> ${CMAKE_CURRENT_SOURCE_DIR}/..
+    COMMENT "Copied python binding")
+endif()
