@@ -11,11 +11,16 @@
 #include <uprightmpc2.h>
 #include <main.h>
 #include <stdio.h>
+#include <stdint.h>
+
+#define micros() (HAL_GetTick()*1000 + 1000 - SysTick->VAL*1000000/SystemCoreClock)
 
 extern "C" void loopUpdate() {
+	uint32_t t1 = micros();
 	HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-	volatile uint32_t millis = HAL_GetTick();
-	printf("hello %d\n", millis);
-	HAL_Delay(1000);
+	uint32_t t2 = micros();
+	
+	printf("hello %lu %lu\n", HAL_GetTick(), t2 - t1);
+	HAL_Delay(100);
 }
 
