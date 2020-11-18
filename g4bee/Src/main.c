@@ -98,6 +98,12 @@ int main(void)
   {
     /* USER CODE END WHILE */
 
+		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+		// volatile uint32_t millis = HAL_GetTick();
+		// printf("hello %d\n", millis);
+		const char *_writeBuf = "hello";
+		HAL_UART_Transmit_IT(&huart2, _writeBuf, 5);
+    HAL_Delay(1000);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
