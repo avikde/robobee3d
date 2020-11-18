@@ -316,5 +316,10 @@ if __name__ == "__main__":
     cl, cu, cq = upc.vectors()
     cP, cAdata, cAidx = upc.matrices()
     ret = up.update(p, R, dq, pdes, dpdes, sdes)
-    # print(cAdata - up.A.data[cAidx])
-    print(ret[0], ret[1], ret[0]-retc[0], ret[1]-retc[1])
+    # print(cAdata - up.A.data[cAidx])#OK
+    # print(cAidx - up.Axidx)#OK
+    # print(cl - up.l)#OK
+    # print(cu - up.u)#OK
+    print(cq - up.q)# small difference FIXME:
+    print(cP - up.P.data)# FIXME:
+    # print(ret[0], ret[1], ret[0]-retc[0], ret[1]-retc[1])
