@@ -9,6 +9,14 @@ project(g4bee)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_CXX_STANDARD 17)
 
+# UprightMPC2 controller
+set(BPYBIND OFF CACHE BOOL "" FORCE)
+set(MPC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../template/uprightmpc2)
+add_subdirectory(${MPC_DIR} "uprightmpc2")
+set(EIGEN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../SDK/thirdparty/eigen" CACHE STRING "Eigen location")
+set(SRC_MPC_EIG ${MPC_DIR}/py/ematmult.cpp)
+include_directories(${MPC_DIR} ${MPC_DIR}/py ${EIGEN_DIR})
+
 # Set a default build type if none was specified
 set(default_build_type "Release")
 
@@ -64,6 +72,7 @@ set(SRC_HAL
 )
 set(SRC_APP
 	${CMAKE_CURRENT_SOURCE_DIR}/app/_stdlib.c
+	${CMAKE_CURRENT_SOURCE_DIR}/app/syscalls.c
 )
 set(MCU_STARTUP ${CMAKE_CURRENT_SOURCE_DIR}/startup_stm32g431xx.s)
 # Set assembly language on .S files
@@ -71,7 +80,8 @@ set_property(SOURCE ${MCU_STARTUP} PROPERTY LANGUAGE ASM)
 set_source_files_properties(${MCU_STARTUP} PROPERTIES COMPILE_FLAGS "-x assembler-with-cpp")
 enable_language(ASM)
 
-add_executable(g4bee.elf ${SRC_HAL} ${SRC_APP} ${MCU_STARTUP})
+add_executable(g4bee.elf ${SRC_HAL} ${SRC_APP} ${MCU_STARTUP} ${SRC_MPC_EIG})
+target_link_libraries(g4bee.elf uprightmpc2)
 # Post-build stuff
 add_custom_command(TARGET g4bee.elf POST_BUILD 
 COMMAND ${TOOLCHAIN_PREFIX}size g4bee.elf

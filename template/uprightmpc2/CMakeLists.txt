@@ -5,7 +5,7 @@ project(uprightmpc2)
 set(PYBIND11_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../controls/thirdparty/pybind11" CACHE STRING "Pybind location")
 set(EIGEN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../SDK/thirdparty/eigen" CACHE STRING "Eigen location")
 
-set(BPYBIND ON)
+set(BPYBIND ON CACHE BOOL "")
 
 set(OSQP_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 file(GLOB osqp_src "${OSQP_DIR}/*.c")
