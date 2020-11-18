@@ -376,11 +376,11 @@ def papPlots(bmpc):
 if __name__ == "__main__":
     up, upc = createMPC()
 
-    # Hover
-    controlTest(up, 500, useMPC=True)
+    # # Hover
+    # controlTest(up, 500, useMPC=True)
     # # Ascent
     # controlTest(up, 500, useMPC=True, ascentIC=True)
     # # Traj
     # controlTest(up, 2000, useMPC=True, trajAmp=50, trajFreq=1)
 
-    # papPlots(up)
+    papPlots(up)

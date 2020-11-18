@@ -320,6 +320,6 @@ if __name__ == "__main__":
     # print(cAidx - up.Axidx)#OK
     # print(cl - up.l)#OK
     # print(cu - up.u)#OK
-    print(cq - up.q)# small difference FIXME:
-    print(cP - up.P.data)# FIXME:
-    # print(ret[0], ret[1], ret[0]-retc[0], ret[1]-retc[1])
+    # print(cq - up.q)#OK
+    # print(cP - up.Pdata)#OK
+    print(ret[0], ret[1], ret[0]-retc[0], ret[1]-retc[1])
