@@ -13,12 +13,11 @@
 #include <string.h>
 #include <stdio.h>
 
-#define NU 4
 #define NW 6
 
 void funApproxInit(FunApprox_t *fa, const float popts[/* 1 + k + k * (k + 1) / 2 */]) {
 	int i, j;
-	fa->k = NU;
+	fa->k = NDELU;
 
 	// unpack
 	fa->a0 = popts[0];
@@ -35,7 +34,7 @@ void funApproxInit(FunApprox_t *fa, const float popts[/* 1 + k + k * (k + 1) / 2
 }
 
 float funApproxF(const FunApprox_t *fa, const float *xi) {
-	static float vout[NU], fout;
+	static float vout[NDELU], fout;
 	float res = fa->a0;
 	// xi.dot(a1)
 	matMult(vout, xi, fa->a1, 1, 1, fa->k, 1.0f, 0, 0);
@@ -50,11 +49,90 @@ float funApproxF(const FunApprox_t *fa, const float *xi) {
 
 void funApproxDf(float *Df, const FunApprox_t *fa, const float *xi) {
 	int i;
-	static float vout[NU];
+	static float vout[NDELU];
 	memcpy(Df, fa->a1, fa->k * sizeof(float));
 	
 	// First A2 * xi
 	matMult(vout, fa->A2, xi, fa->k, 1, fa->k, 1.0f, 0, 0);
 	for (i = 0; i < fa->k; ++i)
 		Df[i] += vout[i];
+}
+
+// Wrench map
+static void wrenchMap(const WLCon_t *wl, float *w, const float *u) {
+	int i;
+	for (i = 0; i < 6; ++i) {
+		w[i] = funApproxF(&wl->fa[i], u);
+	}
+}
+
+static void wrenchJacMap(const WLCon_t *wl, float *dw_du, const float *u) {
+	int i, j;
+	static float dwi_du[NDELU];
+	for (i = 0; i < 6; ++i) {
+		funApproxDf(dwi_du, &wl->fa[i], u);
+		for (j = 0; j < NDELU; ++j) {
+			// Copy into the col-major matrix
+			dw_du[Cind(6, i, j)] = dwi_du[j]; // i >= 2 && i - 2 == j ? 1 : 0;  //
+		}
+	}
+}
+
+void wlConInit(WLCon_t *wl, float mb, const float umin[/* 4 */], const float umax[/* 4 */], const float dumax[/* 4 */], const float Qw[/* 6 */], float controlRate, const float popts[/* 90 */]) {
+	int i, j;
+	
+	memset(wl->Qw, 0, 36 * sizeof(float));
+
+	// Limits
+	for (i = 0; i < NDELU; ++i) {
+		wl->u0[i] = 0;
+		wl->umin[i] = umin[i];
+		wl->umax[i] = umax[i];
+		wl->dumax[i] = dumax[i] / controlRate;
+	}
+
+	for (i = 0; i < 6; ++i) {
+		funApproxInit(&wl->fa[i], &popts[15 * i]);
+		wl->Qw[Cind(6, i, i)] = Qw[i];
+	}
+	// 
+}
+
+void wlConUpdate(WLCon_t *wl, float u1[/* 4 */], const float h0[/* 6 */], const float pdotdes[/* 6 */]) {
+	int i;
+	static float A1[NW * NDELU];
+	static float a0[NW], delu[NDELU];
+	static float Q[NW * NW];
+	static float dum[NW * NDELU];
+	static float L[NDELU], U[NDELU];
+
+	// Sample numerical maps
+	wrenchMap(wl, a0, wl->u0); // a0 = w(u0)
+	wrenchJacMap(wl, A1, wl->u0);
+	
+	// auto a0 = w0 - h0 - pdotdes;
+	for (i = 0; i < NW; ++i) {
+		a0[i] += (-h0[i] - pdotdes[i]);
+	}
+
+	// u_t L = -this->U0;
+	// u_t U = this->U0;
+	for (i = 0; i < NDELU; ++i) {
+		L[i] = -wl->dumax[i];
+		U[i] = wl->dumax[i];
+	}
+	// Input limits (not just rate limits)
+	for (i = 0; i < NDELU; ++i) {
+		if (wl->u0[i] < wl->umin[i])
+			L[i] = 0; // do not reduce further
+		else if (wl->u0[i] > wl->umax[i])
+			U[i] = 0; // do not increase further
+	}
+
+	// Solve
+	
+	for (i = 0; i < NDELU; ++i) {
+		wl->u0[i] += delu[i];
+		u1[i] = wl->u0[i];
+	}
 }
