@@ -53,8 +53,8 @@ class WLCon {
 public:
 	WLCon_t wl;
 	
-	WLCon(float mb, const Eigen::Vector4f &umin, const Eigen::Vector4f &umax, const Eigen::Vector4f &dumax, const Vec6_t &Qw, float controlRate, const Eigen::Matrix<float, 90, 1> &popts) {
-		wlConInit(&wl, mb, umin.data(), umax.data(), dumax.data(), Qw.data(), controlRate, popts.data());
+	WLCon(const Eigen::Vector4f &umin, const Eigen::Vector4f &umax, const Eigen::Vector4f &dumax, const Vec6_t &Qw, float controlRate, const Eigen::Matrix<float, 90, 1> &popts) {
+		wlConInit(&wl, umin.data(), umax.data(), dumax.data(), Qw.data(), controlRate, popts.data());
 	}
 
 	Eigen::Vector4f update(const Vec6_t &h0, const Vec6_t &pdotdes) {
@@ -72,6 +72,6 @@ PYBIND11_MODULE(uprightmpc2py, m) {
 	.def("matrices", &UprightMPC2::matrices);
 	
 	py::class_<WLCon>(m, "WLCon")
-	.def(py::init<float /* mb */, const Eigen::Vector4f &/* umin */, const Eigen::Vector4f &/* umax */, const Eigen::Vector4f &/* dumax */, const Vec6_t &/* Qw */, float /* controlRate */, const Eigen::Matrix<float, 90, 1> &/* popts */>())
+	.def(py::init<const Eigen::Vector4f &/* umin */, const Eigen::Vector4f &/* umax */, const Eigen::Vector4f &/* dumax */, const Vec6_t &/* Qw */, float /* controlRate */, const Eigen::Matrix<float, 90, 1> &/* popts */>())
 	.def("update", &WLCon::update);
 }
