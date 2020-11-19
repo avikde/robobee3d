@@ -9,6 +9,7 @@
  * 
  */
 #include "ematmult.hpp"
+#include <Eigen/Dense>
 
 // Wrapper for matrix multiply - use Eigen for it
 extern "C" void matMult(float *C, const float *A, const float *B, const int m, const int n, const int k, const float alpha, int AT, int BT) {
@@ -22,4 +23,10 @@ extern "C" void matMult(float *C, const float *A, const float *B, const int m, c
 	} else {
 		opC = alpha * MCMatX(A, k, m).transpose() * MCMatX(B, n, k).transpose();
 	}
+}
+
+void lsSolve(float *x, const float *A, const float *b, const int m, const int n) {
+	auto LHS = MCMatX(A, m, n);
+	auto rhs = Eigen::Map<const Eigen::VectorXf>(b, m);
+	Eigen::Map<Eigen::VectorXf>(x, n) = LHS.ldlt().solve(rhs);
 }
