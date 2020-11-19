@@ -250,7 +250,9 @@ class UprightMPC2():
         # return (bTw(dq1des) - bTw(dq0)) / self.dt
         return (dq1des - dq0) / self.dt # return in world frame
     
-    def update(self, p0, R0, dq0, pdes, dpdes, sdes):
+    def update(self, p0, R0, dq0, pdes, dpdes, sdes, actualT0):
+        if actualT0 >= 0:
+            self.T0 = actualT0
         # Version of above that computes the desired body frame acceleration
         u = self.update2(p0, R0, dq0, pdes, dpdes, sdes)
         return u, self.getAccDes(R0, dq0)
