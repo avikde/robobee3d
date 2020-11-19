@@ -120,8 +120,7 @@ void wlConUpdate(WLCon_t *wl, float u1[/* 4 */], const float h0[/* 6 */], const 
 	static float A1[NW * NDELU];
 	static float a0[NW], delu[NDELU];
 	static float dum[NW * NDELU];
-	static float P[NDELU * NDELU];
-	static float q[NDELU], L[NDELU], U[NDELU];
+	static float L[NDELU], U[NDELU];
 
 	// Sample numerical maps
 	wrenchMap(wl, a0, wl->u0); // a0 = w(u0)
@@ -146,18 +145,9 @@ void wlConUpdate(WLCon_t *wl, float u1[/* 4 */], const float h0[/* 6 */], const 
 			U[i] = 0; // do not increase further
 	}
 
-	// P = A1.transpose() * Qdiag.asDiagonal() * A1;
-	matMult(dum, wl->Qw, A1, NW, NDELU, NW, 1.0f, 0, 0);
-	matMult(P, A1, dum, NDELU, NW, NW, 1.0f, 1, 0);
-	// q = -A1.transpose() * Qdiag.cwiseProduct(a0);
+	// delu = -A1.transpose() * Qdiag.cwiseProduct(a0); -> neg gradient of cost
 	matMult(dum, wl->Qw, a0, NW, 1, NW, 1.0f, 0, 0); // only using NW elements of dum
-	matMult(q, A1, dum, NDELU, 1, NW, -1.0f, 1, 0);
-	// // Test
-	// PRINTMAT(P, NDELU, NDELU);
-	// PRINTVEC(q, NDELU);
-
-	// Solve
-	lsSolve(delu, P, q, NDELU, NDELU);
+	matMult(delu, A1, dum, NDELU, 1, NW, -1e3f, 1, 0); // step size of gradient before constraint
 
 	// Limit
 	for (i = 0; i < NDELU; ++i) {
