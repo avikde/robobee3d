@@ -79,7 +79,7 @@ static void wrenchJacMap(const WLCon_t *wl, float *dw_du, const float *u) {
 }
 
 void wlConInit(WLCon_t *wl, float mb, const float umin[/* 4 */], const float umax[/* 4 */], const float dumax[/* 4 */], const float Qw[/* 6 */], float controlRate, const float popts[/* 90 */]) {
-	int i, j;
+	int i;
 	
 	memset(wl->Qw, 0, 36 * sizeof(float));
 
@@ -102,9 +102,9 @@ void wlConUpdate(WLCon_t *wl, float u1[/* 4 */], const float h0[/* 6 */], const 
 	int i;
 	static float A1[NW * NDELU];
 	static float a0[NW], delu[NDELU];
-	static float Q[NW * NW];
 	static float dum[NW * NDELU];
-	static float L[NDELU], U[NDELU];
+	static float P[NDELU * NDELU];
+	static float q[NDELU], L[NDELU], U[NDELU];
 
 	// Sample numerical maps
 	wrenchMap(wl, a0, wl->u0); // a0 = w(u0)
@@ -129,8 +129,24 @@ void wlConUpdate(WLCon_t *wl, float u1[/* 4 */], const float h0[/* 6 */], const 
 			U[i] = 0; // do not increase further
 	}
 
+	// P = A1.transpose() * Qdiag.asDiagonal() * A1;
+	matMult(dum, wl->Qw, A1, NW, NDELU, NW, 1.0f, 0, 0);
+	matMult(P, A1, dum, NDELU, NW, NW, 1.0f, 1, 0);
+	// q = -A1.transpose() * Qdiag.cwiseProduct(a0);
+	matMult(dum, wl->Qw, a0, NW, 1, NW, 1.0f, 0, 0); // only using NW elements of dum
+	matMult(q, A1, dum, NDELU, 1, NW, -1.0f, 1, 0);
 	// Solve
+	lsSolve(delu, P, q, NDELU, NDELU);
+
+	// Limit
+	for (i = 0; i < NDELU; ++i) {
+		if (delu[i] < L[i])
+			delu[i] = L[i];
+		else if (delu[i] > U[i])
+			delu[i] = U[i];
+	}
 	
+	// Update result
 	for (i = 0; i < NDELU; ++i) {
 		wl->u0[i] += delu[i];
 		u1[i] = wl->u0[i];
