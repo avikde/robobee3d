@@ -25,7 +25,7 @@ extern "C" void matMult(float *C, const float *A, const float *B, const int m, c
 	}
 }
 
-void lsSolve(float *x, const float *A, const float *b, const int m, const int n) {
+extern "C" void lsSolve(float *x, const float *A, const float *b, const int m, const int n) {
 	auto LHS = MCMatX(A, m, n);
 	auto rhs = Eigen::Map<const Eigen::VectorXf>(b, m);
 	Eigen::Map<Eigen::VectorXf>(x, n) = LHS.ldlt().solve(rhs);

@@ -49,10 +49,29 @@ public:
 	}
 };
 
+class WLCon {
+public:
+	WLCon_t wl;
+	
+	WLCon(float mb, const Eigen::Vector4f &umin, const Eigen::Vector4f &umax, const Eigen::Vector4f &dumax, const Vec6_t &Qw, float controlRate, const Eigen::Matrix<float, 90, 1> &popts) {
+		wlConInit(&wl, mb, umin.data(), umax.data(), dumax.data(), Qw.data(), controlRate, popts.data());
+	}
+
+	Eigen::Vector4f update(const Vec6_t &h0, const Vec6_t &pdotdes) {
+		static Eigen::Vector4f ret;
+		wlConUpdate(&wl, ret.data(), h0.data(), pdotdes.data());
+		return ret;
+	}
+};
+
 PYBIND11_MODULE(uprightmpc2py, m) {
 	py::class_<UprightMPC2>(m, "UprightMPC2C")
 	.def(py::init<float /* dt */, float /* g */, float /* TtoWmax */, float /* ws */, float /* wds */, float /* wpr */, float /* wpf */, float /* wvr */, float /* wvf */, float /* wthrust */, float /* wmom */, const Eigen::Vector3f &/* Ib */, int /* maxIter */>())
 	.def("update", &UprightMPC2::update)
 	.def("vectors", &UprightMPC2::vectors)
 	.def("matrices", &UprightMPC2::matrices);
+	
+	py::class_<WLCon>(m, "WLCon")
+	.def(py::init<float /* mb */, const Eigen::Vector4f &/* umin */, const Eigen::Vector4f &/* umax */, const Eigen::Vector4f &/* dumax */, const Vec6_t &/* Qw */, float /* controlRate */, const Eigen::Matrix<float, 90, 1> &/* popts */>())
+	.def("update", &WLCon::update);
 }
