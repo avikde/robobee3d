@@ -78,14 +78,14 @@ static void wrenchJacMap(const WLCon_t *wl, float *dw_du, const float *u) {
 	}
 }
 
-void wlConInit(WLCon_t *wl, const float umin[/* 4 */], const float umax[/* 4 */], const float dumax[/* 4 */], const float Qw[/* 6 */], float controlRate, const float popts[/* 90 */]) {
+void wlConInit(WLCon_t *wl, const float u0[/* 4 */], const float umin[/* 4 */], const float umax[/* 4 */], const float dumax[/* 4 */], const float Qw[/* 6 */], float controlRate, const float popts[/* 90 */]) {
 	int i;
 	
 	memset(wl->Qw, 0, 36 * sizeof(float));
 
 	// Limits
 	for (i = 0; i < NDELU; ++i) {
-		wl->u0[i] = 0;
+		wl->u0[i] = u0[i];
 		wl->umin[i] = umin[i];
 		wl->umax[i] = umax[i];
 		wl->dumax[i] = dumax[i] / controlRate;

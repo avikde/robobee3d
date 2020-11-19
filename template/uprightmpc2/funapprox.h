@@ -42,7 +42,7 @@ typedef struct {
   FunApprox_t fa[6];
 } WLCon_t;
 
-void wlConInit(WLCon_t *wl, const float umin[/* 4 */], const float umax[/* 4 */], const float dumax[/* 4 */], const float Qw[/* 6 */], float controlRate, const float popts[/* 90 */]);
+void wlConInit(WLCon_t *wl, const float u0[/* 4 */], const float umin[/* 4 */], const float umax[/* 4 */], const float dumax[/* 4 */], const float Qw[/* 6 */], float controlRate, const float popts[/* 90 */]);
 
 void wlConUpdate(WLCon_t *wl, float u1[/* 4 */], const float h0[/* 6 */], const float pdotdes[/* 6 */]);
 
