@@ -12,6 +12,7 @@
 #include <pybind11/eigen.h>
 #include <tuple>
 #include <uprightmpc2.h>
+#include <funapprox.h>
 #include "ematmult.hpp"
 
 namespace py = pybind11;

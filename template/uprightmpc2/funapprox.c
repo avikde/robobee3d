@@ -163,3 +163,15 @@ void wlConUpdate(WLCon_t *wl, float u1[/* 4 */], const float h0[/* 6 */], const 
 		u1[i] = wl->u0[i];
 	}
 }
+
+// S function ---
+WLCon_t _wl;
+int _initedw = 0;
+
+void wlconS(float u1_y1[/* 4 */], const float u0init_u1[/* 4 */], const float umin_u2[/* 4 */], const float umax_u3[/* 4 */], const float dumax_u4[/* 4 */], const float Qw_u5[/* 6 */], float controlRate_u6, const float popts_u7[/* 90 */], const float h0_u8[/* 6 */], const float pdotdes_u9[/* 6 */]) {
+	if (_initedw == 0) {
+		wlConInit(&_wl, u0init_u1, umin_u2, umax_u3, dumax_u4, Qw_u5, controlRate_u6, popts_u7);
+		_initedw = 1;
+	}
+	wlConUpdate(&_wl, u1_y1, h0_u8, pdotdes_u9);
+}

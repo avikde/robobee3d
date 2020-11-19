@@ -46,6 +46,9 @@ void wlConInit(WLCon_t *wl, const float u0[/* 4 */], const float umin[/* 4 */], 
 
 void wlConUpdate(WLCon_t *wl, float u1[/* 4 */], const float h0[/* 6 */], const float pdotdes[/* 6 */]);
 
+// S function
+void wlconS(float u1_y1[/* 4 */], const float u0init_u1[/* 4 */], const float umin_u2[/* 4 */], const float umax_u3[/* 4 */], const float dumax_u4[/* 4 */], const float Qw_u5[/* 6 */], float controlRate_u6, const float popts_u7[/* 90 */], const float h0_u8[/* 6 */], const float pdotdes_u9[/* 6 */]);
+
 #ifdef __cplusplus
 }
 #endif
