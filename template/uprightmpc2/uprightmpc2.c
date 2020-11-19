@@ -206,10 +206,14 @@ static void updateObjective(UprightMPC_t *up, const float ydes[/* 6 */], const f
 	}
 }
 
-int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */], const float sdes[/* 3 */]) {
+int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */], const float sdes[/* 3 */], float actualT0) {
 	static float s0[3], ds0[3], y0[UMPC_NY], dy0[UMPC_NY], ydes[UMPC_NY], dydes[UMPC_NY], dummy[9], Btau[9];
 	static float dy1des[UMPC_NY], dq1des[UMPC_NY], e3hR0T[3*3];
 	int i, ret;
+
+	// If actual thrust is known, use that
+	if (actualT0 >= 0)
+		up->T0 = actualT0;
 
 	// Compute some states
 	memcpy(s0, &R0[6], 3 * sizeof(float)); // column major R0, and want third col
@@ -271,10 +275,10 @@ int umpcUpdate(UprightMPC_t *up, float uquad[/* 3 */], float accdes[/* 6 */], co
 UprightMPC_t _up;
 int _inited = 0;
 
-void umpcS(float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */], const float sdes[/* 3 */], float dt, float g, float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, const float Ib[/* 3 */], int maxIter) {
+void umpcS(float uquad[/* 3 */], float accdes[/* 6 */], const float p0[/* 3 */], const float R0[/* 9 */], const float dq0[/* 6 */], const float pdes[/* 3 */], const float dpdes[/* 3 */], const float sdes[/* 3 */], float dt, float g, float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, const float Ib[/* 3 */], int maxIter, float actualT0) {
 	if (_inited == 0) {
 		umpcInit(&_up, dt, g, TtoWmax, ws, wds, wpr, wpf, wvr, wvf, wthrust, wmom, Ib, maxIter);
 		_inited = 1;
 	}
-	umpcUpdate(&_up, uquad, accdes, p0, R0, dq0, pdes, dpdes, sdes);
+	umpcUpdate(&_up, uquad, accdes, p0, R0, dq0, pdes, dpdes, sdes, actualT0);
 }
