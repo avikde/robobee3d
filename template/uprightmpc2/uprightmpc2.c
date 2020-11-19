@@ -16,23 +16,6 @@
 #include <stdio.h>
 #include <string.h>
 
-static void PRINTVEC(const float *y, int sz) {
-	int i;
-	for (i = 0; i < sz; ++i) {
-		printf("%.2f,", y[i]);
-	}
-	printf("\n");
-}
-static void PRINTMAT(const float *M, int sz1, int sz2) {
-	int i, j;
-	for (i = 0; i < sz1; ++i) {
-		for (j = 0; j < sz2; ++j) {
-			printf("%.2f,", M[Cind(sz1, i, j)]);
-		}
-		printf("\n");
-	}
-}
-
 void umpcInit(UprightMPC_t *up, float dt, float g, float TtoWmax, float ws, float wds, float wpr, float wpf, float wvr, float wvf, float wthrust, float wmom, const float Ib[/* 3 */], int maxIter) {
 	static float Ibi[9];
 	int i, k, n1, n2, offs;

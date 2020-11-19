@@ -15,6 +15,23 @@
 
 #define NW 6
 
+void PRINTVEC(const float *y, int sz) {
+	int i;
+	for (i = 0; i < sz; ++i) {
+		printf("%.6f,", y[i]);
+	}
+	printf("\n");
+}
+void PRINTMAT(const float *M, int sz1, int sz2) {
+	int i, j;
+	for (i = 0; i < sz1; ++i) {
+		for (j = 0; j < sz2; ++j) {
+			printf("%.6f,", M[Cind(sz1, i, j)]);
+		}
+		printf("\n");
+	}
+}
+
 void funApproxInit(FunApprox_t *fa, const float popts[/* 1 + k + k * (k + 1) / 2 */]) {
 	int i, j;
 	fa->k = NDELU;
@@ -135,6 +152,10 @@ void wlConUpdate(WLCon_t *wl, float u1[/* 4 */], const float h0[/* 6 */], const 
 	// q = -A1.transpose() * Qdiag.cwiseProduct(a0);
 	matMult(dum, wl->Qw, a0, NW, 1, NW, 1.0f, 0, 0); // only using NW elements of dum
 	matMult(q, A1, dum, NDELU, 1, NW, -1.0f, 1, 0);
+	// // Test
+	// PRINTMAT(P, NDELU, NDELU);
+	// PRINTVEC(q, NDELU);
+
 	// Solve
 	lsSolve(delu, P, q, NDELU, NDELU);
 
