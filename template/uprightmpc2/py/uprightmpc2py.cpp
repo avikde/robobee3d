@@ -24,6 +24,7 @@ typedef Eigen::Matrix<float, UMPC_nAdata, 1> Adatax_t;
 typedef Eigen::Array<int, UMPC_nAdata, 1> Adatai_t;
 typedef std::tuple<Vecc_t, Vecc_t, Vecx_t> uvecs_t;
 typedef std::tuple<Vecx_t, Adatax_t, Adatai_t> umats_t;
+typedef std::tuple<Eigen::Vector4f, Vec6_t> wlret_t;
 
 // Wrapper for the C implementation
 class UprightMPC2 {
@@ -58,10 +59,11 @@ public:
 		wlConInit(&wl, u0.data(), umin.data(), umax.data(), dumax.data(), Qw.data(), controlRate, popts.data());
 	}
 
-	Eigen::Vector4f update(const Vec6_t &h0, const Vec6_t &pdotdes) {
-		static Eigen::Vector4f ret;
-		wlConUpdate(&wl, ret.data(), h0.data(), pdotdes.data());
-		return ret;
+	wlret_t update(const Vec6_t &h0, const Vec6_t &pdotdes) {
+		static Eigen::Vector4f u1;
+		static Vec6_t w0;
+		wlConUpdate(&wl, u1.data(), w0.data(), h0.data(), pdotdes.data());
+		return std::make_tuple(u1, w0);
 	}
 };
 
