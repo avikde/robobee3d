@@ -34,6 +34,17 @@ extern "C" {
  */
 void matMult(float *C, const float *A, const float *B, const int m, const int n, const int k, const float alpha, int AT, int BT);
 
+/**
+ * @brief Solve A*x=b
+ * 
+ * @param x 
+ * @param A 
+ * @param b 
+ * @param m rows of A
+ * @param n cols of A
+ */
+void lsSolve(float *x, const float *A, const float *b, const int m, const int n);
+
 #ifdef __cplusplus
 }
 #endif

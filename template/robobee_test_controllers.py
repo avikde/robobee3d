@@ -3,9 +3,10 @@ import pybullet as p
 import autograd.numpy as np
 from scipy.spatial.transform import Rotation
 from ca6dynamics import dynamicsTerms
-from wlqppy import WLController
+# from wlqppy import WLController
 import valuefunc
 from template_controllers import createMPC, reactiveController
+from uprightmpc2py import WLCon
 from genqp import quadrotorNLVF, Ib
 import flight_tasks
 
@@ -70,8 +71,10 @@ class WaypointHover(RobobeeController):
         popts = [ 3.25e-03,-5.31e-05,-1.05e-05,-1.38e-02, 3.50e-01, 4.21e-07, 2.09e-07, 7.86e-06, 2.47e-03,-8.37e-06,-5.28e-05, 1.10e-04, 3.84e-03,-1.16e-01, 6.55e-03,-1.00e-03, 1.52e-05, 2.10e-03,-3.65e-04, 3.05e-05,-1.09e-07,-6.25e-05, 2.28e-06,-3.57e-07,-7.33e-06, 6.37e-04,-6.56e-02,-1.61e-03,-5.37e-04, 1.84e-02,-1.64e+00, 2.99e-02,-8.45e-06, 3.85e-03,-3.58e-02, 8.67e-05, 6.62e-08,-7.48e-05, 4.21e-04,-4.45e-05, 5.64e-05, 6.03e-05, 5.25e-01,-5.46e-02, 4.89e-01, 6.96e-02,-7.59e-04, 5.14e-05, 2.13e+01, 5.84e-01, 3.23e-06,-1.21e-07, 1.46e-01,-5.65e-03, 5.69e-04,-5.26e-05,-5.62e-02, 2.37e-03, 1.11e-01,-1.06e+00,-2.56e-03, 4.10e-05,-4.85e+00, 1.09e-04, 6.64e-04,-3.33e-07, 6.91e-02,-6.63e-07,-6.63e-06, 3.13e-05,-7.79e-03, 2.31e-02, 2.15e-03, 4.63e-01, 1.92e-02, 3.49e-02, 6.27e-04,-1.21e-04, 9.52e-03, 2.85e+00, 9.40e-06, 1.76e-06,-3.82e-04, 7.75e-03,-3.68e-03,-1.22e-04,-6.17e-05, 6.93e-01,-5.18e+00, 1.56e+01]
 #         popts = [ 3.27e-03,-5.32e-05,-5.76e-05,-1.38e-02, 3.50e-01, 4.22e-07, 1.63e-06, 8.03e-06, 2.47e-03,-1.10e-05, 1.21e-04,-1.49e-03, 3.88e-03,-1.16e-01, 7.01e-03,-8.86e-04, 8.92e-06, 2.10e-03,-6.13e-04, 3.96e-04,-7.51e-08,-6.24e-05, 2.46e-06, 5.83e-05, 2.08e-05, 6.41e-04,-6.56e-02,-2.25e-03, 3.34e-03,-1.02e-02,-1.64e+00, 2.99e-02, 3.24e-05, 3.85e-03,-3.58e-02, 8.67e-05,-2.55e-07,-7.48e-05, 4.21e-04,-2.50e-05, 5.06e-05, 4.05e-05, 5.25e-01,-5.46e-02, 4.89e-01, 8.13e-02,-9.96e-04, 1.12e-01, 2.13e+01, 5.90e-01, 4.26e-06,-1.59e-03, 1.46e-01,-5.74e-03, 7.99e-04,-1.97e-01,-5.60e-02, 2.12e-02, 1.01e-01,-1.05e+00,-4.98e-01, 1.01e-02,-4.84e+00, 5.95e-01, 4.96e-03,-4.33e-05, 6.91e-02,-2.72e-04,-3.69e-05,-1.96e-02,-1.23e-02, 2.18e-02,-8.12e-01, 4.59e-01, 6.52e-02, 3.49e-02, 6.27e-04, 2.41e-05, 9.57e-03, 2.85e+00, 9.40e-06,-2.55e-06,-3.82e-04, 
 # 7.75e-03,-3.68e-03,-6.75e-04, 4.77e-03, 6.93e-01,-5.18e+00, 1.56e+01]
-        self.wl = WLController(popts, 1000)
+        # self.wl = WLController(popts, 1000)
         self.u4 = [140.0,0.,0.,0.]
+        self.wlc = WLCon(self.u4, [90, -0.5, -0.2, -0.1], [240, 0.5, 0.2, 0.1], [5e3, 10, 10, 10], [1, 1, 1, 0.1, 0.1, 0.1], 1000, popts)
+        self.actualT0 = -1 # goes into the MPC
 
         # For acc reference. only need to get once for now for hover task
         # In this R (for quadrotors) weigh the pitch and yaw torques high
@@ -83,7 +86,8 @@ class WaypointHover(RobobeeController):
             mpcopts = {'ws':1.5, 'wds':1e3, 'wpr':2e-2, 'wvr':2e1, 'wpf':4e-2, 'wvf':2e1, 'TtoWmax':3}#line
         else:
             mpcopts = {'ws':2, 'wds':1e3, 'wpr':5e-3, 'wvr':2e1, 'wpf':1e-2, 'wvf':5e1, 'TtoWmax':3}#helix
-        self.up, _ = createMPC(**mpcopts, popts=popts)
+        # self.up, _ = createMPC(**mpcopts, popts=popts)
+        _, self.up = createMPC(**mpcopts, popts=popts)
 
     def templateVF(self, t, p, dp, s, ds, posdes, dposdes, kpos=[0.5e-3,5e-1], kz=[1e-3,2e-1], ks=[4e-3,0.3e0]):
         # TEST
@@ -131,7 +135,7 @@ class WaypointHover(RobobeeController):
 
         if self.useMPC:
             # Upright MPC
-            uquad, ddqdes, uwlqp = self.up.update(p, Rb, dq0, self.posdes, dpdes, sdes)
+            uquad, ddqdes, uwlqp = self.up.update(p, Rb, dq0, self.posdes, dpdes, sdes, self.actualT0)
             # ddqdes[:3] = Rb.T @ ddqdes[:3] # Convert to body frame?
             # ddqdes[3:] = Rb.T @ ddqdes[3:] # Convert to body frame?
             return ddqdes
@@ -162,8 +166,10 @@ class WaypointHover(RobobeeController):
         self.accdes = self.accReference(t, qb, dqb)
 
         if self.useWLQP:
-            self.u4, w0 = self.wl.update(self.u4, h0, M0 @ self.accdes)
-            self.up.T0 += 1 * (w0[2]/M0[2,2] - self.up.T0)
+            # self.u4, w0 = self.wl.update(self.u4, h0, M0 @ self.accdes)
+            self.u4, w0 = self.wlc.update(h0, M0 @ self.accdes)
+            self.actualT0 = w0[2]/M0[2,2]
+            # print(self.u4, u4c)
         else:
             # Manual mapping
             self.u4 = self.manualMapping(self.accdes)
