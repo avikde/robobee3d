@@ -1,6 +1,10 @@
-load('../../../../Desktop/20200926_closedloop/p10_d0_2.mat')
+% load('../../../../Desktop/20200926_closedloop/p10_d0_2.mat')
+clear stateEst
+clear
+load('../../../../Desktop/uprightmpc2/open1.mat')
 set(0, 'DefaultLineLineWidth', 2)
 Np = size(yout, 1);
+SAMPLE_RATE = 10000;
 
 % Run actual stateEst filter
 dqfilt = zeros(Np, 6);
@@ -38,7 +42,7 @@ for i=1:Np
 	ds(i,:) = -Rb * e3h * omgnum(i,:)';
 	Rbprev = Rb;
 end
-nmeas/Nt * 10000 % approx vicon rate discarding nan
+fprintf(1, 'approx vicon rate discarding nan = %f\n', nmeas/Np * SAMPLE_RATE)
 
 clf
 subplot(221)
