@@ -1,4 +1,4 @@
-function [p,Rb,dq,nmeas] = stateEst(t, qvicon)
+function [p,Rb,dq,nmeas] = stateEst(t, qvicon, deadtime)
 	% Low-pass filter
 	% persistent Rbprev Rbdot eulprev v pprev tprevM
 	persistent tprevP tprevM qvprev xhat Rbhat A Q R H P nmeas1 Rbvprev omgfilt lpfomg lpfR
@@ -17,8 +17,12 @@ function [p,Rb,dq,nmeas] = stateEst(t, qvicon)
 		P = eye(6);
 		nmeas1 = 0;
 		omgfilt = zeros(3,1);
-		lpfomg = 0.7;
-		lpfR = 0.7;
+		lpfomg = 0.4;
+		lpfR = 0.8;
+	end
+	
+	if t < deadtime
+		
 	end
 	
 	% Prediction
