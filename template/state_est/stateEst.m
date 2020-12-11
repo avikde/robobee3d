@@ -17,8 +17,8 @@ function [p,Rb,dq,nmeas] = stateEst(t, qvicon)
 		P = eye(6);
 		nmeas1 = 0;
 		omgfilt = zeros(3,1);
-		lpfomg = 0.1;
-		lpfR = 0.3;
+		lpfomg = 0.7;
+		lpfR = 0.7;
 	end
 	
 	% Prediction
