@@ -1,19 +1,43 @@
 
-dt = 1/5000;
+set(0, 'DefaultLineLineWidth', 1.5)
 
-plotTrial('../../../../Desktop/umpc_mm_data/trial36.mat', 1.5, dt)
-hold all
-% plotTrial('../../../../Desktop/umpc_mm_data/trial37.mat', 2, dt)
-% plotTrial('../../../../Desktop/umpc_mm_data/trial32.mat', 1.9, dt)
-% plotTrial('../../../../Desktop/umpc_mm_data/trial31.mat', 1.4, dt)
-% plotTrial('../../../../Desktop/umpc_mm_data/trial21.mat', 1.5, dt)
-% plotTrial('../../../../Desktop/umpc_mm_data/trial20.mat', 1.4, dt)
+figure
+clf
+ax1 = gca();
 
+figure('position', [0,0,600,250])
+clf
+ax2 = subplot(1,2,1);
+ax3 = subplot(1,2,2);
 
-hold off
-grid on
+plotTrial(ax1, ax2, ax3, '../../../../Desktop/umpc_mm_data/trial36.mat', 1.5, [0,0,1])
+hold(ax1, 'all')
+plotTrial(ax1, ax2, ax3, '../../../../Desktop/umpc_mm_data/trial37.mat', 1.6, [1,0,0]) % 2
+plotTrial(ax1, ax2, ax3, '../../../../Desktop/umpc_mm_data/trial32.mat', 1.6, [0,0.5,0]) % 1.9
+plotTrial(ax1, ax2, ax3, '../../../../Desktop/umpc_mm_data/trial31.mat', 1.4, [0.5,0.5,0])
+plotTrial(ax1, ax2, ax3, '../../../../Desktop/umpc_mm_data/trial21.mat', 1.5, [0,0.5,0.5])
+plotTrial(ax1, ax2, ax3, '../../../../Desktop/umpc_mm_data/trial20.mat', 1.4, [0.5,0,0.5])
 
-function plotTrial(fname, tmax, sampling_time)
+hold(ax1, 'off')
+grid(ax1, 'on')
+view(ax1, [-35,8])
+pbaspect(ax1,[1,1,1])
+
+xlabel(ax1, 'x [m]')
+ylabel(ax1, 'y [m]')
+zlabel(ax1, 'z [m]')
+
+plot(ax2, [0,2], [0,0], 'k--')
+ylim(ax2, [-pi/4, pi/4])
+plot(ax3, [0,2], [0,0], 'k--')
+ylim(ax3, [-pi/4, pi/4])
+ylabel(ax2, 'Roll [rad]')
+ylabel(ax3, 'Pitch [rad]')
+xlabel(ax2, 'Time [s]')
+xlabel(ax3, 'Time [s]')
+
+function plotTrial(ax1, ax2, ax3, fname, tmax, col)
+	%dt = 1/5000;
 	load(fname);
 	tt = yout(:,1);
 	qvicon = yout(:,7:12);
@@ -22,6 +46,7 @@ function plotTrial(fname, tmax, sampling_time)
 	uquadlog = yout(:,26:28);
 	accdeslog = yout(:,29:34);
 	%quickPlots(yout, sampling_time, tmax)
+	[s, ds] = uprightCalcs(qvicon(:,4:6), dqlog(:,4:6));
 	
-	traj3plot(tt, qvicon(:,1:3), tmax)
+	traj3plot(ax1, ax2, ax3, tt, qvicon, s, tmax, col)
 end
