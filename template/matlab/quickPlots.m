@@ -1,9 +1,4 @@
 function quickPlots(yout, sampling_time, tmax)
-qvicon = yout(:,7:12);
-plog = yout(:,16:18);
-dqlog = yout(:,19:24);
-uquadlog = yout(:,26:28);
-accdeslog = yout(:,29:34);
 
 clf
 subplot(321)
